@@ -1,6 +1,6 @@
 ---
 name: fleet
-description: Multi-agent fleet management with Mind/Head/Hand roles (Abbot pattern) — Mind (ops) fills tasking, Hands (workers) clear work, Heads (advisors) research; dual-channel Vivi+tmux, multi-lane integration, runtime fallback, wind-down. Use for hunter-N fleets, codex reinit, keep-screen-moving, don't-get-stuck, long unattended Mind cycles.
+description: Multi-agent fleet management with Mind/Head/Hand roles (Abbot pattern) — Mind (ops) fills tasking, Hands (workers) clear work, Heads (advisors) research; Hands share Mind harness, Heads prefer alternate models/harnesses; dual-channel Vivi+tmux, multi-lane integration, runtime fallback, wind-down. Use for hunter-N fleets, codex reinit, keep-screen-moving, don't-get-stuck, long unattended Mind cycles.
 ---
 
 # Fleet
@@ -30,6 +30,10 @@ work is **starvation**, not success. Operational pause is the exception.
 
 **Don't get stuck:** freeze is the failure mode. Name why, get unstuck — never
 status-only “blocked” for cycles without evidence.
+
+**Harness alignment:** Hands run the **same agent harness as Mind** (ops
+interoperability). Heads **prefer alternate harnesses/models** (second-party
+opinion).
 
 ```text
 campaign / focus map
@@ -140,8 +144,9 @@ Names are local labels. The **jobs** matter.
 never keep product tasking “full,” and never stamp GO/NO-GO. They report To: Mind; Mind triages into hunter-N tasks/needs when actionable.
 
 Prefer numbered hands (`hunter-N`) over a single shared `codex` when more than
-one implementer process may run. Prefer **heterogeneous agent runtimes** when
-useful — see **Fleet axes** and **Grok vs Codex**.
+one implementer process may run. Prefer **heterogeneous Head runtimes** for
+second-party opinion; keep **Hand harness aligned with Mind** — see
+**Harness alignment** and **Fleet axes**.
 
 ### Fleet axes (identity ≠ assignment ≠ runtime)
 
@@ -157,12 +162,58 @@ hunter-N  =  identity (mail + tmux)
 | --- | --- | --- |
 | **Identity** | Who owns bag + pane (`hunter-N`) | Session name while the slot exists |
 | **Assignment** | What work that slot is on | **Usually only hunter-1 main + merge rights.** hunter-2+ assignments are **transient** (rehome when the map moves) |
-| **Runtime** | Harness (grok/codex/pi/…) + model + wake mode | **Never** — rebind when quotas, stability, or fine-tuning demand |
+| **Runtime** | Harness (grok/codex/pi/…) + model + wake/reinit policy | **Hand harness follows Mind** (below). Model within harness may rebind for capacity. Heads may differ freely. |
 
 **Product law** talks in H-numbers + current assignment. **Ops** read runtime from
 fleet (`agent`, `agent_launch`) and apply wake/reinit by harness, not by H-number.
 Do not hardcode model strings into role tables as if they were Hand identity.
 Live bindings belong in project `.vivi/hunter-fleet.json` (or equivalent).
+
+### Harness alignment (Mind ↔ Hands vs Heads)
+
+**Invariant — Hands share Mind’s harness.**
+The Mind session’s agent harness (`grok` / `codex` / …) is the **product control
+plane**. Every Hand should run that **same harness family**. Grok knows how Grok
+works; Codex knows how Codex works. Mixed Hand harnesses under one Mind create
+interoperability debt: wrong wake vs reinit policy, wrong bootstrap shape, wrong
+pane-class cues, and Mind ops that thrash the “other” TUI.
+
+| Role | Harness policy | Model policy |
+| --- | --- | --- |
+| **Mind** | Source of truth for product harness | May change for capacity; Hands follow |
+| **Hand** | **Same harness as Mind** by default | May differ within that harness (ladder) for capacity |
+| **Head** (strategist / correctness / purity) | **Prefer a different harness and/or model** | Independence is a feature — second-party opinion |
+
+**Why Hands align:** Mind writes doorbells, reinit scripts, classify heuristics, and
+compact/theme-switch sequences for **one** product TUI. A Hand on another harness
+is a second ops surface the Mind must keep correct under load.
+
+**Why Heads diversify:** Heads exist to challenge the product plane, not to drain
+the bag. A different model (and preferably a different harness) reduces correlated
+blind spots. Prefer pi / alternate coding harness / different model family for
+strategist, correctness, and purity when available.
+
+**Arm / rebind rules:**
+
+1. On fleet arm, set every Hand’s `agent` + `wake_mode` + reinit policy from
+   **Mind’s current harness** (fleet field e.g. `mind.agent` / gatherer runtime,
+   or the live Mind session if fleet has not recorded it yet).
+2. If Mind **changes harness** (operator or hard recovery), **rebind Hands** to
+   that harness on the next clean breakpoint — do not leave a permanent mixed
+   Hand fleet under the new Mind.
+3. Capacity pressure on a Hand: step the **same-harness model ladder first**.
+   Do **not** flip a Hand to another harness while Mind remains on the original
+   unless the operator explicitly accepts a temporary exception (record in
+   baseline; plan re-align).
+4. Capacity pressure on Mind: prefer same-harness recovery; if Mind must move
+   harness temporarily, either (a) rebind Hands to match, or (b) park Hands and
+   recover Mind first — do not run a long dual-harness product plane “by accident.”
+5. Heads are **out of** this alignment rule. Do not rebind Heads when Mind
+   rebinds; rebind a Head only for its own capacity or operator preference.
+
+**Anti-pattern:** “H3 is always Codex” / “language spine is always Grok” as
+**product law**. Harness is ops binding derived from Mind, not a permanent
+Hand identity. Assignment (main vs packet) stays independent of harness.
 
 ### Hand does
 
@@ -274,8 +325,11 @@ Rules:
 5. At a clean breakpoint, wake/reinit hunter-1 for merge; defer while main is
    mid-phase or dirty. Merge work checks watch-scope drift, green-gate, and is
    absorbed then accepted as a separate step.
-6. **Runtime is orthogonal:** any hunter-N may run Grok, Codex, or another
-   harness; rebind in fleet without renaming the Hand or moving the assignment.
+6. **Runtime vs assignment:** assignment (main vs packet) is orthogonal to
+   **model** within a harness. **Hand harness is not free** — it follows Mind
+   (**Harness alignment**). Rebind model/launch without renaming the Hand or
+   moving the assignment; rebind Hand harness only when Mind’s harness changes
+   or the operator records an exception.
 
 #### Idle empty taskings (keep the screen moving)
 
@@ -347,10 +401,10 @@ Shape:
   "default_hunter": "hunter-1",
   "legacy_hunter_identity": "codex",
   "gatherer_identity": "reviewer",
+  "mind": { "agent": "grok", "note": "Hands inherit this harness family" },
   "agent_policy": {
-    "hunter-1": "grok",
-    "hunter-2": "grok",
-    "hunter-3": "codex",
+    "hands_follow_mind_harness": true,
+    "heads_prefer_alternate_harness": true,
     "codex_reinit_after_kill": true
   },
   "hunters": {
@@ -368,14 +422,14 @@ Shape:
     "hunter-3": {
       "mail_identity": "hunter-3",
       "tmux_session": "hunter-3",
-      "agent": "codex",
-      "reinit_after_kill": true,
+      "agent": "grok",
+      "wake_mode": "tmux_send_keys",
       "merges_to_main": false
     }
   },
   "strategist": { "mail_identity": "strategist", "agent": "pi" },
-  "correctness": { "mail_identity": "correctness", "self_directed": true },
-  "purity": { "mail_identity": "purity", "self_directed": true },
+  "correctness": { "mail_identity": "correctness", "agent": "pi", "self_directed": true },
+  "purity": { "mail_identity": "purity", "agent": "pi", "self_directed": true },
   "binding_rule": "mail_identity == tmux_session token"
 }
 ```
@@ -420,6 +474,11 @@ Rate-limit wakes and ops interventions (`min_seconds_between_wakes`). Never
 
 ### Grok vs Codex (agent runtimes — keyed on fleet `agent`, not H-number)
 
+Wake/reinit **behavior** is keyed on the pane’s `agent` harness. Under
+**Harness alignment**, product Hands should all share **Mind’s** harness, so the
+fleet usually runs **one** of these columns for Mind + Hands. Heads may use the
+other column (or pi / another harness) on purpose.
+
 | | **Grok** (`agent=grok`) | **Codex** (`agent=codex`) |
 | --- | --- | --- |
 | After unit + open tasking | Pointer **doorbell** | **Reinit** (kill process + fresh session + short bootstrap) |
@@ -427,8 +486,9 @@ Rate-limit wakes and ops interventions (`min_seconds_between_wakes`). Never
 | Launch | Prefer plain `grok …` (not fragile `exec` if bad flags leave pane dead) | Plain `codex …` via fleet `agent_launch` — **never `exec codex`** (can drop the tmux session when process exits) |
 | Bootstrap | Pointer: identity, handle, `vivi --for` | Same **short** bootstrap as first user message — no multi-paragraph Phase-hold novels in argv |
 
-Which Hand uses which harness is a **fleet binding** and may change. Do not
-encode “H3 is always Codex” in product law.
+Hand harness tracks Mind (`mind.agent` / live Mind session), not a permanent
+H-number label. Do not encode “H3 is always Codex” in product law. Model ids and
+`agent_launch` stay in fleet JSON.
 
 ### Codex reinit-after-unit (when `agent=codex`)
 
@@ -686,6 +746,9 @@ wakes on a correctly blocked product hunter.
 
 - Ensure a bag exists (mailspace identities, or equivalent board)
 - Point Hand and Mind at the same project root and map (campaign/GOAL)
+- Record **Mind’s harness** in fleet (`mind.agent`); bind every Hand’s `agent` /
+  `wake_mode` / reinit policy to that harness (**Harness alignment**). Prefer
+  alternate harnesses for Heads.
 - Optional scout for approach-only advice
 - Create tiny role baselines under the project (e.g. `.vivi/gatherer-baseline.json`,
   optional `.vivi/hunter-fleet.json`): `last_cycle`, `quiet_streak`,
@@ -1005,6 +1068,10 @@ the Hand exited—restart hunter, select next map package, back off, or stop.
   and pane liveness together. Never wake a `running` pane without cancel policy.
 - Sending policy essays through tmux; use Vivi, Agents, goals, and campaigns
   for durable detail, with tmux as a pointer-only doorbell.
+- **Mixed Hand harness under one Mind** (e.g. Mind=Grok, some Hands=Codex)
+  without an explicit temporary exception — violates **Harness alignment**.
+- Treating Head harness diversity as a bug, or forcing Heads onto Mind’s
+  harness “for uniformity” when second-party opinion is the point.
 - **Stacking Codex `HAND WAKE` lines** on a finished `›` instead of **reinit**.
 - **`exec codex` / fragile `exec grok`** that can leave the pane dead or
   **destroy the tmux session**.
@@ -1082,12 +1149,13 @@ true ambiguity to the operator **after** filing a need with a default.
 ## Project overlay contract
 
 **This skill is the portable process.** Camp files bind instances and may add
-product law. They must not redefine bag-vs-gate, absorb-vs-accept, or
-don't-get-stuck.
+product law. They must not redefine bag-vs-gate, absorb-vs-accept,
+don't-get-stuck, or **Harness alignment** (Hands = Mind harness).
 
 | Lives in skill | Lives in project overlay |
 | --- | --- |
 | Roles, bag rules, dual channel, fleet axes | Concrete Hand roster, cwds, model ids |
+| **Harness alignment** (Hands = Mind; Heads diversify) | Live `mind.agent`, per-slot `agent_launch`, Head harness picks |
 | Theme vs unit, merge clock, base-update *policy* | Campaign maps, product Status, validation commands |
 | Head loops, cycle kinds, runtime fallback *structure* | Role-prompt paths, absolute tool binaries |
 | Baseline *field meanings* and `pending_merges` states | Fat historical ledger rows, wind-up snapshots |
@@ -1177,7 +1245,9 @@ Use **absorb** and **accept** accurately.
 ## Head loops (advisors) (promoted detail)
 
 Heads are **not** product lanes. Do not keep-screen-moving refill them with map
-packages. They never merge and never own `pending_merges`.
+packages. They never merge and never own `pending_merges`. Prefer a **different
+harness and/or model** than Mind/Hands so reports are second-party opinion
+(**Harness alignment**).
 
 ### Strategist research loop (mail; every Mind cycle, fail-fast)
 
@@ -1413,54 +1483,68 @@ Never wake on dirty-only mid-flight; never reinit `running` without FORCE policy
 ## Runtime fallback (capacity / unavailability)
 
 **Invariant:** assignment (H-number, side lane, merge rights) does **not** change
-when a model is full. Only **runtime** rebinds (`agent`, `agent_model`,
-`agent_launch`, `wake_mode`). Source of truth: fleet `runtime_fallback` +
-per-hunter fields.
+when a model is full. Only **runtime** rebinds (`agent_model`, `agent_launch`,
+and only carefully `agent` / `wake_mode`). Source of truth: fleet
+`runtime_fallback` + per-hunter fields + **Harness alignment**.
 
 ### Failure classes
 
 | Class | Cues | First response |
 | --- | --- | --- |
-| **Capacity** | over capacity, rate limit, 429, usage limit, “try again later” | Step model ladder (same harness) |
-| **Auth / quota hard stop** | account exhausted, login required | Park harness; escalate operator; pivot other hands |
+| **Capacity** | over capacity, rate limit, 429, usage limit, “try again later” | Step model ladder (**same harness as Mind** for Hands) |
+| **Auth / quota hard stop** | account exhausted, login required | Park that harness; escalate operator; pivot other hands |
 | **Connection** | ECONNRESET, disconnect | One same-model reinit; then capacity ladder |
-| **Harness dead** | crash loop, session destroy | Recreate shell + launch; if loop → next harness |
+| **Harness dead** | crash loop, session destroy | Recreate shell + launch; if loop → model ladder, then **Mind-aligned** harness recovery |
 
 ### Model ladder (structure; ids live in fleet)
 
-Prefer staying on the **current harness** while possible. Fleet names an ordered
-ladder (example shape only — do not invent ids not in fleet):
+Prefer staying on the **Mind-aligned product harness** while possible. Fleet
+names an ordered ladder **per harness** (example shape only — do not invent ids
+not in fleet):
 
 ```text
 codex_model_ladder: [ primary, family-alt, older-1, older-2 ]
+grok_model_ladder:  [ primary, family-alt, … ]
 ```
 
-**When `error_capacity` on agent=codex (or similar):**
+**When `error_capacity` on a Hand (or similar):**
 
 1. Confirm not mid-successful `running` with real progress → wait
-2. Advance that Hand’s `agent_model` one step; rewrite `agent_launch`
-3. **Reinit** with short bootstrap — not stacked wakes
+2. Advance that Hand’s `agent_model` one step **on the same harness**; rewrite `agent_launch`
+3. **Reinit** (Codex) or doorbell after restart (Grok) with short bootstrap — not stacked wakes
 4. Baseline `last_runtime_fallback` {hunter, from, to, reason, cycle, at}
 5. **At most one model step per Hand per cycle** — do not spin the whole ladder
-6. Ladder exhausted → harness fallback or park
+6. Ladder exhausted → park Hand or escalate; **do not** silently move the Hand to
+   a different harness while Mind stays on the original (exception requires
+   operator note + plan to re-align)
+
+**Heads** may use their own ladder / alternate harness without waiting for Mind.
 
 ### Harness fallback (after model ladder exhausted)
 
-Order is fleet-defined. Example pattern:
+**Hands** stay harness-aligned with Mind. Product harness flip is a **fleet-wide
+Mind decision**, not a per-Hand convenience:
 
-1. Stay on last working model of preferred product harness if any slot healthy
-2. Alternate coding harness (e.g. pi + strong model) for **bounded** product units
-3. Reserve expensive/orchestrator harnesses for Mind/Heads when budget tight
+1. Exhaust same-harness model ladder on the affected Hand(s)
+2. If Mind’s harness is fleet-dead: recover **Mind** (operator if needed), set
+   new `mind.agent`, then rebind **all Hands** to that harness on clean breakpoints
+3. Temporary single-Hand exception (operator only): record in baseline; still
+   prefer re-align ASAP — mixed Hand harnesses under one Mind are debt
+4. Heads may already be on alternate harnesses; leave them unless they fail too
 
-Harness flip = update fleet `agent` + `agent_launch` + `wake_mode` then clean
-launch. **Assignment unchanged.**
+Do **not** treat “flip H3 to pi while Mind stays Grok” as the default recovery.
+That reintroduces the interoperability problem harness alignment avoids.
+
+Harness flip for the product plane = update `mind.agent` + every Hand’s
+`agent` + `agent_launch` + `wake_mode`, then clean launch. **Assignment unchanged.**
 
 ### Per-cycle budget (anti-thrash)
 
-- Max **~2** capacity-driven model/harness flips per cycle fleet-wide
+- Max **~2** capacity-driven model flips per cycle fleet-wide for product slots
+- Product **harness** flips are rare (Mind-plane); do not burn the budget on them casually
 - Normal reinit-after-unit does **not** count as fallback
 - Never flip a `running` Hand for capacity unless pane shows hard capacity error
-- Prefer flipping **idle/error** product slots first
+- Prefer flipping **idle/error** product slots first (model only, same harness)
 
 ### Mind / orchestrator hard limit — recovery
 
@@ -1469,7 +1553,7 @@ inside the dead session.
 
 | Situation | What works | What does not |
 | --- | --- | --- |
-| Soft pressure | Keep product on cheaper harnesses; shorten prose; skip nonessential Head wakes | Migrating all product onto the dying orchestrator harness |
+| Soft pressure | Keep product on **same-harness cheaper models**; shorten prose; skip nonessential Head wakes | Migrating Hands onto a different harness while Mind stays put; migrating all product onto a dying orchestrator |
 | Session alive but tool errors | Fail-fast sleep; one-line baseline; next fire retries | Infinite retry same turn |
 | **Hard stop** | **Operator recovery** (below) | Silent hope; thrashing hands without a live Mind |
 
@@ -1478,8 +1562,11 @@ inside the dead session.
 1. Leave mid-unit product hands alone if still working
 2. Start a **new Mind** session (same or temporary harness) in the project
 3. Open `$fleet` + camp overlay; run **one** cycle or re-arm scheduler
-4. Optional fleet note for temporary Mind runtime; revert later
-5. Do **not** require product hands to stop for Mind recovery
+4. Set/update `mind.agent` for the live Mind harness. If Mind harness changed,
+   plan Hand rebind on clean breakpoints (**Harness alignment**)
+5. Optional fleet note for temporary Mind runtime; revert later
+6. Do **not** require product hands to stop for Mind recovery unless rebinding
+   them to the new harness
 
 **Scheduler honesty:** a durable interval task only helps if **some** session is
 alive to execute it. Dead Mind → operator must reattach or run manually.
@@ -1554,6 +1641,14 @@ Recommended keys (extend freely; skill cares about meanings):
   "legacy_hunter_identity": "codex",
   "gatherer_identity": "reviewer",
   "binding_rule": "mail_identity == tmux_session token",
+  "mind": {
+    "agent": "grok",
+    "note": "Product harness source of truth; Hands inherit agent family"
+  },
+  "agent_policy": {
+    "hands_follow_mind_harness": true,
+    "heads_prefer_alternate_harness": true
+  },
   "tooling": {
     "pi": { "binary": "/abs/path/to/pi" },
     "codex": { "binary": "/abs/path/to/codex" },
@@ -1561,8 +1656,10 @@ Recommended keys (extend freely; skill cares about meanings):
     "vivi": { "binary": "/abs/path/to/vivi" }
   },
   "runtime_fallback": {
+    "grok_model_ladder": ["primary-model", "alt-1"],
     "codex_model_ladder": ["primary-model", "alt-1", "alt-2"],
-    "harness_order": ["codex", "pi", "grok"]
+    "hand_harness_follows_mind": true,
+    "harness_order_heads_only": ["pi", "codex", "grok"]
   },
   "hunters": {
     "hunter-1": {
@@ -1570,20 +1667,20 @@ Recommended keys (extend freely; skill cares about meanings):
       "tmux_session": "hunter-1",
       "tmux_target": "hunter-1:1.1",
       "cwd": "/path/to/main",
-      "agent": "codex",
+      "agent": "grok",
       "agent_model": "…",
       "agent_launch": "…",
       "merges_to_main": true,
       "assignment_sticky": true,
       "runtime_sticky": false,
       "wake_enabled": true,
-      "wake_mode": "reinit_or_doorbell",
-      "min_seconds_between_wakes": 180,
-      "reinit_after_kill": true
+      "wake_mode": "tmux_send_keys",
+      "min_seconds_between_wakes": 180
     },
     "hunter-2": {
       "mail_identity": "hunter-2",
       "cwd": "/path/to/side-lane",
+      "agent": "grok",
       "merges_to_main": false,
       "assignment_sticky": false,
       "packet": { "slug": "…", "branch": "…", "state": "assigned" }
@@ -1596,12 +1693,21 @@ Recommended keys (extend freely; skill cares about meanings):
     "clean_slate_per_assignment": true,
     "role_prompt": ".vivi/strategist-role-prompt.txt"
   },
-  "correctness": { "mail_identity": "correctness", "self_directed": true },
-  "purity": { "mail_identity": "purity", "self_directed": true }
+  "correctness": {
+    "mail_identity": "correctness",
+    "agent": "pi",
+    "self_directed": true
+  },
+  "purity": {
+    "mail_identity": "purity",
+    "agent": "pi",
+    "self_directed": true
+  }
 }
 ```
 
 **Never hardcode model strings as Hand identity.** Read `agent_launch` from fleet.
+Hand `agent` should match `mind.agent` unless baseline records an operator exception.
 
 ---
 
