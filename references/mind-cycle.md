@@ -143,21 +143,59 @@ Compare to baseline. **Sleep immediately** when:
 - not (empty tasking + map next = starvation unfilled)
 - `pending_reviews` / `pending_merges` empty or explicitly deferred this cycle
 
-On **true quiet** sleep: bump `quiet_streak`, keep/update `turns_since_operator_message` and `mind_mode`, write baseline, **one-line** report  
-(`quiet N; mode=autonomous|interactive; operator_silence=K; absorb/accept as accurate; panes ok; sleep`).  
-No dump, no full campaign re-read, no harness matrix, no priority essay.
-
-When the cycle **acted**, emit a **scannable summary**:
-
-1. Headline: cycle N · mode · superficial|thorough · absorb/accept verbs accurate
-2. Fleet snapshot: each Hand pane class + bag handles + one-clause status
-3. Board moves: filed / done / merged handles
-4. Head briefs when mail absorbed: 1 short ¶ problem + 1 short ¶ action
-5. Pending debt if non-empty
+On **true quiet** sleep: bump `quiet_streak`, keep/update `turns_since_operator_message` and `mind_mode`, write baseline, then report by **mode** (next section). Sensors stay cheap either way — do not re-read the full campaign for a quiet autonomous wake.
 
 Use **absorb** and **accept** accurately (never absorb when you mean accept).
 
-Optional: thorough review every N cycles when the counter is divisible by N (e.g. `cycle % 3 == 0`); superficial otherwise — §§REDMIND§§s + mail + starvation only. Autonomous thorough = residuals only, not interactive design.
+Optional: thorough review every N cycles when the counter is divisible by N (e.g. `cycle % 3 == 0`); superficial otherwise. Autonomous thorough = residuals only, not interactive design.
+
+## Cycle report templates (mode-gated)
+
+**Choose template from `mind_mode` after resolve.** Do not use autonomous one-liners while interactive.
+
+### Autonomous — compact (quiet or acted)
+
+Quiet:
+
+```text
+cycle N superficial|thorough; mode=autonomous; operator_silence=K; sleep; panes ok
+```
+
+Acted (one short block max):
+
+```text
+cycle N …; mode=autonomous; acted — <one clause>
+| slot | class | bag |
+…tiny table optional…
+debt: <one line if any>
+```
+
+No narrative paragraphs. No “what each agent is thinking.” Keep `operator_recap` updated in baseline for later catch-up.
+
+### Interactive — rich (quiet, sleep-in-flight, or acted)
+
+Always include enough that a watching operator understands camp state without asking:
+
+1. **Headline** — cycle N · kind · mode=interactive · silence=K · sleep|acted · one-clause why
+2. **Fleet snapshot (table)** — each Hand + Heads: pane class, bag handles/subjects or empty, one-clause status (e.g. “running P0-2 SES inbound, dirty delivery.rs”)
+3. **Product / focus** — current map focus, main HEAD (+ dirty if any), notable land/WIP
+4. **Board moves this cycle** — absorbed / filed / woke / none
+5. **Pending debt** — open P0s, merges, polish/housekeeping notes if non-empty
+6. **Heads** — idle / report outstanding / none new (brief)
+7. **Since you spoke** — 2–5 bullets from `operator_recap` when non-empty (interactive only)
+8. **Next** — what Mind expects next fire to see (e.g. “wait f175da0 done; then P0-3”)
+
+Even **sleep** interactive reports use this shape (say “no board moves; h1 still running …”). Do not collapse to a single line while the operator is engaged.
+
+**Not required in interactive FLEET_CYCLE:** full mail dumps, full campaign re-read, deep strategy essays, peer code review of WIP.
+
+### Anti-patterns (report)
+
+| Bad | Why |
+| --- | --- |
+| Interactive + one-line “sleep” | Operator cannot see WIP / debt / why idle |
+| Autonomous + multi-page status every 5m | Burns context; nobody reading |
+| Confusing “thin ops” with “thin report” in interactive | Ops stay fail-fast; **report** stays rich when watching |
 
 ### Expand only on signal (paid path)
 
@@ -237,17 +275,14 @@ Do not parse board SQLite/blobs; use the CLI. Baseline may ignore handle prefixe
 
 ### Chat summary (operator often has no live pane)
 
-When the cycle **acted**:
+Use **Cycle report templates (mode-gated)** above. Summary:
 
-1. **Headline** — `cycle N kind; mode=…; operator_silence=K; absorb/accept accurate; sleep|acted`
-2. **Fleet snapshot** — each Hand + Heads: pane class, bag handles or empty, notable HEAD if moved, one-clause status
-3. **Board moves** — absorbed / accepted / filed / woke (handles + subjects)
-4. **Pending debt** — `pending_merges` / `pending_reviews` if non-empty
-5. **head-strategist status** — awaiting_report? assign handle? reinit this cycle?
-6. **head-strategist report brief** (new report absorbed) — 1 short ¶ problem + 1 short ¶ recommended Mind actions; optional stale-premise correction; no full paste
-7. **head-correctness / head-purity** status + brief when new report absorbed
+| Mode | Quiet | Acted |
+| --- | --- | --- |
+| Autonomous | One line | Short headline (+ optional tiny table) |
+| Interactive | Full rich template (fleet, focus, debt, recap, next) | Full rich template + board moves + Head briefs when absorbed |
 
-Quiet true sleep may stay one-line (include `mode` + `operator_silence`). Prefer tables for the fleet snapshot.
+When interactive and a Head report is absorbed: add 1 short ¶ problem + 1 short ¶ Mind actions (no full paste).
 
 ## Post-main polish advisory (Mind — cheap, strong guidance)
 
