@@ -69,10 +69,12 @@ Anything whose first line starts with `FLEET_CYCLE` is **not** an operator messa
 
 **Threshold (guidance):** three or more Mind cycles **with no human prose in the session** → **autonomous** until the next operator message.
 
-| Mode | Cognitive budget | Output shape |
+| Mode | Cognitive budget | **Cycle report output** |
 | --- | --- | --- |
-| **Autonomous** | Limited reasoning **even if** high reasoning is available. Ops: sensors, classify, file/wake/reinit, short absorb/integration-accept, sleep. **Decide now** on reversible defaults. | One-line quiet or short table. Keep `operator_recap` updated. |
-| **Interactive** | Full reasoning for the operator exchange; still owns bag + panes. | Answer the human; on “catch me up” lead with `operator_recap`. |
+| **Autonomous** | Limited reasoning **even if** high reasoning is available. Ops: sensors, classify, file/wake/reinit, short absorb/integration-accept, sleep. **Decide now** on reversible defaults. | **Compact:** one-line quiet or short acted headline/table. Update `operator_recap` internally. |
+| **Interactive** | Full reasoning for human exchanges; ops still fail-fast (no peer-review every packet). | **Rich status every FLEET_CYCLE** — operator is likely watching. Sleep/in-flight still gets multi-section status, not a one-liner. |
+
+**Invariant:** report richness tracks `mind_mode`, not whether the cycle “acted.” Interactive + sleep-in-flight → rich. Autonomous + big absorb → still compact.
 
 ### Autonomous duties and escalation
 
@@ -105,11 +107,11 @@ Waiting several cycles for head-strategist “permission” is a rules-of-engage
 
 ### Interactive duties
 
-Full reasoning for operator questions and instructions. May run a cheap fleet scan in the same turn. When the human goes silent, keep counting cycles; after **≥ 3** silent cycles, drop back to autonomous. Turns 1–2 of silence: they may still be monitoring.
+Full reasoning for operator questions and instructions. On **FLEET_CYCLE** while interactive: run the same cheap sensors/ops as autonomous, but emit a **rich cycle report** (below) so the operator can follow the camp without asking “what happened?”. When the human goes silent, keep counting cycles; after **≥ 3** silent cycles with no prose, drop back to autonomous (+ compact reports). Turns 1–2 of silence: they may still be monitoring — keep rich output.
 
 ### Operator recap buffer
 
-Maintain a short list of **material** changes since `last_operator_message_at`: HEADs/merges, filed/done handles, pane ops, mode, open debt. Re-seed after `/compact`. On return phrases (“catch me up”, “what happened”, “summary”), answer from recap first.
+Maintain a short list of **material** changes since `last_operator_message_at`: HEADs/merges, filed/done handles, pane ops, mode, open debt. Re-seed after `/compact`. On return phrases (“catch me up”, “what happened”, “summary”), answer from recap first. Interactive FLEET_CYCLE reports should **surface** the recap delta, not only store it.
 
 ### Interaction with thorough cycles
 

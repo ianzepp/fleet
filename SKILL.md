@@ -233,16 +233,25 @@ else:
 
 Optional override (`Mind: deep` / `Mind: ops only`) beats auto-detect until cleared.
 
-| Mode | When | Cognitive budget |
-| --- | --- | --- |
-| **Autonomous** | `turns_since_operator_message >= 3` with **no** human prose since last reset | **Thin ops** even if high reasoning is available. Sensors, classify, file/wake/reinit, short absorb/integration accept, fail-fast sleep. **Decide now** on reversible defaults — do not park on head-strategist. |
-| **Interactive** | Human prose this turn **or** since last cycle (even if this wake is FLEET_CYCLE), or fewer than 3 silent cycles after engagement | **Full reasoning** for the human exchange; FLEET_CYCLE after recent chat stays thin-ops but **silence counter stays 0** until true multi-cycle quiet |
+| Mode | When | Cognitive budget | **Cycle report output** |
+| --- | --- | --- | --- |
+| **Autonomous** | `turns_since_operator_message >= 3` with **no** human prose since last reset | **Thin ops** even if high reasoning is available. Sensors, classify, file/wake/reinit, short absorb/integration accept, fail-fast sleep. **Decide now** on reversible defaults. | **Compact:** one-line quiet or short acted headline. No fleet essay. |
+| **Interactive** | Human prose this turn **or** since last cycle (even if this wake is FLEET_CYCLE), or fewer than 3 silent cycles after engagement | Full reasoning for human exchanges; ops still fail-fast (no deep peer review every cycle) | **Rich:** fuller status write-up every FLEET_CYCLE — operator is watching |
 
-### Operator recap buffer (autonomous)
+**Output follows mode, not sleep/acted alone.** Interactive + quiet in-flight still gets a readable multi-section status. Autonomous + major act still stays short (table/headline). Do not emit autonomous one-liners while `mind_mode=interactive`.
+
+### Cycle report shape (mode-gated)
+
+| Mode | Quiet / sleep | Acted |
+| --- | --- | --- |
+| **Autonomous** | One line: `cycle N … sleep` | Short headline + optional tiny table; no narrative |
+| **Interactive** | **Rich status** even if no board moves: fleet table, what each Hand is doing, HEAD/dirty, open debt, why sleep | Rich + board moves, absorbs, next risk, operator_recap delta |
+
+Detail + templates: [`mind-cycle.md`](references/mind-cycle.md).
+
+### Operator recap buffer
 
 After the last operator message, assume ~1–2 cycles of monitoring, then they may be gone. Keep a **compact recap** in context (and baseline if useful) of what changed since `last_operator_message_at`: merges, HEADs, filed/done handles, pane/ops events, mode flips, open debt. Survive `/compact` by re-stating the recap in the compact keep-list. When the operator returns (“catch me up”, “what happened”), answer from that buffer first — reduced detail is fine; blank amnesia is not.
-
-Autonomous output stays structurally short. Detail: [`mind-cycle.md`](references/mind-cycle.md).
 
 ## The tasking bag (summary)
 
@@ -382,11 +391,9 @@ See [`mind-cycle.md`](references/mind-cycle.md). Most wakes should be no-ops.
 
 ## Fail-fast wake (summary)
 
-Most 5–10m wakes must **exit in seconds**. Resolve **Mind mode** first (operator engagement + `turns_since_operator_message`). Cheap sensors next (status, optional `mailspace watch --once`, HEADs/dirty, panes); sleep when fingerprint, watch cursor, and panes are unchanged and no starvation/error/open-tasking wake is required. In **autonomous** mode, stay thin even on paid signal — escalate judgment out of band rather than deep monologue. Do not unbounded-block on `mailspace watch` during fail-fast cycles.
+Most 5–10m wakes must **exit in seconds** on *sensors/ops*. Resolve **Mind mode** first (operator engagement + `turns_since_operator_message`). Cheap sensors next; sleep when fingerprint/panes unchanged and no starvation/error/open-tasking wake is required. In **autonomous** mode, thin ops **and** compact report. In **interactive** mode, ops stay fail-fast but the **chat report is rich** so the watching operator sees the camp. Do not unbounded-block on `mailspace watch` during fail-fast cycles.
 
-When the cycle **acted**: scannable headline + fleet snapshot + board moves + pending debt. Use **absorb** (bookkeeping) vs **accept** (integration bar: evidence good enough to queue merge / clear map square — **not** full code review). Correctness reviews **main after merge**.
-
-Detail: [`mind-cycle.md`](references/mind-cycle.md). Multi-lane / theme merge / base-update: [`multi-lane.md`](references/multi-lane.md).
+Use **absorb** (bookkeeping) vs **accept** (integration bar — not full code review). Correctness reviews **main after merge**. Report templates by mode: [`mind-cycle.md`](references/mind-cycle.md).
 
 ## Multi-agent shared workspace
 

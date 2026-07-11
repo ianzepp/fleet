@@ -149,7 +149,8 @@ Heads need not match Mind’s product harness. Prefer Pi even when Mind is Grok 
 - **Major-inflection housekeeping:** only at campaign end / large multi-theme merge / stage closeout / operator ask — file **one** `$housekeeping` **task** To hand-1; never after routine lands
 - **Unstick half-dead dirt:** open the diff; class A mechanical (fmt) → clear same turn; do not freeze for hours
 - **Autonomous:** thin ops; **decide now** on reversible defaults; head-strategist is optional structure help, not a permission gate
-- **Interactive:** full reasoning for operator; maintain **operator_recap** for when they return
+- **Interactive:** full reasoning for operator; **rich FLEET_CYCLE reports** (not one-liners); maintain **operator_recap** and surface its delta in-cycle
+- **Autonomous:** compact cycle reports (one-line quiet / short acted)
 - Keep operator recap buffer since `last_operator_message_at`
 
 ## Mind does not
