@@ -294,8 +294,9 @@ Mind is Grok or Codex.
 - Stay quiet when fingerprint unchanged, panes healthy, and no review signal
 - On each wake: cheap **fleet pane scan** (tmux) for liveness/errors; **Grok
   doorbell** or **Codex reinit** when idle/done with open targets
-- When review finds a §§REDMIND§§: **Vivi mail/need to that Hand** with concrete
-  finding + fix bar; **tmux pointer only** to that mail/handle (no essay in pane)
+- When review finds a §§REDMIND§§: file a concrete **task** to that Hand with
+  finding + fix bar; use a **need** only for a real decision/authority/input
+  hold; **tmux pointer only** to that handle (no essay in pane)
 - **Unstick half-dead dirt:** if the same blocking paths age across cycles with
   no class A/B/C evidence, **open the diff** on paid path; file claim/style/
   quarantine targets — do not restate “foreign dirty” forever
@@ -324,13 +325,38 @@ Prefer a project coordination board (commonly Vivi project mailspace—see
 
 | Kind | Meaning |
 | --- | --- |
-| **task** | Concrete work with a done condition |
-| **need** | Decision/missing input that can change scope |
+| **task** | Implementable work with a done condition, including defects and merge blockers |
+| **need** | Decision, authority, or missing external input that can change the work |
 | **want** | Non-blocking polish or later idea |
 | **mail** | Deliberation/status—not the primary queue |
 
 **Work signal:** open tasks + open needs for the Hand = actionable work.
 Wants and unread mail are secondary.
+
+### Queue kind is not severity
+
+Choose the queue kind by **what response is required**, then state severity in
+the subject/body or priority metadata. Never encode severity by turning an
+implementable defect into a `need`.
+
+| Question | Route |
+| --- | --- |
+| Can the owner implement this now from the stated invariant and done-when? | **task** — even when critical, safety-sensitive, or merge-blocking |
+| Must someone choose a path, grant authority, supply input, or resolve an external dependency first? | **need** — include default + options; pivot while waiting |
+| Is it safe to ship/merge without this improvement? | **want** |
+| Is no action requested? | **mail** |
+
+Put urgency on the item, not in its kind: for example, `merge blocker: …`,
+`critical: …`, or the board's priority field. A needs-only bag may intentionally
+be treated by automation as a decision hold; misfiling defects there can leave a
+healthy Hand idle even though the work is implementable.
+
+When a need is answered, close or reply to the decision item and file the
+resulting implementation as a **task** to its owner. Do not leave concrete work
+hidden inside a resolved need. During iterative review, consolidate findings
+from the same root cause and acceptance gate into one bounded task when they
+share owner and validation. Split items when ownership, invariant, or done-when
+is genuinely independent—not for every newly failing test.
 
 ### Tasking rules (replace gates)
 
@@ -956,14 +982,17 @@ Hands optimize for throughput; Mind optimizes for **invariant honesty**.
    **Status complete while evidence is only static/manual without saying so**.
 4. **Accept** (green): clear matching `pending_reviews` / advance packet toward
    merge; optional baseline note. Prefer draining review debt on paid passes.
-5. **Red flag:** `vivi mail` or `need` **To: hunter-N** with: where, why, done-when
-   for the fix; then tmux pointer e.g.
-   `HAND WAKE hunter-2. Review mail <handle>. vivi --for hunter-2. Continue.`
+5. **Red flag:** file a **task** **To: hunter-N** with where, why, done-when for
+   an implementable fix. Use a **need** only for a real decision/authority/input
+   hold; then send a tmux pointer e.g.
+   `HAND WAKE hunter-2. Bag: show <handle>. vivi --for hunter-2. Continue.`
 6. Do **not** paste the full review into tmux. Do **not** `git` cleanup foreign WIP.
 
-Mid-flight review is **advisory + residual**, not a stop stamp — unless the
-finding is safety-critical (data loss, auth, destructive scope). Then file a
-**need** with fail-closed default and wake immediately.
+Mid-flight review is **advisory + residual**, not a stop stamp. For a
+safety-critical implementable finding (data loss, auth, destructive scope),
+file a high-priority **task** with a fail-closed default and wake immediately.
+Use a **need** only when the safe fix actually requires a decision, authority,
+or external input.
 
 **Status honesty (accept bar):** static checks, node contract tests, and
 “controlled manual browser/GPU inspection” are fine **if Status says so**.
@@ -1109,6 +1138,8 @@ the Hand exited—restart hunter, select next map package, back off, or stop.
 ### Bag and gates
 - Treating Mind as a game warden: stage licenses, GO/NO-GO stamps, or
   acceptance authority; or blocking a Hand on missing GO with no residual.
+- Encoding severity as queue kind: filing an implementable merge blocker as a
+  **need**, then leaving a needs-only Hand parked as if human input were required.
 - Sleeping with empty product tasking while the map still has unblocked next work
   (“wait after unit / RTM” as default success).
 - Treating wants as defects, or parsing board storage instead of using the CLI.
