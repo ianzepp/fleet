@@ -122,6 +122,9 @@ Reserve **hard ban** language for actions that break the platform, tree, or mult
 | [`companion-fallbacks.md`](references/companion-fallbacks.md) | **When companion skills missing** — short process theses (polish, map, factory, …) |
 | [`fleet-guide.md`](references/fleet-guide.md) | First-exposure vocabulary (not every cycle) |
 | [`scripts/steward.sh`](scripts/steward.sh) | `arm` / `rearm` / `disarm` / `check` / `clear` / `loop` (uses fleet.json `tmux_target`) |
+| [`scripts/fleet-sensors.py`](scripts/fleet-sensors.py) | Cheap FLEET_CYCLE snapshot (board + panes + fingerprint JSON) |
+| [`scripts/fleet-baseline.py`](scripts/fleet-baseline.py) | Read/bump mind-baseline.json cycle counters + fingerprints |
+| [`scripts/fleet-doorbell.sh`](scripts/fleet-doorbell.sh) | Pointer-only Hand/Head wake via fleet.json `tmux_target` |
 | [`multi-lane.md`](references/multi-lane.md) | Side lanes, theme→main, base-update, pin-relative, `pending_merges` |
 | [`heads.md`](references/heads.md) | head-ceo / **head-cto** / **head-cxo** loops |
 | [`heads/cast.md`](references/heads/cast.md) | Head org titles + persona index (was executive-team) |
@@ -398,11 +401,12 @@ Generic recipes (no particular server name): [`ssh-remote.md`](references/ssh-re
 
 ### 3. Gather
 
+- Prefer **`scripts/fleet-sensors.py --project <root>`** for the cheap snapshot (board status, optional watch, pane classes, fingerprint, signals)
 - Sensors: bag + optional **mailspace watch --once** + HEADs/dirty + pane classes (local/SSH)
 - Paid path: scan what **moved**; `mail thread` when lineage matters; file residuals to owning Hand
 - Quiet when fingerprint, watch cursor, and pane classes unchanged (or only `running`)
-- Idle+open tasking or error class: wake or ops intervene
-
+- Idle+open tasking + Grok: **`scripts/fleet-doorbell.sh --project <root> <hand>`**; Codex: reinit
+- End of mini-cycle: **`scripts/fleet-baseline.py bump -p <root> -s '…'`** (+ fingerprint) then **`steward.sh rearm`**
 ### 4. Work (Hand)
 
 - `show` one target; implement; validate
@@ -503,7 +507,7 @@ On unexpected dirt **outside** scope: do not erase — list, classify if blockin
 | Baseline field meanings; watch cursor; `pending_merges`; `mind_session` | Fat historical ledger rows, wind-up snapshots |
 | Pane classes, reinit, wind-down; **`FLEET_CYCLE` prefix** | Scheduler prompt path, durable interval task id |
 | Remote Hand/Head *transport* (SSH + tmux) | Real hostnames, keys, remote PATH wrappers |
-| Generic `scripts/codex-reinit.sh` / `steward.sh` | Fleet `PROJECT`/`FLEET` paths; copy/symlink **on Hand host** |
+| Generic cycle helpers (`fleet-sensors` / `fleet-baseline` / `fleet-doorbell` / `steward` / `codex-reinit`) | Fleet `PROJECT`/`FLEET` paths; copy/symlink **on Hand host** when remote |
 
 Typical fleet overlay:
 
@@ -514,6 +518,23 @@ Mind scheduler overlay # must start wakes with FLEET_CYCLE … (fleets=… when 
 Head role prompts      # head-ceo / head-cto / head-cxo (+ optional personas)
 scripts/codex-reinit   # skill copy or symlink; env PROJECT + FLEET
 project Agents.md      # product + multi-agent process
+```
+
+**Cycle helpers (this skill `scripts/`):**
+
+```bash
+# cheap gather
+python3 <skill>/scripts/fleet-sensors.py --project <root>            # JSON
+python3 <skill>/scripts/fleet-sensors.py --project <root> --text
+
+# Grok pointer wake (refuses running/down/rate-limit unless --force)
+<skill>/scripts/fleet-doorbell.sh --project <root> hand-1 [--handle HEX] [--note '…']
+
+# bookkeeping after mini-cycle
+python3 <skill>/scripts/fleet-baseline.py bump -p <root> -s 'sleep' --quiet \
+  --fingerprint-file /tmp/sensors.json
+python3 <skill>/scripts/fleet-baseline.py get -p <root>
+scripts/steward.sh rearm --project <root>
 ```
 
 **Desktop Mind:** Mind may be a desktop app (e.g. Claude Code) while Hands stay in terminal/tmux **local or remote**. Same rule: Mind is the operator conversation, not a second Mind pane. Pair with remote slots: [`ssh-remote.md`](references/ssh-remote.md).

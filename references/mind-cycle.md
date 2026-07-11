@@ -148,6 +148,10 @@ Optional autonomous compact hint when N>0: `+op-mail:N` on the one-liner — nev
 At **end of each fleet’s mini-cycle** (after sensors/ops, whether acted or quiet sleep that completed):
 
 ```bash
+# write cycle counters + fingerprint, then dead-man tick
+python3 scripts/fleet-baseline.py bump -p <that-fleet-root> -s '<one-line summary>' \
+  [--acted|--quiet] [--mode interactive|autonomous] \
+  [--fingerprint-file sensors.json]
 scripts/steward.sh rearm --project <that-fleet-root>
 ```
 
@@ -169,6 +173,36 @@ Long 5–10m loops only work if most wakes **exit in seconds**. Tokens/context a
 
 ### Cheap sensors (always first)
 
+**Prefer the packaged helpers** (one process ≈ full cheap snapshot):
+
+```bash
+SK=<path-to-this-skill>/scripts
+
+# 1) Snapshot (JSON default; --text for human one-screen)
+python3 $SK/fleet-sensors.py --project <root>
+python3 $SK/fleet-sensors.py --project <root> --text
+# skip watch on super-thin cycles:
+python3 $SK/fleet-sensors.py --project <root> --no-watch
+
+# 2) Act (Grok pointer doorbell; Codex → codex-reinit.sh instead)
+$SK/fleet-doorbell.sh --project <root> hand-1 --handle <hex> --note 'bag open'
+# exit 0 sent · 1 refused (running / down / rate-limit) · 2 usage
+
+# 3) Bookkeeping + dead-man tick (end of every successful mini-cycle)
+python3 $SK/fleet-baseline.py bump -p <root> -s 'sleep' --quiet \
+  --fingerprint-file /tmp/sensors.json   # or: bump --project <root> …
+# --acted when board/ops moved; --operator-engaged when human prose this turn
+$SK/steward.sh rearm --project <root>
+```
+
+| Helper | Job |
+| --- | --- |
+| `fleet-sensors.py` | Board status, optional mailspace watch, open handles, pane classes, git tip, fingerprint, `signals[]`, `quiet_hint` |
+| `fleet-doorbell.sh` | Resolve `tmux_target` from fleet.json; refuse running/down/rate-limit; pointer `send-keys` only; record `last_hand_wake` |
+| `fleet-baseline.py` | `get` / `bump` / `rearm-note` / `wound-up` — cycle counters, mode silence, fingerprints, recap lines |
+
+Manual equivalent when helpers are unavailable:
+
 ```text
 0. Resolve mind_mode + update turns_since_operator_message / quiet_streak inputs
 1. Board status counts (e.g. vivi mailspace status)
@@ -176,6 +210,7 @@ Long 5–10m loops only work if most wakes **exit in seconds**. Tokens/context a
 3. Open task + need lists per Hand identity (not dumps)
 4. Optional light delta: git rev-parse HEAD, dirty count, map file mtime
 5. Fleet: tmux has-session + short capture classify (local and/or via SSH — ssh-remote.md)
+6. Write baseline counters + rearm steward
 ```
 
 Compare to baseline. **Sleep immediately** when:

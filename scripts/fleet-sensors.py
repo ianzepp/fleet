@@ -1,0 +1,464 @@
+#!/usr/bin/env python3
+"""Cheap FLEET_CYCLE sensor snapshot for one fleet project.
+
+Emits JSON (default) or a short text summary for Mind fail-fast cycles.
+
+  fleet-sensors.py --project /path/to/fleet [--json|--text]
+  fleet-sensors.py --project /path --no-watch --tail 12
+
+Exit: 0 ok · 1 hard error (missing project/fleet) · 2 sensors partial (still prints JSON)
+"""
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import re
+import shutil
+import subprocess
+import sys
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import Any
+
+
+def now_iso() -> str:
+    return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def which(name: str, tooling: dict | None = None, key: str | None = None) -> str | None:
+    if tooling and key:
+        b = (tooling.get(key) or {}).get("binary")
+        if b and Path(b).is_file() and os.access(b, os.X_OK):
+            return b
+    return shutil.which(name)
+
+
+def run(cmd: list[str], timeout: float = 30.0) -> tuple[int, str]:
+    try:
+        p = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+            check=False,
+        )
+        out = (p.stdout or "") + (("\n" + p.stderr) if p.stderr and p.returncode else "")
+        return p.returncode, out
+    except subprocess.TimeoutExpired:
+        return 124, f"timeout: {' '.join(cmd)}"
+    except FileNotFoundError:
+        return 127, f"missing: {cmd[0]}"
+
+
+def load_json(path: Path) -> dict:
+    if not path.is_file():
+        return {}
+    try:
+        return json.loads(path.read_text())
+    except Exception:
+        return {}
+
+
+def classify_pane(text: str, session_exists: bool) -> str:
+    """running|idle_prompt|done_idle|trust_prompt|error_capacity|error_connection|down|unknown"""
+    if not session_exists:
+        return "down"
+    t = text or ""
+    if re.search(r"Working \(|esc to interrupt|Waiting for response|Responding…|Responding\.\.\.|Thinking…", t, re.I):
+        return "running"
+    if re.search(r"Yes, continue|Do you trust|trust this workspace|No, quit|Press enter to continue", t, re.I):
+        return "trust_prompt"
+    if re.search(r"over capacity|rate limit|[^0-9]429[^0-9]|usage limit hard|try again later", t, re.I):
+        return "error_capacity"
+    if re.search(
+        r"ECONNRESET|connection failed|connection error|connect timed out|request timed out|"
+        r"stream timed out|network timeout|TLS handshake timeout|websocket.*timeout",
+        t,
+        re.I,
+    ):
+        return "error_connection"
+    # Codex ready chrome
+    if "›" in t:
+        if re.search(r"bag empty|standing by|turn end|Turn completed|ready-to-merge", t, re.I):
+            return "done_idle"
+        return "idle_prompt"
+    # Grok-style prompt box
+    if re.search(r"Grok|always-approve|Shift\+Tab", t) and re.search(r"Turn completed|Idle until|Board empty|bag empty|❯", t, re.I):
+        if re.search(r"Turn completed|Idle until|Board empty|bag empty|actionable: 0", t, re.I):
+            return "done_idle"
+        return "idle_prompt"
+    if re.search(r"❯\s*$|╰─.*Grok|codex ›|^\s*›\s*$", t, re.M):
+        return "idle_prompt"
+    return "unknown"
+
+
+def parse_status_table(text: str) -> dict[str, dict[str, int]]:
+    """Parse `vivi mailspace status` identity rows."""
+    rows: dict[str, dict[str, int]] = {}
+    for line in text.splitlines():
+        # hand-1    0           0           0           0           0             13
+        m = re.match(
+            r"^(\S+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s*$",
+            line.strip(),
+        )
+        if not m:
+            continue
+        name = m.group(1)
+        if name in ("identity", "total"):
+            continue
+        rows[name] = {
+            "actionable": int(m.group(2)),
+            "tasks_open": int(m.group(3)),
+            "needs_open": int(m.group(4)),
+            "wants_open": int(m.group(5)),
+            "inbox_unread": int(m.group(6)),
+            "done": int(m.group(7)),
+        }
+    return rows
+
+
+def list_open_handles(vivi: str, project: str, identity: str, kind: str = "task") -> list[dict[str, str]]:
+    cmd = [vivi, kind, "list", "--for", identity, "--project", project]
+    rc, out = run(cmd, timeout=20)
+    if rc != 0:
+        return []
+    handles = []
+    for line in out.splitlines():
+        # handle  status  role  date  from  subject
+        if "open" not in line or line.strip().startswith("handle"):
+            continue
+        parts = line.split()
+        if len(parts) >= 2 and re.match(r"^[a-f0-9]{6,}$", parts[0]):
+            # subject is rest after date-ish fields — crude but useful
+            subj = ""
+            if "  " in line:
+                # find subject after last ISO date fragment
+                m = re.search(r"\d{4}-\d{2}-\d{2}T\S+\s+\S+\s+(.*)$", line)
+                subj = (m.group(1).strip() if m else "").strip()
+            handles.append({"handle": parts[0], "status": "open", "subject": subj or line.strip()})
+    return handles
+
+
+def git_tip(cwd: Path) -> dict[str, Any]:
+    if not cwd.is_dir() or not (cwd / ".git").exists() and not (cwd / ".git").is_file():
+        # may be worktree file gitdir
+        if not (cwd / ".git").exists():
+            return {"cwd": str(cwd), "error": "not a git dir"}
+    rc, out = run(["git", "-C", str(cwd), "log", "-1", "--format=%H %s"], timeout=10)
+    if rc != 0:
+        return {"cwd": str(cwd), "error": out.strip()[:200]}
+    parts = out.strip().split(" ", 1)
+    sha = parts[0][:12] if parts else ""
+    subj = parts[1] if len(parts) > 1 else ""
+    rc2, st = run(["git", "-C", str(cwd), "status", "-sb"], timeout=10)
+    dirty = False
+    ahead = None
+    if rc2 == 0:
+        first = st.splitlines()[0] if st.strip() else ""
+        dirty = len(st.strip().splitlines()) > 1 or " M " in st or "?? " in st or st.count("\n") > 0 and any(
+            line[:2].strip() for line in st.splitlines()[1:]
+        )
+        # simpler dirty: any line after first
+        dirty = any(ln.strip() and not ln.startswith("##") for ln in st.splitlines())
+        m = re.search(r"ahead (\d+)", first)
+        if m:
+            ahead = int(m.group(1))
+    return {
+        "cwd": str(cwd),
+        "sha": sha,
+        "subject": subj,
+        "dirty": dirty,
+        "status_sb": st.strip().splitlines()[0] if st.strip() else "",
+        "ahead": ahead,
+    }
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser(description="Fleet cheap sensors snapshot")
+    ap.add_argument("--project", "-p", required=True, help="Fleet project root")
+    ap.add_argument("--fleet", "-f", default=None, help="Path to fleet.json (default: PROJECT/.vivi/fleet.json)")
+    ap.add_argument("--json", action="store_true", default=True, help="JSON output (default)")
+    ap.add_argument("--text", action="store_true", help="Human text summary instead of JSON")
+    ap.add_argument("--no-watch", action="store_true", help="Skip mailspace watch --once")
+    ap.add_argument("--tail", type=int, default=16, help="tmux capture lines per pane")
+    ap.add_argument("--cursor-file", default=None, help="watch cursor path (default: .vivi/mind-watch.cursor)")
+    args = ap.parse_args()
+
+    project = Path(args.project).resolve()
+    if not project.is_dir():
+        print(json.dumps({"error": f"project not a directory: {project}"}), file=sys.stderr)
+        return 1
+
+    fleet_path = Path(args.fleet) if args.fleet else project / ".vivi" / "fleet.json"
+    fleet = load_json(fleet_path)
+    baseline_path = project / ".vivi" / "mind-baseline.json"
+    baseline = load_json(baseline_path)
+    tooling = fleet.get("tooling") or {}
+
+    vivi = which("vivi", tooling, "vivi") or which("vivi")
+    tmux = which("tmux") or "/opt/homebrew/bin/tmux"
+    mind_inbox = fleet.get("mind_inbox") or "mind"
+    operator_inbox = fleet.get("operator_inbox") or "operator"
+    hands = fleet.get("hands") or fleet.get("hunters") or {}
+
+    partial = False
+    out: dict[str, Any] = {
+        "ok": True,
+        "at": now_iso(),
+        "project": str(project),
+        "fleet_id": fleet.get("fleet_id") or fleet.get("mailspace") or project.name,
+        "fleet_json": str(fleet_path),
+        "focus": fleet.get("focus") or {},
+        "identities": {},
+        "hands": {},
+        "heads": {},
+        "steward": {},
+        "operator": {},
+        "mind": {},
+        "git": {},
+        "watch": None,
+        "fingerprint": {},
+        "quiet_hint": False,
+        "signals": [],
+    }
+
+    # --- board status ---
+    status_text = ""
+    if vivi:
+        rc, status_text = run([vivi, "mailspace", "status", "--project", str(project)], timeout=25)
+        out["identities"] = parse_status_table(status_text)
+        out["board_status_raw_tail"] = "\n".join(status_text.splitlines()[:40])
+        if rc != 0:
+            partial = True
+            out["signals"].append("vivi_status_failed")
+    else:
+        partial = True
+        out["signals"].append("vivi_missing")
+
+    # --- watch ---
+    if vivi and not args.no_watch:
+        cursor = args.cursor_file or str(project / ".vivi" / "mind-watch.cursor")
+        rc, wout = run(
+            [
+                vivi,
+                "mailspace",
+                "watch",
+                "--for",
+                mind_inbox,
+                "--project",
+                str(project),
+                "--once",
+                "--write-cursor",
+                "--cursor-file",
+                cursor,
+            ],
+            timeout=15,
+        )
+        out["watch"] = {"rc": rc, "event": wout.strip()[:500] if wout.strip() else None}
+        if wout.strip() and "event=" in wout:
+            out["signals"].append("board_event")
+
+    # --- operator ---
+    op_row = out["identities"].get(operator_inbox) or {}
+    op_handles = []
+    if vivi:
+        op_handles = list_open_handles(vivi, str(project), operator_inbox, "need")
+        op_mail = list_open_handles(vivi, str(project), operator_inbox, "mail")
+        # mail list may not mark open the same way — count inbox unread from status
+    out["operator"] = {
+        "identity": operator_inbox,
+        "needs_open": op_row.get("needs_open", 0),
+        "inbox_unread": op_row.get("inbox_unread", 0),
+        "needs": op_handles,
+        "open_count": (op_row.get("needs_open") or 0) + (op_row.get("inbox_unread") or 0),
+    }
+    if out["operator"]["open_count"]:
+        out["signals"].append("operator_mail")
+
+    mind_row = out["identities"].get(mind_inbox) or {}
+    out["mind"] = {
+        "identity": mind_inbox,
+        "inbox_unread": mind_row.get("inbox_unread", 0),
+    }
+
+    # --- hands panes + bag ---
+    pane_classes: dict[str, str] = {}
+    for name, h in hands.items():
+        if not isinstance(h, dict):
+            continue
+        mid = h.get("mail_identity") or name
+        target = h.get("tmux_target") or f"{h.get('tmux_session') or name}:1.1"
+        session = target.split(":")[0]
+        cwd = h.get("cwd") or str(project)
+        agent = h.get("agent") or "unknown"
+        row = out["identities"].get(mid) or {}
+        open_tasks = list_open_handles(vivi, str(project), mid, "task") if vivi else []
+        open_needs = list_open_handles(vivi, str(project), mid, "need") if vivi else []
+        bag_open = (row.get("tasks_open") or len(open_tasks)) + (row.get("needs_open") or len(open_needs))
+
+        sess_ok = False
+        if Path(tmux).exists() or shutil.which("tmux"):
+            tmux_bin = tmux if Path(tmux).exists() else "tmux"
+            rc, _ = run([tmux_bin, "has-session", "-t", session], timeout=5)
+            sess_ok = rc == 0
+            tail = ""
+            if sess_ok:
+                rc, tail = run(
+                    [tmux_bin, "capture-pane", "-t", target, "-p", "-S", f"-{args.tail}"],
+                    timeout=5,
+                )
+                if rc != 0:
+                    tail = ""
+                    partial = True
+        else:
+            partial = True
+            tmux_bin = "tmux"
+
+        pclass = classify_pane(tail, sess_ok)
+        pane_classes[name] = pclass
+        next_handle = open_tasks[0]["handle"] if open_tasks else (open_needs[0]["handle"] if open_needs else None)
+
+        if pclass in ("error_capacity", "error_connection", "down", "trust_prompt"):
+            out["signals"].append(f"pane_{name}_{pclass}")
+        if bag_open and pclass in ("idle_prompt", "done_idle", "unknown"):
+            out["signals"].append(f"wake_candidate_{name}")
+        if bag_open == 0 and pclass in ("idle_prompt", "done_idle"):
+            out["signals"].append(f"starvation_candidate_{name}")
+
+        out["hands"][name] = {
+            "mail_identity": mid,
+            "tmux_target": target,
+            "tmux_session": session,
+            "agent": agent,
+            "cwd": cwd,
+            "tasks_open": row.get("tasks_open", len(open_tasks)),
+            "needs_open": row.get("needs_open", len(open_needs)),
+            "actionable": row.get("actionable", bag_open),
+            "open_tasks": open_tasks,
+            "open_needs": open_needs,
+            "next_handle": next_handle,
+            "pane_class": pclass,
+            "pane_tail": "\n".join((tail or "").splitlines()[-args.tail :]),
+            "wake_enabled": h.get("wake_enabled", True),
+            "min_seconds_between_wakes": h.get("min_seconds_between_wakes", 180),
+            "merges_to_main": h.get("merges_to_main", False),
+        }
+
+        # git for main hand
+        if h.get("merges_to_main") or name == fleet.get("default_hand"):
+            out["git"]["main"] = git_tip(Path(cwd))
+
+    # heads (optional pane scan)
+    for key in ("head-ceo", "head-cto", "head-cxo"):
+        block = fleet.get(key)
+        if not isinstance(block, dict):
+            continue
+        target = block.get("tmux_target") or f"{block.get('tmux_session') or key}:1.1"
+        session = target.split(":")[0]
+        sess_ok = False
+        tail = ""
+        if shutil.which("tmux") or Path(tmux).exists():
+            tmux_bin = tmux if Path(tmux).exists() else "tmux"
+            rc, _ = run([tmux_bin, "has-session", "-t", session], timeout=5)
+            sess_ok = rc == 0
+            if sess_ok:
+                _, tail = run(
+                    [tmux_bin, "capture-pane", "-t", target, "-p", "-S", f"-{min(args.tail, 12)}"],
+                    timeout=5,
+                )
+        pclass = classify_pane(tail, sess_ok)
+        pane_classes[key] = pclass
+        out["heads"][key] = {
+            "tmux_target": target,
+            "pane_class": pclass,
+            "pane_tail": "\n".join((tail or "").splitlines()[-8:]),
+        }
+
+    # steward block from fleet + baseline + optional pane
+    st_cfg = fleet.get("steward") or {}
+    st_base = baseline.get("steward") or {}
+    st_target = st_cfg.get("tmux_target") or f"{st_cfg.get('tmux_session') or 'steward'}:1.1"
+    st_session = st_target.split(":")[0]
+    st_sess_ok = False
+    st_tail = ""
+    if shutil.which("tmux") or Path(tmux).exists():
+        tmux_bin = tmux if Path(tmux).exists() else "tmux"
+        rc, _ = run([tmux_bin, "has-session", "-t", st_session], timeout=5)
+        st_sess_ok = rc == 0
+        if st_sess_ok:
+            _, st_tail = run(
+                [tmux_bin, "capture-pane", "-t", st_target, "-p", "-S", "-8"],
+                timeout=5,
+            )
+    st_class = classify_pane(st_tail, st_sess_ok)
+    pane_classes["steward"] = st_class
+    last_ok = (baseline.get("mind_loop") or {}).get("last_successful_cycle_at") or st_base.get(
+        "last_rearm_at"
+    )
+    out["steward"] = {
+        "enabled": st_cfg.get("enabled", True),
+        "armed": bool(st_base.get("armed")),
+        "tripped": bool(st_base.get("tripped")),
+        "tmux_target": st_target,
+        "pane_class": st_class,
+        "last_successful_cycle_at": last_ok,
+        "last_rearm_at": st_base.get("last_rearm_at"),
+        "grace_sec": st_cfg.get("grace_sec", 900),
+    }
+    if out["steward"]["tripped"]:
+        out["signals"].append("steward_tripped")
+
+    # fingerprint for quiet detection
+    h1 = out["hands"].get(fleet.get("default_hand") or "hand-1") or next(iter(out["hands"].values()), {})
+    h2 = out["hands"].get("hand-2") or {}
+    git_main = out.get("git", {}).get("main") or {}
+    fp = {
+        "hand1_open": (h1 or {}).get("actionable") or (h1 or {}).get("tasks_open") or 0,
+        "hand2_open": (h2 or {}).get("actionable") or (h2 or {}).get("tasks_open") or 0,
+        "next_handle_h1": (h1 or {}).get("next_handle"),
+        "next_handle_h2": (h2 or {}).get("next_handle"),
+        "swarm_head": (git_main.get("sha") or "")[:12] or None,
+        "hand1_class": (h1 or {}).get("pane_class"),
+        "hand2_class": (h2 or {}).get("pane_class"),
+        "operator_open": out["operator"].get("open_count", 0),
+        "steward_armed": out["steward"].get("armed"),
+        "steward_tripped": out["steward"].get("tripped"),
+        "map_focus": (fleet.get("focus") or {}).get("chapter") or (fleet.get("focus") or {}).get("primary_goal"),
+    }
+    out["fingerprint"] = fp
+    out["pane_classes"] = pane_classes
+
+    prev = baseline.get("last_actionable_fingerprint") or {}
+    # quiet if fingerprint equal and no hard signals
+    hard = [s for s in out["signals"] if not s.startswith("starvation_candidate")]
+    # starvation when bag empty + idle + map still has chapter? Mind decides map; we only flag candidates
+    fp_cmp = {k: fp.get(k) for k in ("hand1_open", "hand2_open", "next_handle_h1", "next_handle_h2", "swarm_head", "hand1_class", "hand2_class", "operator_open", "steward_tripped")}
+    prev_cmp = {k: prev.get(k) for k in fp_cmp}
+    out["quiet_hint"] = fp_cmp == prev_cmp and not hard and not out["steward"].get("tripped")
+    out["baseline_last_cycle"] = baseline.get("last_cycle")
+    out["baseline_mind_mode"] = baseline.get("mind_mode")
+    out["partial"] = partial
+    out["ok"] = not partial or bool(out["hands"])
+
+    if args.text:
+        lines = [
+            f"fleet {out['fleet_id']} @ {out['at']}",
+            f"focus: {fp.get('map_focus')}",
+            f"git: {fp.get('swarm_head')} dirty={git_main.get('dirty')}",
+            f"operator_open={out['operator'].get('open_count')} steward_armed={out['steward'].get('armed')} tripped={out['steward'].get('tripped')}",
+            f"quiet_hint={out['quiet_hint']} signals={out['signals']}",
+        ]
+        for name, h in out["hands"].items():
+            lines.append(
+                f"  {name}: bag={h.get('actionable')} next={h.get('next_handle')} class={h.get('pane_class')} target={h.get('tmux_target')}"
+            )
+        print("\n".join(lines))
+    else:
+        print(json.dumps(out, indent=2))
+
+    return 2 if partial else 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

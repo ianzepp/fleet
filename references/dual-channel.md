@@ -244,13 +244,21 @@ Production helper: skill `scripts/codex-reinit.sh` (doctor / heal / reinit / cla
 
 When `wake_enabled` and class is `idle_prompt` and Hand has open tasks/needs (or Mind just filed targets / answered a blocking need):
 
+**Prefer** skill helper (resolves `tmux_target`, rate-limits, refuses running/down):
+
+```bash
+scripts/fleet-doorbell.sh --project <root> hand-1 --handle <hex> --note '…'
+# exit 0 sent · 1 refused · 2 usage/config
+```
+
+Manual equivalent:
+
 ```bash
 tmux send-keys -t '<tmux_target>' -l -- '<pointer only>'
 tmux send-keys -t '<tmux_target>' Enter
 ```
 
 For Codex, use **reinit** instead of stacking this doorbell after a unit. Pi local Hands use the same doorbell pattern as Grok (see `roles-and-harness.md`).
-
 ### Channel split (mandatory)
 
 | Channel | Allowed content |

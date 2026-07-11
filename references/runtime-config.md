@@ -2,7 +2,41 @@
 
 Load for capacity recovery, Codex reinit scripts, fleet/baseline schemas, or fleet wind-up.
 
-## Skill script: `scripts/codex-reinit.sh`
+## Skill scripts (cycle helpers)
+
+All paths are under this skill’s `scripts/` (self-contained package).
+
+### `fleet-sensors.py` — cheap snapshot
+
+```bash
+python3 scripts/fleet-sensors.py --project <root>            # JSON
+python3 scripts/fleet-sensors.py --project <root> --text
+python3 scripts/fleet-sensors.py --project <root> --no-watch # skip mailspace watch
+```
+
+Emits board status, open handles, pane classes, git tip, fingerprint, `signals[]`, `quiet_hint`. Exit `0` ok · `1` hard error · `2` partial.
+
+### `fleet-baseline.py` — mind-baseline bookkeeping
+
+```bash
+python3 scripts/fleet-baseline.py get -p <root>
+python3 scripts/fleet-baseline.py bump -p <root> -s 'sleep' --quiet \
+  --fingerprint-file /tmp/sensors.json
+python3 scripts/fleet-baseline.py rearm-note -p <root>
+python3 scripts/fleet-baseline.py wound-up -p <root> -s 'wound_up' --dropped hand-1,hand-2
+```
+
+`--project/-p` may appear before or after the subcommand. `bump` increments `last_cycle`, quiet/mode counters, stores fingerprint/pane_classes, and touches `mind_loop.last_successful_cycle_at` (pair with `steward.sh rearm`).
+
+### `fleet-doorbell.sh` — Grok/Pi pointer wake
+
+```bash
+scripts/fleet-doorbell.sh --project <root> hand-1 [--handle HEX] [--note '…'] [--force]
+```
+
+Resolves fleet.json `tmux_target`; refuses running/down/rate-limit unless `--force`; records `last_hand_wake` in baseline.
+
+### `codex-reinit.sh` — Codex doctor/heal/reinit
 
 Fleet-agnostic Codex doctor/heal/reinit (ported from faberlang production helper).
 
@@ -20,6 +54,9 @@ scripts/codex-reinit.sh classify hand-2
 - Exit codes: reinit `0/1/2 stuck_idle/3`; doctor `0/1/2` as in script header
 - Fleets may symlink into `.vivi/codex-reinit.sh` and wrap env
 
+### `steward.sh` — dead-man
+
+See [`dead-man.md`](dead-man.md). `arm` / `rearm` / `disarm` / `check` / `clear` / `loop`.
 ## Runtime fallback (capacity / unavailability)
 
 **Invariant:** assignment (hand-N, side lane, merge rights) does **not** change when a model is full. Only **runtime** rebinds (`agent_model`, `agent_launch`, and only carefully `agent` / `wake_mode`). Source of truth: fleet `runtime_fallback` + per-hand fields + **Harness alignment**.
