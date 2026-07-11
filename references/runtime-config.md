@@ -215,8 +215,8 @@ Recommended keys (extend freely; skill cares about meanings):
       "packet": { "slug": "…", "branch": "…", "state": "assigned" }
     }
   },
-  "head-strategist": {
-    "mail_identity": "head-strategist",
+  "head-ceo": {
+    "mail_identity": "head-ceo",
     "agent": "pi",
     "agent_model": "glm-5.2",
     "thinking": "high",
@@ -224,8 +224,8 @@ Recommended keys (extend freely; skill cares about meanings):
     "clean_slate_per_assignment": true,
     "role_prompt": "<camp-path>/strategist-role-prompt.txt"
   },
-  "head-correctness": {
-    "mail_identity": "head-correctness",
+  "head-cto": {
+    "mail_identity": "head-cto",
     "agent": "pi",
     "agent_model": "glm-5.2",
     "thinking": "high",
@@ -265,7 +265,7 @@ active_packets{} or active_lanes{}   # slug → head, branch, worker
 last_thorough_cycle, last_thorough_fingerprint
 fleet_mirror / pane_classes   # (legacy key: hunter_fleet)
 last_hand_wake_*, last_codex_reinit_*, last_runtime_fallback   # (legacy: last_hunter_wake_*)
-head-strategist.{awaiting_report, last_assign_handle, last_reinit_at}
+head-ceo.{awaiting_report, last_assign_handle, last_reinit_at}
 side_lane_candidates[] optional
   # {id, title, why_off_main, seams, packet_scope,
   #  effort S|M|L|XL, est_tokens, est_basis,
@@ -275,7 +275,7 @@ cost_calibration[] optional
   # {id, title, strategist_effort, est_tokens, actual_tokens, delta_ratio,
   #  strategist_model, hand_model, closed_at, notes}
   # Mind uses recent delta_ratio to bias pick order / capacity packing
-head-correctness.last_report_*, head-purity.last_report_*
+head-cto.last_report_*, head-purity.last_report_*
 mind_loop.{state, handoff, mechanism, …}   # armed | running | stopping | wound_up; mechanism e.g. grok_/loop
 half_dead[] optional                # path, class A/B/C, age_cycles, note
 polish_advisory optional:
@@ -353,5 +353,5 @@ Part of orderly camp shutdown (and lifecycle **Retire**).
 2. Read baseline handoff + open taskings
 3. Refill starvation if maps still have work
 4. Set `mind_loop.state = armed|running`; clear or archive wind-up block
-5. Optional head-strategist assign if structural debt remains (e.g. merge-order research)
+5. Optional head-ceo assign if structural debt remains (e.g. merge-order research)
 6. Mind remains the operator TUI — do not recreate a `reviewer` pane

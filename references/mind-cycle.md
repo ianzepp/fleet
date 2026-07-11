@@ -89,8 +89,8 @@ In autonomous mode, Mind **still**:
 In autonomous mode, Mind **does not**:
 
 - Deep-plan strategy “because the model can”
-- Act as post-merge **code audit** (that is **head-correctness on main**)
-- Wait multi-cycle on head-strategist when a safe default exists
+- Act as post-merge **code audit** (that is **head-cto on main**)
+- Wait multi-cycle on head-ceo when a safe default exists
 - Freeze on class A formatter dirt without opening the diff
 
 **Escalation ladder (cheapest first):**
@@ -101,9 +101,9 @@ In autonomous mode, Mind **does not**:
 | Class A dirt / obvious residual | Style-commit or **task** To Hand **now** |
 | Implementable defect | **task** To owning Hand |
 | Human-only wall | **need** To operator (default + options); **pivot** other work — do not idle |
-| Structural sequencing only (optional) | head-strategist assign — **do not block** product cycles waiting; decide interim default |
+| Structural sequencing only (optional) | head-ceo assign — **do not block** product cycles waiting; decide interim default |
 
-Waiting several cycles for head-strategist “permission” is a rules-of-engagement failure.
+Waiting several cycles for head-ceo “permission” is a rules-of-engagement failure.
 
 ### Interactive duties
 
@@ -115,7 +115,7 @@ Maintain a short list of **material** changes since `last_operator_message_at`: 
 
 ### Interaction with thorough cycles
 
-Thorough/superficial cadence still applies (`cycle % N == 0` for thorough). In **autonomous**, thorough is residual-shaped (diff in scope → file tasks/needs) — **not** peer code review of every packet. **head-correctness** does deeper review on main after merge.
+Thorough/superficial cadence still applies (`cycle % N == 0` for thorough). In **autonomous**, thorough is residual-shaped (diff in scope → file tasks/needs) — **not** peer code review of every packet. **head-cto** does deeper review on main after merge.
 
 ## Fail-fast wake (context budget)
 
@@ -344,7 +344,7 @@ Camps with **no polish history** score very high (large “never polished” pen
 | One bounded list after main moves | Every-cycle repo-wide polish thrash |
 | Score = churn-since-polish routing | “High score means bug” |
 
-**head-correctness** still owns post-main **bug** review. **head-purity** still owns excess-layer audits. Polish advisory is ship-quality hygiene only.
+**head-cto** still owns post-main **bug** review. **head-purity** still owns excess-layer audits. Polish advisory is ship-quality hygiene only.
 
 ## Major-inflection housekeeping (Mind — expensive, rare)
 
@@ -400,14 +400,14 @@ If unsure whether a merge is “large,” **default to no housekeeping** and fil
 
 ## Residual scan (Mind) — not peer code review
 
-Hands optimize for throughput and **own ship quality**. Mind optimizes for **bag honesty, Status honesty, and integration**. Deep **code review** is **head-correctness on main after merge**.
+Hands optimize for throughput and **own ship quality**. Mind optimizes for **bag honesty, Status honesty, and integration**. Deep **code review** is **head-cto on main after merge**.
 
 **When to open a residual pass (bounded):**
 
 - Thorough cycle (`cycle % N == 0` / paid path), **or**
 - Superficial cycle if: new HEAD on focus repos, **or** dirty product paths, **or** Status flip without evidence
 
-In **autonomous** mode, keep it residual-shaped and short; **decide now** on obvious residuals; do not wait on head-strategist for reversible defaults.
+In **autonomous** mode, keep it residual-shaped and short; **decide now** on obvious residuals; do not wait on head-ceo for reversible defaults.
 
 **How:**
 
@@ -428,16 +428,16 @@ Safety-critical implementable findings (data loss, auth, destructive scope): hig
 | --- | --- | --- | --- |
 | **Absorb** | Reconcile sensors into baseline/bag awareness | Every cycle when something moved | Low — bookkeeping honesty |
 | **Accept** | Integration accept: unit/packet good enough to clear review debt, close map square, or queue merge to hand-1 | Thorough or opportunistic residual pass with honest evidence | Medium — tests/claims/scope honesty, not full code review |
-| **Code review** | **head-correctness** on **main after merge** | After land on main | High — bugs, fail-closed, multi-theme interactions |
+| **Code review** | **head-cto** on **main after merge** | After land on main | High — bugs, fail-closed, multi-theme interactions |
 
 | Role | Says… |
 | --- | --- |
 | **Hand** | Delivered / task **done** (evidence) — never “absorb” or “accept” |
 | **Mind** | **Absorb** when moved; **integration accept** when evidence is honest enough to proceed |
-| **head-correctness** | Post-main review findings → Mind triages to tasks |
+| **head-cto** | Post-main review findings → Mind triages to tasks |
 | **Operator** | May force priority |
 
-**Anti-pattern:** writing “absorb” as if it meant accept; or Mind doing multi-page code review of every packet while head-correctness idles.
+**Anti-pattern:** writing “absorb” as if it meant accept; or Mind doing multi-page code review of every packet while head-cto idles.
 
 ## Review debt
 
@@ -471,7 +471,7 @@ Cheap fingerprint should include:
 3. **Each active packet:** `git -C worktrees/<slug>/<writable> status` + `rev-parse HEAD` + branch name
 4. Pane class per Hand
 
-Packet dirty counts as that worker’s mid-flight WIP (residual-scan scope for Mind; not head-correctness’s primary surface).
+Packet dirty counts as that worker’s mid-flight WIP (residual-scan scope for Mind; not head-cto’s primary surface).
 
 ## Merge task body (to hand-1)
 

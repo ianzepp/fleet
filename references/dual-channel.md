@@ -40,7 +40,7 @@ vivi mail watch | vivi task watch | vivi need watch | vivi want watch
 | `--kinds mail,task,need` | Default; `want` opt-in via `--kinds` |
 | `--events delivered,moved` | Default lifecycle |
 | `--match-from hand-2` | Only that Hand’s deliveries |
-| `--match-subject-prefix …` | e.g. ready-to-merge / `head-strategist report:` |
+| `--match-subject-prefix …` | e.g. ready-to-merge / `head-ceo report:` |
 | `--handle <h>` | Wait for one item |
 | `--once` | Non-blocking scan — **prefer on fail-fast cycles** |
 | `--until-count N` | Exit after N matches (default 1) |
@@ -81,7 +81,7 @@ vivi mail thread <handle> --project <root> [--json] [--infer] [--limit 50] [--ma
 | Who | When |
 | --- | --- |
 | **Hand** | After selecting a handle, if replies/notes obscure done-when — thread before re-asking Mind |
-| **Mind** | Before filing a residual that depends on prior mail; absorb head-strategist / RTM threads |
+| **Mind** | Before filing a residual that depends on prior mail; absorb head-ceo / RTM threads |
 | **Either** | `--infer` only for historical best-effort links (marked; never overrides captured links) |
 
 Reply lineage: `vivi mail reply <handle>`; sends support `--reply-to`; lifecycle `--note` becomes a captured reply (Vivi 4.6).
@@ -95,7 +95,7 @@ Reply lineage: `vivi mail reply <handle>`; sends support `--reply-to`; lifecycle
 | `mind@…` | **none** | Operator TUI only |
 | `hand-1@…` | `hand-1` | `hand-1` or `hand-1:1.1` (respect window base-index) |
 | `hand-2@…` | `hand-2` | `hand-2` |
-| `head-correctness@…` | `head-correctness` | `head-correctness:1.1` |
+| `head-cto@…` | `head-cto` | `head-cto:1.1` |
 
 Put the map in **project fleet config** (camp-local path). Example shape:
 
@@ -133,8 +133,8 @@ Put the map in **project fleet config** (camp-local path). Example shape:
       "min_seconds_between_wakes": 180
     }
   },
-  "head-strategist": { "mail_identity": "head-strategist", "tmux_session": "head-strategist", "agent": "pi" },
-  "head-correctness": { "mail_identity": "head-correctness", "tmux_session": "head-correctness", "agent": "pi", "self_directed": true },
+  "head-ceo": { "mail_identity": "head-ceo", "tmux_session": "head-ceo", "agent": "pi" },
+  "head-cto": { "mail_identity": "head-cto", "tmux_session": "head-cto", "agent": "pi", "self_directed": true },
   "head-purity": { "mail_identity": "head-purity", "tmux_session": "head-purity", "agent": "pi", "self_directed": true },
   "binding_rule": "mail_identity == tmux_session token (Hands/Heads only; mind has no tmux)"
 }
@@ -147,7 +147,7 @@ Arm:
 ```bash
 vivi mailspace identity add mind --project <root>          # board only
 vivi mailspace identity add hand-1 --project <root>
-vivi mailspace identity add head-correctness --project <root>
+vivi mailspace identity add head-cto --project <root>
 tmux new-session -d -s hand-1 -c <cwd>                     # Hands/Heads only
 # no tmux for mind
 ```

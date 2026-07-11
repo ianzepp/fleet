@@ -1,3 +1,3 @@
 display_name: Fleet
 short_description: Mind/Head/Hand multi-agent fleet — ops, advisors, workers.
-default_prompt: Use $fleet for multi-agent project loops (Abbot Mind/Head/Hand). Mind (ops) is the operator TUI + board mail mind@ (no tmux). Hands (hand-1…hand-N) clear targets. Heads (head-strategist / head-correctness / head-purity) advise. Dual channel Vivi + tmux. Theme vs unit RTM; base-update; runtime fallback; don't-get-stuck. No stage GO/NO-GO. Use $mail for Vivi CLI.
+default_prompt: Use $fleet for multi-agent project loops (Abbot Mind/Head/Hand). Mind (ops) is the operator TUI + board mail mind@ (no tmux). Hands (hand-1…hand-N) clear targets. Heads (head-ceo / head-cto / head-purity; optional org personas under references/heads/) advise. Dual channel Vivi + tmux. Theme vs unit RTM; base-update; runtime fallback; don't-get-stuck. No stage GO/NO-GO. Use $mail for Vivi CLI.

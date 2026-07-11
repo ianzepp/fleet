@@ -56,7 +56,7 @@ Not a hard stop: missing Mind congratulations or “GO” mail.
 
 | Role | Duty |
 | --- | --- |
-| **head-strategist** | Maintain / report a **side-lane candidate bucket** with **effort + est_tokens** per item — bounded packages safe off main |
+| **head-ceo** | Maintain / report a **side-lane candidate bucket** with **effort + est_tokens** per item — bounded packages safe off main |
 | **Mind** | Choose from that bucket (or map) using size + calibration deltas; bind packet; **file** tasks; wake/reinit; record actual vs est when done |
 | **hand-2+** | Execute only assigned targets in their packet cwd — never invent main spine |
 

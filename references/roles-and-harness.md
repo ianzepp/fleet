@@ -8,8 +8,8 @@ Load when arming a fleet, rebinding runtimes, or clarifying Mind/Hand/Head dutie
 | --- | --- | --- | --- |
 | **Hand** | `hand-1`…`hand-N` (legacy: `hunter-N`, `codex`) | Take a **selected target** and finish it | Done tasks/needs + evidence; optional turn-end mail To `mind` |
 | **Mind** | Board **`mind@…` only** — **no tmux**; process = operator TUI | Survey product; **dole out** tasking; integrate; fleet ops; pick from strategist buckets; **track est vs actual cost** | Open tasks/needs; pane scan; wake/reinit; merge queue; `cost_calibration` |
-| **head-strategist** (Head) | `head-strategist` | Ownership, sequencing, seams; **hand-2+ buckets with effort + est_tokens** — not bag drain | Mail `head-strategist report:` To `mind` (candidates include cost ballparks) |
-| **head-correctness** (Head) | `head-correctness` | **Code review / bug hunt on main after merge** | Mail `head-correctness:` To `mind` |
+| **head-ceo** (Head) | `head-ceo` (legacy: head-strategist) | Vision, sequencing; **hand-2+ buckets with effort + est_tokens** | Mail `head-ceo report:` To `mind` |
+| **head-cto** (Head) | `head-cto` (legacy: head-correctness) | **Code review / bug hunt on main after merge** | Mail `head-cto:` To `mind` |
 | **head-purity** (Head) | `head-purity` | Self-directed unearned-complexity / excess-layer audit | Mail `head-purity:` To `mind` |
 
 One Mind owns the tasking bag and integration clock: **Mind files and wakes; Heads advise.** Heads never merge, never keep product tasking “full,” and never stamp GO/NO-GO. **head-strategist** proposes **what hand-2+ could work on** (side-lane bucket); Mind decides when to bind a packet and file. Reports To: **mind** (board); Mind triages into hand-N tasks/needs.
@@ -159,25 +159,25 @@ Heads need not match Mind’s product harness. Prefer Pi even when Mind is Grok 
 
 - Issue stage start/closeout GO/NO-GO as binding protocol
 - Require multi-round mail before the next map square
-- **Own fleet code-review quality** (that is **head-correctness on main after merge**)
+- **Own fleet code-review quality** (that is **head-cto on main after merge**)
 - Run full `$polish` or `$housekeeping` itself; thrash polish every quiet cycle; fire housekeeping on routine main lands
 - Steal the Hand’s unit or rewrite their WIP mid-flight (raise; don’t hijack unless operator asks)
 - Treat status-only dirty as multi-cycle freeze without classification
 - Require introspecting its own model/reasoning tier to choose behavior
 - Treat Hand/Head board mail or a **FLEET_CYCLE-only** payload as operator engagement (human chat *between* fires still counts)
-- Wait multiple cycles on head-strategist for a decision it can make with a default
+- Wait multiple cycles on head-ceo for a decision it can make with a default
 - Treat strong guidance as a hard ban that freezes progress
 - Run as a dedicated **`reviewer` / gatherer** mail+tmux identity (retired)
 - Create tmux for **`mind`** (board inbox only)
 
-## head-correctness does (Head)
+## head-cto does (Head)
 
 - Prefer **main checkout** as the review surface after themes/units land on main
-- Self-directed bug / fail-closed / invariant audit; report `head-correctness:` To Mind
+- Self-directed bug / fail-closed / invariant audit; report `head-cto:` / `head-correctness:` To Mind
 - File or recommend **tasks** for implementable defects (Mind triages to owning Hand)
 - Do **not** try to juggle every packet worktree as the primary continuous review surface
 - Do **not** act as merge GO/NO-GO; build-fast means some bugs reach main and get fixed there
 
 ## Heads do not
 
-Approve/disapprove work as a gate, race Mind on acceptance, merge to main, or own product tasking. **head-strategist** proposes sequencing/ownership and **side-lane (hand-2+) candidate buckets**; **head-correctness** reviews main; **head-purity** reports shape debt. Mind triages into the bag and coordinates live Hands.
+Approve/disapprove work as a gate, race Mind on acceptance, merge to main, or own product tasking. **head-ceo** proposes sequencing/ownership and **side-lane (hand-2+) candidate buckets**; **head-cto** reviews main; **head-purity** reports shape debt. Mind triages into the bag and coordinates live Hands.

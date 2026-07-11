@@ -1,39 +1,41 @@
 # Head loops (advisors)
 
-Load when running **head-strategist** / **head-correctness** / **head-purity**, or triaging Head mail as Mind.
+Load when running **head-ceo** / **head-cto** / **head-purity** (or legacy **head-strategist** / **head-correctness**), or triaging Head mail as Mind.
 
-Heads are **not** product lanes. Do not keep-screen-moving refill them with map packages. They never merge and never own `pending_merges`. Prefer **Pi + GLM 5.2 (high or xhigh)** for all advisors — one-shot assign→report, second-party opinion. See `roles-and-harness.md`. Canonical identities: `head-*` (mail + tmux). Reports **To: mind** (board only).
+**Cast + personas:** [`heads/cast.md`](heads/cast.md) and [`heads/personas/`](heads/personas/) (folded in from archived `$executive-team`). Load a persona file only when assigning that Head for depth — not every FLEET_CYCLE.
 
-## head-strategist research loop (mail; every Mind cycle, fail-fast)
+Heads are **not** product lanes. Do not keep-screen-moving refill them with map packages. They never merge and never own `pending_merges`. Prefer **Pi + GLM 5.2 (high or xhigh)** for all advisors — one-shot assign→report, second-party opinion. See `roles-and-harness.md`. Canonical identities: `head-*` (mail + tmux when armed). Reports **To: mind** (board only).
 
-1. Sensors: mail list for head-strategist (or Mind inbox for `head-strategist report:`) + baseline `head_strategist.*`
-2. If `head_strategist.awaiting_report` and no new report yet → **do not re-assign**; note “head-strategist in flight”; continue hands
-3. If a **head-strategist report** arrived → absorb; optional triage to Hand tasks/needs; set `awaiting_report=false`
+## head-ceo research loop (legacy: head-strategist) (mail; every Mind cycle, fail-fast)
+
+1. Sensors: mail list for head-ceo / legacy head-strategist (or Mind inbox for `head-ceo report:` / `head-strategist report:`) + baseline `head_ceo.*` (legacy `head_strategist.*`)
+2. If `head_ceo.awaiting_report` (or legacy `head_strategist.awaiting_report`) and no new report yet → **do not re-assign**; note “head-ceo in flight”; continue hands
+3. If a **head-ceo / head-strategist report** arrived → absorb; optional triage to Hand tasks/needs; set `awaiting_report=false`
 4. If **not** awaiting and ready for a new question → **clean-slate reinit + one assign**:
-   1. File assignment mail **To: head-strategist** first (handle exists)
-   2. Reinit head-strategist process: quit/kill current agent, **fresh** launch from fleet `head-strategist.agent_launch` in fleet cwd — not “continue old chat”
+   1. File assignment mail **To: head-ceo** (or legacy head-strategist) first (handle exists)
+   2. Reinit head-ceo process: quit/kill current agent, **fresh** launch from fleet `head-ceo.agent_launch` (or legacy head-strategist) in fleet cwd — not “continue old chat”
    3. Bootstrap pointer only: role prompt path, show assign handle, research, report via board **To: mind**, idle
    4. Set `awaiting_report=true`; record `last_reinit_at` + assign handle
 5. Prefer mail for assignment body; short tmux pointer after reinit is OK
 6. Reports may take 5–10+ minutes — **do not thrash** while outstanding
 
-### head-strategist assignment quality (anti-fragile)
+### head-ceo assignment quality (anti-fragile)
 
-head-strategist advises ownership, sequencing, seams, gate honesty, misprioritization, and **side-lane capacity** — **not** driving product and **not** racing the tasking bag.
+**head-ceo** (persona: CEO) advises ownership, sequencing, seams, gate honesty, misprioritization, and **side-lane capacity** — **not** driving product and **not** racing the tasking bag.
 
 **Division of labor (multi-hand):**
 
 | Who | Job |
 | --- | --- |
 | **Mind** | Dole out work; pack capacity; record est vs actual cost calibration |
-| **head-strategist** | Side-lane **bucket** with effort + est_tokens; sequencing — not bag drain |
+| **head-ceo** | Side-lane **bucket** with effort + est_tokens; sequencing / vision — not bag drain |
 | **Hands** | Execute assigned targets only |
 
-Mind does not need strategist permission to file an obvious next spine unit. Strategist does not file Hand tasks or own empty-bag refill.
+Mind does not need head-ceo permission to file an obvious next spine unit. head-ceo does not file Hand tasks or own empty-bag refill.
 
-### Side-lane / hand-2+ capacity bucket (strategist output)
+### Side-lane / hand-2+ capacity bucket (head-ceo output)
 
-When hand-2+ exists in the fleet, strategist reports should routinely include (or be assignable to answer):
+When hand-2+ exists in the fleet, head-ceo reports should routinely include (or be assignable to answer):
 
 ```text
 ## Side-lane candidates (hand-2+ if available)
@@ -51,7 +53,7 @@ When hand-2+ exists in the fleet, strategist reports should routinely include (o
 - hold / next priority after current spine
 ```
 
-**Effort + token estimates (strategist duty — ballpark only):**
+**Effort + token estimates (head-ceo duty — ballpark only):**
 
 Aligned with global Agents **Token Budget**: scope by expected token cost as well as value; estimate large work by shape (context, implement, bulk output, validation failures, fix loops, review). When a task includes estimates, record actuals later and compare.
 
@@ -73,11 +75,11 @@ Bands are **routing hints**, not contracts. Prefer ranges (`~200k–350k`) over 
 2. Pick/file when hand-2 idle+empty; match size to free capacity using estimates + recent calibration.
 3. Bound candidate → `status: bound`, `filed_handle`, `filed_at`.
 4. On Hand done / theme absorb → record **actual** tokens (harness usage if exposed, else Mind ballpark labeled `actual_source`).
-5. Append `cost_calibration[]` row: `{est_tokens, actual_tokens, delta_ratio≈actual/est, strategist_model, hand_model, …}`.
-6. Bias later picks with recent deltas (e.g. “this pair runs ~1.5× strategist est”) — numbers inform; they do not hard-block.
+5. Append `cost_calibration[]` row: `{est_tokens, actual_tokens, delta_ratio≈actual/est, head_model, hand_model, …}`.
+6. Bias later picks with recent deltas (e.g. “this pair runs ~1.5× head-ceo est”) — numbers inform; they do not hard-block.
 7. Stale candidates: re-ask or drop — do not thrash every quiet cycle.
 
-**Strategist** owns estimates. **Mind** owns actuals + calibration. Hands need not invent token math (optional turn-end harness usage if the TUI shows it).
+**head-ceo** owns estimates. **Mind** owns actuals + calibration. Hands need not invent token math (optional turn-end harness usage if the TUI shows it).
 
 **Avoid:** questions that die if a tasking item lands while you read mail.
 
@@ -87,40 +89,40 @@ Bands are **routing hints**, not contracts. Prefer ranges (`~200k–350k`) over 
 | Real stage/gate vs static-only overclaim | Minute-by-minute merge queue alone |
 | Theme vs unit cadence; fake board deps | Assumptions mid-flight unit is done/not |
 | Conditional paths (“if red → …; if green → …”) | A single HEAD SHA as durable law |
-| Side-lane candidate bucket vs spine | “Fill hunter-2 bag now with task Y” as if strategist were Mind |
+| Side-lane candidate bucket vs spine | “Fill hunter-2 bag now with task Y” as if head-ceo were Mind |
 
 **How to write assigns:**
 
 1. **Structural question first** (1–3 sentences that stay meaningful for hours)
-2. **Optional live snapshot** second, labeled ephemeral; tell head-strategist to re-verify
+2. **Optional live snapshot** second, labeled ephemeral; tell head-ceo to re-verify
 3. Prefer **conditionals** over “do X now because bag is empty”
-4. Mind still acts on live bag reality; head-strategist informs *how to think* and **what parallel work is coherent**
+4. Mind still acts on live bag reality; head-ceo informs *how to think* and **what parallel work is coherent**
 5. When multi-hand fleet: prefer “durable hand-2+ bucket **with effort + est_tokens per item**?” over pure sequencing trivia
 
-**head-strategist duty on stale assign:** re-read live evidence; one-line correction of stale premises; answer the structural question anyway.
+**head-ceo duty on stale assign:** re-read live evidence; one-line correction of stale premises; answer the structural question anyway.
 
-## head-correctness auditor loop (self-directed) — **owns code review**
+## head-cto auditor loop (self-directed) — **owns code review** (legacy: head-correctness)
 
-Identity/session: `head-correctness` (mail + tmux). Typical subject prefix: `head-correctness:`.
+Identity/session: `head-cto` (legacy: `head-correctness`) (mail + tmux). Typical subject prefix: `head-cto:` / `head-correctness:`.
 
-**Ownership:** head-correctness is the fleet **code-review** Head. Mind does **not** peer-review every Hand WIP. Hands still own ship quality (implement, validate, polish).
+**Ownership:** **head-cto** (persona: CTO) is the fleet **code-review** Head. Mind does **not** peer-review every Hand WIP. Hands still own ship quality (implement, validate, polish).
 
 **Surface: main after merge.** Prefer reviewing **main** (or the integration line products land on) **after** theme/unit merges — not continuous multi-worktree juggling. Cross-theme bugs often appear only once multiple themes share main; that is expected under build-fast / fail-fast. Bugs on main → tasks To the Hand that owns the fix (often hand-1 for spine, or the originating packet owner if still assigned).
 
-1. Sensors: has-session; pane class; Mind inbox for head-correctness reports; **main HEAD/dirty** for focus repos
+1. Sensors: has-session; pane class; Mind inbox for head-cto / head-correctness reports; **main HEAD/dirty** for focus repos
 2. Session **down** → recreate per fleet + role-prompt bootstrap (unless operator paused)
-3. New report → Mind **absorbs**: triage into task/need **To owning Hand** when actionable; doorbell if idle; record baseline `head_correctness.last_report_*`; optional chat brief (problem ¶ + action ¶)
+3. New report → Mind **absorbs**: triage into task/need **To owning Hand** when actionable; doorbell if idle; record baseline `head_cto.last_report_*` (legacy head_correctness); optional chat brief (problem ¶ + action ¶)
 4. **Do not** assign work every cycle. Soft-wake only if stuck idle long with no recent mail — pointer only to continue next pass + role path
-5. Never map-refill head-correctness as a product lane
-6. Do **not** act as merge GO/NO-GO or block hand-1 merges awaiting a head-correctness stamp
+5. Never map-refill head-cto as a product lane
+6. Do **not** act as merge GO/NO-GO or block hand-1 merges awaiting a head-cto stamp
 
 ## head-purity auditor loop (self-directed)
 
-Identity/session: `head-purity`. Typical subject prefix: `head-purity:`. Often same harness class as head-strategist. **Not** clean-slate every report. Prefer **compact between passes** so context stays small.
+Identity/session: `head-purity`. Typical subject prefix: `head-purity:`. Often same harness class as head-ceo. **Not** clean-slate every report. Prefer **compact between passes** so context stays small.
 
 1. Sensors: has-session; pane class; head-purity report mail
 2. Down → recreate per fleet + role bootstrap
 3. New report → absorb; triage simplify/design targets To owning Hand (prefer over drive-by rewrites mid-product unit); doorbell if idle and targets ready
 4. Optional soft focus mail (`head-purity assign: <area>`) — not required every cycle
 5. Soft-wake hygiene: compact keep identity+role+lens, then next pass; clean-slate reinit only if compact fails, confused, or operator asks
-6. Never map-refill head-purity. Do not confuse with head-correctness (bugs) or head-strategist (priority/ownership / clean-slate-per-assign)
+6. Never map-refill head-purity. Do not confuse with head-cto (bugs) or head-ceo (priority/ownership / clean-slate-per-assign)
