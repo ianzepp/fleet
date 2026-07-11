@@ -170,6 +170,15 @@ Deep work (full delivery re-read, full tests, dump) only on paid path — or whe
 
 After cheap sensors, set `cycle = last_cycle + 1` (write at end of cycle). Cadence commonly **3–5 minutes** per fire.
 
+### Cadence by execution shape
+
+| Shape | Default cadence |
+| --- | --- |
+| **Manual / unscheduled Mind polling** | Sleep **at least 60 seconds** between unchanged checks. Shorter polling creates needless churn. |
+| **Formal scheduled loop** | Fire every **3–5 minutes**: use ~3 minutes for fine-grained or fast-moving tasks and ~5 minutes for coarser work. |
+
+Grok supports the formal scheduled-loop pattern. Codex does not currently provide that fleet pattern; when Codex is Mind, use discrete cycles separated by a shell `sleep` of at least 60 seconds. Keep each wake fail-fast regardless of cadence.
+
 | Kind | When | Work |
 | --- | --- | --- |
 | **Mail interrupt** | Always first | Permission / review / Q from hands or operator → answer **same wake** |

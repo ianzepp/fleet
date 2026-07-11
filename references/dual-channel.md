@@ -209,6 +209,18 @@ Under **Harness alignment**, product Hands share Mind’s harness, so the fleet 
 4. One short first message: identity, never merge main (if packet), `vivi --for hunter-N`, open handle(s), one verb, optional one-line unblock fact
 5. Enter once. Record `last_codex_reinit_at` in baseline
 
+### Goal bootstrap support
+
+Use harness-native goal mode only where it is supported and useful:
+
+| Harness | `/goal` guidance |
+| --- | --- |
+| **Codex** | **Preferred supported target.** The initial bootstrap may begin with `/goal <bounded objective>`; Codex treats it as the command and pursues the goal. Include the identity, task handle, scope, and done condition in the same short bootstrap. |
+| **Grok** | Supported, but avoid by default. Prefer the normal pointer or Grok scheduled-loop pattern unless the operator explicitly wants `/goal`. |
+| **Pi** | Not supported. Send a plain task pointer/prompt. |
+
+Do not stack `/goal` onto an already-running turn or use it as a generic wake line. File the board target first, then use `/goal` during a clean Codex reinit when the work is a coherent bounded objective.
+
 Production helper: skill `scripts/codex-reinit.sh` (doctor / heal / reinit / classify). Set `PROJECT` and `FLEET`. See `runtime-config.md`.
 
 ## Doorbell (wake) — primarily Grok
