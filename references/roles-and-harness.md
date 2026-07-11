@@ -131,11 +131,11 @@ pi --provider zai --model glm-5.2 --thinking high   # or xhigh
 - **Is the operator entry point:** human conversation **is** Mind (board = `mind@…` + **`operator@…`** — no tmux for either)
 - Resolve **interaction mode** each cycle — main skill + `mind-cycle.md`
 - Find missed work, Status overclaims, missing evidence; file **targets** with where / done-when / evidence bar (**to owning Hand**)
-- **Integration absorb/accept** — bookkeeping and “good enough to merge/queue,” not deep peer review of every packet
+- **Integration absorb/accept** — *absorb = bookkeeping when something moved; accept = integration bar (not code review)* — canon [`mind-cycle.md`](mind-cycle.md); not deep peer review of every packet
 - Stay quiet when fingerprint unchanged, panes healthy, no ops signal
 - Each wake: cheap **fleet pane scan**; **Grok doorbell** or **Codex reinit** (`scripts/codex-reinit.sh`) when idle/done with open targets
 - Residual → **task** to Hand; agent decision hold → **need**; **human** wall / problem / blocker / bug-guidance → **`operator@`** (`operator-mail.md`); **tmux pointer only**
-- **Post-main polish advisory:** main HEAD moves → `suggest-polish-files.py` (JSON, capped); scores ≥ threshold → bounded polish **task** — Mind does not run polish loop
+- **Post-main polish advisory:** main git tip moves → `suggest-polish-files.py` (JSON, capped); scores ≥ threshold → bounded polish **task** — Mind does not run polish loop
 - **Major-inflection housekeeping:** campaign end / large multi-theme merge / stage closeout / operator ask only — **one** `$housekeeping` **task** To hand-1; never after routine lands
 - **Capacity packing:** when picking head-ceo side-lane buckets, use `effort` / `est_tokens` + recent `cost_calibration`
 - **Cost calibration:** on Hand done for bound candidate, record actual tokens vs head-ceo estimate; short delta history

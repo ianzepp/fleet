@@ -1,13 +1,14 @@
 # Fleet guide (first exposure)
 
-**Audience:** human or LLM seeing multi-agent `$fleet` for the first time.
+**Audience:** human or LLM seeing multi-agent `$fleet` for the first time.  
+**Cold attach / post-`/compact`:** load this once for vocabulary, then `SKILL.md`. Not every FLEET_CYCLE.
 
 | Need | Go to |
 | --- | --- |
 | Install / init / re-attach | [`getting-started.md`](getting-started.md) |
-| Operating law | `fleet/SKILL.md` + `fleet/references/` when *running* |
+| Operating law | `SKILL.md` + surface refs when *running* |
 
-This guide = vocabulary and shape. **Do not** re-read every cycle.
+This guide = vocabulary and shape.
 
 ## What a fleet is
 
@@ -31,6 +32,19 @@ campaign / map
 ```
 
 **Progress** = open tasking + honest map — not approval stamps or stage GO/NO-GO.
+
+### Tokens
+
+| Token | Means |
+| --- | --- |
+| **`HEAD`** / main tip | Git commit pointer — not the advisor role |
+| **Head** / `head-*` | Advisor role — not git |
+| **bag** | Open tasks+needs for an identity |
+| **map** | Campaign/factory plan of packages |
+| **unit** / **theme** / **packet** | Work size · multi-unit chunk · hand-2+ worktree |
+| **RTM** | ready-to-merge mail signal |
+| **absorb** / **accept** | Bookkeeping when moved / integration bar — canon [`mind-cycle.md`](mind-cycle.md) |
+| **dirt A/B/C** | fmt · foreign semantic WIP · mixed hunks |
 
 ## Roles and identities
 
@@ -59,7 +73,7 @@ On return: present operator mail list first.
 
 | Who | Does | Does not |
 | --- | --- | --- |
-| **Mind** | File/refill bags, wake/reinit, merge clock, absorb, pack capacity; file/present **operator mail** | Peer-review every packet; run full `$polish`/`$housekeeping`; status To `operator@` |
+| **Mind** | File/refill bags, wake/reinit, merge clock, absorb (bookkeeping), pack capacity; file/present **operator mail** | Peer-review every packet; run full `$polish`/`$housekeeping`; status To `operator@` |
 | **operator@** | Accrue human problems/blockers/guidance | Status; Hand bag drain |
 | **hand-1** | Main; spine; **only** merge → main | Wait for GO mail; erase foreign WIP |
 | **hand-2+** | Packet/worktree lanes; unit→refill; theme→ready-to-merge | Merge to main; invent unbounded spine |
@@ -86,7 +100,7 @@ Hands share **Mind’s product harness**. Heads prefer different model/harness.
 4. **Mind cycles** — cheap sensors; act on signal; sleep when quiet  
 5. **Scheduled wakes** — `FLEET_CYCLE …` (not human prose)  
 6. **Mode** — engaged → **interactive**; silent cycles → **autonomous**; on return: **operator@** before recap  
-7. **Integration** — hand-2+ never merges; Mind accepts themes → merge task To hand-1 at clean breakpoint  
+7. **Integration** — hand-2+ never merges; Mind **accepts** themes (integration bar) → merge task To hand-1 at clean breakpoint  
 8. **Hygiene** — polish advisory after main lands; `$housekeeping` only at **major inflection**
 
 **Keep screen moving:** empty bag + map has unblocked work = **starvation** → file next + wake. Truly paused = say so.

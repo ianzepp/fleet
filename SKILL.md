@@ -32,6 +32,24 @@ Abbot **Mind / Head / Hand** roles on a **multi-session fleet** (Vivi board + tm
 **Ops always use fleet.json `tmux_target`.** No mind/operator tmux. No dual Mind process.  
 **Fleet** = project root + `.vivi/`.
 
+### Tokens (disambiguation)
+
+| Token | Means | Not |
+| --- | --- | --- |
+| **`HEAD`** / “main tip” | Git commit pointer (`git rev-parse HEAD`) | Advisor role |
+| **Head** / `head-*` | Advisor role (`head-ceo` / `head-cto` / `head-cxo`) | Git tip |
+| **bag** | Open tasks+needs for an identity (Vivi) | Status essays |
+| **map** | Campaign/factory plan of next packages | The bag itself |
+| **unit** | One implementable package of work | Full theme |
+| **theme** | Multi-unit delivery chunk; merge boundary for packets | Single residual |
+| **packet** | hand-2+ worktree/branch (not main) | Main checkout |
+| **RTM** | ready-to-merge (mail signal for a packet/theme) | Done on main |
+| **absorb** | Bookkeeping when something moved | Integration bar |
+| **accept** | Integration bar (clear review debt / queue merge) — not code review | absorb; head-cto audit |
+| **GO stamp** | Forbidden stage license / approval gate | Residual tasking |
+
+Canon for absorb/accept: [`mind-cycle.md`](references/mind-cycle.md) § Absorb vs accept. Do not invent a third meaning.
+
 | Invariant | Rule |
 | --- | --- |
 | Process | Mind fills bag; Hand empties. Progress = open tasking + map — not GO stamps |
@@ -44,9 +62,8 @@ Abbot **Mind / Head / Hand** roles on a **multi-session fleet** (Vivi board + tm
 
 | Mind hygiene | When | Action |
 | --- | --- | --- |
-| Polish advisory | Main HEAD moved | Cheap ranker → ≤1 bounded `$polish` task if scores ≥ threshold |
+| Polish advisory | Main **git `HEAD`** moved | Cheap ranker → ≤1 bounded `$polish` task if scores ≥ threshold |
 | Housekeeping | Campaign end / large merge / stage closeout / operator | One `$housekeeping` task To hand-1 — never routine lands |
-
 ```text
 map → MIND ─files→ bag → HAND clears target → residuals → MIND
        Vivi = work truth · tmux = process truth
@@ -69,17 +86,23 @@ Multi-agent project loops, factory/campaign residual+implementer, fail-fast 5–
 
 ## References
 
-Core process here; detail in `references/` + `scripts/`.  
-**Load:** arm/first Mind turn → this file + refs as needed. Quiet autonomous cycle → this file alone if state in context.
+Core process here; detail in `references/` + `scripts/`.
+
+| Context | Load |
+| --- | --- |
+| **Cold attach** (new session, empty context, post-`/compact` without recap) | This file + [`getting-started.md`](references/getting-started.md) §3 + [`fleet-guide.md`](references/fleet-guide.md) once for shape/vocab |
+| **Hot cycle** (mode/counters/state already in context) | This file alone if quiet; open a ref when that surface hits |
+| **Arm / first Mind turn on a live fleet** | This file + refs for surfaces you will touch this turn |
 
 | Load when | Path |
 | --- | --- |
 | Install / init / attach | [`getting-started.md`](references/getting-started.md) |
+| Vocab / shape (cold) | [`fleet-guide.md`](references/fleet-guide.md) |
 | Roles / harness / models | [`roles-and-harness.md`](references/roles-and-harness.md) |
 | Filing / starvation | [`tasking.md`](references/tasking.md) |
 | Board CLI | [`vivi.md`](references/vivi.md) |
 | Panes / wake / reinit | [`dual-channel.md`](references/dual-channel.md) |
-| Modes / fail-fast / polish / HK | [`mind-cycle.md`](references/mind-cycle.md) |
+| Modes / fail-fast / polish / HK / absorb·accept | [`mind-cycle.md`](references/mind-cycle.md) |
 | operator@ | [`operator-mail.md`](references/operator-mail.md) |
 | Steward | [`dead-man.md`](references/dead-man.md), [`scripts/steward.sh`](scripts/steward.sh) |
 | Multi-fleet | [`multi-fleet.md`](references/multi-fleet.md) |
@@ -88,7 +111,6 @@ Core process here; detail in `references/` + `scripts/`.
 | Remote | [`ssh-remote.md`](references/ssh-remote.md) |
 | Schema / ladders / wind-down | [`runtime-config.md`](references/runtime-config.md) |
 | Missing companions | [`companion-fallbacks.md`](references/companion-fallbacks.md) |
-| Vocab (rare) | [`fleet-guide.md`](references/fleet-guide.md) |
 | Sensors / baseline / doorbell | [`scripts/fleet-sensors.py`](scripts/fleet-sensors.py), [`fleet-baseline.py`](scripts/fleet-baseline.py), [`fleet-doorbell.sh`](scripts/fleet-doorbell.sh) |
 | Codex pane | [`scripts/codex-reinit.sh`](scripts/codex-reinit.sh) |
 | Portability smoke | [`scripts/lib/env.sh`](scripts/lib/env.sh), [`smoke-portability.sh`](scripts/smoke-portability.sh) |
@@ -105,11 +127,10 @@ Core process here; detail in `references/` + `scripts/`.
 | --- | --- | --- |
 | Decision / scope | need/mail + default+options same turn | Silent wait |
 | Awkward item | Switch targets | Topic monogamy |
-| Dirt on path | `git diff` → A/B/C | Status-only “foreign dirty” |
-| Integration lag | Queue merge/base-update; pivot product | Thrash re-verify |
-| Pane dead/idle+open | Wake/reinit/ladder | Stack wakes |
-| Human wall | operator@ + pivot | Silent stall |
-
+| Dirt on path | `git diff` → class A/B/C → act | Status-only “foreign dirty” |
+| Integration lag | Queue **merge** or **base-update** (whichever unblocks); **then** pivot other product work | Thrash re-verify on blocked consumer |
+| Pane dead/idle+open | Wake / reinit / runtime ladder | Stack wakes |
+| Human wall | File `operator@` + pivot | Silent stall |
 Sleep only if bag empty **and** map has no next unblocked unit.
 
 ### Dirt (half-dead targets)
@@ -175,7 +196,7 @@ Override: `Mind: deep` / `Mind: ops only`.
 
 Report tracks **mode**, not acted/sleep alone. Templates: [`mind-cycle.md`](references/mind-cycle.md).
 
-**Recap:** compact deltas since last operator (HEADs, handles, panes, mode, debt). Re-seed after `/compact`.
+**Recap:** compact deltas since last operator (git tips, handles, panes, mode, debt). Re-seed after `/compact`.
 
 ### Multi-fleet / steward / operator@
 
@@ -195,7 +216,7 @@ Report tracks **mode**, not acted/sleep alone. Templates: [`mind-cycle.md`](refe
 | mail | Deliberation — not primary queue |
 
 Kind ≠ severity. Hard stop = open tasks/needs. Not a stop = missing GO mail.  
-hand-1 = main + merges; hand-2+ = packets, never main merge; unit→refill; theme→RTM.  
+hand-1 = main + merges; hand-2+ = packets, never main merge; unit done → refill; theme done → RTM mail.  
 Starvation: empty product bag + map next → file+wake. [`tasking.md`](references/tasking.md)
 
 ## Dual channel (summary)
@@ -236,16 +257,17 @@ Host axis on slots: `host`, `ssh`, host-scoped cwd/tmux/launch. Wake/reinit **on
 | Who | When | Scope |
 | --- | --- | --- |
 | Hand | End of product unit | Primary sources this unit only; serial `$polish` |
-| Mind | Main HEAD moved | `suggest-polish-files.py` → ≤1 task, top files, score ≥ threshold (default 500) |
+| Mind | Main git tip moved | `suggest-polish-files.py` → ≤1 task, top files, score ≥ threshold (default 500) |
 | Mind | Major inflection only | One HK task To hand-1; never every land |
 
 ```bash
+# <skill> and <main> are placeholders — substitute real paths
 python3 <skill>/scripts/suggest-polish-files.py --repo <main> --json --limit 15
 ```
 
 ## Fail-fast
 
-Exit in seconds on sensors/ops. Mode first → sensors → sleep if quiet. Autonomous: thin ops + compact report. Interactive: fail-fast ops + **rich** report. No unbounded watch. **absorb** = bookkeeping; **accept** = integration bar. head-cto post-main.
+Exit in seconds on sensors/ops. Mode first → sensors → sleep if quiet. Autonomous: thin ops + compact report. Interactive: fail-fast ops + **rich** report. No unbounded watch. **absorb ≠ accept** (bookkeeping vs integration bar) — [`mind-cycle.md`](references/mind-cycle.md). **head-cto** post-main code review.
 
 ## Shared workspace
 
@@ -261,9 +283,12 @@ Skill = portable process. Overlay = roster, paths, models, ssh, maps, Status.
 ```
 
 ```bash
-python3 <skill>/scripts/fleet-sensors.py --project <root> [--text]
-<skill>/scripts/fleet-doorbell.sh --project <root> hand-1 [--handle HEX]
-python3 <skill>/scripts/fleet-baseline.py bump -p <root> -s '…' [--quiet|--acted]
+# Placeholders: <skill> <root> <hex> — tokens without <> are literals (--text, rearm, …)
+python3 <skill>/scripts/fleet-sensors.py --project <root> --text
+python3 <skill>/scripts/fleet-sensors.py --project <root>   # JSON default
+<skill>/scripts/fleet-doorbell.sh --project <root> hand-1 --handle <hex>
+python3 <skill>/scripts/fleet-baseline.py bump -p <root> -s 'sleep' --quiet \
+  --fingerprint-file /tmp/fleet-sensors.json
 scripts/steward.sh rearm --project <root>
 ```
 
@@ -273,7 +298,7 @@ Desktop Mind OK; Hands stay terminal/tmux. Schema: [`runtime-config.md`](referen
 
 **Bag:** GO warden; severity-as-kind; sleep while map has work; dual Mind; Heads own bags; hand-2 empty while side track exists; wait on head-ceo for obvious spine; buckets without cost ballparks.  
 **Process:** mail-only or pane-only truth; policy via tmux; mixed Hand harness; Codex wake stacks; wrong-host tmux; IMAP as bag sensor; unbounded watch.  
-**Integrate:** packet-green≠consumer-green; “compiler residual” when integration lag; red theme merge; Mind merges packets; absorb≠accept.  
+**Integrate:** packet-green≠consumer-green; “compiler residual” when integration lag; red theme merge; Mind merges packets; absorb-as-accept.  
 **Hygiene/workspace:** skip unit polish / polish foreign; Mind runs polish/HK; HK every land; score as merge gate; destructive dirt cleanup; status-only dirt; topic monogamy; deep-plan every autonomous cycle; interactive forever; FLEET_CYCLE as silence; compact report while interactive; novel autonomous reports; head-ceo permission freeze; missing FLEET_CYCLE prefix; status→operator@; skip operator present-on-return; no steward disarm; steward as Mind; inject-only heartbeat; global roster scan; hardcode session=role when `tmux_target` set.
 
 ## Companions / first exposure

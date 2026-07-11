@@ -38,39 +38,50 @@ First line `FLEET_CYCLE` ⇒ **not** operator message. Fix overlays that omit th
 
 ### Resolve mode (before sensors expand)
 
+**Anti-bug:** `FLEET_CYCLE` means “this injection is not operator prose.” It does **not** mean “ignore human chat since last fire.”
+
 ```text
-1. If mind_mode_override set → use it (ops_only→autonomous, deep→interactive)
+# Step 0 every cycle — substitute real session state; do not only inspect current payload
 
-2. Detect engagement (do NOT only inspect the current FLEET_CYCLE payload):
-   a. This turn’s user content is human prose (not FLEET_CYCLE-only) → engaged
-   b. Else scan session history since last_operator_message_at
-      (if null: since last_cycle_at, or “any prior human turn this session”):
-      any human message that is not a FLEET_CYCLE injection → engaged
-   c. Else → not engaged
+if mind_mode_override is set:
+    mind_mode = autonomous if override == ops_only else interactive
+    # sticky until cleared; still run sensors/ops below
+else:
+    # --- detect engagement ---
+    if this_turn is human prose (not FLEET_CYCLE-only):
+        engaged = true
+        engagement_time = now
+    elif session has human prose since last_operator_message_at
+         (if null: since last_cycle_at, or any prior human turn this session)
+         and that prose is not a FLEET_CYCLE injection:
+        engaged = true
+        engagement_time = time of that human message
+    else:
+        engaged = false
 
-3. If engaged:
-     turns_since_operator_message = 0
-     last_operator_message_at = timestamp of that human message (prefer real time; else cycle id)
-     mind_mode = interactive when this turn is human prose;
-                 if this wake is FLEET_CYCLE-only but history engaged: keep silence=0,
-                 prefer thin ops for the cycle body but do NOT treat as multi-cycle abandon
-     refresh operator_recap window from that engagement point
-     **present operator@ list** if open/unread > 0 (before or with recap) — operator-mail.md
+    if engaged:
+        turns_since_operator_message = 0
+        last_operator_message_at = engagement_time
+        refresh operator_recap window from engagement_time
+        present operator@ list if open/unread > 0   # operator-mail.md
+        if this_turn is human prose:
+            mind_mode = interactive
+        else:
+            # FLEET_CYCLE-only wake, but human spoke between fires
+            mind_mode = interactive   # or keep prior interactive; silence stays 0
+            # ops body may stay thin; do NOT treat as multi-cycle abandon
+    else:
+        turns_since_operator_message += 1
+        append material events to operator_recap (short)
+        if turns_since_operator_message >= 3:
+            mind_mode = autonomous
+        elif prior mind_mode is known:
+            mind_mode = prior   # turns 1–2: operator may still be watching
+        else:
+            mind_mode = autonomous
 
-4. If not engaged:
-     turns_since_operator_message += 1
-     append material events to operator_recap (short)
-     if turns_since_operator_message >= 3:
-       mind_mode = autonomous
-     else if prior mind_mode known:
-       keep prior   # turns 1–2: operator may still be watching
-     else:
-       mind_mode = autonomous
-
-5. Write counters + mind_mode + operator_recap into baseline at end of cycle
+# End of cycle (after sensors/ops): write counters + mind_mode + operator_recap to baseline
 ```
-
-**Anti-bug:** `FLEET_CYCLE` = “this injection is not operator prose,” **not** “ignore all human chat since last fire.” Counting silence only from the current payload produced false `operator_silence=6` while the human was steering between cycles.
 
 **Threshold:** ≥3 Mind cycles with **no human prose** → **autonomous** until next operator message.
 
@@ -122,10 +133,12 @@ CLI: [`vivi.md`](vivi.md). N>0 → work-through table (not buried count). N=0 �
 ### Steward rearm (every successful mini-cycle)
 
 ```bash
-python3 scripts/fleet-baseline.py bump -p <that-fleet-root> -s '<one-line summary>' \
-  [--acted|--quiet] [--mode interactive|autonomous] \
-  [--fingerprint-file sensors.json]
-scripts/steward.sh rearm --project <that-fleet-root>
+# Placeholders: <ROOT> <summary> — flags without <> are literals
+python3 scripts/fleet-baseline.py bump -p <ROOT> -s '<summary>' \
+  --quiet --mode autonomous \
+  --fingerprint-file /tmp/fleet-sensors.json
+# or: --acted  (instead of --quiet) when board/ops moved
+scripts/steward.sh rearm --project <ROOT>
 ```
 
 | Also | When |
@@ -145,19 +158,22 @@ Long 5–10m loops work only if most wakes **exit in seconds**. Tokens scarce. *
 ### Cheap sensors (always first)
 
 ```bash
-SK=<path-to-this-skill>/scripts
+# Placeholders: SK, ROOT, hex — substitute before run
+SK=/path/to/fleet/scripts
+ROOT=/path/to/fleet/project
 
-python3 $SK/fleet-sensors.py --project <root>
-python3 $SK/fleet-sensors.py --project <root> --text
-python3 $SK/fleet-sensors.py --project <root> --no-watch
+python3 $SK/fleet-sensors.py --project "$ROOT"
+python3 $SK/fleet-sensors.py --project "$ROOT" --text
+python3 $SK/fleet-sensors.py --project "$ROOT" --no-watch
 
 # Grok doorbell; Codex → codex-reinit.sh instead
-$SK/fleet-doorbell.sh --project <root> hand-1 --handle <hex> --note 'bag open'
-# exit 0 sent · 1 refused (running / down / rate-limit) · 2 usage
+$SK/fleet-doorbell.sh --project "$ROOT" hand-1 --handle <hex> --note 'bag open'
+# exit 0 sent · 1 refused (running|down|rate-limit) · 2 usage
 
-python3 $SK/fleet-baseline.py bump -p <root> -s 'sleep' --quiet \
-  --fingerprint-file /tmp/sensors.json
-$SK/steward.sh rearm --project <root>
+python3 $SK/fleet-sensors.py --project "$ROOT" > /tmp/fleet-sensors.json
+python3 $SK/fleet-baseline.py bump -p "$ROOT" -s 'sleep' --quiet \
+  --fingerprint-file /tmp/fleet-sensors.json
+$SK/steward.sh rearm --project "$ROOT"
 ```
 
 | Helper | Job |
@@ -226,15 +242,15 @@ Even **sleep** interactive uses this shape. **Not required:** full mail dumps, f
 | Signal | Who | Action |
 | --- | --- | --- |
 | New/changed open task/need | Hand | show handle → work |
-| HEAD/dirty product moved | Mind | bounded residual / Status-honesty (not full code review) |
+| Git tip / dirty product moved | Mind | bounded residual / Status-honesty (not full code review) |
 | Hand mid-flight dirty | Mind | cheap red-flag; residuals → Vivi + pointer |
-| Main moved after merge | Correctness | post-main code review / bug hunt |
-| Main moved (merge / feature land / spine unit) | Mind | **Post-main polish advisory** |
+| Main tip moved after merge | Correctness / **head-cto** | post-main code review / bug hunt |
+| Main tip moved (merge / feature land / spine unit) | Mind | **Post-main polish advisory** |
 | **Major inflection** on main | Mind | **Housekeeping task** (expensive; not every land) |
 | Same dirty paths block spine ≥2 cycles, no A/B/C note | Mind | **Open the diff**; classify; file; pivot |
 | Map Status mtime changed | Either | skim Status; then bag |
 | Tasking empty + next package selected | Hand / Mind | start or **refill** + wake/reinit |
-| Head report mail | Mind | absorb; triage to hand-N when actionable |
+| Head-role report mail | Mind | absorb; triage to hand-N when actionable |
 | Approach / sequencing fork | head-ceo (or Mind) | one advisory report / note |
 | Pane `idle_prompt` + open tasking (**Grok**) | Mind | doorbell |
 | Pane `done_idle` / idle + open tasking (**Codex**) | Mind | **Codex reinit** |
@@ -291,9 +307,9 @@ Chat reports: use mode-gated templates above. Interactive + Head report absorbed
 
 Hands own **end-of-unit polish**. After work **lands on main**, Mind runs **read-only score scan** and files bounded polish only when scores clear threshold. **Routing**, not quality verdict, not Mind running `$polish`.
 
-**Run once** when main HEAD moved vs `polish_advisory.last_scan_head` (or missing): packet/theme **merged**; spine unit **committed on main** + absorbed; operator polish ask.
+**Run once** when main git tip moved vs `polish_advisory.last_scan_head` (or missing): packet/theme **merged**; spine unit **committed on main** + absorbed; operator polish ask.
 
-**Do not** on pure quiet, packet-only HEADs never on main, or hand-1 mid-flight dirty on product. Prefer after absorb of clean main tip.
+**Do not** on pure quiet, packet-only tips never on main, or hand-1 mid-flight dirty on product. Prefer after absorb of clean main tip.
 
 ```bash
 python3 <this-skill>/scripts/suggest-polish-files.py \
@@ -390,12 +406,14 @@ Safety-critical implementable findings: high-priority **task** with fail-closed 
 
 **Status honesty bar:** static/manual evidence fine **if Status says so**. Reject accept when Status says complete/product-run but evidence is only static or env-faked without disclosure.
 
-## Absorb vs accept (integration)
+## Absorb vs accept (integration) — **canonical**
+
+Other skill files only **link** here; do not invent alternate meanings.
 
 | Term | Meaning | When | Quality bar |
 | --- | --- | --- | --- |
-| **Absorb** | Reconcile sensors into baseline/bag awareness | Every cycle when something moved | Low — bookkeeping honesty |
-| **Accept** | Integration accept: unit/packet good enough to clear review debt, close map square, or queue merge | Thorough or opportunistic residual with honest evidence | Medium — tests/claims/scope honesty, not full code review |
+| **Absorb** | Reconcile sensors into baseline/bag awareness (“something moved”) | Every cycle when product/board/pane signal moved | Low — bookkeeping honesty |
+| **Accept** | Integration bar: unit/packet good enough to clear review debt, close map square, or **queue merge** | Thorough or opportunistic residual with honest evidence | Medium — tests/claims/scope honesty — **not** full code review |
 | **Code review** | **head-cto** on **main after merge** | After land on main | High — bugs, fail-closed, multi-theme interactions |
 
 | Role | Says… |
@@ -405,7 +423,9 @@ Safety-critical implementable findings: high-priority **task** with fail-closed 
 | **head-cto** | Post-main findings → Mind triages to tasks |
 | **Operator** | May force priority |
 
-**Anti-pattern:** “absorb” as if accept; Mind multi-page code review of every packet while head-cto idles.
+**Anti-pattern:** treat absorb as accept; Mind multi-page code review of every packet while head-cto idles.
+
+**Fixed phrase for other docs:** *absorb = bookkeeping when something moved; accept = integration bar (not code review) — mind-cycle.*
 
 ## Review debt
 
@@ -420,7 +440,7 @@ pending_merges[]:  {
 
 | Event | Mind duty |
 | --- | --- |
-| Hand marks done / HEAD jumps | **Absorb**; add `pending_reviews` if not yet **accepted** |
+| Hand marks done / git tip jumps | **Absorb**; add `pending_reviews` if not yet **accepted** |
 | Thorough or opportunistic review | **Accept** (clear debt) or file residuals; drain backlog |
 | Packet ready-to-merge mail | **Absorb** → review → **accept** or residual → `queued_for_hand1` + merge task |
 | Long-term packet unit (not theme) | **Absorb**/review; next target to worker; **no** merge task to h1 |

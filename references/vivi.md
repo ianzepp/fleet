@@ -10,6 +10,8 @@ Filing work, listing bags, marking done, watching board events, threads, `operat
 
 ## Universal flags
 
+**Placeholders:** `<angle-brackets>` and `…` mean substitute before run. Tokens **without** them are literals (`--once`, `--json`, `status`, …).
+
 ```bash
 --project <ROOT>     # fleet project root that owns .vivi/
 --for <identity>     # list / done / board / watch (whose bag)

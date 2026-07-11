@@ -241,7 +241,7 @@ python3 "$SK/fleet-sensors.py" --project "$ROOT" --text
 
 ### 3.2 Load process (this session)
 
-1. Load **`$fleet`** (`SKILL.md`). Thin first turn: main skill + this file if attach unclear; open other refs as surfaces hit.
+1. Load **`$fleet`** (`SKILL.md`). **Cold** (empty context / post-`/compact` without recap): also load [`fleet-guide.md`](fleet-guide.md) once for vocab + SKILL tokens table. Hot cycle: SKILL alone if state in context.
 2. State the attach explicitly:
 
 ```text
@@ -380,8 +380,9 @@ Wind-down: [`runtime-config.md`](runtime-config.md). Multi-fleet attach set: [`m
 
 | When | Load |
 | --- | --- |
-| Vocabulary | [`fleet-guide.md`](fleet-guide.md) |
+| Vocabulary / cold attach | [`fleet-guide.md`](fleet-guide.md) (+ SKILL tokens table) |
 | Day-to-day Mind | parent [`SKILL.md`](../SKILL.md) |
+| absorb vs accept (canon) | [`mind-cycle.md`](mind-cycle.md) |
 | Board CLI (`vivi` commands) | [`vivi.md`](vivi.md) |
 | Board + panes | [`dual-channel.md`](dual-channel.md) |
 | Cycles / modes | [`mind-cycle.md`](mind-cycle.md) |
