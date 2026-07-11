@@ -1,48 +1,49 @@
 ---
 name: fleet
-description: Carrier-group multi-agent fleet management — Flag (orchestrator) fills tasking, Ships (implementers) clear targets, optional advisors, dual-channel Vivi+tmux, multi-lane theme integration, runtime fallback, wind-down. Use for hunter-N/tmux fleets, codex reinit, keep-screen-moving, don't-get-stuck, long unattended 5–10m Flag cycles, or replacing GO/NO-GO gates with open tasking.
+description: Multi-agent fleet management with Mind/Head/Hand roles (Abbot pattern) — Mind (ops) fills tasking, Hands (workers) clear work, Heads (advisors) research; dual-channel Vivi+tmux, multi-lane integration, runtime fallback, wind-down. Use for hunter-N fleets, codex reinit, keep-screen-moving, don't-get-stuck, long unattended Mind cycles.
 ---
 
 # Fleet
 
-**Metaphor:** a **carrier group**, not a courier fleet. One command element
-coordinates many combatants under a shared tasking board. Sessions are ships;
-the orchestrator is the Flag; advisors are staff/CAP — not a second product lane.
+**Roles follow Abbot’s Mind / Head / Hand pattern** (see `~/work/ianzepp/abbot/README.md`:
+agent layer as roles running under one control plane). This skill applies that
+pattern to a **multi-session fleet** (mail board + tmux panes), not to Abbot’s
+in-process kernel.
 
-**Evolution (names):** this skill was formerly `$hunter-gatherer` (pair-programming
-reviewer + long Codex, then bag loop, then multi-lane tmux). **Canonical name is
-now `$fleet`.** Camp mail identities often remain `hunter-N` / `reviewer` —
-those are **callsigns**, not the role vocabulary of this skill.
-
-| Role (skill) | Job | Typical callsign |
+| Role | Job | Typical callsign |
 | --- | --- | --- |
-| **Flag** | CIC / orchestrator: tasking, review, integrate, pane ops | `reviewer` |
-| **Ship** | Implementer: clear one target at a time | `hunter-1`…`hunter-N` |
-| **Advisor** | Staff research (strategist / correctness / purity) | same name as role |
+| **Mind** | Ops / control loop: tasking, review, integrate, pane ops, cycle cadence | `reviewer` |
+| **Head** | Advisory cognition: strategist, correctness, purity — research and reports, not bag drain | same as role name |
+| **Hand** | Execution: take one open target, implement, validate, mark done | `hunter-1`…`hunter-N` (or other worker ids) |
 
-**Invariant:** Flag fills the tasking bag; Ship empties the tasking bag. Progress
+Callsigns (`hunter-N`, `reviewer`) are **mail/tmux identities**. Skill vocabulary
+is Mind / Head / Hand.
+
+**Evolution:** formerly `$hunter-gatherer` (pair review → bag loop → multi-lane
+tmux). Canonical skill name is **`$fleet`**.
+
+**Invariant:** Mind fills the tasking bag; Hand empties the tasking bag. Progress
 is **open tasking + campaign/map**, not approval stamps.
 
 **Keep the screen moving:** empty tasking while the map still has unblocked next
 work is **starvation**, not success. Operational pause is the exception.
 
-**Don't get stuck:** freeze is the failure mode. Name why, get unstuck (classify,
-externalize, pivot, unstick dirt) — never status-only “blocked” for cycles
-without evidence.
+**Don't get stuck:** freeze is the failure mode. Name why, get unstuck — never
+status-only “blocked” for cycles without evidence.
 
 ```text
 campaign / focus map
         │
         ▼
-   FLAG ──files targets──► tasking bag (open tasks / needs)
+   MIND ──files targets──► tasking bag (open tasks / needs)
         ▲                           │
         │                           ▼
-        └──── residuals ────── SHIP clears selected target
+        └──── residuals ────── HAND clears selected target
                  ▲
                  │ dual channel
         Vivi (truth of work) + tmux (truth of process)
 
-   Advisors ──mail To: Flag──► triage into tasking
+   Heads (strategist / correctness / purity) ──mail To: Mind──► triage into tasking
 ```
 
 ## When To Use
@@ -51,7 +52,7 @@ campaign / focus map
 - Factory/campaign work with a residual finder and an implementer
 - Long recurring agent wakes (5–10m) that must **fail fast** when idle
 - Reframing “reviewer approval” into residual tasks instead of stage licenses
-- Fleet of Ship sessions bound to tmux panes (liveness + doorbell)
+- Fleet of Hand sessions bound to tmux panes (liveness + doorbell)
 
 Do not use this skill for ordinary personal IMAP email (use `$mail`). Do not use
 it to invent a second acceptance gate.
@@ -86,12 +87,12 @@ has no next unblocked unit — not because one item is awkward.
 
 **Forbidden:** sitting idle for confirmation never filed; treating filename
 uncertainty as a hard stop; parking the session on one uncertain item while
-other open tasking items remain; assuming Flag/operator will poll private
+other open tasking items remain; assuming Mind/operator will poll private
 monologue; repeating “dirty / blocked” across cycles without new evidence.
 
 ### Half-dead targets (dirt that rots)
 
-Uncommitted changes that **block** a selected sortie are **half-dead targets**, not
+Uncommitted changes that **block** a selected unit are **half-dead targets**, not
 a permanent stop sign. They rot if status-only sensors keep saying “dirty” while
 no agent opens the diff.
 
@@ -116,8 +117,8 @@ git diff -- <path>          # or git diff -U0 for size
 
 | Role | Dirt duty |
 | --- | --- |
-| **Ship** | Classify A/B/C before abandoning a sortie for dirt. A → clear or style-commit. B → need/mail + **pivot**. C → own hunks only. Never destructive cleanup of B. |
-| **Flag** | If the **same paths** block spine/packet for **≥2 cycles** with no classification in baseline/mail → **paid path: open the diff**, note class, file claim/quarantine need or style residual. Track `half_dead` age; escalate, don’t restate. |
+| **Hand** | Classify A/B/C before abandoning a unit for dirt. A → clear or style-commit. B → need/mail + **pivot**. C → own hunks only. Never destructive cleanup of B. |
+| **Mind** | If the **same paths** block spine/packet for **≥2 cycles** with no classification in baseline/mail → **paid path: open the diff**, note class, file claim/quarantine need or style residual. Track `half_dead` age; escalate, don’t restate. |
 | **Either** | Second-best map targets while dirt is B-held is success. Zero commits “waiting on dirt” while other targets exist is failure. |
 
 Formatter law (global Agents.md) still applies: after inspect, formatter output is
@@ -127,24 +128,24 @@ intentional change to commit, not noise to freeze on.
 
 | Role | Typical identity | Job | Output |
 | --- | --- | --- | --- |
-| **Ship** | `hunter-1`, `hunter-2`, … (legacy: `codex`) | Take a **selected target** and finish it | Done tasks/needs + evidence; optional turn-end mail |
-| **Flag** | `reviewer` | Survey product, docs, harnesses, claims; fill tasking; review; integrate; fleet ops | Open tasks/needs; pane scan; wake/reinit; merge queue |
-| **Strategist** (optional advisor) | `strategist` | Ownership, sequencing, seams, gate honesty — **not** tasking drain | Mail `strategist report:` To Flag |
-| **Correctness** (optional advisor) | `correctness` | Self-directed bug / fail-closed / invariant audit | Mail `correctness:` To Flag |
-| **Purity** (optional advisor) | `purity` | Self-directed unearned-complexity / excess-layer audit (pragmatic) | Mail `purity:` To Flag |
+| **Hand** | `hunter-1`, `hunter-2`, … (legacy: `codex`) | Take a **selected target** and finish it | Done tasks/needs + evidence; optional turn-end mail |
+| **Mind** | `reviewer` | Survey product, docs, harnesses, claims; fill tasking; review; integrate; fleet ops | Open tasks/needs; pane scan; wake/reinit; merge queue |
+| **Strategist** (optional advisor) | `strategist` | Ownership, sequencing, seams, gate honesty — **not** tasking drain | Mail `strategist report:` To Mind |
+| **Correctness** (optional advisor) | `correctness` | Self-directed bug / fail-closed / invariant audit | Mail `correctness:` To Mind |
+| **Purity** (optional advisor) | `purity` | Self-directed unearned-complexity / excess-layer audit (pragmatic) | Mail `purity:` To Mind |
 
 Names are local labels. The **jobs** matter.
 
-**One Flag owns the tasking bag and integration clock.** Advisors **never** merge,
-never keep product tasking “full,” and never stamp GO/NO-GO. They report To: Flag; Flag triages into hunter-N tasks/needs when actionable.
+**One Mind owns the tasking bag and integration clock.** Heads **never** merge,
+never keep product tasking “full,” and never stamp GO/NO-GO. They report To: Mind; Mind triages into hunter-N tasks/needs when actionable.
 
-Prefer numbered ships (`hunter-N`) over a single shared `codex` when more than
+Prefer numbered hands (`hunter-N`) over a single shared `codex` when more than
 one implementer process may run. Prefer **heterogeneous agent runtimes** when
 useful — see **Fleet axes** and **Grok vs Codex**.
 
 ### Fleet axes (identity ≠ assignment ≠ runtime)
 
-Ships are **slots**, not permanent job titles. Keep three bindings separate:
+Hands are **slots**, not permanent job titles. Keep three bindings separate:
 
 ```text
 hunter-N  =  identity (mail + tmux)
@@ -160,60 +161,60 @@ hunter-N  =  identity (mail + tmux)
 
 **Product law** talks in H-numbers + current assignment. **Ops** read runtime from
 fleet (`agent`, `agent_launch`) and apply wake/reinit by harness, not by H-number.
-Do not hardcode model strings into role tables as if they were Ship identity.
+Do not hardcode model strings into role tables as if they were Hand identity.
 Live bindings belong in project `.vivi/hunter-fleet.json` (or equivalent).
 
-### Ship does
+### Hand does
 
 - Cheap intake; `show` only the chosen handle
 - Drain open tasks/needs for **its** identity; validate; mark done with evidence
 - Advance campaign/docs Status when stage criteria hold and residuals for that
   stage are empty (Status must not overclaim — e.g. static checks ≠ GPU product run)
-- **After a product sortie lands** (especially small iterative units): run **`$polish`**
-  on the **changed source files from this sortie only** — see **End-of-sortie polish**
+- **After a product unit lands** (especially small iterative units): run **`$polish`**
+  on the **changed source files from this unit only** — see **End-of-unit polish**
 - Exit when tasking empty for focus **and** map has no next package (or operator
-  pause)—not when a Flag stamp is missing
+  pause)—not when a Mind stamp is missing
 - When a turn finishes cleanly: mark done on the tasking bag; send turn-end / **ready-to-merge**
   mail when useful (see templates below)
-- **hunter-2+ after unit sortie:** clean commit + tasking done + turn-end; **do not** invent
-  main work or merge to main. Expect Flag to **refill next map unit** same cycle
+- **hunter-2+ after unit:** clean commit + tasking done + turn-end; **do not** invent
+  main work or merge to main. Expect Mind to **refill next map unit** same cycle
   when the campaign still has work — not permanent idle.
-- **hunter-2+ after theme ready-to-merge:** wait only for **integration** (Flag
+- **hunter-2+ after theme ready-to-merge:** wait only for **integration** (Mind
   review → merge via hunter-1). That wait is operational, not “tasking empty = success.”
 - **Don't get stuck:** classify dirt A/B/C; file needs same turn; **pivot** when
   one item blocks — see **Don't get stuck**
 
-### Flag does
+### Mind does
 
 - Find defects, missed work, Status lies, missing evidence
-- File **targets** with where / done-when / evidence bar (**to the owning Ship**)
-- **Own code review quality** for the fleet: ships implement best-effort;
-  Flag is the proactive reviewer (landed commits **and** in-flight WIP)
+- File **targets** with where / done-when / evidence bar (**to the owning Hand**)
+- **Own code review quality** for the fleet: hands implement best-effort;
+  Mind is the proactive reviewer (landed commits **and** in-flight WIP)
 - Stay quiet when fingerprint unchanged, panes healthy, and no review signal
 - On each wake: cheap **fleet pane scan** (tmux) for liveness/errors; **Grok
   doorbell** or **Codex reinit** when idle/done with open targets
-- When review finds a red flag: **Vivi mail/need to that Ship** with concrete
+- When review finds a §§REDMIND§§: **Vivi mail/need to that Hand** with concrete
   finding + fix bar; **tmux pointer only** to that mail/handle (no essay in pane)
 - **Unstick half-dead dirt:** if the same blocking paths age across cycles with
   no class A/B/C evidence, **open the diff** on paid path; file claim/style/
   quarantine targets — do not restate “foreign dirty” forever
 
-### Flag does not
+### Mind does not
 
 - Issue stage start/closeout GO/NO-GO as binding protocol
 - Require multi-round mail before the next map square
-- Re-litigate completed sorties unless new residual targets appears
+- Re-litigate completed units unless new residual targets appear
 - Treat “no completion mail” alone as “still working” when the pane is idle or errored
-- Steal the Ship’s sortie or rewrite their WIP mid-flight (raise; don’t hijack
+- Steal the Hand’s unit or rewrite their WIP mid-flight (raise; don’t hijack
   unless operator asks)
 - Treat status-only dirty as a multi-cycle freeze without classification
 
 
-### Advisors do not
+### Heads do not
 
-Approve/disapprove work, race the Flag on acceptance, merge to main, or own
+Approve/disapprove work, race the Mind on acceptance, merge to main, or own
 product tasking. Strategist proposes sequencing/ownership; correctness and purity
-report defects/shape debt. Flag triages.
+report defects/shape debt. Mind triages.
 
 ## The tasking bag
 
@@ -227,7 +228,7 @@ Prefer a project coordination board (commonly Vivi project mailspace—see
 | **want** | Non-blocking polish or later idea |
 | **mail** | Deliberation/status—not the primary queue |
 
-**Work signal:** open tasks + open needs for the Ship = actionable work.
+**Work signal:** open tasks + open needs for the Hand = actionable work.
 Wants and unread mail are secondary.
 
 ### Tasking rules (replace gates)
@@ -236,15 +237,15 @@ Wants and unread mail are secondary.
 | --- | --- |
 | stage closeout GO/NO-GO | tasking empty of stage residuals; Status reflects reality |
 | “NO-GO next stage” | next stage not selected / no package—file charting work or leave planned |
-| dual approval thrash | one tasking bag; Ship drains; Flag refills |
+| dual approval thrash | one tasking bag; Hand drains; Mind refills |
 
 Hard stop for hunter: open tasks/needs for the current hunt.  
-Not a hard stop: missing Flag congratulations or “GO” mail.
+Not a hard stop: missing Mind congratulations or “GO” mail.
 
-### Multi-ship bags
+### Multi-hand bags
 
 - File targets **to a specific hunter** (`To: hunter-1`), not broadcast.
-- One handle has one owner. Do not put the same P1 on two ships.
+- One handle has one owner. Do not put the same P1 on two hands.
 - Partition by focus (campaign track, repo, or package) when possible.
 - Legacy single identity (`codex`) may remain readable during migration; **new**
   targets go to `hunter-N`.
@@ -253,7 +254,7 @@ Not a hard stop: missing Flag congratulations or “GO” mail.
 
 | Slot | Workspace role | Merge to main? |
 | --- | --- | --- |
-| **hunter-1** | **Main checkout** (sticky workspace role — not sticky model) | **Yes** — only hunter-1 merges packet branches into main (when Flag assigns it) |
+| **hunter-1** | **Main checkout** (sticky workspace role — not sticky model) | **Yes** — only hunter-1 merges packet branches into main (when Mind assigns it) |
 | **hunter-2+** | **Dynamically assigned** — usually worktree packets (`worktrees/<slug>/…`); rehome when reassigned | **Never** — commits on packet branch; unit done → refill; theme → ready-to-merge |
 
 Rules:
@@ -265,27 +266,27 @@ Rules:
    a starvation signal: refill targets, queue a merge, and wake/reinit by **H1’s
    current runtime**. Quiet only when the map and residual bag are both empty.
 3. Hunter-2+ never merge/rebase/delete packet worktrees or invent main work.
-   After a **unit** sortie: mark done + turn-end; Flag refills next map unit
+   After a **unit**: mark done + turn-end; Mind refills next map unit
    for that assignment (or reassigns the slot). After a **theme** boundary:
-   ready-to-merge mail; Flag owns merge clock.
-4. Flag absorbs unit lands without merging; at theme accept creates
+   ready-to-merge mail; Mind owns merge clock.
+4. Mind absorbs unit lands without merging; at theme accept creates
    `pending_merges` + merge task for hunter-1.
 5. At a clean breakpoint, wake/reinit hunter-1 for merge; defer while main is
    mid-phase or dirty. Merge work checks watch-scope drift, green-gate, and is
    absorbed then accepted as a separate step.
 6. **Runtime is orthogonal:** any hunter-N may run Grok, Codex, or another
-   harness; rebind in fleet without renaming the Ship or moving the assignment.
+   harness; rebind in fleet without renaming the Hand or moving the assignment.
 
 #### Idle empty taskings (keep the screen moving)
 
-| Situation | Meaning | Flag action |
+| Situation | Meaning | Mind action |
 | --- | --- | --- |
 | **Any hunter-N** idle + empty tasking + map has **unblocked** next unit | **Starvation** | File next target **same cycle** + wake/reinit |
 | **hunter-1** idle + empty + `pending_merges` or spine residuals | Starvation | Merge task and/or next spine targets |
 | **hunter-2+** just finished a **unit** (not theme) | Not success-idle | Absorb/review; **refill** next packet unit |
 | **hunter-2+** after **theme** ready-to-merge, tasking empty, waiting merge | **Operational pause** | Review → accept → merge to h1; optional light pivot unit if map has unrelated work |
-| **Operational pause only** | Allowed empty/hold | base-update wait · mid-sortie · operator pause · map empty · hard upstream with need filed (prefer pivot if one exists) |
-| Advisor (strategist/correctness/purity) “empty tasking” | N/A — no product tasking | Scan mail; soft-wake only if stuck; never map-refill |
+| **Operational pause only** | Allowed empty/hold | base-update wait · mid-unit · operator pause · map empty · hard upstream with need filed (prefer pivot if one exists) |
+| Head (strategist/correctness/purity) “empty tasking” | N/A — no product tasking | Scan mail; soft-wake only if stuck; never map-refill |
 
 Do not sleep merely because all **product** bags are empty; check the map,
 `pending_reviews`, and `pending_merges` first.
@@ -293,7 +294,7 @@ Do not sleep merely because all **product** bags are empty; check the map,
 ## Dual channel: Vivi + tmux
 
 Vivi is the **board of record** (what work exists and is done).  
-tmux is the **process layer** (whether the Ship process is alive, idle, or broken).
+tmux is the **process layer** (whether the Hand process is alive, idle, or broken).
 
 ```text
                     ┌──────────────────────────┐
@@ -302,14 +303,14 @@ tmux is the **process layer** (whether the Ship process is alive, idle, or broke
                     └──────────────────────────┘
 
                     ┌──────────────────────────┐
-  every Flag    │ tmux capture-pane per    │  truth of process
+  every Mind    │ tmux capture-pane per    │  truth of process
   wake (cheap) ──►  │ hunter-N session         │
                     └──────────────────────────┘
 ```
 
 | Concern | Prefer |
 | --- | --- |
-| “This sortie is done; evidence is …” | Vivi tasking done (+ optional mail) |
+| “This unit is done; evidence is …” | Vivi tasking done (+ optional mail) |
 | “Grok idle at prompt with open tasking” | tmux → **pointer doorbell** |
 | “Codex done/idle at `›` with open tasking” | tmux → **reinit** (kill + fresh session + short bootstrap) — not stacked wakes |
 | “Over capacity / connection failed / hung Waiting” | tmux → ops intervene (model change, retry, restart) |
@@ -317,7 +318,7 @@ tmux is the **process layer** (whether the Ship process is alive, idle, or broke
 | “Fix landed upstream; consumer still red” | Check **pin-relative done** before re-verify doorbell |
 
 **Do not rely on completion mail alone.** Model overcapacity, disconnects, and
-crashes prevent the Ship from sending mail. Flag must still see the pane.
+crashes prevent the Hand from sending mail. Mind must still see the pane.
 
 **Do not treat idle pane alone as “done.”** Idle + empty tasking may be quiet; idle +
 open tasking is a wake signal; idle after HEAD move without done-handles still needs
@@ -385,7 +386,7 @@ project `Agents.md` — treat that as an **overlay** on this skill when present.
 Arm: `vivi mailspace identity add hunter-1 --project <root>` and
 `tmux new-session -d -s hunter-1 -c <cwd>` (then start the agent).
 
-### Pane scan (Flag, every cycle — keep cheap)
+### Pane scan (Mind, every cycle — keep cheap)
 
 For each fleet hunter:
 
@@ -397,7 +398,7 @@ For each fleet hunter:
 4. store last_pane_class + short fingerprint in baseline
 ```
 
-| Class | Example pane cues | Flag action |
+| Class | Example pane cues | Mind action |
 | --- | --- | --- |
 | `down` | no session | recreate session + agent; Codex: reinit with bootstrap |
 | `running` | current `Waiting for response` / live spinner / Codex streaming | sleep (do not wake/reinit) |
@@ -412,7 +413,7 @@ Do not treat that as an in-flight user message. Prefer `Waiting for response` as
 only hard `running` signal unless a live spinner is visible in the **tail**.
 
 Codex note: a `•` monologue followed by `›` is often an **answer that stopped**, not
-a wait for the next tasking item. Stacking `SHIP VECTOR` lines is the failure mode.
+a wait for the next tasking item. Stacking `HAND WAKE` lines is the failure mode.
 
 Rate-limit wakes and ops interventions (`min_seconds_between_wakes`). Never
 `send-keys` into `running` unless operator policy explicitly allows cancel+replace.
@@ -421,31 +422,31 @@ Rate-limit wakes and ops interventions (`min_seconds_between_wakes`). Never
 
 | | **Grok** (`agent=grok`) | **Codex** (`agent=codex`) |
 | --- | --- | --- |
-| After sortie + open tasking | Pointer **doorbell** | **Reinit** (kill process + fresh session + short bootstrap) |
+| After unit + open tasking | Pointer **doorbell** | **Reinit** (kill process + fresh session + short bootstrap) |
 | Theme switch same cwd | `/compact` then pointer | **Reinit** (do not rely on compact+wake) |
 | Launch | Prefer plain `grok …` (not fragile `exec` if bad flags leave pane dead) | Plain `codex …` via fleet `agent_launch` — **never `exec codex`** (can drop the tmux session when process exits) |
 | Bootstrap | Pointer: identity, handle, `vivi --for` | Same **short** bootstrap as first user message — no multi-paragraph Phase-hold novels in argv |
 
-Which Ship uses which harness is a **fleet binding** and may change. Do not
+Which Hand uses which harness is a **fleet binding** and may change. Do not
 encode “H3 is always Codex” in product law.
 
-### Codex reinit-after-sortie (when `agent=codex`)
+### Codex reinit-after-unit (when `agent=codex`)
 
-**Policy:** when a Codex-runtime Ship is **done** and next target exists, **kill
+**Policy:** when a Codex-runtime Hand is **done** and next target exists, **kill
 Codex and start a fresh session**. One clean start — not five stacked wakes.
 
 **When:** turn-end mail + next target; `done_idle` / long idle + open tasking; process
 down; unblock (pin-refresh/merge) + open tasking with **current** one-line fact.
 
-**When not:** `running` / mid-sortie; tasking empty + operational pause only (refill
-first if map has next); already reinited this Ship this cycle (unless died again).
+**When not:** `running` / mid-unit; tasking empty + operational pause only (refill
+first if map has next); already reinited this Hand this cycle (unless died again).
 
 **How:**
 
 1. File next task/need **before** launch so a handle exists.
 2. Kill **Codex children of pane_pid only** — leave tmux + shell. If session is
    gone: `tmux new-session -d -s hunter-N -c <packet-cwd>`.
-3. Launch without `exec` using that Ship’s fleet **`agent_launch`** (model lives
+3. Launch without `exec` using that Hand’s fleet **`agent_launch`** (model lives
    there — do not invent it from prose).
 4. One short first message: identity, never merge main (if packet), `vivi --for hunter-N`,
    open handle(s), one verb, optional one-line unblock fact.
@@ -453,15 +454,15 @@ first if map has next); already reinited this Ship this cycle (unless died again
 
 ### Doorbell (wake) protocol — primarily **Grok**
 
-When `wake_enabled` and class is `idle_prompt` and Ship has open tasks/needs
-(or Flag just filed targets / answered a blocking need) — **Grok default**:
+When `wake_enabled` and class is `idle_prompt` and Hand has open tasks/needs
+(or Mind just filed targets / answered a blocking need) — **Grok default**:
 
 ```bash
 tmux send-keys -t '<tmux_target>' -l -- '<pointer only>'
 tmux send-keys -t '<tmux_target>' Enter
 ```
 
-For **Codex**, use **reinit** (above) instead of stacking this doorbell after a sortie.
+For **Codex**, use **reinit** (above) instead of stacking this doorbell after a unit.
 
 #### Channel split (mandatory)
 
@@ -472,19 +473,19 @@ For **Codex**, use **reinit** (above) instead of stacking this doorbell after a 
 | **Agents.md / factory goal / campaign** | Durable multi-agent law, architecture, stage criteria |
 
 **Why:** long instructional payloads in shell/`send-keys` are noisy, easy to
-false-positive safety hooks, and duplicate sources of truth. The Ship already
+false-positive safety hooks, and duplicate sources of truth. The Hand already
 has `$fleet`, container Agents.md, and the tasking bag body.
 
 Good tmux pointer (one short block):
 
 ```text
-SHIP VECTOR hunter-1. Bag: show <handle>. vivi --project <root> --for hunter-1. Continue.
+HAND WAKE hunter-1. Bag: show <handle>. vivi --project <root> --for hunter-1. Continue.
 ```
 
 Or after filing mail:
 
 ```text
-SHIP VECTOR hunter-2. Read inbox/mail <handle> then bag. Identity hunter-2. Continue.
+HAND WAKE hunter-2. Read inbox/mail <handle> then bag. Identity hunter-2. Continue.
 ```
 
 Bad tmux content: full multi-agent policy, stage graphs, long defaults lists,
@@ -496,13 +497,13 @@ Record `last_hunter_wake_at`, reason, target in fleet baseline.
 
 ### tmux process ops (start / rehome / restart)
 
-Flag and operators rehome ships when **cwd must match the workspace**
+Mind and operators rehome hands when **cwd must match the workspace**
 (main checkout vs `worktrees/<slug>/`). Prefer a clean Grok exit and restart in
 the correct directory over fighting a TUI that was started elsewhere.
 
 **Invariant:** fleet `cwd` / packet `root` (and `worker_cwd` once members exist)
 should match `tmux display -p -t <target> '#{pane_current_path}'` (or
-`list-panes … #{pane_current_path}`). A Ship assigned to a packet but running
+`list-panes … #{pane_current_path}`). A Hand assigned to a packet but running
 from the project root will write and tool against the wrong tree.
 
 #### Prefer rehome when
@@ -513,7 +514,7 @@ from the project root will write and tool against the wrong tree.
 - session is `down` / process dead (recreate session + start agent)
 
 Prefer **theme-switch `/compact`** (Grok) when cwd and identity are already
-correct and only the conversation theme changes. **Codex:** reinit after sortie
+correct and only the conversation theme changes. **Codex:** reinit after unit
 instead of compact+wake.
 
 #### Packet rehome sequence (Grok TUI in tmux)
@@ -574,13 +575,13 @@ event unless you also file/clear targets.
 
 ### Theme switch: `/compact` then continue (same session) — **Grok**
 
-When a **Grok** Ship finishes one theme and will receive another in the same
+When a **Grok** Hand finishes one theme and will receive another in the same
 session, prefer `/compact` plus a pointer wake: identity, cwd, and process
 survive while finished detail is dropped. Start a new session only when the pane
 is down, needs different model/flags, remains confused after compaction, or the
 operator wants a clean slate.
 
-**Codex:** after a sortie with next target, **always reinit** (see Codex reinit) —
+**Codex:** after a unit with next target, **always reinit** (see Codex reinit) —
 do not rely on compact+wake on a finished `›`.
 
 Sequence (Grok):
@@ -589,7 +590,7 @@ Sequence (Grok):
 2. Require `idle_prompt`, then send `/compact` alone and wait for idle again.
 3. Keep identity, `vivi --for`, main/packet role, and campaign in the compact
    instruction; drop finished implementation detail.
-4. Send: `SHIP VECTOR hunter-N. Compact done. Show <handle>. Continue.`
+4. Send: `HAND WAKE hunter-N. Compact done. Show <handle>. Continue.`
 5. Record compact/wake in the baseline when useful.
 
 Never combine `/compact` and the new assignment in one keystroke or compact
@@ -611,8 +612,8 @@ mail is skipped.
 
 ### Ready-to-merge mail (hunter-2+ — preferred template)
 
-High-signal handoff so Flag can **absorb** without reverse-engineering the
-pane. Send when the packet sortie is done, tree clean, worker stopped.
+High-signal handoff so Mind can **absorb** without reverse-engineering the
+pane. Send when the packet unit is done, tree clean, worker stopped.
 
 ```text
 From: hunter-2 → reviewer
@@ -642,19 +643,19 @@ task <handle> (<subject>)
 - none | <paths that moved on main vs base — or "not checked">
 
 ## Integration
-Operator/main merges via hunter-1; this Ship does not merge to main.
+Operator/main merges via hunter-1; this Hand does not merge to main.
 ```
 
-Flag on receipt: **absorb** → review → **accept** or residual mail back to
+Mind on receipt: **absorb** → review → **accept** or residual mail back to
 worker → on accept set `pending_merges` state `queued_for_h1` and file merge
 task to hunter-1 (or queue if h1 mid-phase). Optional short tmux to worker:
 `Packet accepted. Merge with hunter-1. Wait.`
 
 **Long-term continuous packets** (multi-theme HIR or multi-stage product packets):
-do **not** file a merge to hunter-1 after every tasking sortie. Prefer **theme-level**
+do **not** file a merge to hunter-1 after every task unit. Prefer **theme-level**
 ready-to-merge (major delivery unit, Stage N close, or operator-named theme).
-Unit sorties → absorb/review/**refill next map unit** on the packet only; one merge
-task per theme so the main-spine Ship is not drip-harassed.
+Units → absorb/review/**refill next map unit** on the packet only; one merge
+task per theme so the main-spine Hand is not drip-harassed.
 
 Ready-to-merge **validation** should include at least: claimed tests **and**
 `cargo fmt --check` (or project equivalent) on touched packet repos — so theme
@@ -667,16 +668,16 @@ A fix is **done relative to a pin**, not absolutely.
 | Operation | Touches | Execute owner | When |
 | --- | --- | --- | --- |
 | **Theme merge** packet → main | main branch | **hunter-1** only | Theme accept + clean breakpoint |
-| **Base-update** main → packet | writable packet branch | **packet worker** | Green main + worker not mid-sortie + lag/drift |
-| **Pin refresh** | pinned/read-only member worktree (e.g. runtime pin) | **operator / Flag** | Product needs a main-only capability; worker must **not** self-bump worktrees |
-| **Consumer re-verify** | product packet | that Ship | Only after `git merge-base --is-ancestor <fix-sha> <consumer-pin-HEAD>` |
+| **Base-update** main → packet | writable packet branch | **packet worker** | Green main + worker not mid-unit + lag/drift |
+| **Pin refresh** | pinned/read-only member worktree (e.g. runtime pin) | **operator / Mind** | Product needs a main-only capability; worker must **not** self-bump worktrees |
+| **Consumer re-verify** | product packet | that Hand | Only after `git merge-base --is-ancestor <fix-sha> <consumer-pin-HEAD>` |
 
-**Misroute class:** filing a “compiler residual” To the origin Ship when the
+**Misroute class:** filing a “compiler residual” To the origin Hand when the
 consumer is red because the fix is **not on their pin** — that is **integration
-lag**. Flag should queue merge/base-update/pin-refresh, not thrash re-verify.
+lag**. Mind should queue merge/base-update/pin-refresh, not thrash re-verify.
 
 Do not doorbell “DONE re-verify NOW” until the fix is reachable from the
-consumer’s tree. Prefer a need To Flag/operator for pin refresh over stacked
+consumer’s tree. Prefer a need To Mind/operator for pin refresh over stacked
 wakes on a correctly blocked product hunter.
 
 ## Lifecycle
@@ -684,7 +685,7 @@ wakes on a correctly blocked product hunter.
 ### 1. Arm
 
 - Ensure a bag exists (mailspace identities, or equivalent board)
-- Point Ship and Flag at the same project root and map (campaign/GOAL)
+- Point Hand and Mind at the same project root and map (campaign/GOAL)
 - Optional scout for approach-only advice
 - Create tiny role baselines under the project (e.g. `.vivi/gatherer-baseline.json`,
   optional `.vivi/hunter-fleet.json`): `last_cycle`, `quiet_streak`,
@@ -693,57 +694,57 @@ wakes on a correctly blocked product hunter.
 ### 2. Select focus
 
 - Campaign/map names the current stage or package
-- Ship selects one open target (oldest, explicit priority, or map order)
-- Do not wait for Flag stamp to start a selected map package
+- Hand selects one open target (oldest, explicit priority, or map order)
+- Do not wait for Mind stamp to start a selected map package
 
 ### 3. Gather
 
 - Sensors: bag + HEADs/dirty + **pane classes**
-- On paid path: scan what **moved**; file residuals to owning Ship
+- On paid path: scan what **moved**; file residuals to owning Hand
 - Quiet when bag/HEAD fingerprint and pane classes unchanged (or only `running`)
 - On idle+open tasking or error class: wake or ops intervene
 
-### 4. Sortie
+### 4. Work (Hand)
 
 - `show` one target; implement; validate
-- **End-of-sortie polish** on changed product source from this sortie (`$polish`)
+- **End-of-unit polish** on changed product source from this unit (`$polish`)
 - Mark done with evidence; absorb Status into campaign/docs when criteria hold
 - Next target from bag, or next map package, or sleep (idle at prompt is OK if
-  Flag doorbell is armed)
+  Mind doorbell is armed)
 
-### End-of-sortie polish (Ship — iterative sorties)
+### End-of-unit polish (Hand — iterative units)
 
 Small Stage 4–style / residual batches leave churn that a full campaign polish
-pass never sees. **Default after each product sortie that touches implementation
-source:** run `$polish` **before** tasking done / turn-end, scoped to this sortie.
+pass never sees. **Default after each product unit that touches implementation
+source:** run `$polish` **before** tasking done / turn-end, scoped to this unit.
 
 ```text
 implement + targeted validate
-  → list primary source files changed by THIS sortie (git status / diff vs pre-sortie HEAD)
+  → list primary source files changed by THIS unit (git status / diff vs pre-unit HEAD)
   → $polish those files only (serial per-file loop)
   → then tasking done + turn-end (+ ready-to-merge if packet)
 ```
 
 | Do | Don't |
 | --- | --- |
-| Target **primary source** files this sortie created or substantially edited | Repo-wide or package-wide polish “while here” |
+| Target **primary source** files this unit created or substantially edited | Repo-wide or package-wide polish “while here” |
 | Include only **directly related** tests/docs as `$polish` allows | Polish foreign dirty / other agents’ WIP |
 | Prefer product Rust/source over pure Status/docs-only deltas | Force polish commits when inspect finds no useful change |
 | Note polish commits in turn-end when non-empty | Block the tasking bag on polish failures that are out of scope — residual them |
 
-**File list (derive from the sortie, not from suggest-polish-files defaults):**
+**File list (derive from the unit, not from suggest-polish-files defaults):**
 
 ```bash
-# example: files changed since sortie start SHA
-git -C <repo> diff --name-only <pre-sortie-sha>..HEAD
+# example: files changed since unit start SHA
+git -C <repo> diff --name-only <pre-unit-sha>..HEAD
 # keep primary source; drop lockfiles, generated, pure Status if no code change
 ```
 
-Skip polish only when the sortie was **docs-only / Status-only / merge-only** with
+Skip polish only when the unit was **docs-only / Status-only / merge-only** with
 no implementation source, or the operator explicitly waives. Packet workers
 polish **inside the packet worktree** on their branch before ready-to-merge.
 
-Flag does **not** run polish for the Ship. Thorough review may note
+Mind does **not** run polish for the Hand. Thorough review may note
 missing polish as a residual if landed product source is clearly unpolished.
 
 ### 5. Sleep / wake / backoff
@@ -765,7 +766,7 @@ are scarce—not wall clock. **Fail fast to sleep** when nothing moved.
 
 ```text
 1. Board status counts (e.g. vivi mailspace status)
-2. Open task + need lists per Ship identity (not dumps)
+2. Open task + need lists per Hand identity (not dumps)
 3. Optional light delta: git rev-parse HEAD, dirty count, map file mtime
 4. Fleet: tmux has-session + short capture classify (if fleet configured)
 ```
@@ -788,38 +789,38 @@ When the cycle **acted** (filed targets, absorb/accept, reinit, merge queue, adv
 triage), emit a **scannable summary** (not a novel):
 
 1. Headline: cycle N · superficial|thorough · absorb/accept verbs accurate  
-2. Fleet snapshot: each Ship pane class + bag handles + one-clause status  
+2. Fleet snapshot: each Hand pane class + bag handles + one-clause status  
 3. Board moves: filed / done / merged handles  
-4. Advisor briefs when mail absorbed: 1 short ¶ problem + 1 short ¶ action  
+4. Head briefs when mail absorbed: 1 short ¶ problem + 1 short ¶ action  
 5. Pending debt if non-empty  
 
 Cycle lines: use **absorb** and **accept** accurately (never absorb when you mean accept).
 
 Optional: thorough review every N cycles (e.g. `cycle % 3 == 1`); superficial
-otherwise — red flags + mail + starvation only.
+otherwise — §§REDMIND§§s + mail + starvation only.
 
 ### Expand only on signal (paid path)
 
 | Signal | Who | Action |
 | --- | --- | --- |
-| New/changed open task/need | Ship | show handle → sortie |
-| HEAD/dirty product moved | Flag | bounded residual pass **and/or code review** |
-| Ship mid-flight dirty (main or packet) | Flag | **proactive review** of WIP; red flags → Vivi + short tmux pointer |
-| Same dirty paths block spine ≥2 cycles, no A/B/C note | Flag | **Open the diff** (half-dead); classify; file style/claim/quarantine; pivot targets for Ship |
+| New/changed open task/need | Hand | show handle → work |
+| HEAD/dirty product moved | Mind | bounded residual pass **and/or code review** |
+| Hand mid-flight dirty (main or packet) | Mind | **proactive review** of WIP; §§REDMIND§§s → Vivi + short tmux pointer |
+| Same dirty paths block spine ≥2 cycles, no A/B/C note | Mind | **Open the diff** (half-dead); classify; file style/claim/quarantine; pivot targets for Hand |
 | Map Status mtime changed | Either | skim Status lines; then bag |
-| Tasking empty + next package selected | Ship / Flag | start package or **refill** + wake/reinit |
-| Advisor report mail | Flag | absorb; triage to hunter-N when actionable |
-| Approach / sequencing fork | Strategist (or Flag) | one advisory report / note |
-| Pane `idle_prompt` + open tasking (**Grok**) | Flag | doorbell wake |
-| Pane `done_idle` / idle + open tasking (**Codex**) | Flag | **Codex reinit** |
-| Theme finished + next target filed (**Grok**) | Flag | **theme-switch compact** then doorbell |
-| Theme finished + next target filed (**Codex**) | Flag | **Codex reinit** |
-| Pane `error_*` | Flag | ops intervene (model/retry/reinit) |
-| Pane `down` | Flag | recreate session + agent; may need **new session** |
+| Tasking empty + next package selected | Hand / Mind | start package or **refill** + wake/reinit |
+| Head report mail | Mind | absorb; triage to hunter-N when actionable |
+| Approach / sequencing fork | Strategist (or Mind) | one advisory report / note |
+| Pane `idle_prompt` + open tasking (**Grok**) | Mind | doorbell wake |
+| Pane `done_idle` / idle + open tasking (**Codex**) | Mind | **Codex reinit** |
+| Theme finished + next target filed (**Grok**) | Mind | **theme-switch compact** then doorbell |
+| Theme finished + next target filed (**Codex**) | Mind | **Codex reinit** |
+| Pane `error_*` | Mind | ops intervene (model/retry/reinit) |
+| Pane `down` | Mind | recreate session + agent; may need **new session** |
 
-### Proactive review (Flag, any cycle with signal)
+### Proactive review (Mind, any cycle with signal)
 
-Ships optimize for throughput; Flag optimizes for **invariant honesty**.
+Hands optimize for throughput; Mind optimizes for **invariant honesty**.
 
 **When to open a review pass (bounded, not full campaign re-read):**
 
@@ -833,14 +834,14 @@ Ships optimize for throughput; Flag optimizes for **invariant honesty**.
 1. Identify owner from fleet (main dirty → likely hunter-1; packet dirty → that
    packet’s worker; if ambiguous, say so in mail).
 2. Diff only in-scope paths (`git diff`, packet branch log, key tests/claims).
-3. Look for red flags: fail-open, dual ABI/dialect, tests weaker than Status,
+3. Look for §§REDMIND§§s: fail-open, dual ABI/dialect, tests weaker than Status,
    scope bleed into another hunter’s surface, silent env fakes, docs lying,
    **Status complete while evidence is only static/manual without saying so**.
 4. **Accept** (green): clear matching `pending_reviews` / advance packet toward
    merge; optional baseline note. Prefer draining review debt on paid passes.
 5. **Red flag:** `vivi mail` or `need` **To: hunter-N** with: where, why, done-when
    for the fix; then tmux pointer e.g.
-   `SHIP VECTOR hunter-2. Review mail <handle>. vivi --for hunter-2. Continue.`
+   `HAND WAKE hunter-2. Review mail <handle>. vivi --for hunter-2. Continue.`
 6. Do **not** paste the full review into tmux. Do **not** `git` cleanup foreign WIP.
 
 Mid-flight review is **advisory + residual**, not a stop stamp — unless the
@@ -852,20 +853,20 @@ finding is safety-critical (data loss, auth, destructive scope). Then file a
 Reject **accept** when Status says complete/product-run but evidence is only
 static or env-faked.
 
-### Absorb vs accept (Flag vocabulary)
+### Absorb vs accept (Mind vocabulary)
 
-Two different Flag actions — do not collapse them.
+Two different Mind actions — do not collapse them.
 
 | Term | Meaning | When | Quality bar |
 | --- | --- | --- | --- |
 | **Absorb** | Reconcile sensors into baseline/bag awareness: notice HEAD/done/Status, stop re-discovering, update fingerprints | Every cycle when something moved | Low — bookkeeping honesty |
-| **Accept** | After code review, treat the sortie/packet as good enough: clear review debt, allow map square closeout, unblock dependents, or queue merge to hunter-1 | Thorough or opportunistic review pass with evidence | High — invariants, tests vs claims, scope |
+| **Accept** | After code review, treat the unit/packet as good enough: clear review debt, allow map square closeout, unblock dependents, or queue merge to hunter-1 | Thorough or opportunistic review pass with evidence | High — invariants, tests vs claims, scope |
 
 | Role | Says… |
 | --- | --- |
-| **Ship** | Delivered / task **done** (evidence) — never “absorb” or “accept” |
-| **Flag** | **Absorb** always when moved; **accept** only after review |
-| **Operator** | May force priority; day-to-day accept stays Flag |
+| **Hand** | Delivered / task **done** (evidence) — never “absorb” or “accept” |
+| **Mind** | **Absorb** always when moved; **accept** only after review |
+| **Operator** | May force priority; day-to-day accept stays Mind |
 
 **Anti-pattern:** writing “absorb” in a cycle line as if it meant **accept**
 (Status + subject only, then file next package as green).
@@ -885,15 +886,15 @@ pending_merges[]:  {
   state: active | ready | reviewing | queued_for_h1 | merged
        | partial_merged | integrated_publish_pending | abandoned
 }
-# see pending_merges states (extended) under Multi-lane Flag
+# see pending_merges states (extended) under Multi-lane Mind
 ```
 
-| Event | Flag duty |
+| Event | Mind duty |
 | --- | --- |
-| Ship marks done / HEAD jumps on their scope | **Absorb**; add `pending_reviews` if not yet **accepted** |
+| Hand marks done / HEAD jumps on their scope | **Absorb**; add `pending_reviews` if not yet **accepted** |
 | Thorough or opportunistic review pass | **Accept** (clear debt) or file residuals; drain backlog when possible |
 | Packet ready-to-merge mail (theme or whole one-shot packet) | **Absorb** → review → **accept** or residual → state `queued_for_h1` + merge task |
-| Long-term packet unit sortie (not theme) | **Absorb**/review; next target to worker; **no** merge task to h1 |
+| Long-term packet unit (not theme) | **Absorb**/review; next target to worker; **no** merge task to h1 |
 | hunter-1 idle + empty + pending_merges queued | Prefer merge task doorbell **now** (clean breakpoint) |
 | hunter-1 idle + empty + map still open | Refill targets **and** drain review/merge debt |
 | hunter-1 completes merge | **Absorb** merge on main → **accept** merge (or residual) as its own step |
@@ -907,13 +908,13 @@ Cheap fingerprint should include:
 2. Main HEADs + dirty for focus repos
 3. **Each active packet:** `git -C worktrees/<slug>/<writable> status` +
    `rev-parse HEAD` + branch name
-4. Pane class per Ship
+4. Pane class per Hand
 
 Packet dirty counts as that worker’s mid-flight WIP (proactive review scope).
 
 ### Merge task body (to hunter-1)
 
-When Flag **accepts** a packet, the merge task should name at least:
+When Mind **accepts** a packet, the merge task should name at least:
 
 - packet slug + root path  
 - writable repo(s) + branch name(s)  
@@ -923,7 +924,7 @@ When Flag **accepts** a packet, the merge task should name at least:
   merger re-checks green on main after merge — red main is a one-turn artifact)  
 - **watch-scope drift** before merge:  
   `git diff --name-only <base>..HEAD -- <watch-paths>`  
-  Main often moves (other sorties on spine) while the packet is open. Non-empty
+  Main often moves (other units on spine) while the packet is open. Non-empty
   drift on watch paths → stop and report; do not force-merge through design
   conflict. Empty / only expected doc paths → proceed.  
 - done-when: on main, green validation, note back to reviewer  
@@ -936,13 +937,13 @@ When Flag **accepts** a packet, the merge task should name at least:
 | Running / dirty mid-phase | File or keep `queued_for_h1`; **do not** interrupt |
 | Idle + other open targets | Merge may be higher priority than new spine work if packet is blocking; else queue |
 
-After hunter-1 reports merge done: Flag **absorbs**, then **accepts** the
+After hunter-1 reports merge done: Mind **absorbs**, then **accepts** the
 main result (or files residual). Operator may retire worktrees later.
 
 Deep work (full delivery re-read, full tests, dump) only on paid path—or when
 the operator asks.
 
-Never wake a `running` Ship merely because the tasking bag is unchanged; Flag may
+Never wake a `running` Hand merely because the tasking bag is unchanged; Mind may
 review its dirty scope, but the implementation owns its active turn.
 
 ### Optional cadence backoff
@@ -957,7 +958,7 @@ Fail-fast is required. Interval backoff is **optional** for multi-hour idle:
 | 11+ | ~1h or sleep until operator/hunter signal |
 
 Reset `quiet_streak` on real progress: new/changed tasking item, HEAD move, Status
-absorb, filed residual, completed sortie, successful wake, or ops intervention.
+absorb, filed residual, completed unit, successful wake, or ops intervention.
 
 If the scheduler cannot change interval, still no-op cheaply each fire.
 
@@ -981,22 +982,22 @@ Product upgrades (board/brief/json):
 
 ## Supervisor loops
 
-Periodic Flag/scout only help while product moves, residuals are open, or
+Periodic Mind/scout only help while product moves, residuals are open, or
 fleet panes need liveness care. Empty tasking + flat trees + healthy idle panes →
 quiet or back off. Do not “keep the campaign alive” with restated plateaus after
-the Ship exited—restart hunter, select next map package, back off, or stop.
+the Hand exited—restart hunter, select next map package, back off, or stop.
 
 ## Anti-patterns
 
 ### Bag and gates
-- Treating Flag as a game warden: stage licenses, GO/NO-GO stamps, or
-  acceptance authority; or blocking a Ship on missing GO with no residual.
+- Treating Mind as a game warden: stage licenses, GO/NO-GO stamps, or
+  acceptance authority; or blocking a Hand on missing GO with no residual.
 - Sleeping with empty product tasking while the map still has unblocked next work
-  (“wait after unit sortie / RTM” as default success).
+  (“wait after unit / RTM” as default success).
 - Treating wants as defects, or parsing board storage instead of using the CLI.
 - Filing targets to retired identities when `hunter-N` is the default, or putting
   packet merges/unbounded spine work on hunter-2+.
-- Letting advisors (strategist/correctness/purity) own product tasking or merge
+- Letting Heads (strategist/correctness/purity) own product tasking or merge
   queues; thrashing strategist assign while a report is outstanding.
 
 ### Dual channel and process
@@ -1004,11 +1005,11 @@ the Ship exited—restart hunter, select next map package, back off, or stop.
   and pane liveness together. Never wake a `running` pane without cancel policy.
 - Sending policy essays through tmux; use Vivi, Agents, goals, and campaigns
   for durable detail, with tmux as a pointer-only doorbell.
-- **Stacking Codex `SHIP VECTOR` lines** on a finished `›` instead of **reinit**.
+- **Stacking Codex `HAND WAKE` lines** on a finished `›` instead of **reinit**.
 - **`exec codex` / fragile `exec grok`** that can leave the pane dead or
   **destroy the tmux session**.
 - Multi-paragraph stale bootstrap in agent launch argv (Phase-hold novels).
-- Running a packet Ship with **cwd still on main** (or path ≠ fleet
+- Running a packet Hand with **cwd still on main** (or path ≠ fleet
   packet root / worker_cwd); fix with rehome, not more doorbells.
 - Unquoted `--deny` globs in zsh (`Bash(sudo *)`); wrong base-index after recreate.
 
@@ -1019,7 +1020,7 @@ the Ship exited—restart hunter, select next map package, back off, or stop.
   (fix not on main / pin not refreshed).
 - Theme merge that **creates durable red main** (no packet fmt/tests in RTM;
   no post-merge green check).
-- Interrupting dirty hunter-1 for a merge, merging packets in the Flag, or
+- Interrupting dirty hunter-1 for a merge, merging packets in the Mind, or
   skipping watch-scope drift and the separate absorb → accept sequence.
 - Accepting “complete” when evidence is static/manual but the claim is a
   product run, without saying so in Status.
@@ -1028,15 +1029,15 @@ the Ship exited—restart hunter, select next map package, back off, or stop.
 ### Hygiene and multi-agent workspace
 - Combining `/compact` with assignment, compacting without next target (Grok), or
   starting a new Grok session for every theme when compact would suffice.
-- Skipping changed-file-only end-of-sortie polish, or polishing **foreign dirty**
+- Skipping changed-file-only end-of-unit polish, or polishing **foreign dirty**
   / other agents’ WIP.
 - **Destructive git cleanup** of unexpected dirt (`stash`, `reset`, `restore`,
-  `clean`) — foreign uncommitted work is another agent’s in-progress sortie.
+  `clean`) — foreign uncommitted work is another agent’s in-progress unit.
 - **Status-only dirt freeze:** repeating “foreign dirty / blocked” across cycles
   without `git diff` classification (A/B/C) or half-dead age escalation.
 - Treating **class A** (fmt/layout after inspect) as permanent foreign WIP
   instead of style-commit / include per formatter law.
-- Freezing the whole session on one blocked item while other bag/map targets exists
+- Freezing the whole session on one blocked item while other bag/map targets exist
   (topic monogamy under blockage).
 - Waiting silently for confirmation that was never filed as a need/mail.
 - Dumping or deeply inspecting every wake, writing plateau essays, or running
@@ -1080,15 +1081,15 @@ true ambiguity to the operator **after** filing a need with a default.
 
 ## Project overlay contract
 
-**This ssortie is the portable process.** Camp files bind instances and may add
+**This skill is the portable process.** Camp files bind instances and may add
 product law. They must not redefine bag-vs-gate, absorb-vs-accept, or
 don't-get-stuck.
 
 | Lives in skill | Lives in project overlay |
 | --- | --- |
-| Roles, bag rules, dual channel, fleet axes | Concrete Ship roster, cwds, model ids |
+| Roles, bag rules, dual channel, fleet axes | Concrete Hand roster, cwds, model ids |
 | Theme vs unit, merge clock, base-update *policy* | Campaign maps, product Status, validation commands |
-| Advisor loops, cycle kinds, runtime fallback *structure* | Role-prompt paths, absolute tool binaries |
+| Head loops, cycle kinds, runtime fallback *structure* | Role-prompt paths, absolute tool binaries |
 | Baseline *field meanings* and `pending_merges` states | Fat historical ledger rows, wind-up snapshots |
 | Pane classes, reinit contract, wind-down procedure | Scheduler prompt path, durable 5m task id |
 
@@ -1104,27 +1105,27 @@ project Agents.md                    # product + multi-agent law
 ```
 
 Prefer absolute paths from fleet `tooling` over `which` every cycle (nvm/`pi`
-often missing from bare Flag shells).
+often missing from bare Mind shells).
 
 ---
 
-## Flag cycle kinds (promoted detail)
+## Mind cycle kinds (promoted detail)
 
 After cheap sensors, set `cycle = last_cycle + 1` (write at end of cycle).
 
 | Kind | When | Work |
 | --- | --- | --- |
-| **Mail interrupt** | Always first | Permission / review / Q from ships or operator → answer **same wake** |
+| **Mail interrupt** | Always first | Permission / review / Q from hands or operator → answer **same wake** |
 | **Thorough (paid)** | e.g. `cycle % 3 == 1` | Residual + code review of product changes since `last_thorough_fingerprint` |
-| **Superficial** | other cycles | Red-flag scan + pane classes; sleep unless red flag, mail, starvation, or wake/ops |
+| **Superficial** | other cycles | Red-flag scan + pane classes; sleep unless §§REDMIND§§, mail, starvation, or wake/ops |
 
 Cadence is commonly **3–5 minutes** per fire. Prefer sleep unless something
 substantive moved, mail needs a reply, or a pane needs wake/ops.
 
 ### Superficial
 
-Pane classes + cheap dirty/HEAD delta. If a Ship is mid-mod (dirty in their
-scope): quick red-flag scan; mail+pointer if needed. Sleep unless red flag,
+Pane classes + cheap dirty/HEAD delta. If a Hand is mid-mod (dirty in their
+scope): quick red-flag scan; mail+pointer if needed. Sleep unless §§REDMIND§§,
 mail interrupt, starvation, or wake/ops.
 
 ### Thorough
@@ -1138,12 +1139,12 @@ side lane); file residuals **To owning hunter-N**; update thorough fingerprint.
 ```text
 1. Read baseline + hunter-fleet.json (pending_reviews, pending_merges, active lanes)
 2. Board status counts (vivi mailspace status)
-3. Flag inbox top (advice / review / permission / advisor reports)
+3. Mind inbox top (advice / review / permission / advisor reports)
 4. Open tasks/needs for each hunter-N (legacy shared identity: list only if migrating;
    do not use legacy counts for quiet/wake/starvation)
 5. Main HEAD + dirty for focus repos (project names the list)
 6. Each active side lane: status -sb + HEAD + branch
-7. Fleet pane scan (all ships + advisors if configured)
+7. Fleet pane scan (all hands + Heads if configured)
 8. Optional: map Status line if HEAD moved
 ```
 
@@ -1159,13 +1160,13 @@ When the cycle **acted**, emit more than a one-liner so the operator can follow
 without attaching every tmux session:
 
 1. **Headline** — `cycle N kind; absorb/accept accurate; sleep|acted`
-2. **Fleet snapshot** — each Ship + advisors: pane class, bag handles or empty,
+2. **Fleet snapshot** — each Hand + Heads: pane class, bag handles or empty,
    notable HEAD if moved, one-clause status
 3. **Board moves** — absorbed / accepted / filed / woke (handles + subjects)
 4. **Pending debt** — `pending_merges` / `pending_reviews` if non-empty
 5. **Strategist status** — awaiting_report? assign handle? reinit this cycle?
 6. **Strategist report brief** (new report absorbed) — 1 short ¶ problem + 1 short
-   ¶ recommended Flag actions; optional stale-premise correction; no full paste
+   ¶ recommended Mind actions; optional stale-premise correction; no full paste
 7. **Correctness / purity** status + brief when new report absorbed
 
 Quiet true sleep may stay one-line. Prefer tables for the fleet snapshot.
@@ -1173,25 +1174,25 @@ Use **absorb** and **accept** accurately.
 
 ---
 
-## Advisor loops (promoted detail)
+## Head loops (advisors) (promoted detail)
 
-Advisors are **not** product lanes. Do not keep-screen-moving refill them with map
+Heads are **not** product lanes. Do not keep-screen-moving refill them with map
 packages. They never merge and never own `pending_merges`.
 
-### Strategist research loop (mail; every Flag cycle, fail-fast)
+### Strategist research loop (mail; every Mind cycle, fail-fast)
 
-1. Sensors: mail list for strategist (or Flag inbox for `strategist report:`)
+1. Sensors: mail list for strategist (or Mind inbox for `strategist report:`)
    + baseline `strategist.*`
 2. If `strategist.awaiting_report` and no new report yet → **do not re-assign**;
    note “strategist in flight”; continue hunters
-3. If a **strategist report** arrived → absorb; optional triage to Ship tasks/needs;
+3. If a **strategist report** arrived → absorb; optional triage to Hand tasks/needs;
    set `awaiting_report=false`
 4. If **not** awaiting and ready for a new question → **clean-slate reinit + one assign**:
    1. File assignment mail **To: strategist** first (handle exists)
    2. Reinit strategist process: quit/kill current agent, **fresh** launch from
       fleet `strategist.agent_launch` in fleet cwd — not “continue old chat”
    3. Bootstrap pointer only: role prompt path, show assign handle, research,
-      report via board To Flag, idle
+      report via board To Mind, idle
    4. Set `awaiting_report=true`; record `last_reinit_at` + assign handle
 5. Prefer mail for assignment body; short tmux pointer after reinit is OK
 6. Reports may take 5–10+ minutes — **do not thrash** while outstanding
@@ -1207,7 +1208,7 @@ Strategist advises ownership, sequencing, seams, gate honesty, misprioritization
 | --- | --- |
 | Who owns which seam | “Is handle X open right now?” |
 | Real stage/gate vs static-only overclaim | Minute-by-minute merge queue alone |
-| Theme vs unit cadence; fake board deps | Assumptions mid-flight sortie is done/not |
+| Theme vs unit cadence; fake board deps | Assumptions mid-flight unit is done/not |
 | Conditional paths (“if red → …; if green → …”) | A single HEAD SHA as durable law |
 
 **How to write assigns:**
@@ -1215,7 +1216,7 @@ Strategist advises ownership, sequencing, seams, gate honesty, misprioritization
 1. **Structural question first** (1–3 sentences that stay meaningful for hours)
 2. **Optional live snapshot** second, labeled ephemeral; tell strategist to re-verify
 3. Prefer **conditionals** over “do X now because bag is empty”
-4. Flag still acts on live bag reality; strategist informs *how to think*
+4. Mind still acts on live bag reality; strategist informs *how to think*
 
 **Strategist duty on stale assign:** re-read live evidence; one-line correction of
 stale premises; answer the structural question anyway.
@@ -1224,9 +1225,9 @@ stale premises; answer the structural question anyway.
 
 Identity/session separate from hunter-N. Typical subject prefix: `correctness:`.
 
-1. Sensors: has-session; pane class; Flag inbox for correctness reports
+1. Sensors: has-session; pane class; Mind inbox for correctness reports
 2. Session **down** → recreate per fleet + role-prompt bootstrap (unless operator paused)
-3. New report → **absorb**: triage into task/need **To owning Ship** when
+3. New report → **absorb**: triage into task/need **To owning Hand** when
    actionable; doorbell if idle; record `correctness.last_report_*`; optional
    chat brief (problem ¶ + action ¶)
 4. **Do not** assign work every cycle. Soft-wake only if stuck idle long with no
@@ -1241,8 +1242,8 @@ passes** so context stays small.
 
 1. Sensors: has-session; pane class; purity report mail
 2. Down → recreate per fleet + role bootstrap
-3. New report → absorb; triage simplify/design targets To owning Ship (prefer over
-   drive-by rewrites mid-product sortie); doorbell if idle and targets ready
+3. New report → absorb; triage simplify/design targets To owning Hand (prefer over
+   drive-by rewrites mid-product unit); doorbell if idle and targets ready
 4. Optional soft focus mail (`purity assign: <area>`) — not required every cycle
 5. Soft-wake hygiene: compact keep identity+role+lens, then next pass; clean-slate
    reinit only if compact fails, confused, or operator asks
@@ -1251,11 +1252,11 @@ passes** so context stays small.
 
 ---
 
-## Multi-lane Flag (all ships every cycle)
+## Multi-lane Mind (all hands every cycle)
 
-Track **all active ships** every cycle; do not collapse maps into one spine.
+Track **all active hands** every cycle; do not collapse maps into one spine.
 
-**Live assignment table = fleet JSON** (`ships.*.packet` / `focus` / `cwd`).
+**Live assignment table = fleet JSON** (`hands.*.packet` / `focus` / `cwd`).
 Do not treat a prose snapshot of “H2 always owns X” as law — read fleet live.
 
 | Slot class | Workspace | Bag empty means |
@@ -1263,19 +1264,19 @@ Do not treat a prose snapshot of “H2 always owns X” as law — read fleet li
 | **hunter-1** | **main** (sticky) | starvation if main map next, pending_merges, or better open residuals |
 | **hunter-2+** | **current fleet assignment** | starvation if **that assignment’s** map still has unblocked next work — refill same cycle |
 
-File targets **To the Ship that currently owns that assignment**. Never cross-file
+File targets **To the Hand that currently owns that assignment**. Never cross-file
 continuous work to the wrong slot.
 
 ### Theme → main (always via hunter-1; theme cadence only)
 
-Side-lane workers **never** merge to main. Flag owns the integration clock.
+Side-lane workers **never** merge to main. Mind owns the integration clock.
 
-**Do not harass hunter-1 with a merge every tasking sortie.** Long continuous lanes
+**Do not harass hunter-1 with a merge every task unit.** Long continuous lanes
 merge at **theme boundaries**, not unit boundaries.
 
-| Event | Flag action |
+| Event | Mind action |
 | --- | --- |
-| Worker finishes a **unit/sortie** | **Absorb** + review; residual or next unit To: **same worker**; **no** merge task to h1 |
+| Worker finishes a **unit** | **Absorb** + review; residual or next unit To: **same worker**; **no** merge task to h1 |
 | Worker finishes a **theme** | ready-to-merge → review → **accept** → `pending_merges` → **merge task To: h1** at clean breakpoint |
 | Operator forces mid-theme integrate | exception only when explicit |
 
@@ -1285,7 +1286,7 @@ operator-named theme. Not “tasking empty for an hour” alone.
 #### Theme-complete path
 
 1. Worker signals **theme ready-to-merge** (theme name + tip + evidence) **or**
-   Flag judges theme done after review
+   Mind judges theme done after review
 2. **Absorb** tip; **code review** range since last main merge (not a GO stamp)
 3. **Accept** → `pending_merges` (slug, tip, base, theme, state `queued_for_h1`)
    **or** residual To worker
@@ -1303,15 +1304,15 @@ but the side lane must **periodically absorb green main**.
 
 1. **Bounded one-shot lane:** ready-to-merge when the whole assignment finishes →
    review → merge task to h1
-2. **Long-term continuous lane:** merge only at **theme** boundaries. Unit sorties →
+2. **Long-term continuous lane:** merge only at **theme** boundaries. Units →
    absorb/review/next target only
 3. Never ask hunter-2+ to merge to main
 4. Defer h1 wake while mid-spine phase / dirty main WIP
 5. **Main → side-lane reverse sync is required policy** (not forever-diverge)
 
-### Main → side-lane base-update (Flag-owned timing)
+### Main → side-lane base-update (Mind-owned timing)
 
-**Invariant:** continuous side lanes must not lag main indefinitely. Flag
+**Invariant:** continuous side lanes must not lag main indefinitely. Mind
 decides **when** to file base-update targets; workers execute when assigned.
 
 Default method: **merge green main into the side branch** (merge commit). Prefer
@@ -1351,7 +1352,7 @@ One base-update task per lane when lag is real — not a new SHA every cycle.
 
 **Empty tasking + no `queued_for_h1` does not mean tip is on main.** Continuous lanes
 often hold tens of unit/polish commits after a recorded theme merge. That is
-**post-theme residue**, not a merge queue item, until Flag defines the next
+**post-theme residue**, not a merge queue item, until Mind defines the next
 theme seam (or operator forces integrate).
 
 When assessing “is everything merged?”: re-check `git merge-base --is-ancestor
@@ -1368,7 +1369,7 @@ active | ready | reviewing | queued_for_h1 | merged
 | --- | --- |
 | `active` | Theme in flight on side lane |
 | `ready` | Worker claims ready; not yet reviewing |
-| `reviewing` | Flag review open |
+| `reviewing` | Mind review open |
 | `queued_for_h1` | Accepted; merge task exists or should |
 | `merged` | On main and accepted as merge |
 | `partial_merged` | Only part of the theme landed; residual debt remains |
@@ -1386,11 +1387,11 @@ lines** of capture (optional -80 for ops context). Prefer a project **classify
 script** over ad-hoc greps when available (avoids false `error_connection` from
 tool text like `timeout 1800 ./script`).
 
-| Class | Cues | Flag action |
+| Class | Cues | Mind action |
 | --- | --- | --- |
 | `running` | Streaming / Working / Waiting / live spinner — **wins over** error-looking tool output | Do not send-keys / reinit; may WIP-review dirty scope |
 | `idle_prompt` | Ready prompt (`›` / `❯`) | See open tasking + runtime |
-| `done_idle` | Turn-end / “tasking empty” / “standing by” monologue then ready (esp. Codex) | Finished sortie — reinit if open tasking (Codex) |
+| `done_idle` | Turn-end / “tasking empty” / “standing by” monologue then ready (esp. Codex) | Finished unit — reinit if open tasking (Codex) |
 | `trust_prompt` | Workspace trust UI (“Yes, continue”) | Reinit auto-accept or send accept once; not `running` |
 | `error_capacity` | over capacity, rate limit, 429, usage limit | Runtime fallback ladder |
 | `error_connection` | ECONNRESET, connection failed, *network* timeouts (not shell `timeout N`) | One same-model reinit; then capacity ladder |
@@ -1421,7 +1422,7 @@ per-hunter fields.
 | Class | Cues | First response |
 | --- | --- | --- |
 | **Capacity** | over capacity, rate limit, 429, usage limit, “try again later” | Step model ladder (same harness) |
-| **Auth / quota hard stop** | account exhausted, login required | Park harness; escalate operator; pivot other ships |
+| **Auth / quota hard stop** | account exhausted, login required | Park harness; escalate operator; pivot other hands |
 | **Connection** | ECONNRESET, disconnect | One same-model reinit; then capacity ladder |
 | **Harness dead** | crash loop, session destroy | Recreate shell + launch; if loop → next harness |
 
@@ -1437,10 +1438,10 @@ codex_model_ladder: [ primary, family-alt, older-1, older-2 ]
 **When `error_capacity` on agent=codex (or similar):**
 
 1. Confirm not mid-successful `running` with real progress → wait
-2. Advance that Ship’s `agent_model` one step; rewrite `agent_launch`
+2. Advance that Hand’s `agent_model` one step; rewrite `agent_launch`
 3. **Reinit** with short bootstrap — not stacked wakes
 4. Baseline `last_runtime_fallback` {hunter, from, to, reason, cycle, at}
-5. **At most one model step per Ship per cycle** — do not spin the whole ladder
+5. **At most one model step per Hand per cycle** — do not spin the whole ladder
 6. Ladder exhausted → harness fallback or park
 
 ### Harness fallback (after model ladder exhausted)
@@ -1448,8 +1449,8 @@ codex_model_ladder: [ primary, family-alt, older-1, older-2 ]
 Order is fleet-defined. Example pattern:
 
 1. Stay on last working model of preferred product harness if any slot healthy
-2. Alternate coding harness (e.g. pi + strong model) for **bounded** product sorties
-3. Reserve expensive/orchestrator harnesses for Flag/advisors when budget tight
+2. Alternate coding harness (e.g. pi + strong model) for **bounded** product units
+3. Reserve expensive/orchestrator harnesses for Mind/Heads when budget tight
 
 Harness flip = update fleet `agent` + `agent_launch` + `wake_mode` then clean
 launch. **Assignment unchanged.**
@@ -1457,31 +1458,31 @@ launch. **Assignment unchanged.**
 ### Per-cycle budget (anti-thrash)
 
 - Max **~2** capacity-driven model/harness flips per cycle fleet-wide
-- Normal reinit-after-sortie does **not** count as fallback
-- Never flip a `running` Ship for capacity unless pane shows hard capacity error
+- Normal reinit-after-unit does **not** count as fallback
+- Never flip a `running` Hand for capacity unless pane shows hard capacity error
 - Prefer flipping **idle/error** product slots first
 
-### Flag / orchestrator hard limit — recovery
+### Mind / orchestrator hard limit — recovery
 
-If the Flag session dies (hard quota / dead harness), it cannot self-heal
+If the Mind session dies (hard quota / dead harness), it cannot self-heal
 inside the dead session.
 
 | Situation | What works | What does not |
 | --- | --- | --- |
-| Soft pressure | Keep product on cheaper harnesses; shorten prose; skip nonessential advisor wakes | Migrating all product onto the dying orchestrator harness |
+| Soft pressure | Keep product on cheaper harnesses; shorten prose; skip nonessential Head wakes | Migrating all product onto the dying orchestrator harness |
 | Session alive but tool errors | Fail-fast sleep; one-line baseline; next fire retries | Infinite retry same turn |
-| **Hard stop** | **Operator recovery** (below) | Silent hope; thrashing ships without a live Flag |
+| **Hard stop** | **Operator recovery** (below) | Silent hope; thrashing hands without a live Mind |
 
 **Operator recovery:**
 
-1. Leave mid-sortie product ships alone if still working
-2. Start a **new Flag** session (same or temporary harness) in the project
+1. Leave mid-unit product hands alone if still working
+2. Start a **new Mind** session (same or temporary harness) in the project
 3. Open `$fleet` + camp overlay; run **one** cycle or re-arm scheduler
-4. Optional fleet note for temporary Flag runtime; revert later
-5. Do **not** require product ships to stop for Flag recovery
+4. Optional fleet note for temporary Mind runtime; revert later
+5. Do **not** require product hands to stop for Mind recovery
 
 **Scheduler honesty:** a durable interval task only helps if **some** session is
-alive to execute it. Dead Flag → operator must reattach or run manually.
+alive to execute it. Dead Mind → operator must reattach or run manually.
 
 Always write fallbacks into baseline and fleet per-hunter runtime fields.
 
@@ -1489,7 +1490,7 @@ Always write fallbacks into baseline and fleet per-hunter runtime fields.
 
 ## Codex reinit production contract (promoted detail)
 
-**Problem:** Codex after a sortie parks at ready prompt and does not pull the next
+**Problem:** Codex after a unit parks at ready prompt and does not pull the next
 tasking item. Stacked wake lines fail or keep **stale bootstrap** alive for hours.
 
 **Policy:** when `agent=codex` is **done** and next work exists → **kill Codex +
@@ -1505,9 +1506,9 @@ not part of the H-number.
 
 ### When not
 
-- `running` / mid-sortie
+- `running` / mid-unit
 - Tasking empty + operational pause only (refill first if map has next)
-- Already reinited this Ship this cycle (unless died again)
+- Already reinited this Hand this cycle (unless died again)
 - Fleet `agent` is not `codex`
 
 ### Prefer a project script
@@ -1538,7 +1539,7 @@ record `last_codex_reinit_at`.
 **Forbidden:** multi-paragraph argv holds; stacking wakes on finished ready;
 reinit `running` without FORCE; `exec codex`.
 
-Flag default under thrash: **doctor then heal** over hand greps + stacked wakes.
+Mind default under thrash: **doctor then heal** over hand greps + stacked wakes.
 
 ---
 
@@ -1600,7 +1601,7 @@ Recommended keys (extend freely; skill cares about meanings):
 }
 ```
 
-**Never hardcode model strings as Ship identity.** Read `agent_launch` from fleet.
+**Never hardcode model strings as Hand identity.** Read `agent_launch` from fleet.
 
 ---
 
@@ -1631,7 +1632,7 @@ Ignore-lists for tasking noise may live in baseline (`ignore_bag_handles`,
 
 ## Fleet wind-down and rearm (promoted detail)
 
-Part of orderly camp shutdown (and of this ssortie's lifecycle **Retire**).
+Part of orderly camp shutdown (and of this skill's lifecycle **Retire**).
 
 ### When to wind down
 
@@ -1646,14 +1647,14 @@ Part of orderly camp shutdown (and of this ssortie's lifecycle **Retire**).
    `pending_reviews` / `pending_merges` honesty (do not invent theme RTMs)
 3. **Classify each slot:**
    - empty tasking + clean/idle → finished → eligible to drop pane
-   - open product tasking mid-sortie → **keep** or operator-stop with residual noted
+   - open product tasking mid-unit → **keep** or operator-stop with residual noted
    - open tasking is only human/env gate → treat as finished for wind-down; leave need open
-4. **Drop panes** for finished ships and advisors (`tmux kill-session`); leave
-   mid-product ships if operator wants residual drain
+4. **Drop panes** for finished hands and Heads (`tmux kill-session`); leave
+   mid-product hands if operator wants residual drain
 5. **Baseline** `gatherer_loop.state = wound_up` with: dropped/kept panes, tips,
    residual open handles, handoff for rearm
-6. Optional pointer to kept ships: fleet wound up; continue bag or idle
-7. Cancel or detach durable Flag scheduler if operator is stopping the loop
+6. Optional pointer to kept hands: fleet wound up; continue bag or idle
+7. Cancel or detach durable Mind scheduler if operator is stopping the loop
 
 ### What wind-down is not
 
@@ -1671,9 +1672,9 @@ Part of orderly camp shutdown (and of this ssortie's lifecycle **Retire**).
 
 ---
 
-## Ship decision continuity (promoted detail)
+## Hand decision continuity (promoted detail)
 
-Applies to every Ship (and any implementer identity):
+Applies to every Hand (and any implementer identity):
 
 ### Never block yourself on a decision
 
@@ -1681,7 +1682,7 @@ Applies to every Ship (and any implementer identity):
 
 | Situation | Required action |
 | --- | --- |
-| Path / name / scope / order / ABI / package / stop | Same turn: **need or mail** to Flag with **default + options** |
+| Path / name / scope / order / ABI / package / stop | Same turn: **need or mail** to Mind with **default + options** |
 | Filename / docs layout only | Campaign convention or default in the need; keep working |
 | Waiting for a reply | **Switch targets** — do not freeze |
 | Human-only wall | Send the need first, then switch targets |
@@ -1704,9 +1705,9 @@ while other tasking items remain; treating private monologue as coordination.
 ## Related skills
 
 - `$mail` — Vivi project mailspace CLI (task/need/want/mail); not the process
-- `$polish` — end-of-sortie per-file improvement on **this sortie’s** changed primary source
-- `$correctness` — behavioral bug / invariant audits (advisor or Ship tool)
+- `$polish` — end-of-unit per-file improvement on **this unit’s** changed primary source
+- `$correctness` — behavioral bug / invariant audits (advisor or Hand tool)
 - `$cleanliness` — structure/complexity scans (pairs with purity-style work)
-- `$factory` — multi-phase implementation when the Ship executes a large unit
-- `$campaign` / `$delivery` — map and delivery packages the Ship drains
+- `$factory` — multi-phase implementation when the Hand executes a large unit
+- `$campaign` / `$delivery` — map and delivery packages the Hand drains
 - `$executive-team` — broader role cast; fleet is the tasking bag-loop subset

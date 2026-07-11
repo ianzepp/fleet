@@ -1,3 +1,3 @@
 display_name: Fleet
-short_description: Carrier-group multi-agent fleet — Flag, Ships, advisors, tmux.
-default_prompt: Use $fleet for multi-agent project loops. Flag fills tasking; Ships clear targets. Dual channel Vivi + tmux. Identity≠assignment≠runtime. Theme vs unit RTM; base-update green-main gate; advisors (strategist clean-slate, correctness/purity). Don't get stuck / dirt A/B/C. Codex reinit vs Grok doorbell; runtime fallback. Cycle kinds; fleet wind-down/rearm. No stage GO/NO-GO. Use $mail for Vivi CLI.
+short_description: Mind/Head/Hand multi-agent fleet — ops, advisors, workers.
+default_prompt: Use $fleet for multi-agent project loops (Abbot Mind/Head/Hand). Mind (ops) fills tasking; Hands (workers, often hunter-N) clear targets; Heads (strategist/correctness/purity) advise. Dual channel Vivi + tmux. Theme vs unit RTM; base-update; runtime fallback; don't-get-stuck. No stage GO/NO-GO. Use $mail for Vivi CLI.
