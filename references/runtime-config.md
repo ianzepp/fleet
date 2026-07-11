@@ -42,6 +42,22 @@ python3 scripts/fleet-baseline.py wound-up -p <root> -s 'wound_up' --dropped han
 
 `--project/-p` before or after subcommand. `bump` increments `last_cycle`, quiet/mode counters, stores fingerprint/pane_classes, touches `mind_loop.last_successful_cycle_at` (pair with `steward.sh rearm`).
 
+### `verify-fleet-json.py`
+
+```bash
+python3 scripts/verify-fleet-json.py --project <root>                  # text summary
+python3 scripts/verify-fleet-json.py --fleet /path/to/fleet.json --json
+python3 scripts/verify-fleet-json.py --project <root> --strict         # warnings as errors
+python3 scripts/verify-fleet-json.py --project <root> --no-path-checks # skip on-disk refs
+```
+
+Validates fleet.json shape, cross-references (`default_hand` resolves,
+`mail_identity` unique, `merges_to_main` only on a hand), `executive_cadence` /
+wake-field well-formedness, and that referenced absolute paths (`role_prompt`,
+`persona`, `tooling` binaries) exist. The schema is permissive ("extend freely;
+skill cares about meanings") — unknown keys are NOT rejected. Exit `0` ok ·
+`1` validation errors (or any warning under `--strict`) · `2` usage.
+
 ### `fleet-doorbell.sh`
 
 ```bash
@@ -204,6 +220,8 @@ Recommended keys (extend freely; skill cares about meanings):
   "mind_inbox": "mind",
   "operator_inbox": "operator",
   "operator_inbox_note": "Human escalations only (problems/blockers/guidance). Not status. No tmux.",
+  "head_report_inbox": "reviewer",
+  "head_report_inbox_note": "Inbox identity that executive heads mail reports to, for sweep-completion detection. Default 'reviewer'.",
   "steward": {
     "enabled": false,
     "note": "default OFF — operator must enable:true and explicitly ask to arm per fleet; loop ≠ steward",
@@ -290,7 +308,12 @@ Recommended keys (extend freely; skill cares about meanings):
     "thinking": "high",
     "agent_launch": "pi --provider zai --model glm-5.2 --thinking high",
     "clean_slate_per_assignment": true,
-    "role_prompt": "<fleet-path>/head-ceo-role-prompt.txt"
+    "role_prompt": "<fleet-path>/head-ceo-role-prompt.txt",
+    "executive_cadence": {
+      "enabled": false,
+      "min_seconds_between_sweeps": 86400,
+      "sweep_mode": "trajectory"
+    }
   },
   "head-cto": {
     "mail_identity": "head-cto",
@@ -309,6 +332,18 @@ Recommended keys (extend freely; skill cares about meanings):
   }
 }
 ```
+
+**Executive cadence (optional, per head).** Any head entry may carry an
+`executive_cadence` block: `{enabled, min_seconds_between_sweeps, sweep_mode}`.
+When `enabled`, `fleet-sensors.py` surfaces the head as `head_due_<role>` (a hard
+signal + a `head_<role>_due` fingerprint key) once the interval has elapsed
+since its last observed completion mail. Completion is detected by a new mail
+from the head's `mail_identity` or `legacy_aliases` in `head_report_inbox`
+(default `reviewer`). The last-seen handle and `last_completed` round-trip inside
+the fingerprint, so the loop is self-correcting with no extra state file.
+Per-role conventions: `head-ceo` trajectory / daily (86400), `head-cto` honesty /
+30min (1800), `head-cxo` coherence / 50min (3000). Inert by default; opt in per
+fleet. Validate with `verify-fleet-json.py`.
 
 **Never hardcode model strings as Hand identity.** Read `agent_launch` from fleet. Hand `agent` should match `mind.agent` unless baseline records operator exception. Defaults from preferred_models; override for capacity/experiment, re-align when quiet.
 
