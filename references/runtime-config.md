@@ -50,7 +50,7 @@ scripts/fleet-doorbell.sh --project <root> hand-1 [--handle HEX] [--note '…'] 
 
 Resolves fleet.json `tmux_target`; refuses running/down/rate-limit unless `--force`; records `last_hand_wake`.
 
-### `codex-reinit.sh`
+### `codex-reinit.sh` (fallback)
 
 ```bash
 PROJECT=/path/to/fleet FLEET=/path/to/fleet.json scripts/codex-reinit.sh doctor
@@ -98,7 +98,7 @@ head_pi_model:            [ glm-5.2@high, glm-5.2@xhigh, … ]
 
 1. Not mid-successful `running` with real progress → wait
 2. Advance Hand `agent_model` one step **same harness**; rewrite `agent_launch`
-3. **Reinit** (Codex) or doorbell after restart (Grok) — short bootstrap, no stacked wakes
+3. Doorbell if idle; reinit only for down/stuck/error recovery — short bootstrap, no stacked wakes
 4. Baseline `last_runtime_fallback` {hand, from, to, reason, cycle, at}
 5. **≤1 model step per Hand per cycle**
 6. Ladder exhausted → park or escalate; **do not** silently move Hand to different harness while Mind stays on original (exception: operator note + re-align plan)
@@ -144,18 +144,18 @@ If Mind dies (hard quota / dead harness), it cannot self-heal inside the dead se
 
 Always write fallbacks into baseline + fleet per-hand runtime fields.
 
-## Codex reinit production contract
+## Codex doorbell + reinit fallback
 
-**Problem:** Codex parks at ready prompt after a unit; stacked wakes fail or keep **stale bootstrap** alive for hours.
+**Problem:** Codex parks at ready prompt after a unit. Back-to-back wake text can stay in the composer if Enter arrives before the TUI is ready.
 
-**Policy:** `agent=codex` **done** + next work exists → **kill Codex + fresh session + short bootstrap**. One clean start. Harness is fleet binding, not part of H-number.
+**Policy:** `agent=codex` **done** + next work exists → pointer doorbell first through `fleet-doorbell.sh`. The helper uses a Codex submit-settle delay before Enter. Reinit is fallback recovery, not the normal wake.
 
-| When to reinit | When not |
+| Doorbell first | Reinit fallback |
 | --- | --- |
-| Turn-end / ready-to-merge **and** bag has next target | `running` / mid-unit |
-| `done_idle` or long `idle_prompt` + **open tasking** | Empty tasking + operational pause (refill first if map has next) |
-| Process down + open tasking or standby with current law | Already reinited this Hand this cycle (unless died again) |
-| Unblock (pin-refresh, merge) + open tasking — current one-line fact | Fleet `agent` ≠ `codex` |
+| Turn-end / ready-to-merge **and** bag has next target | Process down + open tasking or standby with current law |
+| `done_idle` or long `idle_prompt` + **open tasking** | Trust/error prompt; capacity/connection recovery |
+| Unblock (pin-refresh, merge) + open tasking — current one-line fact | Doorbell text remains stuck after retry; stale bootstrap repeats |
+| Theme switch in same cwd | Operator wants clean slate / cwd rehome |
 
 ### Prefer project script
 
@@ -175,9 +175,9 @@ Exit 2 → one more reinit same cycle OK; still stuck next cycle → model ladde
 
 **Manual fallback:** kill agent children of pane only; leave tmux+shell; launch without `exec` via fleet `agent_launch`; short bootstrap; record `last_codex_reinit_at`.
 
-**Forbidden:** multi-paragraph argv holds; stacking wakes on finished ready; reinit `running` without FORCE; `exec codex`.
+**Forbidden:** multi-paragraph argv holds; repeated doorbells without submit-settle/inspection; reinit `running` without FORCE; `exec codex`.
 
-Mind under thrash: **doctor then heal** over hand greps + stacked wakes.
+Mind under thrash: doorbell once, then **doctor/snapshot/reinit** over hand greps + stacked wakes.
 
 ## Fleet config schema
 

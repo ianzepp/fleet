@@ -86,7 +86,7 @@ Default arm preferences. Live ids in project fleet config (`agent_model`, `agent
 | Codex | Mind/Hand may differ within family (sol/medium vs luna/xhigh); harness stays Codex |
 | Claude desktop Mind | **Declared exception to Harness alignment** (experimental). No local CLI for tmux pane → Hands cannot match Mind harness. Treat **Grok as fleet Hand harness**: desktop Mind files tasking + reads panes; Grok Hands use normal Grok wake without tmux-resident Mind |
 | Why desktop Mind | (1) **token budget** — deep/interactive Mind off product Hand harness; (2) **failure isolation** — tmux/shell death ≠ Mind death. Combine with remote Hands/Heads (`ssh-remote.md`). Expect learning/tweaks |
-| Codex under desktop Mind | Only if Grok capacity exhausted — reinit-after-unit assumes scriptable Mind loop |
+| Codex under desktop Mind | Only if Grok capacity exhausted — use doorbell-first Codex wake; reinit remains fallback |
 | Heads | Still **Pi + GLM 5.2** regardless of Mind harness |
 | Pi local Hand | Validated alternate for desktop-Mind when fully local + discrete/bounded units — see Pi-as-Hand |
 | Capacity | Start at primaries, step models in `runtime_fallback` (do not flip product harness first) |
@@ -99,7 +99,7 @@ Validated 2026-07-11 against `ornith-35b-q8` via local `llama-router` (`~/.pi/ag
 | --- | --- |
 | Scope | Discrete, well-specified units (write, run, self-verify). Not a Grok/Codex substitute for ambiguous / multi-step / long-context spine |
 | Wake | Same doorbell as Grok: plain `pi` (no `--print`) idles in tmux; `send-keys … Enter` wakes; context retained; `/compact` works (errors only on too-small session) |
-| Autonomy | No built-in agentic loop or reinit-after-unit. Passive between wakes like Grok. Codex alone has after-unit reinit |
+| Autonomy | No built-in agentic loop. Passive between wakes like Grok. Codex uses doorbell-first wake with reinit fallback |
 | Slash surface | `/help` not recognized (goes to model as text). Do not assume Grok command parity beyond tested commands |
 | cwd | Pin by true process cwd, not preceding shell `cd` in compound command. Prefer subshell or `tmux new-session -c <cwd>`. Verify on first use in new packet |
 | Cost | Fully local, zero marginal API. Step back to Grok/Codex if unit needs real multi-step reasoning |
@@ -141,7 +141,7 @@ pi --provider zai --model glm-5.2 --thinking high   # or xhigh
 - Find missed work, Status overclaims, missing evidence; file **targets** with where / done-when / evidence bar (**to owning Hand**)
 - **Integration absorb/accept** — *absorb = bookkeeping when something moved; accept = integration bar (not code review)* — canon [`mind-cycle.md`](mind-cycle.md); not deep peer review of every packet
 - Stay quiet when fingerprint unchanged, panes healthy, no ops signal
-- Each wake: cheap **fleet pane scan**; **Grok doorbell** or **Codex reinit** (`scripts/codex-reinit.sh`) when idle/done with open targets
+- Each wake: cheap **fleet pane scan**; doorbell idle/done panes with open targets; use **Codex reinit** (`scripts/codex-reinit.sh`) only as fallback for stuck/down/error Codex sessions
 - Residual → **task** to Hand; agent decision hold → **need**; **human** wall / problem / blocker / bug-guidance → **`operator@`** (`operator-mail.md`); **tmux pointer only**
 - **Post-main polish advisory:** main git tip moves → `suggest-polish-files.py` (JSON, capped); scores ≥ threshold → bounded polish **task** — Mind does not run polish loop
 - **Major-inflection housekeeping:** campaign end / large multi-theme merge / stage closeout / operator ask only — **one** `$housekeeping` **task** To hand-1; never after routine lands

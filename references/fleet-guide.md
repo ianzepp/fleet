@@ -88,7 +88,7 @@ On return: present operator mail list first.
 
 - **Board** holds full done-when, evidence, To: ownership.
 - **tmux** = **pointers only** (“show handle X; continue”).
-- Pane classes: `running` → no wake; `idle_prompt`+open bag → doorbell (Grok) or **reinit** (Codex); `error_*`/`down` → ops.
+- Pane classes: `running` → no wake; `idle_prompt`+open bag → doorbell (Codex uses submit-settle); `error_*`/`down` → ops / reinit fallback.
 
 Hands share **Mind’s product harness**. Heads prefer different model/harness.
 

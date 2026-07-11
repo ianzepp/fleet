@@ -166,7 +166,7 @@ python3 $SK/fleet-sensors.py --project "$ROOT"
 python3 $SK/fleet-sensors.py --project "$ROOT" --text
 python3 $SK/fleet-sensors.py --project "$ROOT" --no-watch
 
-# Grok doorbell; Codex → codex-reinit.sh instead
+# Doorbell for Grok/Pi/Codex; Codex helper path uses submit-settle
 $SK/fleet-doorbell.sh --project "$ROOT" hand-1 --handle <hex> --note 'bag open'
 # exit 0 sent · 1 refused (running|down|rate-limit) · 2 usage
 
@@ -189,7 +189,7 @@ $SK/steward.sh rearm --project "$ROOT"
 - no new mailspace watch hits (if using cursor)
 - pane classes unchanged and not `error_*`
 - not (hand-1 idle + empty + map/merge debt)
-- not (idle + open tasking needing doorbell/**Codex reinit**)
+- not (idle + open tasking needing doorbell)
 - not (empty tasking + map next = starvation unfilled)
 - `pending_reviews` / `pending_merges` empty or explicitly deferred
 
@@ -252,10 +252,9 @@ Even **sleep** interactive uses this shape. **Not required:** full mail dumps, f
 | Tasking empty + next package selected | Hand / Mind | start or **refill** + wake/reinit |
 | Head-role report mail | Mind | absorb; triage to hand-N when actionable |
 | Approach / sequencing fork | head-ceo (or Mind) | one advisory report / note |
-| Pane `idle_prompt` + open tasking (**Grok**) | Mind | doorbell |
-| Pane `done_idle` / idle + open tasking (**Codex**) | Mind | **Codex reinit** |
+| Pane `idle_prompt` / `done_idle` + open tasking | Mind | doorbell |
 | Theme finished + next target (**Grok**) | Mind | **theme-switch compact** then doorbell |
-| Theme finished + next target (**Codex**) | Mind | **Codex reinit** |
+| Theme finished + next target (**Codex**) | Mind | doorbell; reinit only if stale/stuck |
 | Pane `error_*` | Mind | ops intervene (model/retry/reinit) |
 | Pane `down` | Mind | recreate session + agent; may need **new session** |
 

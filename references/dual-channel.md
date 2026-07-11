@@ -12,8 +12,8 @@ Pane ops, wake/reinit, rehome, theme switch, completion mail.
 | Concern | Prefer |
 | --- | --- |
 | “Unit done; evidence is …” | Vivi tasking done (+ optional mail **To mind**) |
-| “Grok idle at prompt with open tasking” | tmux → **pointer doorbell** |
-| “Codex done/idle at `›` with open tasking” | tmux → **reinit** (kill + fresh + short bootstrap) — not stacked wakes |
+| “Grok/Codex idle at prompt with open tasking” | tmux → **pointer doorbell** |
+| “Codex doorbell leaves text stuck / pane down / trust or error prompt” | tmux → **reinit fallback** (kill + fresh + short bootstrap) |
 | “Over capacity / connection failed / hung Waiting” | tmux → ops intervene (model / retry / restart) |
 | “Human must decide / recover / guide a fix” | Vivi **To `operator@`** (need/mail) — not status To mind; `operator-mail.md` |
 | “Mind loop dead / cycle ticks stopped” | per-fleet **steward** — `dead-man.md`; rearm every successful mini-cycle |
@@ -128,8 +128,8 @@ tmux new-session -d -s hand-1 -c <cwd>                     # Hands/Heads only
 | --- | --- | --- |
 | `down` | no session | recreate session + agent; Codex: reinit with bootstrap |
 | `running` | current `Waiting for response` / live spinner / Codex streaming | sleep (do not wake/reinit) |
-| `idle_prompt` | Grok `❯` ready; Codex `›` ready without finished-turn monologue | **Grok:** doorbell if open tasking. **Codex:** reinit if finished/stale + open tasking |
-| `done_idle` | Codex turn-end / “tasking empty” / “standing by” then `›` | **Codex reinit** if open tasking or just filed targets; else refill or pause |
+| `idle_prompt` | Grok `❯` ready; Codex `›` ready without finished-turn monologue | Doorbell if open tasking |
+| `done_idle` | Codex turn-end / “tasking empty” / “standing by” then `›` | Doorbell if open tasking or just filed targets; else refill or pause |
 | `trust_prompt` | Workspace trust UI (“Yes, continue”) | Reinit auto-accept or send accept once; not `running` |
 | `error_capacity` | over capacity, rate limit, 429 | ops: model change / retry / reinit |
 | `error_connection` | connection failed, timeout, ECONNRESET | ops: retry / restart resume |
@@ -137,14 +137,14 @@ tmux new-session -d -s hand-1 -c <cwd>                     # Hands/Heads only
 
 Grok: placeholder (“Build anything”) while idle ≠ in-flight. Prefer `Waiting for response` as only hard `running` unless live spinner in **tail**.
 
-Codex: `•` monologue then `›` is often an **answer that stopped**. Stacking `HAND WAKE` lines is the failure mode.
+Codex: `•` monologue then `›` is often an **answer that stopped**. Back-to-back `HAND WAKE` lines without submit-settle are the failure mode.
 
 Rate-limit wakes (`min_seconds_between_wakes`). Never `send-keys` into `running` unless operator allows cancel+replace. Prefer project **classify script** over ad-hoc greps (avoids false `error_connection` from tool text like `timeout 1800 ./script`).
 
 | Situation | Action |
 | --- | --- |
-| `idle_prompt`/`done_idle` + open tasking + **codex** | **Reinit** — not stacked wakes |
-| `idle_prompt` + open tasking + **grok** | Pointer doorbell |
+| `idle_prompt`/`done_idle` + open tasking | Pointer doorbell |
+| Codex pointer text remains in composer / no `Working` after submit | Reinit fallback after one retry/snapshot if useful |
 | `idle_prompt` + empty + map has next unblocked unit | **Starvation** — file next same cycle; then wake/reinit by runtime |
 | `idle_prompt` + empty + operational pause only | Quiet OK; note reason |
 | `idle_prompt` + empty after unit/theme accept | Not default quiet — absorb/accept → **refill** → wake/reinit |
@@ -157,24 +157,26 @@ Hands share Mind’s harness (usually one column). Heads may use the other on pu
 
 | | **Grok** (`agent=grok`) | **Codex** (`agent=codex`) |
 | --- | --- | --- |
-| After unit + open tasking | Pointer **doorbell** | **Reinit** (kill + fresh + short bootstrap) |
-| Theme switch same cwd | `/compact` then pointer | **Reinit** (do not rely on compact+wake) |
+| After unit + open tasking | Pointer **doorbell** | Pointer **doorbell** with submit-settle delay |
+| Theme switch same cwd | `/compact` then pointer | Pointer doorbell; reinit only for stale/stuck sessions |
 | Launch | Prefer plain `grok …` | Plain `codex …` via `agent_launch` — **never `exec codex`** |
 | Bootstrap | Pointer: identity, handle, `vivi --for` | Same short bootstrap as first user message — no multi-paragraph novels in argv |
 
-## Codex reinit-after-unit
+## Codex doorbell + reinit fallback
 
-**Policy:** Codex Hand **done** + next target → **kill Codex, fresh session**. One clean start — not five stacked wakes.
+**Policy:** Codex Hand **done** + next target → normal pointer **doorbell** first. The helper waits briefly before Enter so Codex submits the composer instead of accumulating stale wake text. Reinit is recovery, not the default wake.
 
-**When:** turn-end + next target; `done_idle` / long idle + open tasking; process down; unblock + open tasking with **current** one-line fact.
+**Doorbell when:** turn-end + next target; `done_idle` / long idle + open tasking; unblock + open tasking with **current** one-line fact.
 
-**When not:** `running` / mid-unit; empty + operational pause only (refill first if map has next); already reinited this Hand this cycle (unless died again); `agent` ≠ `codex`.
+**Reinit when:** process down; trust/error prompt that cannot be accepted inline; Codex text remains stuck after a doorbell retry; stale bootstrap repeats; operator wants a clean slate.
+
+**When not:** `running` / mid-unit; empty + operational pause only (refill first if map has next); `agent` ≠ `codex`.
 
 1. File next task/need **before** launch so a handle exists
-2. Kill **Codex children of pane_pid only** — leave tmux + shell. If session gone: `tmux new-session -d -s hand-N -c <packet-cwd>`
-3. Launch without `exec` using that Hand’s **`agent_launch`** (helper honors it; synthesizes only if empty)
-4. One short first message: identity, never merge main (if packet), `vivi --for hand-N`, open handle(s), one verb, optional one-line unblock fact
-5. Enter once. Record `last_codex_reinit_at` in baseline
+2. Doorbell through `fleet-doorbell.sh` so Codex gets submit-settle
+3. If it sticks, use `codex-reinit.sh doctor` / `snapshot` / `reinit`
+4. Reinit launch must avoid `exec` and use that Hand’s **`agent_launch`** (helper honors it; synthesizes only if empty)
+5. One short first message: identity, never merge main (if packet), `vivi --for hand-N`, open handle(s), one verb, optional one-line unblock fact
 
 | Harness | `/goal` |
 | --- | --- |
@@ -182,11 +184,11 @@ Hands share Mind’s harness (usually one column). Heads may use the other on pu
 | **Grok** | Supported; avoid by default — prefer pointer or scheduled-loop unless operator wants `/goal` |
 | **Pi** | Not supported. Plain task pointer/prompt |
 
-Do not stack `/goal` onto a running turn. File board target first; `/goal` during clean Codex reinit for coherent bounded objective.
+Do not stack `/goal` onto a running turn. File board target first; `/goal` only during clean Codex reinit for coherent bounded objective.
 
 Helper: `scripts/codex-reinit.sh` (doctor / heal / reinit / classify). Set `PROJECT` and `FLEET`. See `runtime-config.md`.
 
-## Doorbell (wake) — primarily Grok
+## Doorbell (wake)
 
 When `wake_enabled` and `idle_prompt` and Hand has open tasks/needs (or Mind just filed / answered blocking need):
 
@@ -200,7 +202,7 @@ tmux send-keys -t '<tmux_target>' -l -- '<pointer only>'
 tmux send-keys -t '<tmux_target>' Enter
 ```
 
-Codex: **reinit** instead of stacking doorbell. Pi local Hands: same doorbell as Grok (`roles-and-harness.md`).
+Codex: use the same helper; it applies a small submit-settle delay before Enter. Pi local Hands: same doorbell as Grok (`roles-and-harness.md`).
 
 ### Channel split (mandatory)
 
@@ -230,7 +232,7 @@ Ops interventions stay one-liners; detail to Vivi if needed. Record `last_hand_w
 
 **Prefer rehome when:** hand-2+ reassigned; packet shell prepared but session still on main cwd; operator wants clean baseline (fresh Grok, no resume); session `down` / process dead.
 
-Prefer **theme-switch `/compact`** (Grok) when cwd + identity already correct. **Codex:** reinit after unit instead of compact+wake.
+Prefer pointer doorbell when cwd + identity already correct. Use `/compact` for Grok theme switches when useful. Use Codex reinit only for stale/stuck sessions, process death, clean-slate operator preference, or cwd rehome.
 
 ### Packet rehome sequence (Grok TUI in tmux)
 
@@ -279,7 +281,7 @@ Record restarts in baseline when useful. Product state lives in Vivi; process re
 
 Grok theme → next in same session: `/compact` + pointer wake. New session only when pane down, different model/flags, still confused after compact, or operator wants clean slate.
 
-**Codex:** after unit with next target, **always reinit** — do not rely on compact+wake on finished `›`.
+**Codex:** after unit with next target, doorbell first; reinit only if stale/stuck or changing to a clean slate.
 
 1. File next task/need first so handle exists
 2. Require `idle_prompt`, send `/compact` alone, wait for idle again

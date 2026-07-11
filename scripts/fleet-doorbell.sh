@@ -6,7 +6,8 @@
 #   fleet-doorbell.sh --project <root> --target mgs:hand-1.1 --message 'HAND WAKE …'
 #
 # Requires: bash 3.2+ (not sh/zsh-as-script), python3 >= 3.9, tmux
-# Portable: macOS + Linux. Override with TMUX_BIN / PYTHON_BIN.
+# Portable: macOS + Linux. Override with TMUX_BIN / PYTHON_BIN /
+# FLEET_DOORBELL_SUBMIT_DELAY_SEC.
 #
 # Exit: 0 sent · 1 refused (running / rate-limit / missing) · 2 usage/config error
 set -euo pipefail
@@ -23,6 +24,7 @@ NOTE=""
 FORCE=0
 TARGET=""
 MESSAGE=""
+SUBMIT_DELAY="${FLEET_DOORBELL_SUBMIT_DELAY_SEC:-}"
 
 if ! TMUX_BIN="$(fleet_find_tmux)"; then
   echo "ERROR: tmux not found (set TMUX_BIN)" >&2
@@ -269,6 +271,13 @@ fi
 MESSAGE="$(printf '%s' "$MESSAGE" | tr '\n\r' '  ')"
 
 "$TMUX_BIN" send-keys -t "$RESOLVED_TARGET" -l -- "$MESSAGE"
+if [[ -z "$SUBMIT_DELAY" ]]; then
+  case "$AGENT" in
+    codex) SUBMIT_DELAY="0.8" ;;
+    *) SUBMIT_DELAY="0.05" ;;
+  esac
+fi
+sleep "$SUBMIT_DELAY"
 "$TMUX_BIN" send-keys -t "$RESOLVED_TARGET" Enter
 
 # record last wake in baseline (atomic write)

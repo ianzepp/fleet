@@ -226,8 +226,8 @@ Vivi = work. tmux = process. Address = **`tmux_target`**.
 | Pane class | Action |
 | --- | --- |
 | `running` | No wake |
-| `idle_prompt` + open + Grok | Pointer doorbell |
-| idle/done + open + Codex | **Reinit** (not stacked wakes) |
+| `idle_prompt` / `done_idle` + open | Pointer doorbell (Codex uses submit-settle delay) |
+| `idle_prompt` / `done_idle` + open + Codex stuck after doorbell | Reinit fallback |
 | empty + map next | Starve-file then wake |
 | `error_*` / `down` | Ops / recreate |
 
@@ -285,11 +285,9 @@ Skill = portable process. Overlay = roster, paths, models, ssh, maps, Status.
 ```bash
 # Placeholders: <skill> <root> <hex> — tokens without <> are literals
 python3 <skill>/scripts/fleet-sensors.py --project <root> --text
-# Grok/Pi wake:
 <skill>/scripts/fleet-doorbell.sh --project <root> hand-1 --handle <hex>
-# Codex wake (not doorbell):
-PROJECT=<root> FLEET=<root>/.vivi/fleet.json \
-  <skill>/scripts/codex-reinit.sh reinit hand-1 --boot 'HAND WAKE …'
+# Codex recovery only if doorbell sticks/errors:
+PROJECT=<root> FLEET=<root>/.vivi/fleet.json <skill>/scripts/codex-reinit.sh doctor hand-1
 python3 <skill>/scripts/fleet-baseline.py bump -p <root> -s 'sleep' --quiet \
   --fingerprint-file /tmp/fleet-sensors.json
 scripts/steward.sh rearm --project <root>
@@ -300,7 +298,7 @@ Desktop Mind OK; Hands stay terminal/tmux. Schema: [`runtime-config.md`](referen
 ## Anti-patterns
 
 **Bag:** GO warden; severity-as-kind; sleep while map has work; dual Mind; Heads own bags; hand-2 empty while side track exists; wait on head-ceo for obvious spine; buckets without cost ballparks.  
-**Process:** mail-only or pane-only truth; policy via tmux; mixed Hand harness; Codex wake stacks; wrong-host tmux; IMAP as bag sensor; unbounded watch.  
+**Process:** mail-only or pane-only truth; policy via tmux; mixed Hand harness; back-to-back wake stacks; wrong-host tmux; IMAP as bag sensor; unbounded watch.
 **Integrate:** packet-green≠consumer-green; “compiler residual” when integration lag; red theme merge; Mind merges packets; absorb-as-accept.  
 **Hygiene/workspace:** skip unit polish / polish foreign; Mind runs polish/HK; HK every land; score as merge gate; destructive dirt cleanup; status-only dirt; topic monogamy; deep-plan every autonomous cycle; interactive forever; FLEET_CYCLE as silence; compact report while interactive; novel autonomous reports; head-ceo permission freeze; missing FLEET_CYCLE prefix; status→operator@; skip operator present-on-return; no steward disarm; steward as Mind; inject-only heartbeat; global roster scan; hardcode session=role when `tmux_target` set.
 
