@@ -13,7 +13,7 @@ Durable **human inbox** for issues that accumulate while Mind runs **autonomous*
 | **tmux** | **none** (same class as `mind` — not a fleet process slot) |
 | **Process** | Human operator, via the Mind TUI when they return |
 
-Arm once per camp:
+Arm once per fleet:
 
 ```bash
 vivi mailspace identity add operator --project <root>
@@ -48,7 +48,7 @@ Baseline (optional counters):
 
 | File To `operator` when… | Do **not** file when… |
 | --- | --- |
-| A **problem happened** that Mind/Hands cannot safely auto-recover (auth hard-stop, camp-wide harness death, data-loss risk) | Routine cycle status, absorbs, HEADs moved |
+| A **problem happened** that Mind/Hands cannot safely auto-recover (auth hard-stop, fleet-wide harness death, data-loss risk) | Routine cycle status, absorbs, HEADs moved |
 | A **critical blocker** remains unaddressed after Mind already decided/pivoted where possible | Open Hand tasks still draining normally |
 | A **bug / defect** needs **explicit human guidance** on fix direction (product intent, security trade-off, external account) | Implementable defects with a clear residual → **task** To Hand |
 | True **human-only wall** (credentials, policy, spend, external ticket) | Reversible defaults Mind should just take |
@@ -134,7 +134,7 @@ When Mind detects **engagement** (human prose, mode → interactive, “catch me
 ```bash
 vivi mailspace status --project <root>   # operator row if present
 vivi mail list --for operator --project <root>
-vivi need list --for operator --project <root>   # if camp uses needs to operator
+vivi need list --for operator --project <root>   # if fleet uses needs to operator
 ```
 
 **Chat shape (interactive):**
@@ -174,7 +174,7 @@ In interactive mode after silence, **always** surface the list if non-empty.
 - Filing implementable bugs as operator mail instead of Hand **tasks**
 - Heads mailing the human directly (cxo especially)
 - Treating operator mail as a second Mind process or tmux slot
-- Freezing the camp empty-handed because operator mail is open (pivot)
+- Freezing the fleet empty-handed because operator mail is open (pivot)
 
 ## Related: steward trip
 

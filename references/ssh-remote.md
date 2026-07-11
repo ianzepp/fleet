@@ -45,17 +45,17 @@ hand-N / head-*  =  identity (mail + remote tmux session name)
 | Vivi bag / watch / thread | Against the **mailspace that owns the board** — usually `vivi --project <root>` on a host that can see that `.vivi/` |
 | Git work | Remote `cwd` checkout / worktree on the Hand host |
 
-Do not assume Mind’s local `tmux` sees remote sessions. Do not assume laptop and remote share one filesystem unless the camp deliberately mounts or syncs it.
+Do not assume Mind’s local `tmux` sees remote sessions. Do not assume laptop and remote share one filesystem unless the fleet deliberately mounts or syncs it.
 
 ## Mailspace coherence
 
-One board of record per camp. Options:
+One board of record per fleet. Options:
 
 1. **Remote project owns `.vivi/`** — Mind calls `ssh host 'vivi --project /remote/root …'` (or rsync is wrong-direction for live board).  
 2. **Shared/synced tree** — both hosts see the same project path (rare; document it).  
 3. **Mind-local mailspace only** — Hands never run `vivi` locally; Mind files/shows everything (Hands only implement from pointers) — weaker for remote Hands that need bag CLI.
 
-Prefer (1) when the Hand’s git root is remote. **Watch and thread** must hit the same SQLite event ledger the camp uses.
+Prefer (1) when the Hand’s git root is remote. **Watch and thread** must hit the same SQLite event ledger the fleet uses.
 
 ## Ops recipes (generic)
 
@@ -95,7 +95,7 @@ Copy or symlink skill `scripts/codex-reinit.sh` onto the remote host; do not ass
 
 ### Remote Head
 
-Same pattern: identity = session name (`head-ceo`, `head-cto`, `head-cxo`), `agent=pi` (or camp preference), clean-slate/reinit policy unchanged — only the transport is SSH.
+Same pattern: identity = session name (`head-ceo`, `head-cto`, `head-cxo`), `agent=pi` (or fleet preference), clean-slate/reinit policy unchanged — only the transport is SSH.
 
 ## Fleet config sketch
 
@@ -108,7 +108,7 @@ Same pattern: identity = session name (`head-ceo`, `head-cto`, `head-cxo`), `age
       "ssh": "ssh -o BatchMode=yes remote.example",
       "tmux_session": "hand-2",
       "tmux_target": "hand-2:1.1",
-      "cwd": "/home/user/work/camp",
+      "cwd": "/home/user/work/fleet",
       "agent": "codex",
       "agent_launch": "export PATH=…; codex",
       "merges_to_main": false,
@@ -120,12 +120,12 @@ Same pattern: identity = session name (`head-ceo`, `head-cto`, `head-cxo`), `age
     "host": "remote.example",
     "ssh": "ssh -o BatchMode=yes remote.example",
     "agent": "pi",
-    "cwd": "/home/user/work/camp"
+    "cwd": "/home/user/work/fleet"
   }
 }
 ```
 
-Camps may use a small wrapper (`fleet-ssh hand-2 tmux …`) instead of raw `ssh` strings. Skill cares about meanings, not the wrapper name.
+Fleets may use a small wrapper (`fleet-ssh hand-2 tmux …`) instead of raw `ssh` strings. Skill cares about meanings, not the wrapper name.
 
 ## Mind cycle when some slots are remote
 
@@ -149,7 +149,7 @@ A natural experiment: operator Mind in a desktop app; all product Hands (and opt
 | Verify first capture after arm | Trust fleet JSON without live pane path/command |
 | Run reinit on the Hand host | Kill local processes for a remote Hand |
 | One mailspace board of record | Split “truth” across two unrelated `.vivi/` DBs without a plan |
-| Prefer packet/remote for hand-2+ first | Put hand-1 merge-to-main on remote before camp is ready |
+| Prefer packet/remote for hand-2+ first | Put hand-1 merge-to-main on remote before fleet is ready |
 
 ## Related
 

@@ -1,24 +1,24 @@
 # Runtime fallback, config, baseline, wind-down
 
-Load for capacity recovery, Codex reinit scripts, fleet/baseline schemas, or camp wind-up.
+Load for capacity recovery, Codex reinit scripts, fleet/baseline schemas, or fleet wind-up.
 
 ## Skill script: `scripts/codex-reinit.sh`
 
-Camp-agnostic Codex doctor/heal/reinit (ported from faberlang production helper).
+Fleet-agnostic Codex doctor/heal/reinit (ported from faberlang production helper).
 
 ```bash
-# from camp root, or set PROJECT + FLEET
-PROJECT=/path/to/camp FLEET=/path/to/fleet.json \
+# from fleet root, or set PROJECT + FLEET
+PROJECT=/path/to/fleet FLEET=/path/to/fleet.json \
   path/to/skills/fleet/scripts/codex-reinit.sh doctor
 path/to/skills/fleet/scripts/codex-reinit.sh heal hand-3
 path/to/skills/fleet/scripts/codex-reinit.sh reinit hand-1 --boot 'HAND WAKE …'
 path/to/skills/fleet/scripts/codex-reinit.sh classify hand-2
 ```
 
-- Defaults: `PROJECT` from cwd or parent of `FLEET`; `FLEET` = `$PROJECT/.vivi/fleet.json` (legacy filename `hunter-fleet.json` still accepted)
+- Defaults: `PROJECT` from cwd or parent of `FLEET`; `FLEET` = `$PROJECT/.vivi/fleet.json`
 - Never `exec codex`; pane shell stays parent; short bootstrap only
 - Exit codes: reinit `0/1/2 stuck_idle/3`; doctor `0/1/2` as in script header
-- Camps may symlink into `.vivi/codex-reinit.sh` and wrap env
+- Fleets may symlink into `.vivi/codex-reinit.sh` and wrap env
 
 ## Runtime fallback (capacity / unavailability)
 
@@ -90,7 +90,7 @@ If the Mind session dies (hard quota / dead harness), it cannot self-heal inside
 
 1. Leave mid-unit product hands alone if still working
 2. Start a **new Mind** session (same or temporary harness) in the project
-3. Open `$fleet` + camp overlay; run **one** cycle or re-arm scheduler
+3. Open `$fleet` + fleet overlay; run **one** cycle or re-arm scheduler
 4. Set/update `mind.agent` for the live Mind harness. If Mind harness changed, plan Hand rebind on clean breakpoints
 5. Optional fleet note for temporary Mind runtime; revert later
 6. Do **not** require product hands to stop for Mind recovery unless rebinding them to the new harness
@@ -121,7 +121,7 @@ Always write fallbacks into baseline and fleet per-hand runtime fields.
 
 ### Prefer a project script
 
-Camps often ship a reinit helper (path is camp-local). Suggested commands:
+Fleets often ship a reinit helper (path is fleet-local). Suggested commands:
 
 | Command | Role |
 | --- | --- |
@@ -179,7 +179,7 @@ Recommended keys (extend freely; skill cares about meanings):
   "mind": {
     "agent": "grok",
     "agent_model": "grok-4.5",
-    "note": "Product harness for Hands; Mind is not a fleet slot / not reviewer"
+    "note": "Product harness for Hands; Mind is not a fleet process slot"
   },
   "agent_policy": {
     "hands_follow_mind_harness": true,
@@ -243,7 +243,7 @@ Recommended keys (extend freely; skill cares about meanings):
     "thinking": "high",
     "agent_launch": "pi --provider zai --model glm-5.2 --thinking high",
     "clean_slate_per_assignment": true,
-    "role_prompt": "<camp-path>/strategist-role-prompt.txt"
+    "role_prompt": "<fleet-path>/head-ceo-role-prompt.txt"
   },
   "head-cto": {
     "mail_identity": "head-cto",
@@ -290,8 +290,8 @@ pending_reviews[]
 pending_merges[]
 active_packets{} or active_lanes{}   # slug → head, branch, worker
 last_thorough_cycle, last_thorough_fingerprint
-fleet_mirror / pane_classes   # (legacy key: hunter_fleet)
-last_hand_wake_*, last_codex_reinit_*, last_runtime_fallback   # (legacy: last_hunter_wake_*)
+fleet_mirror / pane_classes   # (optional alias key)
+last_hand_wake_*, last_codex_reinit_*, last_runtime_fallback   # 
 head-ceo.{awaiting_report, last_assign_handle, last_reinit_at}
 side_lane_candidates[] optional
   # {id, title, why_off_main, seams, packet_scope,
@@ -299,10 +299,10 @@ side_lane_candidates[] optional
   #  status open|bound|done|dropped, filed_handle?,
   #  actual_tokens?, actual_source harness|mind_estimate?, closed_at?}
 cost_calibration[] optional
-  # {id, title, strategist_effort, est_tokens, actual_tokens, delta_ratio,
-  #  strategist_model, hand_model, closed_at, notes}
+  # {id, title, head_ceo_effort, est_tokens, actual_tokens, delta_ratio,
+  #  head_ceo_model, hand_model, closed_at, notes}
   # Mind uses recent delta_ratio to bias pick order / capacity packing
-head-cto.last_report_*, head-cxo.last_report_* (legacy: head-purity)
+head-cto.last_report_*, head-cxo.last_report_* 
 mind_loop.{state, handoff, mechanism, …}   # armed | running | stopping | wound_up; mechanism e.g. grok_/loop
 half_dead[] optional                # path, class A/B/C, age_cycles, note
 polish_advisory optional:
@@ -320,7 +320,7 @@ housekeeping_advisory optional:
   last_filed_head          # main tip when housekeeping was filed
   last_reason              # campaign_end | large_merge | stage_closeout | operator
   open_handle optional     # open task handle if any
-  min_commits_for_large_merge optional  # camp heuristic; default defer if unsure
+  min_commits_for_large_merge optional  # fleet heuristic; default defer if unsure
 ```
 
 **Mode counters vs quiet:** `quiet_streak` is product silence (nothing to do). `turns_since_operator_message` is **human** silence in the Mind chat. A busy fleet can have `quiet_streak = 0` and still be **autonomous** if the operator has not spoken for ≥ 3 cycles. Scheduled wakes must use the **`FLEET_CYCLE`** prefix (see main skill / mind-cycle).
@@ -347,7 +347,7 @@ Optional fleet JSON mirror:
 
 ## Fleet wind-down and rearm
 
-Part of orderly camp shutdown (and lifecycle **Retire**).
+Part of orderly fleet shutdown (and lifecycle **Retire**).
 
 ### When to wind down
 
@@ -383,4 +383,4 @@ Part of orderly camp shutdown (and lifecycle **Retire**).
 3. Refill starvation if maps still have work
 4. Set `mind_loop.state = armed|running`; clear or archive wind-up block
 5. Optional head-ceo assign if structural debt remains (e.g. merge-order research)
-6. Mind remains the operator TUI — do not recreate a `reviewer` pane
+6. Mind remains the operator TUI — do not create a second Mind process

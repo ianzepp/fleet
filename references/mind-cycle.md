@@ -73,7 +73,7 @@ Anything whose first line starts with `FLEET_CYCLE` is **not** an operator messa
 5. Write counters + mind_mode + operator_recap into baseline at end of cycle
 ```
 
-**Anti-bug:** `FLEET_CYCLE` means “this injection is not operator prose.” It does **not** mean “ignore all human chat since the last fire.” Counting silence only from the current payload produced false `operator_silence=6` while the human was actively steering the camp between cycles.
+**Anti-bug:** `FLEET_CYCLE` means “this injection is not operator prose.” It does **not** mean “ignore all human chat since the last fire.” Counting silence only from the current payload produced false `operator_silence=6` while the human was actively steering the fleet between cycles.
 
 **Threshold (guidance):** three or more Mind cycles **with no human prose in the session** → **autonomous** until the next operator message.
 
@@ -118,7 +118,7 @@ Waiting several cycles for head-ceo “permission” is a rules-of-engagement fa
 
 ### Interactive duties
 
-Full reasoning for operator questions and instructions. On **FLEET_CYCLE** while interactive: run the same cheap sensors/ops as autonomous, but emit a **rich cycle report** (below) so the operator can follow the camp without asking “what happened?”. When the human goes silent, keep counting cycles; after **≥ 3** silent cycles with no prose, drop back to autonomous (+ compact reports). Turns 1–2 of silence: they may still be monitoring — keep rich output.
+Full reasoning for operator questions and instructions. On **FLEET_CYCLE** while interactive: run the same cheap sensors/ops as autonomous, but emit a **rich cycle report** (below) so the operator can follow the fleet without asking “what happened?”. When the human goes silent, keep counting cycles; after **≥ 3** silent cycles with no prose, drop back to autonomous (+ compact reports). Turns 1–2 of silence: they may still be monitoring — keep rich output.
 
 ### Operator recap buffer
 
@@ -220,7 +220,7 @@ No narrative paragraphs. No “what each agent is thinking.” Keep `operator_re
 
 ### Interactive — rich (quiet, sleep-in-flight, or acted)
 
-Always include enough that a watching operator understands camp state without asking:
+Always include enough that a watching operator understands fleet state without asking:
 
 1. **Headline** — cycle N · kind · mode=interactive · silence=K · sleep|acted · one-clause why
 2. **Fleet snapshot (table)** — each Hand + Heads: pane class, bag handles/subjects or empty, one-clause status (e.g. “running P0-2 SES inbound, dirty delivery.rs”)
@@ -257,7 +257,7 @@ Even **sleep** interactive reports use this shape (say “no board moves; h1 sti
 | Map Status mtime changed | Either | skim Status lines; then bag |
 | Tasking empty + next package selected | Hand / Mind | start package or **refill** + wake/reinit |
 | Head report mail | Mind | absorb; triage to hand-N when actionable |
-| Approach / sequencing fork | Strategist (or Mind) | one advisory report / note |
+| Approach / sequencing fork | head-ceo (or Mind) | one advisory report / note |
 | Pane `idle_prompt` + open tasking (**Grok**) | Mind | doorbell wake |
 | Pane `done_idle` / idle + open tasking (**Codex**) | Mind | **Codex reinit** |
 | Theme finished + next target filed (**Grok**) | Mind | **theme-switch compact** then doorbell |
@@ -332,7 +332,7 @@ When interactive and a Head report is absorbed: add 1 short ¶ problem + 1 short
 
 ## Post-main polish advisory (Mind — cheap, strong guidance)
 
-Hands still own **end-of-unit polish** on their changed sources. That slips. After work **lands on main**, Mind runs a **read-only score scan** and files bounded polish work only when scores clear a camp threshold. This is **routing**, not a quality verdict and not Mind doing `$polish` itself.
+Hands still own **end-of-unit polish** on their changed sources. That slips. After work **lands on main**, Mind runs a **read-only score scan** and files bounded polish work only when scores clear a fleet threshold. This is **routing**, not a quality verdict and not Mind doing `$polish` itself.
 
 ### When to run (paid, not every quiet cycle)
 
@@ -347,7 +347,7 @@ Run once when **main HEAD moved** this cycle relative to baseline `polish_adviso
 ### How (cheap)
 
 ```bash
-# path from $polish skill; camp may pin absolute path in fleet tooling
+# path from $polish skill; fleet may pin absolute path in fleet tooling
 python3 ~/work/ianzepp/skills/polish/scripts/suggest-polish-files.py \
   --repo <main_checkout> \
   --json --limit 15
@@ -356,14 +356,14 @@ python3 ~/work/ianzepp/skills/polish/scripts/suggest-polish-files.py \
 
 Script ranks tracked source by churn since last recognized polish commit (`polish(scope): …`, `Polish-Primary:` trailer, legacy forms). Output fields: `path`, `score`, `commits_since_polish`, line churn, `last_polish`.
 
-| Camp key (fleet or baseline `polish_advisory`) | Default | Meaning |
+| Fleet key (fleet or baseline `polish_advisory`) | Default | Meaning |
 | --- | --- | --- |
 | `score_threshold` | **500** | File polish work only for paths with `score >= threshold` |
 | `max_files_per_task` | **3** | Cap primary files in one task body |
 | `max_tasks_per_cycle` | **1** | Do not flood the bag after one land |
 | `script` | polish skill `scripts/suggest-polish-files.py` | Override path if needed |
 
-Camps with **no polish history** score very high (large “never polished” penalty). Raise `score_threshold`, scope `--path`, or treat the first scan as a one-time backlog triage — do not open 20 polish tasks in one cycle.
+Fleets with **no polish history** score very high (large “never polished” penalty). Raise `score_threshold`, scope `--path`, or treat the first scan as a one-time backlog triage — do not open 20 polish tasks in one cycle.
 
 ### Act on scores
 

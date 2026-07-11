@@ -1,12 +1,12 @@
 #!/bin/bash
-# Fleet steward (dead man): camp-local completed-cycle watchdog.
+# Fleet steward (dead man): fleet-local completed-cycle watchdog.
 #
 # Mind rearms after every successful FLEET_CYCLE. If rearm stops while armed,
 # steward trips: board operator@ + optional external email + hold baseline.
 #
 # Usage:
-#   PROJECT=/path/to/camp path/to/steward.sh arm|rearm|disarm|status|check|clear|loop|trip
-#   steward.sh arm --project /path/to/camp
+#   PROJECT=/path/to/fleet path/to/steward.sh arm|rearm|disarm|status|check|clear|loop|trip
+#   steward.sh arm --project /path/to/fleet
 #
 # Exit: 0 ok · 1 tripped (check/loop) · 2 config/error · 3 inactive/disarmed
 set -euo pipefail
@@ -107,7 +107,7 @@ def fleet_steward():
             target = f"{sess}:1.1"
     # Hands: list tmux_target for soft-hold (never hardcode session==role)
     hand_targets = []
-    hands = f.get("hands") or f.get("hunters") or {}
+    hands = f.get("hands") or f.get("hands") or {}
     for name, h in hands.items():
         if not isinstance(h, dict):
             continue
@@ -303,7 +303,7 @@ if op == "notify_meta":
             skip_ext = True
     print(json.dumps({
         "fleet": cfg.get("fleet_name") or cfg.get("fleet_id"),
-        "camp": cfg.get("fleet_name") or cfg.get("fleet_id"),  # legacy key for callers
+        "fleet": cfg.get("fleet_name") or cfg.get("fleet_id"),  # legacy key for callers
         "project": project,
         "last_successful_cycle_at": last,
         "age_sec": None if age is None else int(age),
@@ -434,9 +434,9 @@ bag_snapshot() {
 }
 
 notify_board() {
-  local meta camp last age grace body subj
+  local meta fleet last age grace body subj
   meta="$(py notify_meta)"
-  camp="$(echo "$meta" | "$PYTHON_BIN" -c 'import json,sys; d=json.load(sys.stdin); print(d.get("fleet") or d.get("camp") or "fleet")')"
+  fleet="$(echo "$meta" | "$PYTHON_BIN" -c 'import json,sys; d=json.load(sys.stdin); print(d.get("fleet") or d.get("fleet") or "fleet")')"
   last="$(echo "$meta" | "$PYTHON_BIN" -c 'import json,sys; print(json.load(sys.stdin)["last_successful_cycle_at"])')"
   age="$(echo "$meta" | "$PYTHON_BIN" -c 'import json,sys; print(json.load(sys.stdin).get("age_sec"))')"
   grace="$(echo "$meta" | "$PYTHON_BIN" -c 'import json,sys; print(json.load(sys.stdin)["grace_sec"])')"
@@ -449,7 +449,7 @@ notify_board() {
   "$VIVI_BIN" mailspace identity list --project "$PROJECT" 2>/dev/null | grep -q '^operator' \
     || "$VIVI_BIN" mailspace identity add operator --project "$PROJECT" 2>/dev/null || true
 
-  subj="operator: problem — steward trip — ${camp}"
+  subj="operator: problem — steward trip — ${fleet}"
   body="$(cat <<EOF
 ## Steward dead-man trip
 
@@ -458,7 +458,7 @@ Mind completed-cycle ticks stopped past grace. Fleet held.
 | Field | Value |
 | --- | --- |
 | project | $PROJECT |
-| fleet | $camp |
+| fleet | $fleet |
 | last_successful_cycle_at | $last |
 | age_sec | $age |
 | grace_sec | $grace |
@@ -480,7 +480,7 @@ EOF
 }
 
 notify_external() {
-  local meta account to_json camp last age grace subj body draft_out draft_path to_args
+  local meta account to_json fleet last age grace subj body draft_out draft_path to_args
   meta="$(py notify_meta)"
   if ! echo "$meta" | "$PYTHON_BIN" -c 'import json,sys; d=json.load(sys.stdin); raise SystemExit(0 if d.get("external_email") and d.get("preauthorized") else 1)'; then
     log "skip external email (disabled or not preauthorized)"
@@ -493,7 +493,7 @@ notify_external() {
   [[ -n "$VIVI_BIN" && -x "$VIVI_BIN" ]] || { log "vivi missing; skip external"; py mark_external err "vivi missing"; return 0; }
 
   account="$(echo "$meta" | "$PYTHON_BIN" -c 'import json,sys; print(json.load(sys.stdin).get("account") or "")')"
-  camp="$(echo "$meta" | "$PYTHON_BIN" -c 'import json,sys; d=json.load(sys.stdin); print(d.get("fleet") or d.get("camp") or "fleet")')"
+  fleet="$(echo "$meta" | "$PYTHON_BIN" -c 'import json,sys; d=json.load(sys.stdin); print(d.get("fleet") or d.get("fleet") or "fleet")')"
   last="$(echo "$meta" | "$PYTHON_BIN" -c 'import json,sys; print(json.load(sys.stdin)["last_successful_cycle_at"])')"
   age="$(echo "$meta" | "$PYTHON_BIN" -c 'import json,sys; print(json.load(sys.stdin).get("age_sec"))')"
   grace="$(echo "$meta" | "$PYTHON_BIN" -c 'import json,sys; print(json.load(sys.stdin)["grace_sec"])')"
@@ -509,9 +509,9 @@ notify_external() {
     return 0
   fi
 
-  subj="[fleet steward] ${camp}: Mind ticks stopped — holding"
+  subj="[fleet steward] ${fleet}: Mind ticks stopped — holding"
   body="$(printf 'Fleet steward trip\n\nFleet: %s\nProject: %s\nLast successful Mind cycle: %s\nAge: %ss (grace %ss)\n\nSteward is holding this fleet (no new map packages). Reattach Mind, run steward.sh clear, fix the Grok loop/hooks, then rearm.\n\n— fleet steward (preauthorized trip page only)\n' \
-    "$camp" "$PROJECT" "$last" "$age" "$grace")"
+    "$fleet" "$PROJECT" "$last" "$age" "$grace")"
 
   draft_out="$(
     "$VIVI_BIN" compose --account "$account" "${to_args[@]}" \

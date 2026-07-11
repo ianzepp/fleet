@@ -40,8 +40,8 @@ if [[ -z "$PROJECT" ]]; then
   fi
 fi
 FLEET="${FLEET:-$PROJECT/.vivi/fleet.json}"
-if [[ ! -f "$FLEET" && -f "$PROJECT/.vivi/hunter-fleet.json" ]]; then
-  FLEET="$PROJECT/.vivi/hunter-fleet.json"
+if [[ ! -f "$FLEET" && -f "$PROJECT/.vivi/hand-fleet.json" ]]; then
+  FLEET="$PROJECT/.vivi/hand-fleet.json"
 fi
 TMUX_BIN="${TMUX_BIN:-$(command -v tmux 2>/dev/null || echo /opt/homebrew/bin/tmux)}"
 CODEX_BIN="${CODEX_BIN:-$(command -v codex 2>/dev/null || echo /opt/homebrew/bin/codex)}"
@@ -160,7 +160,7 @@ default_boot() {
   fi
 }
 
-# Resolve hand fields from fleet JSON (canonical: hands; legacy: hunters).
+# Resolve hand fields from fleet JSON (canonical: hands; legacy: hands).
 # Prints: session\tcwd\ttarget\tmodel\tlaunch
 fleet_resolve() {
   local name=$1
@@ -170,7 +170,7 @@ fleet_path, name = sys.argv[1], sys.argv[2]
 f = json.loads(open(fleet_path).read())
 h = (f.get("hands") or {}).get(name)
 if not h:
-    h = (f.get("hunters") or {}).get(name)  # legacy key during migration
+    h = (f.get("hands") or {}).get(name)  # alternate key
 if not h and name == "lab-codex":
     h = (f.get("lab") or {}).get("lab-codex")
 if not h:
@@ -609,8 +609,8 @@ codex_hand_names() {
 import json, sys
 f = json.loads(open(sys.argv[1]).read())
 hands = dict(f.get("hands") or {})
-# Legacy hunters key during migration (do not override hands)
-for name, h in (f.get("hunters") or {}).items():
+# Alternate hands key (do not override hands)
+for name, h in (f.get("hands") or {}).items():
     hands.setdefault(name, h)
 for name, h in sorted(hands.items()):
     if (h.get("agent") or "") == "codex":

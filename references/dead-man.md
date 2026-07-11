@@ -1,6 +1,6 @@
 # Dead man / steward
 
-Camp-local **completed-cycle watchdog**. Goal: if Mind stops completing
+Fleet-local **completed-cycle watchdog**. Goal: if Mind stops completing
 `FLEET_CYCLE` turns (loop timer dead, or every turn dies at hooks), something
 **outside the broken chat** brings the fleet to a **safe hold** and pages the
 human — not a second permanent Mind, not a global multi-repo service.
@@ -20,7 +20,7 @@ long-term or become a dual merge authority.
 
 | Failure | What happens |
 | --- | --- |
-| Grok `/loop` timer dies | No more `FLEET_CYCLE` injections → camp freezes |
+| Grok `/loop` timer dies | No more `FLEET_CYCLE` injections → fleet freezes |
 | Hook / turn hard-abort | Loop may still fire, but every turn dies before cycle end → **deadlock** |
 | Mind session crash | Same: no successful cycle ticks |
 
@@ -93,7 +93,7 @@ Mind **must** disarm when:
 - Operator stops `/loop` and will not run cycles
 - Wind-down / `mind_loop.state → wound_up`
 - Explicit “Mind: no schedule”
-- Camp intentionally idle for hours
+- Fleet intentionally idle for hours
 
 ```bash
 steward.sh disarm --project <root>
@@ -118,8 +118,8 @@ Default `grace_sec`: `max(3 * interval_sec, 900)` (e.g. 5m cycle → 15m).
 1. **Baseline:** `mind_loop.state = dead_man_tripped` (or keep `running` +
    `steward.tripped = true`); record `steward.tripped_at`, last tick, note
 2. **operator@:** one board item (need or mail), subject prefix
-   `operator: problem — steward trip — <camp>`
-3. **External email** (if camp `notify.external_email` + preauth): short page
+   `operator: problem — steward trip — <fleet>`
+3. **External email** (if fleet `notify.external_email` + preauth): short page
 4. **Safe-stop:** do **not** kill `running` Hands; optional pointer to
    idle Hands with open bag: finish open bag only, then idle; **no new map packages**
 5. **Do not** merge, refill spine, or become permanent Mind
@@ -131,12 +131,12 @@ Project mailspace is local-only. Off-box page uses IMAP/SMTP account:
 
 ```bash
 vivi compose --account <account> --to <you@…> \
-  --subject "[fleet steward] <camp>: Mind ticks stopped — holding" \
+  --subject "[fleet steward] <fleet>: Mind ticks stopped — holding" \
   --body $'…' --html-body-auto
 vivi exec send --account <account> path/to/draft.eml
 ```
 
-**Policy exception (narrow):** camp may set
+**Policy exception (narrow):** fleet may set
 `steward.notify.preauthorized_exec_send: true` for **this template only** —
 trip page to configured `to` addresses. Not a general agent send license.
 See `$mail` for normal compose/exec rules.
@@ -211,7 +211,7 @@ steward:
 ## Script
 
 ```bash
-# from camp, or PROJECT=…
+# from fleet, or PROJECT=…
 path/to/skills/fleet/scripts/steward.sh arm    --project <root>
 path/to/skills/fleet/scripts/steward.sh rearm  --project <root>
 path/to/skills/fleet/scripts/steward.sh disarm --project <root>
@@ -229,7 +229,7 @@ Exit codes (`check` / loop trip path): `0` ok · `1` tripped this run · `2` con
 | Successful FLEET_CYCLE end | `rearm` + write `last_successful_cycle_at` |
 | Long cycle start (optional) | early `rearm` so grace survives multi-minute work |
 | Stop loop / wind-down | `disarm` **same turn** |
-| Arm camp / start loop | `arm` if `steward.enabled` |
+| Arm fleet / start loop | `arm` if `steward.enabled` |
 | Steward session missing while armed | recreate via `arm` (health-check) |
 | Engagement after silence | present operator@ (may include steward trip) |
 
@@ -237,8 +237,8 @@ Exit codes (`check` / loop trip path): `0` ok · `1` tripped this run · `2` con
 
 - Heartbeat only on turn start or loop inject  
 - Steward as permanent second Mind / product bag owner  
-- Global multi-camp system service scanning ~/work  
-- External email without camp `to` + `preauthorized_exec_send`  
+- Global multi-fleet system service scanning ~/work  
+- External email without fleet `to` + `preauthorized_exec_send`  
 - Spamming external mail every poll after trip  
 - Killing `running` Hands on trip  
 - Leaving loop mode without `disarm`  

@@ -1,19 +1,19 @@
 # Head loops (advisors)
 
-Load when running **head-ceo** / **head-cto** / **head-cxo** (or legacy **head-strategist** / **head-correctness** / **head-purity**), or triaging Head mail as Mind.
+Load when running **head-ceo** / **head-cto** / **head-cxo** (), or triaging Head mail as Mind.
 
 **Cast + personas:** [`heads/cast.md`](heads/cast.md) and [`heads/personas/`](heads/personas/) (folded in from archived `$executive-team`). Load a persona file only when assigning that Head for depth — not every FLEET_CYCLE.
 
 Heads are **not** product lanes. Do not keep-screen-moving refill them with map packages. They never merge and never own `pending_merges`. Prefer **Pi + GLM 5.2 (high or xhigh)** for all advisors — one-shot assign→report, second-party opinion. See `roles-and-harness.md`. Canonical identities: `head-*` (mail + tmux when armed). Reports **To: mind** (board only).
 
-## head-ceo research loop (legacy: head-strategist) (mail; every Mind cycle, fail-fast)
+## head-ceo research loop  (mail; every Mind cycle, fail-fast)
 
-1. Sensors: mail list for head-ceo / legacy head-strategist (or Mind inbox for `head-ceo report:` / `head-strategist report:`) + baseline `head_ceo.*` (legacy `head_strategist.*`)
-2. If `head_ceo.awaiting_report` (or legacy `head_strategist.awaiting_report`) and no new report yet → **do not re-assign**; note “head-ceo in flight”; continue hands
-3. If a **head-ceo / head-strategist report** arrived → absorb; optional triage to Hand tasks/needs; set `awaiting_report=false`
+1. Sensors: mail list for head-ceo (or Mind inbox for `head-ceo report:`) + baseline `head_ceo.*` 
+2. If `head_ceo.awaiting_report` and no new report yet → **do not re-assign**; note “head-ceo in flight”; continue hands
+3. If a **head-ceo report** arrived → absorb; optional triage to Hand tasks/needs; set `awaiting_report=false`
 4. If **not** awaiting and ready for a new question → **clean-slate reinit + one assign**:
-   1. File assignment mail **To: head-ceo** (or legacy head-strategist) first (handle exists)
-   2. Reinit head-ceo process: quit/kill current agent, **fresh** launch from fleet `head-ceo.agent_launch` (or legacy head-strategist) in fleet cwd — not “continue old chat”
+   1. File assignment mail **To: head-ceo** (or head-ceo) first (handle exists)
+   2. Reinit head-ceo process: quit/kill current agent, **fresh** launch from fleet `head-ceo.agent_launch` (or head-ceo) in fleet cwd — not “continue old chat”
    3. Bootstrap pointer only: role prompt path, show assign handle, research, report via board **To: mind**, idle
    4. Set `awaiting_report=true`; record `last_reinit_at` + assign handle
 5. Prefer mail for assignment body; short tmux pointer after reinit is OK
@@ -89,7 +89,7 @@ Bands are **routing hints**, not contracts. Prefer ranges (`~200k–350k`) over 
 | Real stage/gate vs static-only overclaim | Minute-by-minute merge queue alone |
 | Theme vs unit cadence; fake board deps | Assumptions mid-flight unit is done/not |
 | Conditional paths (“if red → …; if green → …”) | A single HEAD SHA as durable law |
-| Side-lane candidate bucket vs spine | “Fill hunter-2 bag now with task Y” as if head-ceo were Mind |
+| Side-lane candidate bucket vs spine | “Fill hand-2 bag now with task Y” as if head-ceo were Mind |
 
 **How to write assigns:**
 
@@ -101,28 +101,28 @@ Bands are **routing hints**, not contracts. Prefer ranges (`~200k–350k`) over 
 
 **head-ceo duty on stale assign:** re-read live evidence; one-line correction of stale premises; answer the structural question anyway.
 
-## head-cto auditor loop (self-directed) — **owns code review** (legacy: head-correctness)
+## head-cto auditor loop (self-directed) — **owns code review** 
 
-Identity/session: `head-cto` (legacy: `head-correctness`) (mail + tmux). Typical subject prefix: `head-cto:` / `head-correctness:`.
+Identity/session: `head-cto`  (mail + tmux). Typical subject prefix: `head-cto:`.
 
 **Ownership:** **head-cto** (persona: CTO) is the fleet **code-review** Head. Mind does **not** peer-review every Hand WIP. Hands still own ship quality (implement, validate, polish).
 
 **Surface: main after merge.** Prefer reviewing **main** (or the integration line products land on) **after** theme/unit merges — not continuous multi-worktree juggling. Cross-theme bugs often appear only once multiple themes share main; that is expected under build-fast / fail-fast. Bugs on main → tasks To the Hand that owns the fix (often hand-1 for spine, or the originating packet owner if still assigned).
 
-1. Sensors: has-session; pane class; Mind inbox for head-cto / head-correctness reports; **main HEAD/dirty** for focus repos
+1. Sensors: has-session; pane class; Mind inbox for head-cto reports; **main HEAD/dirty** for focus repos
 2. Session **down** → recreate per fleet + role-prompt bootstrap (unless operator paused)
-3. New report → Mind **absorbs**: triage into task/need **To owning Hand** when actionable; doorbell if idle; record baseline `head_cto.last_report_*` (legacy head_correctness); optional chat brief (problem ¶ + action ¶)
+3. New report → Mind **absorbs**: triage into task/need **To owning Hand** when actionable; doorbell if idle; record baseline `head_cto.last_report_*`; optional chat brief (problem ¶ + action ¶)
 4. **Do not** assign work every cycle. Soft-wake only if stuck idle long with no recent mail — pointer only to continue next pass + role path
 5. Never map-refill head-cto as a product lane
 6. Do **not** act as merge GO/NO-GO or block hand-1 merges awaiting a head-cto stamp
 
-## head-cxo auditor loop (self-directed) — **complexity / purity** (legacy: head-purity)
+## head-cxo auditor loop (self-directed) — **complexity / purity** 
 
-Identity/session: `head-cxo` (legacy: `head-purity`). Typical subject prefix: `head-cxo:` / `head-purity:`. Persona: [`heads/personas/cxo.md`](heads/personas/cxo.md). Same harness class as other Heads. **Not** clean-slate every report. Prefer **compact between passes**.
+Identity/session: `head-cxo` . Typical subject prefix: `head-cxo:`. Persona: [`heads/personas/cxo.md`](heads/personas/cxo.md). Same harness class as other Heads. **Not** clean-slate every report. Prefer **compact between passes**.
 
 **CXO in fleet ≠ operator voice.** Mind owns operator-facing recap and human email. head-cxo only audits **shape debt**. Rationale: **XO executes** — complexity makes execution harder, so CXO pushes idiot-proof structure (see `heads/cast.md`).
 
-1. Sensors: has-session; pane class; head-cxo / head-purity report mail
+1. Sensors: has-session; pane class; head-cxo report mail
 2. Down → recreate per fleet + role bootstrap
 3. New report → absorb; triage simplify/design targets To owning Hand (prefer over drive-by rewrites mid-product unit); doorbell if idle and targets ready
 4. Optional soft focus mail (`head-cxo assign: <area>`) — not required every cycle

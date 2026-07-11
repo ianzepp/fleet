@@ -7,10 +7,10 @@ Fleet law still wins over this file:
 
 - **Mind** fills Hand bags, wakes panes, owns merge clock and FLEET_CYCLE.
 - **Heads** advise (mail To: `mind`); they do **not** own product tasking bags or merge to main.
-- Head harness prefers the **alternate** model family (e.g. Pi), same as classic strategist.
+- Head harness prefers the **alternate** model family (e.g. Pi), same as classic head-ceo.
 - Dual channel: mail identity == tmux session **when** a Head pane is armed; lazy identity/tmux OK for rarely used Heads.
 
-When a persona below says “create tasks for CTO/CPO…”, in a fleet camp that means **recommend To: mind** (or draft task bodies for Mind to file To `hand-N`). Heads do not stamp GO/NO-GO or replace Mind.
+When a persona below says “create tasks for CTO/CPO…”, in a fleet that means **recommend To: mind** (or draft task bodies for Mind to file To `hand-N`). Heads do not stamp GO/NO-GO or replace Mind.
 
 ---
 

@@ -4,19 +4,17 @@ A **Mind session** (operator TUI) may supervise **one or more fleets**. Each fle
 is the **durability boundary** (`.vivi/`, board, baseline, steward). Cross-fleet
 state lives only in the live Mind session and is rebuilt from per-fleet baselines.
 
-Design source: [`../../docs/fleet-multi-camp-design.md`](../../docs/fleet-multi-camp-design.md) (v2.1).
+Design source: [`../../docs/multi-fleet-design.md`](../../docs/multi-fleet-design.md) (v2.1).
 
 ## Vocabulary
 
 | Term | Meaning |
 | --- | --- |
-| **Fleet** | One project root + fleet overlay. Canonical unit (not “camp”). |
+| **Fleet** | One project root + fleet overlay. Canonical unit (not “fleet”). |
 | **Mind session** | One operator conversation; ephemeral join over an attached set |
 | **Attached set** | Fleets this session supervises — named on each `FLEET_CYCLE` line |
 | **fleet_id** | Short host-scoped id; preferred tmux session name under session-per-fleet |
 | **Mini-cycle** | Fail-fast ops for **one** fleet inside a multi-fleet fire |
-
-**Camp** is hunter-gatherer-era wording — treat as **legacy** synonym for fleet in old docs only.
 
 ## Invariant
 
@@ -158,7 +156,7 @@ Tripped stewards first; then operator@ union; then headlines.
 - Soft-hold Hands of fleet B when A trips
 - Dual Mind on one fleet without takeover
 - Hardcoded `hand-1` as tmux session name in scripts
-- Treating “camp” as the canonical skill term for a project fleet
+- Treating “fleet” as the canonical skill term for a project fleet
 
 ## Related
 

@@ -8,9 +8,9 @@ Load when arming Heads, writing role prompts, or renaming identities.
 
 | Identity | Persona file | Primary loop | Notes |
 | --- | --- | --- | --- |
-| **`head-ceo`** | [`personas/ceo.md`](personas/ceo.md) | Vision, priority, sequencing, **side-lane buckets** (+ effort/est_tokens) | **Replaces** `head-strategist` |
-| **`head-cto`** | [`personas/cto.md`](personas/cto.md) | **Code review / bugs on main after merge** | **Replaces** `head-correctness` |
-| **`head-cxo`** | [`personas/cxo.md`](personas/cxo.md) | **Complexity / purity** — unearned layers, shape debt | **Replaces** `head-purity`. **Not** operator-facing |
+| **`head-ceo`** | [`personas/ceo.md`](personas/ceo.md) | Vision, priority, sequencing, **side-lane buckets** (+ effort/est_tokens) | Default sequencing Head |
+| **`head-cto`** | [`personas/cto.md`](personas/cto.md) | **Code review / bugs on main after merge** | Post-main review Head |
+| **`head-cxo`** | [`personas/cxo.md`](personas/cxo.md) | **Complexity / purity** — unearned layers, shape debt | **Not** operator-facing |
 | **`head-cpo`** | [`personas/cpo.md`](personas/cpo.md) | Product direction, requirements (on demand) | Lazy |
 | **`head-coo`** | [`personas/coo.md`](personas/coo.md) | Ops readiness / verification lens (on demand) | Not Mind’s FLEET_CYCLE |
 | **`head-cso`** | [`personas/cso.md`](personas/cso.md) | Security / privacy / abuse (on demand) | Lazy |
@@ -25,30 +25,19 @@ Others: mail identity + pane only when Mind assigns them.
 In fleet, **CXO does not mean external/operator communications.** That is **Mind**
 (the human’s TUI + recap / interactive reports).
 
-**Why purity sits on CXO:** the **XO executes**. Hands (and the camp’s delivery
+**Why purity sits on CXO:** the **XO executes**. Hands (and the fleet’s delivery
 path) are the execution surface. Unearned complexity, excess layers, and muddy
 modules make execution slower, riskier, and less idiot-proof. head-cxo therefore
 has a **direct interest** in keeping the product shape simple enough that work
 stays executable — not in speaking for the operator. Classic purity loop, org
 title that owns the pain of complexity.
 
-## Legacy aliases (migration)
-
-| Legacy | Canonical |
-| --- | --- |
-| `head-strategist`, bare `strategist`, camp `*-strategist` | **`head-ceo`** |
-| `head-correctness`, bare `correctness`, camp `*-correctness` | **`head-cto`** |
-| `head-purity`, bare `purity`, camp `*-purity` | **`head-cxo`** |
-
-New fleets use **`head-ceo` / `head-cto` / `head-cxo`**. Live camps may keep old
-session names until renamed; process law is the job, not the string.
-
 ## Harness
 
 | Slot | Harness |
 | --- | --- |
 | Mind + Hands | Product harness (Mind’s family) |
-| All Heads | Prefer **same alternate harness** as classic strategist (e.g. Pi + strong model) |
+| All Heads | Prefer **same alternate harness** as classic head-ceo (e.g. Pi + strong model) |
 
 ## Load rules (token budget)
 

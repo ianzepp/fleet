@@ -11,7 +11,7 @@ description: Multi-agent fleet management with Mind/Head/Hand roles (Abbot patte
 | --- | --- | --- |
 | **Mind** | Ops: tasking, integrate, pane ops, cycle cadence | **Operator’s current TUI** + board-only mail **`mind@…`** (no tmux) |
 | **Operator mail** | Human escalation inbox (problems / blockers / guidance) | Board-only **`operator@…`** (no tmux) — not a process slot |
-| **Head** | Advisory research/reports, not bag drain | **`head-ceo`**, **`head-cto`**, **`head-cxo`** (legacy: head-strategist / head-correctness / head-purity) (mail + tmux) |
+| **Head** | Advisory research/reports, not bag drain | **`head-ceo`**, **`head-cto`**, **`head-cxo`** (mail + tmux) |
 | **Hand** | Execute one selected target | **`hand-1`…`hand-N`** (mail + tmux) |
 
 ## Identity contract (canonical)
@@ -20,8 +20,8 @@ description: Multi-agent fleet management with Mind/Head/Hand roles (Abbot patte
 | --- | --- | --- | --- |
 | **mind** | `mind@<mailspace>.local` | **none** | Fleet **board** for To: Mind. Process = operator TUI (Mind session). |
 | **operator** | `operator@<mailspace>.local` | **none** | **Human** escalations. Detail: [`operator-mail.md`](references/operator-mail.md). |
-| **steward** | (optional) | legacy `steward` **or** window under fleet session | Dead-man — not Mind. [`dead-man.md`](references/dead-man.md). |
-| **hand-N** | `hand-N@…` | legacy session `hand-N` **or** `{fleet_id}:hand-N` | Workers. `hand-1` merges to main. |
+| **steward** | (optional) | session/window per fleet.json `tmux_target` | Dead-man — not Mind. [`dead-man.md`](references/dead-man.md). |
+| **hand-N** | `hand-N@…` | `hand-N` or `{fleet_id}:hand-N` via `tmux_target` | Workers. `hand-1` merges to main. |
 | **head-ceo** | `head-ceo@…` | same pattern | Vision / side-lane buckets |
 | **head-cto** | `head-cto@…` | same pattern | Post-main code review |
 | **head-cxo** | `head-cxo@…` | same pattern | Complexity / purity; **not** operator-facing |
@@ -31,18 +31,16 @@ description: Multi-agent fleet management with Mind/Head/Hand roles (Abbot patte
 
 | Layout | Rule |
 | --- | --- |
-| **Legacy** (single fleet on host) | `mail_identity == tmux_session`; `tmux_target` e.g. `hand-1:1.1` |
+| **Single-fleet host** | `mail_identity == tmux_session`; `tmux_target` e.g. `hand-1:1.1` |
 | **Session-per-fleet** (multi-fleet hosts) | `mail_identity == role`; `tmux_session == fleet_id`; `tmux_window == role`; `tmux_target` e.g. `mgs:hand-1.1` |
 
 **Always ops via fleet.json `tmux_target`.** Do not hardcode session name == role in scripts.  
 **Mind and operator are not process slots.** No tmux for `mind` / `operator`.  
 **Steward is a process slot but not Mind.**
 
-**Fleet** = one project root + `.vivi/` overlay (durability boundary). **Camp** is legacy hunter-gatherer wording for the same idea.
+**Fleet** = one project root + `.vivi/` overlay (durability boundary).
 
-**Retired:** `reviewer`, `gatherer`, bare `strategist` / `correctness` / `purity`, `hunter-N` as default, standalone **`$executive-team`**. New fleets use `hand-N` / `head-ceo` / `head-cto` / `head-cxo`.
-
-**Evolution:** formerly `$hunter-gatherer`. Canonical skill is **`$fleet`**.
+Do **not** invent dual Mind process slots (extra tmux named mind/operator, or a second ops TUI). Identities are **`mind`**, **`operator`**, **`hand-N`**, **`head-ceo` / `head-cto` / `head-cxo`**, steward.
 
 **Process core (strong guidance):** Mind fills the tasking bag; Hand empties it. Progress is **open tasking + campaign/map**, not approval stamps.
 
@@ -54,7 +52,7 @@ description: Multi-agent fleet management with Mind/Head/Hand roles (Abbot patte
 
 **Harness alignment (strong guidance):** Hands run the **same agent harness as Mind**. Heads **prefer alternate harnesses/models**.
 
-**Mind is the operator entry point.** The harness conversation the human is in (this TUI, desktop app, or CLI) **is** Mind. There is no separate “reviewer” process. Model and reasoning tier are operator setup. Cognitive budget follows **interaction mode** (below), not guessed model id.
+**Mind is the operator entry point.** The harness conversation the human is in (this TUI, desktop app, or CLI) **is** Mind. There is no separate dual Mind process. Model and reasoning tier are operator setup. Cognitive budget follows **interaction mode** (below), not guessed model id.
 
 **Code quality ownership:** each **Hand** ships the best code it can (implement, validate, polish). **head-cto** owns **code review on main after merge** — not Mind peer-review of every WIP/packet. Build fast, fail fast; bugs on main are fixed on main.
 
@@ -96,7 +94,7 @@ Do not use for ordinary personal IMAP email (`$mail`). Do not invent a second ac
 
 ## Hard bans vs strong guidance
 
-Reserve **hard ban** language for actions that break the platform, tree, or multi-agent contract. Soft process preferences are **strong guidance** — follow them by default, but do **not** freeze, refuse useful work, or wait on heat death of a Head when a safe default decision unblocks the camp.
+Reserve **hard ban** language for actions that break the platform, tree, or multi-agent contract. Soft process preferences are **strong guidance** — follow them by default, but do **not** freeze, refuse useful work, or wait on heat death of a Head when a safe default decision unblocks the fleet.
 
 | Kind | Examples |
 | --- | --- |
@@ -127,7 +125,7 @@ Reserve **hard ban** language for actions that break the platform, tree, or mult
 | [`heads/cast.md`](references/heads/cast.md) | Head org titles + persona index (was executive-team) |
 | [`ssh-remote.md`](references/ssh-remote.md) | Hands/Heads on another host (SSH + remote tmux); host-scoped cwd; remote reinit |
 | [`runtime-config.md`](references/runtime-config.md) | Capacity ladders, baseline schema, wind-down, script env, `host`/`ssh` fields |
-| [`scripts/codex-reinit.sh`](scripts/codex-reinit.sh) | Codex doctor / heal / reinit / classify (camp-agnostic; set `PROJECT`/`FLEET`) |
+| [`scripts/codex-reinit.sh`](scripts/codex-reinit.sh) | Codex doctor / heal / reinit / classify (fleet-agnostic; set `PROJECT`/`FLEET`) |
 
 ## Don't get stuck (strong guidance)
 
@@ -161,7 +159,7 @@ Reserve **hard ban** language for actions that break the platform, tree, or mult
 Uncommitted changes that **block** a selected unit are **half-dead targets**, not a permanent stop sign. They rot if status-only sensors keep saying “dirty” while no agent opens the diff.
 
 **Hard ban:** do not erase foreign/unknown uncommitted work with destructive git.  
-**Strong guidance:** “foreign dirty” does **not** mean “never look, never classify, freeze for hours.” Status-only “blocked on dirt” without `git diff` is a process failure — it has burned real camp time on pure `cargo fmt` / brace moves.
+**Strong guidance:** “foreign dirty” does **not** mean “never look, never classify, freeze for hours.” Status-only “blocked on dirt” without `git diff` is a process failure — it has burned real fleet time on pure `cargo fmt` / brace moves.
 
 | Class | What it usually is | Same-turn action |
 | --- | --- | --- |
@@ -189,7 +187,7 @@ Formatter guidance (global Agents.md): after inspect, formatter output is intent
 | Role | Job | Does not |
 | --- | --- | --- |
 | **Hand** (`hand-N`) | Drain own open tasks/needs; validate; mark done; polish unit sources; own ship quality | Wait for GO mail; merge packet→main (`hand-2+`); erase foreign WIP |
-| **Mind** (operator TUI + `mind@`) | File targets; integrate; pane ops; refill starvation; pick side-lane work from map/head-ceo bucket; file/present **operator mail** | Stage GO/NO-GO; steal Hand unit; freeze on status-only dirty; deep code review; **tmux slot named reviewer/mind/operator** |
+| **Mind** (operator TUI + `mind@`) | File targets; integrate; pane ops; refill starvation; pick side-lane work from map/head-ceo bucket; file/present **operator mail** | Stage GO/NO-GO; steal Hand unit; freeze on status-only dirty; deep code review; **tmux slot named mind/operator** |
 | **operator@** | Accrue human escalations while autonomous; presented on return | Status updates; Hand bag drain; Head reports |
 | **head-cto** | **Code review / bug hunt on main after merge** | Own product tasking bag; block merges as GO/NO-GO stamp |
 | **head-ceo** | Vision; sequencing; **hand-2+ candidate buckets** | File Hand tasks; merge; stamp accept |
@@ -228,7 +226,7 @@ FLEET_CYCLE project=/path/to/fleet …
 FLEET_CYCLE fleets=mgs,faber project=/path/mgs also=/path/faber …
 ```
 
-Do **not** implement Mind cadence by spawning a second agent pane or a shell that `send-keys` into a “reviewer” session. Loop lives where Mind lives — the operator TUI.
+Do **not** implement Mind cadence by spawning a second agent pane or a shell that `send-keys` into a fake Mind pane. Loop lives where Mind lives — the operator TUI.
 
 **Multi-fleet fire:** mini-cycle **each** fleet named on the line; each fleet gets its **own** `last_successful_cycle_at` + `steward.sh rearm --project <that root>`. Never cross-file boards. Detail: [`multi-fleet.md`](references/multi-fleet.md).
 
@@ -345,7 +343,7 @@ Empty product bags + map still has unblocked next work = **starvation** (file + 
 
 ## Dual channel (summary)
 
-Vivi = truth of work. tmux = truth of process. Ops address = fleet.json **`tmux_target`** (legacy: session == role; multi-fleet: `fleet_id:role.1`).
+Vivi = truth of work. tmux = truth of process. Ops address = fleet.json **`tmux_target`** (single-fleet: session == role; multi-fleet: `fleet_id:role.1`).
 
 | Pane class | Typical Mind action |
 | --- | --- |
@@ -373,7 +371,7 @@ Hands and Heads may run on a **different host** than Mind (SSH + remote tmux). S
 
 - Fleet fields: `host`, `ssh`, host-scoped `cwd` / `tmux_*` / `agent_launch`
 - Wake/capture/reinit run **on that host** (SSH-wrap or remote script)
-- One mailspace board of record — `vivi --project` must hit the DB the camp owns
+- One mailspace board of record — `vivi --project` must hit the DB the fleet owns
 - Desktop or CLI Mind both work; remote slots improve failure isolation and machine split
 
 Generic recipes (no particular server name): [`ssh-remote.md`](references/ssh-remote.md).
@@ -438,7 +436,7 @@ python3 ~/work/ianzepp/skills/polish/scripts/suggest-polish-files.py \
   --repo <main_checkout> --json --limit 15
 ```
 
-Scores are **churn-since-last-polish routing**, not a quality grade. If any path’s score is ≥ camp `polish_advisory.score_threshold` (default **500**), file **at most one** bounded **task** (default top **3** files) To hand-1 (or the owning Hand) to run `$polish` on those primaries only. Record `last_scan_head` so the same tip is not re-scanned every wake. Detail + caps: [`mind-cycle.md`](references/mind-cycle.md).
+Scores are **churn-since-last-polish routing**, not a quality grade. If any path’s score is ≥ fleet `polish_advisory.score_threshold` (default **500**), file **at most one** bounded **task** (default top **3** files) To hand-1 (or the owning Hand) to run `$polish` on those primaries only. Record `last_scan_head` so the same tip is not re-scanned every wake. Detail + caps: [`mind-cycle.md`](references/mind-cycle.md).
 
 ### Major-inflection housekeeping (Mind)
 
@@ -467,9 +465,9 @@ See [`mind-cycle.md`](references/mind-cycle.md). Most wakes should be no-ops.
 
 ## Fail-fast wake (summary)
 
-Most 5–10m wakes must **exit in seconds** on *sensors/ops*. Resolve **Mind mode** first (operator engagement + `turns_since_operator_message`). Cheap sensors next; sleep when fingerprint/panes unchanged and no starvation/error/open-tasking wake is required. In **autonomous** mode, thin ops **and** compact report. In **interactive** mode, ops stay fail-fast but the **chat report is rich** so the watching operator sees the camp. Do not unbounded-block on `mailspace watch` during fail-fast cycles.
+Most 5–10m wakes must **exit in seconds** on *sensors/ops*. Resolve **Mind mode** first (operator engagement + `turns_since_operator_message`). Cheap sensors next; sleep when fingerprint/panes unchanged and no starvation/error/open-tasking wake is required. In **autonomous** mode, thin ops **and** compact report. In **interactive** mode, ops stay fail-fast but the **chat report is rich** so the watching operator sees the fleet. Do not unbounded-block on `mailspace watch` during fail-fast cycles.
 
-Use **absorb** (bookkeeping) vs **accept** (integration bar — not full code review). Correctness reviews **main after merge**. Report templates by mode: [`mind-cycle.md`](references/mind-cycle.md).
+Use **absorb** (bookkeeping) vs **accept** (integration bar — not full code review). **head-cto** reviews **main after merge**. Report templates by mode: [`mind-cycle.md`](references/mind-cycle.md).
 
 ## Multi-agent shared workspace
 
@@ -516,7 +514,7 @@ scripts/codex-reinit   # skill copy or symlink; env PROJECT + FLEET
 project Agents.md      # product + multi-agent process
 ```
 
-**Desktop Mind:** Mind may be a desktop app (e.g. Claude Code) while Hands stay in terminal/tmux **local or remote**. Same rule: Mind is the operator conversation, not a `reviewer` pane. Pair with remote slots: [`ssh-remote.md`](references/ssh-remote.md).
+**Desktop Mind:** Mind may be a desktop app (e.g. Claude Code) while Hands stay in terminal/tmux **local or remote**. Same rule: Mind is the operator conversation, not a second Mind pane. Pair with remote slots: [`ssh-remote.md`](references/ssh-remote.md).
 
 Schema detail: [`runtime-config.md`](references/runtime-config.md).
 
@@ -527,7 +525,7 @@ Schema detail: [`runtime-config.md`](references/runtime-config.md).
 - Mind as game warden (stage licenses, GO/NO-GO) or blocking a Hand on missing GO with no residual
 - Encoding severity as queue kind (implementable merge blocker filed as `need`)
 - Sleeping with empty product tasking while the map has unblocked next work
-- Filing to retired identities (`hunter-N`, bare `correctness`, `reviewer`, executive-team-only cast) when `hand-N` / `head-ceo` / `head-cto` / `mind` are canonical; packet merges / unbounded spine on hand-2+
+- Filing product work to wrong identities or inventing dual Mind slots; packet merges / unbounded spine on hand-2+
 - Heads owning product tasking or merge queues; thrashing head-ceo assign while a report is outstanding
 - Leaving hand-2+ empty for many cycles while the map has a second track and no head-ceo side-lane bucket was ever requested
 - Mind waiting on head-ceo to refill an **obvious** hand-1 spine unit (head-ceo advises parallel buckets; Mind still files live work)
@@ -570,12 +568,12 @@ Schema detail: [`runtime-config.md`](references/runtime-config.md).
 - Treating FLEET_CYCLE-only payload as proof of operator silence while ignoring human chat between fires
 - **Compact one-line FLEET_CYCLE reports while `mind_mode=interactive`** (operator is watching — use rich status)
 - Novel-length autonomous cycle reports when a one-liner would do
-- Mind acting as peer code reviewer of every packet (head-cto owns post-main review)
+- Mind acting as peer code auditor of every packet (head-cto owns post-main review)
 - Freezing on class A formatter dirt without opening the diff
 - Waiting on head-ceo for a reversible default instead of deciding now
 - Scheduled wakes without a leading `FLEET_CYCLE` prefix
 - Treating strong guidance as a hard ban that forbids progress
-- **Reviewer / gatherer identity** as Mind: dedicated `reviewer` mail+tmux slot, shell inject into a “Mind pane,” or dual Mind processes
+- Dual Mind processes: second ops TUI/pane, shell inject into a fake Mind session, or two Mind sessions on one fleet without takeover
 - Status / absorbs / “still running” filed To **`operator@`** (that inbox is problems/blockers/guidance only)
 - Human escalations buried in **`mind@`** board noise with no **`operator@`** item
 - Returning interactive without presenting open **operator mail** when N>0
@@ -606,4 +604,4 @@ Org-title Heads and CEO/CTO/… persona bodies: [`references/heads/cast.md`](ref
 
 Onboarding for a new human or foreign LLM: **[`../docs/fleet-guide.md`](../docs/fleet-guide.md)** — patterns and vocabulary only. **Do not** load that guide on every FLEET_CYCLE; use this skill + `references/` when operating.
 
-Multi-fleet design background: [`../docs/fleet-multi-camp-design.md`](../docs/fleet-multi-camp-design.md) (session-attach model).
+Multi-fleet design background: [`../docs/multi-fleet-design.md`](../docs/multi-fleet-design.md) (session-attach model).

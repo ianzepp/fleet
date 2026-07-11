@@ -25,7 +25,7 @@ When Hands or Heads run on another machine, pane ops go over SSH — see `ssh-re
 
 ## Mailspace watch and thread (Vivi ≥ 4.6)
 
-Project-local board liveness and conversation lineage. **Not** IMAP / `vivi sync` / `sync-events` watch — these read the camp `.vivi/mail.sqlite` **event ledger** and reply graph.
+Project-local board liveness and conversation lineage. **Not** IMAP / `vivi sync` / `sync-events` watch — these read the fleet `.vivi/mail.sqlite` **event ledger** and reply graph.
 
 Full CLI detail: `$mail` and vivarium release notes. Fleet usage:
 
@@ -55,7 +55,7 @@ vivi mail watch | vivi task watch | vivi need watch | vivi want watch
 | `--json` | Machine-readable |
 | `--poll-interval` | Default 250ms |
 
-**Mind (cheap cycle):** `--once --write-cursor` against a camp cursor file; if no events, continue other sensors / sleep.  
+**Mind (cheap cycle):** `--once --write-cursor` against a fleet cursor file; if no events, continue other sensors / sleep.  
 **Mind (paid path):** optional short `--timeout` wait for RTM or Head report instead of only status polling.  
 **Do not** block a whole autonomous cycle on an unbounded watch (`--until-count 0` without timeout) unless the operator explicitly wants a long wait.
 
@@ -66,7 +66,7 @@ vivi mailspace watch --for mind --project "$ROOT" \
   --once --write-cursor \
   --cursor-file "$ROOT/.vivi/mind-watch.cursor" \
   --json
-# Only if camp defined a board-only `mind` identity — Mind itself is still the operator TUI
+# Only if fleet defined a board-only `mind` identity — Mind itself is still the operator TUI
 
 # Example: bounded wait for hand-2 RTM (match-from; To: mind_inbox if used)
 vivi mail watch --for mind --project "$ROOT" \
@@ -102,7 +102,7 @@ Reply lineage: `vivi mail reply <handle>`; sends support `--reply-to`; lifecycle
 | `hand-2@…` | `hand-2` | `hand-2` |
 | `head-cto@…` | `head-cto` | `head-cto:1.1` |
 
-Put the map in **project fleet config** (camp-local path). Example shape:
+Put the map in **project fleet config** (fleet-local path). Example shape:
 
 ```json
 {
@@ -145,7 +145,7 @@ Put the map in **project fleet config** (camp-local path). Example shape:
 }
 ```
 
-Camp-specific durable law may live in a Mind/scheduler overlay or project `Agents.md` — treat as an **overlay** on this skill.
+Fleet-specific durable law may live in a Mind/scheduler overlay or project `Agents.md` — treat as an **overlay** on this skill.
 
 Arm:
 
@@ -350,12 +350,12 @@ Never combine `/compact` and the new assignment in one keystroke or compact with
 ## Completion mail (optional; preferred when turn succeeds)
 
 ```text
-From: hand-N → mind   # or camp mind_inbox; optional if task done is enough
+From: hand-N → mind   # or fleet mind_inbox; optional if task done is enough
 Subject: hand-N turn end: <one line>
 Body: cleared <handle>|none · HEAD <sha>|dirty · tasking left: … · next: … · blocked: none|…
 ```
 
-Board `task done` / `need done` remains the primary durable signal even if this mail is skipped. Do not use retired **`reviewer`** as To:.
+Board `task done` / `need done` remains the primary durable signal even if this mail is skipped.
 
 ## Ready-to-merge mail (hand-2+ preferred template)
 

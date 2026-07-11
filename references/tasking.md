@@ -73,9 +73,9 @@ Not a hard stop: missing Mind congratulations or “GO” mail.
 | **Mind** | Choose from that bucket (or map) using size + calibration deltas; bind packet; **file** tasks; wake/reinit; record actual vs est when done |
 | **hand-2+** | Execute only assigned targets in their packet cwd — never invent main spine |
 
-Empty hand-2 + no candidates and no map side track → operational pause (record why) **or** assign strategist “what should hand-2 run in parallel (with cost ballparks)?” — not silent multi-cycle empty while the INDEX has a second unblocked goal.
+Empty hand-2 + no candidates and no map side track → operational pause (record why) **or** assign head-ceo “what should hand-2 run in parallel (with cost ballparks)?” — not silent multi-cycle empty while the INDEX has a second unblocked goal.
 
-**Estimates are strategist-owned; calibration is Mind-owned.** Do not require Hands to invent token math. Optional: Hand turn-end may note harness usage if the TUI surfaces it — Mind still writes the calibration row.
+**Estimates are head-ceo-owned; calibration is Mind-owned.** Do not require Hands to invent token math. Optional: Hand turn-end may note harness usage if the TUI surfaces it — Mind still writes the calibration row.
 
 ## Fleet priorities (main vs packet)
 
