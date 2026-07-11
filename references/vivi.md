@@ -125,7 +125,8 @@ vivi mail watch --for mind --project "$ROOT" \
 vivi task list --for hand-1 --project "$ROOT" [--status open|done] [--json]
 vivi need list --for hand-1 --project "$ROOT" [--status open|done]
 vivi want list --for hand-1 --project "$ROOT"
-vivi mail list --for mind --project "$ROOT"
+vivi mail list --for mind --project "$ROOT" [--json]
+# text columns: handle  date  from  subject
 
 vivi task show <handle> --project "$ROOT"
 vivi need show <handle> --project "$ROOT"
