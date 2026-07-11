@@ -169,10 +169,14 @@ CLI: [`vivi.md`](vivi.md). N>0 → work-through table (not buried count). N=0 �
 
 ```bash
 # Placeholders: <ROOT> <summary> — flags without <> are literals
+# Silence: default bump does turns_since_operator_message += 1
+# Only if human engaged: add --operator-engaged (resets silence + interactive)
 python3 scripts/fleet-baseline.py bump -p <ROOT> -s '<summary>' \
-  --quiet --mode autonomous \
+  --quiet \
   --fingerprint-file /tmp/fleet-sensors.json
-# or: --acted  (instead of --quiet) when board/ops moved
+# or: --acted when board/ops moved
+# or: --operator-engaged when human prose this turn / since last_operator_message_at
+# never hand-edit turns_since_operator_message after bump
 # only if steward enabled+armed for this fleet (default: skip):
 # scripts/steward.sh rearm --project <ROOT>
 ```
