@@ -1216,7 +1216,7 @@ don't-get-stuck, or **Harness alignment** (Hands = Mind harness).
 | Pane classes, reinit contract, wind-down procedure | Scheduler prompt path, durable 5m task id |
 
 Recommended **kinds** of project files (names and directory layout are
-camp-local — skill does not mandate `hunter-fleet.json` or similar):
+camp-local — the skill does not mandate a particular roster filename):
 
 ```text
 fleet config           # roster + runtime + tooling paths + preferred models
