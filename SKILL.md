@@ -176,7 +176,7 @@ Track (write every cycle into the Mind baseline):
 | `turns_since_operator_message` | Mind cycles since the last **human operator** message |
 | `last_operator_message_at` | Cycle id / time of last operator prose (for recap) |
 
-**Operator message** = prose/instruction/question from the human in the Mind session.
+**Operator message** = prose/instruction/question from the human in the Mind session (any human turn that is not a scheduled cycle injection).
 
 **Not** operator messages:
 
@@ -194,17 +194,31 @@ FLEET_CYCLE cycle=<N> project=<root>
 
 Do **not** implement Mind cadence by spawning a second agent pane or a shell that `send-keys` into a “reviewer” session. Loop lives where Mind lives — the operator TUI.
 
+**Critical:** a wake whose *payload* is only `FLEET_CYCLE …` is not itself operator prose — but operator may have spoken **between** the previous cycle and this one in the same session. Mode resolution must look at **session history since `last_operator_message_at` / last cycle**, not only the current injection text. Blindly `+= 1` on every FLEET_CYCLE while ignoring intervening human chat is a mode bug.
+
 ### Mode selection
 
 ```text
-if this turn includes an operator message:
-  → interactive (full reasoning allowed)
+# 1) Detect operator engagement (any of these → engaged)
+if this turn’s user content is human prose (not FLEET_CYCLE-only):
+  engaged = true
+else if session history has a human message since last_operator_message_at
+         (or since last_cycle_at when last_operator_message_at is null)
+         that is not a FLEET_CYCLE injection:
+  engaged = true   # e.g. operator asked a skill question between 5m fires
+else:
+  engaged = false
+
+# 2) Apply
+if engaged:
+  → interactive (full reasoning allowed on operator turns; thin ops still OK on FLEET_CYCLE)
   → turns_since_operator_message = 0
-  → note last_operator_message_at; start/refresh operator_recap buffer
+  → last_operator_message_at = time of that human message (or now if this turn)
+  → refresh operator_recap window
 else:
   → turns_since_operator_message += 1
   → if turns_since_operator_message >= 3:
-       autonomous (limited reasoning) until next operator message
+       autonomous until next operator message
      else:
        stay on prior mode; prefer autonomous when unset/ambiguous
        # turns 1–2 after operator: they may still be watching
@@ -214,8 +228,8 @@ Optional override (`Mind: deep` / `Mind: ops only`) beats auto-detect until clea
 
 | Mode | When | Cognitive budget |
 | --- | --- | --- |
-| **Autonomous** | `turns_since_operator_message >= 3`, `FLEET_CYCLE` /loop fire, or no operator this session | **Thin ops** even if high reasoning is available. Sensors, classify, file/wake/reinit, short absorb/integration accept, fail-fast sleep. **Decide now** on reversible defaults — do not park on head-strategist. |
-| **Interactive** | Operator engaged this turn, or fewer than 3 silent cycles after engagement | **Full reasoning** for the exchange; still Mind. |
+| **Autonomous** | `turns_since_operator_message >= 3` with **no** human prose since last reset | **Thin ops** even if high reasoning is available. Sensors, classify, file/wake/reinit, short absorb/integration accept, fail-fast sleep. **Decide now** on reversible defaults — do not park on head-strategist. |
+| **Interactive** | Human prose this turn **or** since last cycle (even if this wake is FLEET_CYCLE), or fewer than 3 silent cycles after engagement | **Full reasoning** for the human exchange; FLEET_CYCLE after recent chat stays thin-ops but **silence counter stays 0** until true multi-cycle quiet |
 
 ### Operator recap buffer (autonomous)
 
@@ -446,6 +460,7 @@ Schema detail: [`runtime-config.md`](references/runtime-config.md).
 - Dumping or deeply inspecting every wake while bag/trees/panes unchanged
 - Autonomous Mind deep-planning every cycle “because the model can”; treating board mail as operator engagement for mode purposes
 - Skipping `turns_since_operator_message` / staying interactive forever after one early chat
+- Treating FLEET_CYCLE-only payload as proof of operator silence while ignoring human chat between fires
 - Mind acting as peer code reviewer of every packet (head-correctness owns post-main review)
 - Freezing on class A formatter dirt without opening the diff
 - Waiting on head-strategist for a reversible default instead of deciding now

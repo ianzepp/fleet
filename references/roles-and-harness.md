@@ -160,7 +160,7 @@ Heads need not match Mind’s product harness. Prefer Pi even when Mind is Grok 
 - Steal the Hand’s unit or rewrite their WIP mid-flight (raise; don’t hijack unless operator asks)
 - Treat status-only dirty as multi-cycle freeze without classification
 - Require introspecting its own model/reasoning tier to choose behavior
-- Treat Hand/Head board mail or `FLEET_CYCLE` wakes as operator engagement
+- Treat Hand/Head board mail or a **FLEET_CYCLE-only** payload as operator engagement (human chat *between* fires still counts)
 - Wait multiple cycles on head-strategist for a decision it can make with a default
 - Treat strong guidance as a hard ban that freezes progress
 - Run as a dedicated **`reviewer` / gatherer** mail+tmux identity (retired)

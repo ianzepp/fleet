@@ -27,20 +27,32 @@ Anything whose first line starts with `FLEET_CYCLE` is **not** an operator messa
 | `mind_mode_override` | optional sticky operator force (`ops_only` / `deep` / clear) |
 | `operator_recap` | Compact bullet list of material changes since last operator message |
 
-**Operator message** = human prose in the Mind session (question, instruction, review request, design chat).
+**Operator message** = human prose in the Mind session (question, instruction, review request, design chat, skill edits) — any human turn that is not a scheduled cycle injection.
 
-**Not** operator messages: lines starting with `FLEET_CYCLE`, other scheduler boilerplate, Hand/Head board mail, pane captures.
+**Not** operator messages: a wake whose payload is only `FLEET_CYCLE…`, other scheduler boilerplate, Hand/Head board mail, pane captures.
 
 ### Resolve mode (before sensors expand)
 
 ```text
 1. If mind_mode_override set → use it (ops_only→autonomous, deep→interactive)
-2. Else if this turn’s user content is an operator message:
+
+2. Detect engagement (do NOT only inspect the current FLEET_CYCLE payload):
+   a. This turn’s user content is human prose (not FLEET_CYCLE-only) → engaged
+   b. Else scan session history since last_operator_message_at
+      (if null: since last_cycle_at, or “any prior human turn this session”):
+      any human message that is not a FLEET_CYCLE injection → engaged
+      (typical: operator asked a question between 5m loop fires)
+   c. Else → not engaged
+
+3. If engaged:
      turns_since_operator_message = 0
-     last_operator_message_at = now/cycle
-     mind_mode = interactive
-     refresh operator_recap (start new window or answer catch-up then continue)
-3. Else:
+     last_operator_message_at = timestamp of that human message (prefer real time; else cycle id)
+     mind_mode = interactive when this turn is human prose;
+                 if this wake is FLEET_CYCLE-only but history engaged: keep silence=0,
+                 prefer thin ops for the cycle body but do NOT treat as multi-cycle abandon
+     refresh operator_recap window from that engagement point
+
+4. If not engaged:
      turns_since_operator_message += 1
      append material events to operator_recap (short)
      if turns_since_operator_message >= 3:
@@ -49,10 +61,13 @@ Anything whose first line starts with `FLEET_CYCLE` is **not** an operator messa
        keep prior   # turns 1–2: operator may still be watching
      else:
        mind_mode = autonomous
-4. Write counters + mind_mode + operator_recap into baseline at end of cycle
+
+5. Write counters + mind_mode + operator_recap into baseline at end of cycle
 ```
 
-**Threshold (guidance):** three or more Mind cycles without operator prose → **autonomous** until the next operator message.
+**Anti-bug:** `FLEET_CYCLE` means “this injection is not operator prose.” It does **not** mean “ignore all human chat since the last fire.” Counting silence only from the current payload produced false `operator_silence=6` while the human was actively steering the camp between cycles.
+
+**Threshold (guidance):** three or more Mind cycles **with no human prose in the session** → **autonomous** until the next operator message.
 
 | Mode | Cognitive budget | Output shape |
 | --- | --- | --- |
@@ -403,7 +418,7 @@ Fail-fast is required. Interval backoff is **optional** for multi-hour idle:
 
 Reset `quiet_streak` on real progress: new/changed tasking item, HEAD move, Status absorb, filed residual, completed unit, successful wake, or ops intervention.
 
-Reset `turns_since_operator_message` only on a **human operator** message (not on product progress, board mail, or successful ops).
+Reset `turns_since_operator_message` only on a **human operator** message in the Mind session (not on product progress, board mail, successful ops, or FLEET_CYCLE itself). When the current wake is FLEET_CYCLE-only, still reset if **history since last cycle** contains human prose.
 
 If the scheduler cannot change interval, still no-op cheaply each fire.
 
