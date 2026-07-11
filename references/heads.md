@@ -19,23 +19,54 @@ Heads are **not** product lanes. Do not keep-screen-moving refill them with map 
 
 ### head-strategist assignment quality (anti-fragile)
 
-head-strategist advises ownership, sequencing, seams, gate honesty, misprioritization — **not** driving product and **not** racing the tasking bag.
+head-strategist advises ownership, sequencing, seams, gate honesty, misprioritization, and **side-lane capacity** — **not** driving product and **not** racing the tasking bag.
+
+**Division of labor (multi-hand):**
+
+| Who | Job |
+| --- | --- |
+| **Mind** | Dole out work: file/refill bags, bind packets, wake/reinit, merge clock, live coordination |
+| **head-strategist** | Name **what could** run in parallel — especially a **bucket of hand-2+ (side-lane) candidates** when capacity is free |
+| **Hands** | Execute assigned targets only |
+
+Mind does not need strategist permission to file an obvious next spine unit. Strategist does not file Hand tasks or own empty-bag refill.
+
+### Side-lane / hand-2+ capacity bucket (strategist output)
+
+When hand-2+ exists in the fleet, strategist reports should routinely include (or be assignable to answer):
+
+```text
+## Side-lane candidates (hand-2+ if available)
+- [ ] <bounded package / theme> — why safe off main; seams vs hand-1 spine; suggested packet scope
+- [ ] …
+## Do not parallelize
+- <items that must stay on hand-1 / main>
+## If all Hands busy
+- hold / next priority after current spine
+```
+
+**Good bucket items:** independent factory goals, long continuous packets, bounded one-shots that do not share hot files with the current main spine, post-theme base-update planning.  
+**Bad bucket items:** “whatever is free,” unbounded main spine, merge-to-main, same P0 family hand-1 is on, makework polish.
+
+Mind **absorbs** the bucket into baseline (`side_lane_candidates` / operator_recap), then **picks and files** when hand-2 is idle+empty (or binds a packet first). Stale candidates: re-ask strategist structurally, or drop when map supersedes — do not thrash assigns every quiet cycle.
 
 **Avoid:** questions that die if a tasking item lands while you read mail.
 
 | File questions about… | Do not make the *core* question… |
 | --- | --- |
-| Who owns which seam | “Is handle X open right now?” |
+| Who owns which seam; what hand-2+ could run in parallel | “Is handle X open right now?” |
 | Real stage/gate vs static-only overclaim | Minute-by-minute merge queue alone |
 | Theme vs unit cadence; fake board deps | Assumptions mid-flight unit is done/not |
 | Conditional paths (“if red → …; if green → …”) | A single HEAD SHA as durable law |
+| Side-lane candidate bucket vs spine | “Fill hunter-2 bag now with task Y” as if strategist were Mind |
 
 **How to write assigns:**
 
 1. **Structural question first** (1–3 sentences that stay meaningful for hours)
 2. **Optional live snapshot** second, labeled ephemeral; tell head-strategist to re-verify
 3. Prefer **conditionals** over “do X now because bag is empty”
-4. Mind still acts on live bag reality; head-strategist informs *how to think*
+4. Mind still acts on live bag reality; head-strategist informs *how to think* and **what parallel work is coherent**
+5. When multi-hand fleet: prefer periodic assign shape “given current spine focus, what is a durable hand-2+ bucket?” over pure sequencing trivia
 
 **head-strategist duty on stale assign:** re-read live evidence; one-line correction of stale premises; answer the structural question anyway.
 

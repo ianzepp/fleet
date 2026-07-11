@@ -52,6 +52,16 @@ Not a hard stop: missing Mind congratulations or “GO” mail.
 - Partition by focus (campaign track, repo, or package) when possible
 - Legacy `codex` may remain readable during migration; **new** targets go to `hand-N`
 
+**Who invents hand-2+ work vs who files it:**
+
+| Role | Duty |
+| --- | --- |
+| **head-strategist** | Maintain / report a **side-lane candidate bucket** — bounded packages safe to run off main while hand-1 holds spine |
+| **Mind** | Choose from that bucket (or map), bind packet, **file** tasks To hand-2+, wake/reinit, own merge clock when theme RTM |
+| **hand-2+** | Execute only assigned targets in their packet cwd — never invent main spine |
+
+Empty hand-2 + no candidates and no map side track → operational pause (record why) **or** assign strategist “what should hand-2 run in parallel?” — not silent multi-cycle empty while the INDEX has a second unblocked goal.
+
 ## Fleet priorities (main vs packet)
 
 | Slot | Workspace role | Merge to main? |

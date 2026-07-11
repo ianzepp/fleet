@@ -32,6 +32,8 @@ description: Multi-agent fleet management with Mind/Head/Hand roles (Abbot patte
 
 **Process core (strong guidance):** Mind fills the tasking bag; Hand empties it. Progress is **open tasking + campaign/map**, not approval stamps.
 
+**Multi-hand split:** **Mind** coordinates and **doles out** work (file, wake, merge clock). **head-strategist** advises sequencing and maintains a **side-lane bucket** — what **hand-2+** could run in parallel when free. Strategist does not own bag refill; Mind does not invent parallel work without map or strategist/map candidates when a second Hand sits empty.
+
 **Keep the screen moving:** empty tasking while the map still has unblocked next work is **starvation**, not success. Operational pause is the exception.
 
 **Don't get stuck:** freeze is the failure mode. Name why, get unstuck — never status-only “blocked” for cycles without evidence.
@@ -165,9 +167,10 @@ Formatter guidance (global Agents.md): after inspect, formatter output is intent
 | Role | Job | Does not |
 | --- | --- | --- |
 | **Hand** (`hand-N`) | Drain own open tasks/needs; validate; mark done; polish unit sources; own ship quality | Wait for GO mail; merge packet→main (`hand-2+`); erase foreign WIP |
-| **Mind** (operator TUI + `mind@`) | File targets; integrate; pane ops; refill starvation; residual scan | Stage GO/NO-GO; steal Hand unit; freeze on status-only dirty; deep code review; **tmux slot named reviewer/mind** |
+| **Mind** (operator TUI + `mind@`) | File targets; integrate; pane ops; refill starvation; pick side-lane work from map/strategist bucket | Stage GO/NO-GO; steal Hand unit; freeze on status-only dirty; deep code review; **tmux slot named reviewer/mind** |
 | **head-correctness** | **Code review / bug hunt on main after merge** | Own product tasking bag; block merges as GO/NO-GO stamp |
-| **head-strategist / head-purity** | Sequencing; complexity audit | Own product tasking; merge; stamp accept |
+| **head-strategist** | Sequencing; ownership; **hand-2+ candidate buckets** | File Hand tasks; merge; stamp accept |
+| **head-purity** | Complexity / excess-layer audit | Own product tasking; merge; stamp accept |
 
 Identity ≠ assignment ≠ runtime. Hand harness follows Mind; Heads prefer alternate runtimes. Detail: [`roles-and-harness.md`](references/roles-and-harness.md).
 
@@ -489,6 +492,8 @@ Schema detail: [`runtime-config.md`](references/runtime-config.md).
 - Autonomous Mind deep-planning every cycle “because the model can”; treating board mail as operator engagement for mode purposes
 - Skipping `turns_since_operator_message` / staying interactive forever after one early chat
 - Treating FLEET_CYCLE-only payload as proof of operator silence while ignoring human chat between fires
+- **Compact one-line FLEET_CYCLE reports while `mind_mode=interactive`** (operator is watching — use rich status)
+- Novel-length autonomous cycle reports when a one-liner would do
 - Mind acting as peer code reviewer of every packet (head-correctness owns post-main review)
 - Freezing on class A formatter dirt without opening the diff
 - Waiting on head-strategist for a reversible default instead of deciding now

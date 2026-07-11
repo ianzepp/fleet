@@ -266,6 +266,7 @@ last_thorough_cycle, last_thorough_fingerprint
 fleet_mirror / pane_classes   # (legacy key: hunter_fleet)
 last_hand_wake_*, last_codex_reinit_*, last_runtime_fallback   # (legacy: last_hunter_wake_*)
 head-strategist.{awaiting_report, last_assign_handle, last_reinit_at}
+side_lane_candidates[] optional   # from strategist: {title, why_off_main, seams, status open|bound|dropped}
 head-correctness.last_report_*, head-purity.last_report_*
 mind_loop.{state, handoff, mechanism, …}   # armed | running | stopping | wound_up; mechanism e.g. grok_/loop
 half_dead[] optional                # path, class A/B/C, age_cycles, note

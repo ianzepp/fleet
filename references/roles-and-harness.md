@@ -7,12 +7,12 @@ Load when arming a fleet, rebinding runtimes, or clarifying Mind/Hand/Head dutie
 | Role | Typical identity | Job | Output |
 | --- | --- | --- | --- |
 | **Hand** | `hand-1`…`hand-N` (legacy: `hunter-N`, `codex`) | Take a **selected target** and finish it | Done tasks/needs + evidence; optional turn-end mail To `mind` |
-| **Mind** | Board **`mind@…` only** — **no tmux**; process = operator TUI | Survey product; fill tasking; integrate; fleet ops | Open tasks/needs; pane scan; wake/reinit; merge queue |
-| **head-strategist** (Head) | `head-strategist` | Ownership, sequencing, seams, gate honesty — not bag drain | Mail `head-strategist report:` To `mind` |
+| **Mind** | Board **`mind@…` only** — **no tmux**; process = operator TUI | Survey product; **dole out** tasking; integrate; fleet ops; pick from strategist buckets | Open tasks/needs; pane scan; wake/reinit; merge queue |
+| **head-strategist** (Head) | `head-strategist` | Ownership, sequencing, seams, gate honesty; **hand-2+ side-lane candidate buckets** — not bag drain | Mail `head-strategist report:` To `mind` (includes parallel-work candidates when multi-hand) |
 | **head-correctness** (Head) | `head-correctness` | **Code review / bug hunt on main after merge** | Mail `head-correctness:` To `mind` |
 | **head-purity** (Head) | `head-purity` | Self-directed unearned-complexity / excess-layer audit | Mail `head-purity:` To `mind` |
 
-One Mind owns the tasking bag and integration clock. Heads never merge, never keep product tasking “full,” and never stamp GO/NO-GO. They report To: **mind** (board); Mind triages into hand-N tasks/needs.
+One Mind owns the tasking bag and integration clock: **Mind files and wakes; Heads advise.** Heads never merge, never keep product tasking “full,” and never stamp GO/NO-GO. **head-strategist** proposes **what hand-2+ could work on** (side-lane bucket); Mind decides when to bind a packet and file. Reports To: **mind** (board); Mind triages into hand-N tasks/needs.
 
 Prefer numbered hands (`hand-N`) over a single shared `codex`. Prefer heterogeneous Head runtimes for second-party opinion; keep Hand harness aligned with Mind.
 
