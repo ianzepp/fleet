@@ -30,24 +30,26 @@ long-term or become a dual merge authority.
 ## Architecture
 
 ```text
-Mind (operator TUI)
-  │  every successful FLEET_CYCLE: write last_successful_cycle_at + rearm
-  │  on stop-loop / wind-down: DISARM steward same turn
+Mind session (operator TUI) — may supervise one or more fleets
+  │  every successful mini-cycle for fleet F:
+  │     write F's last_successful_cycle_at + steward.sh rearm --project F
+  │  on detach / stop-loop / wind-down: DISARM that fleet's steward same turn
   ▼
-.vivi/mind-baseline.json   (+ optional .vivi/steward.rearm touch)
+F/.vivi/mind-baseline.json   (+ optional F/.vivi/steward.rearm touch)
   ▲
   │  poll
-tmux session **steward**  ── loop: sleep → check → trip?
+tmux **target from fleet.json** (legacy steward:1.1 or mgs:steward.1)
+  │  loop: sleep → check → trip?
   │
-  on trip:
+  on trip (this fleet only):
     baseline hold flag
     operator@ board mail
-    optional external email page (Vivi compose + exec send)
-    safe-stop pointers to idle Hands (optional)
+    optional external email page
+    soft-hold idle Hands via fleet.json hand tmux_targets only
 ```
 
-Steward is a **sibling tmux pane**, not a child of the Mind turn — Mind death
-does not kill it.
+Steward is **not** a child of the Mind turn — Mind death does not kill it.  
+Under **session-per-fleet**, steward is a **window** in the fleet session.
 
 ## Progress tick (Mind)
 
@@ -73,7 +75,7 @@ path/to/skills/fleet/scripts/steward.sh rearm --project <root>
 
 ## Arm / disarm
 
-### Arm (camp running with scheduled Mind)
+### Arm (fleet running with scheduled Mind)
 
 When `mind_loop.state → running` and a durable loop is armed:
 
@@ -160,6 +162,7 @@ Operator or new Mind session:
 "steward": {
   "enabled": true,
   "tmux_session": "steward",
+  "tmux_window": "steward",
   "tmux_target": "steward:1.1",
   "grace_sec": 900,
   "poll_sec": 60,
@@ -175,6 +178,9 @@ Operator or new Mind session:
   }
 }
 ```
+
+Session-per-fleet example: `"tmux_session": "mgs", "tmux_window": "steward", "tmux_target": "mgs:steward.1"`.  
+Soft-hold Hands: script reads each hand’s `tmux_target` from fleet.json (never hardcodes session==`hand-1`).
 
 | Field | Notes |
 | --- | --- |

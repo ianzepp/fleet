@@ -153,12 +153,15 @@ Recommended keys (extend freely; skill cares about meanings):
   "version": 1,
   "default_hand": "hand-1",
   "legacy_hand_identity": "codex",
+  "fleet_id": "mgs",
+  "tmux_layout": "legacy",
   "mind_inbox": "mind",
   "operator_inbox": "operator",
   "operator_inbox_note": "Human escalations only (problems/blockers/guidance). Not status. No tmux.",
   "steward": {
     "enabled": true,
     "tmux_session": "steward",
+    "tmux_window": "steward",
     "tmux_target": "steward:1.1",
     "grace_sec": 900,
     "poll_sec": 60,
@@ -172,7 +175,7 @@ Recommended keys (extend freely; skill cares about meanings):
       "preauthorized_exec_send": false
     }
   },
-  "binding_rule": "mail_identity == tmux_session token (Hands/Heads only; mind+operator board-only; steward is watchdog tmux, not Mind)",
+  "binding_rule": "legacy: mail_identity==tmux_session; session_per_fleet: mail_identity==role, tmux_session==fleet_id, tmux_window==role; always use tmux_target",
   "mind": {
     "agent": "grok",
     "agent_model": "grok-4.5",
@@ -278,7 +281,9 @@ last_operator_message_at          # timestamp or cycle id of last operator prose
 operator_recap                    # short material status list since last operator message
 operator_mail                     # {identity, open_count, last_filed_at, last_presented_*} human inbox counters
 steward                           # {armed, last_rearm_at, tripped, tripped_at, last_external_*} dead-man state
-mind_loop.last_successful_cycle_at  # successful FLEET_CYCLE end tick (steward watches this)
+mind_loop.last_successful_cycle_at  # successful mini-cycle end tick (steward watches this)
+mind_session optional             # advisory attach lock {label, host, pid, attached_at}
+mind_loop.state                    # running | detached | wound_up | dead_man_tripped | …
 mind_watch_cursor_path optional   # path to vivi mailspace watch --cursor-file
 last_actionable_fingerprint   # fleet bags + heads/dirty + panes
 pending_reviews[]
@@ -362,7 +367,8 @@ Part of orderly camp shutdown (and lifecycle **Retire**).
 5. **Baseline** `mind_loop.state = wound_up` with: dropped/kept panes, tips, residual open handles, handoff for rearm
 6. Optional pointer to kept hands: fleet wound up; continue bag or idle
 7. Cancel Mind `/loop` or harness scheduler **in the operator session** if stopping the loop
-8. **`steward.sh disarm --project <root>`** same turn (or before stop) so dead man does not false-trip
+8. **`steward.sh disarm --project <root>`** same turn (or before stop) so dead man does not false-trip — **per fleet** if multi-attached
+9. Clear or stamp `mind_session` / `mind_loop.state = wound_up` (or `detached`)
 
 ### What wind-down is not
 

@@ -1,6 +1,7 @@
 #!/bin/bash
-# Generic Codex reinit for fleet hand-N (camp-agnostic).
-# Set PROJECT and FLEET (or run from a camp with fleet JSON).
+# Generic Codex reinit for fleet hand-N (fleet-agnostic).
+# Set PROJECT and FLEET (or run from a fleet with fleet JSON).
+# Resolves tmux_target from fleet.json (legacy hand-1:1.1 or mgs:hand-1.1).
 #
 # Invariants:
 #   - pane_pid MUST remain a shell (zsh/bash); codex is always a child

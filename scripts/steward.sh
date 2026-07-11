@@ -92,11 +92,42 @@ def save_baseline(b):
 def fleet_steward():
     f = load_json(fleet_path, {})
     s = f.get("steward") or {}
-    # defaults
+    fleet_id = f.get("fleet_id") or f.get("mailspace") or Path(project).name
+    # Steward pane: prefer explicit tmux_target; support session_per_fleet
+    sess = s.get("tmux_session") or "steward"
+    win = s.get("tmux_window") or "steward"
+    target = s.get("tmux_target")
+    if not target:
+        # legacy: session named steward → steward:1.1
+        # session_per_fleet: fleet session + steward window → mgs:steward.1
+        layout = f.get("tmux_layout") or s.get("tmux_layout") or "legacy"
+        if layout == "session_per_fleet" or (sess == fleet_id and win):
+            target = f"{sess}:{win}.1"
+        else:
+            target = f"{sess}:1.1"
+    # Hands: list tmux_target for soft-hold (never hardcode session==role)
+    hand_targets = []
+    hands = f.get("hands") or f.get("hunters") or {}
+    for name, h in hands.items():
+        if not isinstance(h, dict):
+            continue
+        ht = h.get("tmux_target")
+        if not ht:
+            hs = h.get("tmux_session") or name
+            hw = h.get("tmux_window") or name
+            layout = f.get("tmux_layout") or "legacy"
+            if layout == "session_per_fleet":
+                ht = f"{hs}:{hw}.1"
+            else:
+                ht = f"{hs}:1.1"
+        hand_targets.append({"name": name, "tmux_target": ht})
     return {
         "enabled": s.get("enabled", True),
-        "tmux_session": s.get("tmux_session", "steward"),
-        "tmux_target": s.get("tmux_target", "steward:1.1"),
+        "fleet_id": fleet_id,
+        "tmux_session": sess,
+        "tmux_window": win,
+        "tmux_target": target,
+        "hand_targets": hand_targets,
         "grace_sec": int(s.get("grace_sec", 900)),
         "poll_sec": int(s.get("poll_sec", 60)),
         "mode": s.get("mode", "hold"),
@@ -108,7 +139,7 @@ def fleet_steward():
             "dedupe_hours": int((s.get("notify") or {}).get("dedupe_hours", 6)),
             "preauthorized_exec_send": bool((s.get("notify") or {}).get("preauthorized_exec_send", False)),
         },
-        "camp_name": f.get("mailspace") or Path(project).name,
+        "fleet_name": f.get("mailspace") or fleet_id or Path(project).name,
         "interval_sec": int((f.get("mind_loop") or {}).get("interval_sec") or 300),
     }
 
@@ -163,7 +194,10 @@ if op == "status":
         "armed_at": st.get("armed_at"),
         "last_rearm_at": st.get("last_rearm_at"),
         "tripped_at": st.get("tripped_at"),
+        "fleet_id": cfg.get("fleet_id"),
         "tmux_session": cfg["tmux_session"],
+        "tmux_target": cfg.get("tmux_target"),
+        "hand_targets": cfg.get("hand_targets") or [],
         "notify_external": cfg["notify"]["external_email"],
     }, indent=2))
     sys.exit(0)
@@ -268,7 +302,8 @@ if op == "notify_meta":
         if a is not None and a < dedupe_h * 3600:
             skip_ext = True
     print(json.dumps({
-        "camp": cfg["camp_name"],
+        "fleet": cfg.get("fleet_name") or cfg.get("fleet_id"),
+        "camp": cfg.get("fleet_name") or cfg.get("fleet_id"),  # legacy key for callers
         "project": project,
         "last_successful_cycle_at": last,
         "age_sec": None if age is None else int(age),
@@ -282,7 +317,17 @@ if op == "notify_meta":
         "skip_external_dedupe": skip_ext,
         "tripped_at": st.get("tripped_at"),
         "reason": st.get("last_trip_reason") or "missed_successful_cycle",
+        "hand_targets": cfg.get("hand_targets") or [],
+        "tmux_target": cfg.get("tmux_target"),
     }))
+    sys.exit(0)
+
+if op == "hand_targets":
+    print(json.dumps(cfg.get("hand_targets") or []))
+    sys.exit(0)
+
+if op == "tmux_target":
+    print(cfg.get("tmux_target") or "steward:1.1")
     sys.exit(0)
 
 print("unknown op", op, file=sys.stderr)
@@ -304,23 +349,52 @@ cmd_disarm_state() { py disarm; }
 
 cmd_clear() { py clear; touch "$REARM_TOUCH"; log "trip cleared"; }
 
-tmux_session_name() {
-  py cfg | "$PYTHON_BIN" -c 'import json,sys; print(json.load(sys.stdin)["tmux_session"])'
+# Steward pane target from fleet.json (supports legacy steward:1.1 and mgs:steward.1)
+steward_tmux_target() {
+  py tmux_target 2>/dev/null || echo "steward:1.1"
+}
+
+# Session name is portion before first colon of target
+tmux_session_from_target() {
+  local t=$1
+  echo "${t%%:*}"
+}
+
+# Window name for session_per_fleet create (between : and . if present)
+tmux_window_from_target() {
+  local t=$1 rest
+  rest="${t#*:}"
+  echo "${rest%%.*}"
 }
 
 ensure_tmux_session() {
-  local sess
-  sess="$(tmux_session_name)"
+  local target sess win
+  target="$(steward_tmux_target)"
+  sess="$(tmux_session_from_target "$target")"
+  win="$(tmux_window_from_target "$target")"
+  [[ -n "$win" ]] || win="steward"
   if ! "$TMUX_BIN" has-session -t "$sess" 2>/dev/null; then
-    "$TMUX_BIN" new-session -d -s "$sess" -c "$PROJECT" -n steward
-    log "created tmux session $sess"
+    # Named first window when using session_per_fleet (win != numeric default)
+    if [[ "$win" =~ ^[0-9]+$ ]]; then
+      "$TMUX_BIN" new-session -d -s "$sess" -c "$PROJECT"
+    else
+      "$TMUX_BIN" new-session -d -s "$sess" -n "$win" -c "$PROJECT"
+    fi
+    log "created tmux session $sess window=$win"
+  else
+    # Ensure named steward window exists under fleet session
+    if [[ ! "$win" =~ ^[0-9]+$ ]]; then
+      if ! "$TMUX_BIN" list-windows -t "$sess" -F '#{window_name}' 2>/dev/null | grep -qx "$win"; then
+        "$TMUX_BIN" new-window -t "$sess" -n "$win" -c "$PROJECT"
+        log "created window $sess:$win"
+      fi
+    fi
   fi
-  # ensure a shell is ready
-  "$TMUX_BIN" send-keys -t "${sess}:1.1" C-c 2>/dev/null || true
+  "$TMUX_BIN" send-keys -t "$target" C-c 2>/dev/null || true
 }
 
 cmd_arm() {
-  local sess poll
+  local target sess poll
   [[ -f "$FLEET" ]] || die "missing fleet.json: $FLEET"
   if ! py cfg | "$PYTHON_BIN" -c 'import json,sys; raise SystemExit(0 if json.load(sys.stdin).get("enabled",True) else 1)'; then
     log "steward disabled in fleet.json"
@@ -328,27 +402,26 @@ cmd_arm() {
   fi
   cmd_arm_state
   ensure_tmux_session
-  sess="$(tmux_session_name)"
+  target="$(steward_tmux_target)"
+  sess="$(tmux_session_from_target "$target")"
   poll="$(py cfg | "$PYTHON_BIN" -c 'import json,sys; print(json.load(sys.stdin)["poll_sec"])')"
-  # kill prior loop in pane if any — start fresh loop
-  "$TMUX_BIN" send-keys -t "${sess}:1.1" C-c 2>/dev/null || true
+  "$TMUX_BIN" send-keys -t "$target" C-c 2>/dev/null || true
   sleep 0.2
-  "$TMUX_BIN" send-keys -t "${sess}:1.1" -l "cd $(printf %q "$PROJECT") && STEWARD_LOG=$(printf %q "$LOG") $(printf %q "$SELF") loop --project $(printf %q "$PROJECT") 2>&1 | tee -a $(printf %q "$LOG")"
-  "$TMUX_BIN" send-keys -t "${sess}:1.1" Enter
-  log "armed steward session=$sess poll=${poll}s project=$PROJECT"
-  echo "armed $sess"
+  "$TMUX_BIN" send-keys -t "$target" -l "cd $(printf %q "$PROJECT") && STEWARD_LOG=$(printf %q "$LOG") $(printf %q "$SELF") loop --project $(printf %q "$PROJECT") 2>&1 | tee -a $(printf %q "$LOG")"
+  "$TMUX_BIN" send-keys -t "$target" Enter
+  log "armed steward target=$target session=$sess poll=${poll}s project=$PROJECT"
+  echo "armed $target"
 }
 
 cmd_disarm() {
-  local sess
+  local target sess
   cmd_disarm_state
-  sess="$(tmux_session_name 2>/dev/null || echo steward)"
+  target="$(steward_tmux_target 2>/dev/null || echo steward:1.1)"
+  sess="$(tmux_session_from_target "$target")"
   if "$TMUX_BIN" has-session -t "$sess" 2>/dev/null; then
-    "$TMUX_BIN" send-keys -t "${sess}:1.1" C-c 2>/dev/null || true
-    # leave session alive but idle (visible); optional kill:
-    # "$TMUX_BIN" kill-session -t "$sess" 2>/dev/null || true
+    "$TMUX_BIN" send-keys -t "$target" C-c 2>/dev/null || true
   fi
-  log "disarmed project=$PROJECT"
+  log "disarmed project=$PROJECT target=$target"
   echo "disarmed"
 }
 
@@ -363,7 +436,7 @@ bag_snapshot() {
 notify_board() {
   local meta camp last age grace body subj
   meta="$(py notify_meta)"
-  camp="$(echo "$meta" | "$PYTHON_BIN" -c 'import json,sys; print(json.load(sys.stdin)["camp"])')"
+  camp="$(echo "$meta" | "$PYTHON_BIN" -c 'import json,sys; d=json.load(sys.stdin); print(d.get("fleet") or d.get("camp") or "fleet")')"
   last="$(echo "$meta" | "$PYTHON_BIN" -c 'import json,sys; print(json.load(sys.stdin)["last_successful_cycle_at"])')"
   age="$(echo "$meta" | "$PYTHON_BIN" -c 'import json,sys; print(json.load(sys.stdin).get("age_sec"))')"
   grace="$(echo "$meta" | "$PYTHON_BIN" -c 'import json,sys; print(json.load(sys.stdin)["grace_sec"])')"
@@ -380,12 +453,12 @@ notify_board() {
   body="$(cat <<EOF
 ## Steward dead-man trip
 
-Mind completed-cycle ticks stopped past grace. Camp held.
+Mind completed-cycle ticks stopped past grace. Fleet held.
 
 | Field | Value |
 | --- | --- |
 | project | $PROJECT |
-| camp | $camp |
+| fleet | $camp |
 | last_successful_cycle_at | $last |
 | age_sec | $age |
 | grace_sec | $grace |
@@ -420,7 +493,7 @@ notify_external() {
   [[ -n "$VIVI_BIN" && -x "$VIVI_BIN" ]] || { log "vivi missing; skip external"; py mark_external err "vivi missing"; return 0; }
 
   account="$(echo "$meta" | "$PYTHON_BIN" -c 'import json,sys; print(json.load(sys.stdin).get("account") or "")')"
-  camp="$(echo "$meta" | "$PYTHON_BIN" -c 'import json,sys; print(json.load(sys.stdin)["camp"])')"
+  camp="$(echo "$meta" | "$PYTHON_BIN" -c 'import json,sys; d=json.load(sys.stdin); print(d.get("fleet") or d.get("camp") or "fleet")')"
   last="$(echo "$meta" | "$PYTHON_BIN" -c 'import json,sys; print(json.load(sys.stdin)["last_successful_cycle_at"])')"
   age="$(echo "$meta" | "$PYTHON_BIN" -c 'import json,sys; print(json.load(sys.stdin).get("age_sec"))')"
   grace="$(echo "$meta" | "$PYTHON_BIN" -c 'import json,sys; print(json.load(sys.stdin)["grace_sec"])')"
@@ -437,7 +510,7 @@ notify_external() {
   fi
 
   subj="[fleet steward] ${camp}: Mind ticks stopped — holding"
-  body="$(printf 'Fleet steward trip\n\nCamp: %s\nProject: %s\nLast successful Mind cycle: %s\nAge: %ss (grace %ss)\n\nSteward is holding the camp (no new map packages). Reattach Mind, run steward.sh clear, fix the Grok loop/hooks, then rearm.\n\n— fleet steward (preauthorized trip page only)\n' \
+  body="$(printf 'Fleet steward trip\n\nFleet: %s\nProject: %s\nLast successful Mind cycle: %s\nAge: %ss (grace %ss)\n\nSteward is holding this fleet (no new map packages). Reattach Mind, run steward.sh clear, fix the Grok loop/hooks, then rearm.\n\n— fleet steward (preauthorized trip page only)\n' \
     "$camp" "$PROJECT" "$last" "$age" "$grace")"
 
   draft_out="$(
@@ -469,28 +542,31 @@ print(m.group(1) if m else "")
 }
 
 soft_hold_hands() {
-  local meta mode
+  local meta mode name target pane sess
   meta="$(py notify_meta)"
   mode="$(echo "$meta" | "$PYTHON_BIN" -c 'import json,sys; print(json.load(sys.stdin).get("mode","hold"))')"
   [[ "$mode" == "hold" ]] || { log "mode=$mode skip hand pointers"; return 0; }
-  # Pointer only to known hand sessions if idle-looking — do not spam running
-  local h sess
-  for h in hand-1 hand-2; do
-    sess="$h"
+  # Use fleet.json hand tmux_targets only (this fleet — never other fleets)
+  while IFS=$'\t' read -r name target; do
+    [[ -n "$target" ]] || continue
+    sess="${target%%:*}"
     if ! "$TMUX_BIN" has-session -t "$sess" 2>/dev/null; then
+      log "hand $name session $sess missing — skip"
       continue
     fi
-    # Only send if pane looks like a prompt (heuristic: last lines have ❯ without Waiting)
-    local pane
-    pane="$("$TMUX_BIN" capture-pane -t "${sess}:1.1" -p -S -8 2>/dev/null || true)"
+    pane="$("$TMUX_BIN" capture-pane -t "$target" -p -S -8 2>/dev/null || true)"
     if echo "$pane" | grep -qE 'Waiting for response|Responding|Working'; then
-      log "hand $h looks running — no pointer"
+      log "hand $name ($target) looks running — no pointer"
       continue
     fi
-    "$TMUX_BIN" send-keys -t "${sess}:1.1" -l "STEWARD HOLD: Mind ticks stopped. Finish open bag only if mid-unit; then idle. No new map packages. Operator paged."
-    "$TMUX_BIN" send-keys -t "${sess}:1.1" Enter
-    log "hold pointer sent to $h"
-  done
+    "$TMUX_BIN" send-keys -t "$target" -l "STEWARD HOLD: Mind ticks stopped. Finish open bag only if mid-unit; then idle. No new map packages. Operator paged."
+    "$TMUX_BIN" send-keys -t "$target" Enter
+    log "hold pointer sent to $name target=$target"
+  done < <(echo "$meta" | "$PYTHON_BIN" -c '
+import json, sys
+for h in json.load(sys.stdin).get("hand_targets") or []:
+    print("%s\t%s" % (h.get("name", ""), h.get("tmux_target", "")))
+')
 }
 
 do_trip() {

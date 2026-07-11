@@ -1,6 +1,6 @@
 ---
 name: fleet
-description: Multi-agent fleet management with Mind/Head/Hand roles (Abbot pattern) — Mind (operator TUI + mind@ board + operator@ escalations), steward dead-man watchdog, Hands (hand-1…hand-N), Heads (head-ceo/cto/cxo); dual-channel Vivi+tmux; multi-lane integration. Use for hand-N fleets, codex reinit, FLEET_CYCLE loops, steward arm/rearm/disarm.
+description: Multi-agent fleet management with Mind/Head/Hand roles (Abbot pattern) — Mind session attaches to one or more fleets; Hands/Heads; steward dead-man; dual-channel Vivi+tmux; multi-fleet FLEET_CYCLE. Use for hand-N fleets, multi-fleet attach, codex reinit, steward arm/rearm/disarm.
 ---
 
 # Fleet
@@ -16,22 +16,31 @@ description: Multi-agent fleet management with Mind/Head/Hand roles (Abbot patte
 
 ## Identity contract (canonical)
 
-| Identity | Mail | tmux session | Notes |
+| Identity | Mail | Process (tmux) | Notes |
 | --- | --- | --- | --- |
-| **mind** | `mind@<mailspace>.local` | **none** | Fleet **board** for To: Mind (Hand done, Head reports, bag bookkeeping). Process = operator TUI. |
-| **operator** | `operator@<mailspace>.local` | **none** | **Human** inbox for problems, critical blockers, bugs needing guidance. Not status. Detail: [`operator-mail.md`](references/operator-mail.md). |
-| **steward** | (optional board id) | **`steward`** | Dead-man watchdog pane — not Mind. Trip → hold + page. Detail: [`dead-man.md`](references/dead-man.md). |
-| **hand-N** | `hand-N@…` | `hand-N` | Workers. `hand-1` merges to main; `hand-2+` packets. |
-| **head-ceo** | `head-ceo@…` | `head-ceo` | Vision / sequencing / side-lane buckets (legacy: head-strategist) |
-| **head-cto** | `head-cto@…` | `head-cto` | Post-main code review / bugs (legacy: head-correctness) |
-| **head-cxo** | `head-cxo@…` | `head-cxo` | Complexity / purity (legacy: head-purity); **not** operator-facing |
-| *optional* | `head-cpo` / `head-cso` / … | same token | Lazy org Heads — see `references/heads/cast.md` |
+| **mind** | `mind@<mailspace>.local` | **none** | Fleet **board** for To: Mind. Process = operator TUI (Mind session). |
+| **operator** | `operator@<mailspace>.local` | **none** | **Human** escalations. Detail: [`operator-mail.md`](references/operator-mail.md). |
+| **steward** | (optional) | legacy `steward` **or** window under fleet session | Dead-man — not Mind. [`dead-man.md`](references/dead-man.md). |
+| **hand-N** | `hand-N@…` | legacy session `hand-N` **or** `{fleet_id}:hand-N` | Workers. `hand-1` merges to main. |
+| **head-ceo** | `head-ceo@…` | same pattern | Vision / side-lane buckets |
+| **head-cto** | `head-cto@…` | same pattern | Post-main code review |
+| **head-cxo** | `head-cxo@…` | same pattern | Complexity / purity; **not** operator-facing |
+| *optional* | `head-cpo` / … | same pattern | Lazy org Heads — [`heads/cast.md`](references/heads/cast.md) |
 
-**Binding rule (Hands/Heads only):** mail identity token == tmux session name.  
-**Mind and operator are not fleet process slots.** Do not create `reviewer`, dual Mind panes, or tmux for `mind` / `operator`.  
-**Steward is a process slot but not Mind** — it only watches completed-cycle ticks and holds/pages on miss.
+### Binding rules (process plane)
 
-**Retired:** `reviewer`, `gatherer`, bare `strategist` / `correctness` / `purity` as mail ids, `hunter-N` as default, standalone **`$executive-team`** skill (personas live under `fleet/references/heads/personas/`). Legacy camps may still use `hunter-N`, `head-strategist`, `head-correctness`, `head-purity`; **new** fleets use `hand-N`, `head-ceo`, `head-cto`, `head-cxo`.
+| Layout | Rule |
+| --- | --- |
+| **Legacy** (single fleet on host) | `mail_identity == tmux_session`; `tmux_target` e.g. `hand-1:1.1` |
+| **Session-per-fleet** (multi-fleet hosts) | `mail_identity == role`; `tmux_session == fleet_id`; `tmux_window == role`; `tmux_target` e.g. `mgs:hand-1.1` |
+
+**Always ops via fleet.json `tmux_target`.** Do not hardcode session name == role in scripts.  
+**Mind and operator are not process slots.** No tmux for `mind` / `operator`.  
+**Steward is a process slot but not Mind.**
+
+**Fleet** = one project root + `.vivi/` overlay (durability boundary). **Camp** is legacy hunter-gatherer wording for the same idea.
+
+**Retired:** `reviewer`, `gatherer`, bare `strategist` / `correctness` / `purity`, `hunter-N` as default, standalone **`$executive-team`**. New fleets use `hand-N` / `head-ceo` / `head-cto` / `head-cxo`.
 
 **Evolution:** formerly `$hunter-gatherer`. Canonical skill is **`$fleet`**.
 
@@ -110,8 +119,9 @@ Reserve **hard ban** language for actions that break the platform, tree, or mult
 | [`dual-channel.md`](references/dual-channel.md) | Pane classes, doorbell, reinit, rehome, `/compact`, mail templates, **mailspace watch / thread** |
 | [`mind-cycle.md`](references/mind-cycle.md) | Modes, cycle prefix, fail-fast, absorb/accept, **polish advisory**, **housekeeping inflection**, operator recap, **operator mail present-on-return** |
 | [`operator-mail.md`](references/operator-mail.md) | **`operator@` human inbox** — problems / blockers / bug-guidance; not status; present when operator returns |
-| [`dead-man.md`](references/dead-man.md) | **Steward / dead man** — completed-cycle watchdog in tmux; rearm every cycle; trip → hold + operator@ + external email |
-| [`scripts/steward.sh`](scripts/steward.sh) | `arm` / `rearm` / `disarm` / `check` / `clear` / `loop` for steward |
+| [`dead-man.md`](references/dead-man.md) | **Steward / dead man** — completed-cycle watchdog; rearm every cycle; trip → hold + operator@ + external email |
+| [`multi-fleet.md`](references/multi-fleet.md) | **Session-attach multi-fleet** — attach/detach, FLEET_CYCLE over fleets=, binding, advisory lock |
+| [`scripts/steward.sh`](scripts/steward.sh) | `arm` / `rearm` / `disarm` / `check` / `clear` / `loop` (uses fleet.json `tmux_target`) |
 | [`multi-lane.md`](references/multi-lane.md) | Side lanes, theme→main, base-update, pin-relative, `pending_merges` |
 | [`heads.md`](references/heads.md) | head-ceo / **head-cto** / **head-cxo** loops |
 | [`heads/cast.md`](references/heads/cast.md) | Head org titles + persona index (was executive-team) |
@@ -208,14 +218,19 @@ Track (write every cycle into the Mind baseline):
 
 ### Scheduled cycle prefix (required for auto-mode)
 
-When Mind uses a harness loop/scheduler **in the operator session** (e.g. Grok `/loop 5m …`), the recurring prompt **must** begin with:
+When Mind uses a harness loop/scheduler **in the operator session** (e.g. Grok `/loop 5m …`), the recurring prompt **must** begin with `FLEET_CYCLE`:
 
 ```text
-FLEET_CYCLE cycle=<N> project=<root>
-…rest of thin cycle instructions…
+# Single fleet
+FLEET_CYCLE project=/path/to/fleet …
+
+# Multi-fleet — list every fleet under supervision (topic line = attach log)
+FLEET_CYCLE fleets=mgs,faber project=/path/mgs also=/path/faber …
 ```
 
 Do **not** implement Mind cadence by spawning a second agent pane or a shell that `send-keys` into a “reviewer” session. Loop lives where Mind lives — the operator TUI.
+
+**Multi-fleet fire:** mini-cycle **each** fleet named on the line; each fleet gets its **own** `last_successful_cycle_at` + `steward.sh rearm --project <that root>`. Never cross-file boards. Detail: [`multi-fleet.md`](references/multi-fleet.md).
 
 **Critical:** a wake whose *payload* is only `FLEET_CYCLE …` is not itself operator prose — but operator may have spoken **between** the previous cycle and this one in the same session. Mode resolution must look at **session history since `last_operator_message_at` / last cycle**, not only the current injection text. Blindly `+= 1` on every FLEET_CYCLE while ignoring intervening human chat is a mode bug.
 
@@ -270,22 +285,36 @@ Detail + templates: [`mind-cycle.md`](references/mind-cycle.md).
 
 After the last operator message, assume ~1–2 cycles of monitoring, then they may be gone. Keep a **compact recap** in context (and baseline if useful) of what changed since `last_operator_message_at`: merges, HEADs, filed/done handles, pane/ops events, mode flips, open debt. Survive `/compact` by re-stating the recap in the compact keep-list. When the operator returns (“catch me up”, “what happened”), answer from that buffer — reduced detail is fine; blank amnesia is not.
 
+### Multi-fleet Mind session (session-attach)
+
+A **Mind session** may supervise **one or more fleets**. Fleets are durability boundaries (each has its own `.vivi/`). Cross-fleet state is **in-session only**.
+
+| Rule | Detail |
+| --- | --- |
+| Invariant | At most **one Mind session per fleet** (advisory `mind_session` lock in that fleet’s baseline) |
+| Attached set | Named on each **`FLEET_CYCLE` line** (chat history shows attach/detach) |
+| One fire | Full fail-fast **mini-cycle per supervised fleet** |
+| Ticks | Each fleet’s own success tick + rearm — never a global tick |
+| Topology | Prefer **tmux session = fleet_id**, **window = role** when multiple fleets share a host |
+
+Attach / detach / wind-down: arm or **disarm steward same turn**. Orphan without detach → steward trips (correct). Detail: [`multi-fleet.md`](references/multi-fleet.md).
+
 ### Steward / dead man (completed-cycle watchdog)
 
-If the Grok `/loop` timer dies, or every `FLEET_CYCLE` turn aborts before finishing (hook deadlock), Hands may still exist but **ops freezes**. Camp-local **tmux `steward`** watches **successful cycle ticks** (not process-up, not loop inject).
+If the Grok `/loop` timer dies, or every `FLEET_CYCLE` turn aborts before finishing (hook deadlock), Hands may still exist but **ops freezes**. **Per-fleet** steward watches **successful cycle ticks** (not process-up, not loop inject).
 
 | Mind duty | When |
 | --- | --- |
-| **`steward.sh rearm`** + write `last_successful_cycle_at` | End of every successful FLEET_CYCLE |
-| **`steward.sh arm`** | Camp loop armed / `mind_loop.state=running` |
-| **`steward.sh disarm`** | Stop loop, wind-down, intentional no-schedule — **same turn** |
+| **`steward.sh rearm`** + write `last_successful_cycle_at` | End of every successful mini-cycle **for that fleet** |
+| **`steward.sh arm`** | Fleet loop armed / attach with schedule |
+| **`steward.sh disarm`** | Detach, stop loop, wind-down — **same turn** |
 | **`steward.sh clear`** | After recovery from trip |
 
-On trip: baseline hold · **operator@** · optional **external email** (camp preauth) · soft-hold pointers to idle Hands. Steward is **not** a second Mind. Detail: [`dead-man.md`](references/dead-man.md), [`scripts/steward.sh`](scripts/steward.sh).
+On trip: baseline hold · **operator@** · optional **external email** (fleet preauth) · soft-hold **only that fleet’s** Hands (via fleet.json `tmux_target`). Steward is **not** a second Mind. Detail: [`dead-man.md`](references/dead-man.md), [`scripts/steward.sh`](scripts/steward.sh).
 
 ### Operator mail (human escalation inbox)
 
-**`operator@`** is a **dedicated board identity** for issues that accrue while the camp is autonomous (or the human is away). It is **not** status, not Hand done mail, and not Head reports.
+**`operator@`** is a **per-fleet** human inbox for issues that accrue while autonomous. It is **not** status, not Hand done mail, and not Head reports.
 
 | File To `operator` | Do not file |
 | --- | --- |
@@ -316,7 +345,7 @@ Empty product bags + map still has unblocked next work = **starvation** (file + 
 
 ## Dual channel (summary)
 
-Vivi = truth of work. tmux = truth of process. **Mail identity == tmux session name** (on the host that owns the pane).
+Vivi = truth of work. tmux = truth of process. Ops address = fleet.json **`tmux_target`** (legacy: session == role; multi-fleet: `fleet_id:role.1`).
 
 | Pane class | Typical Mind action |
 | --- | --- |
@@ -351,13 +380,14 @@ Generic recipes (no particular server name): [`ssh-remote.md`](references/ssh-re
 
 ## Lifecycle
 
-### 1. Arm
+### 1. Arm / attach
 
-- Bag exists: identities **`mind`** (fleet board), **`operator`** (human escalations), **`hand-N`**, **`head-*`**
+- Bag exists: identities **`mind`**, **`operator`**, **`hand-N`**, **`head-*`**
 - Hands/Heads share project map; Mind is operator TUI (no mind/operator tmux)
-- Record product harness for Hands; bind every Hand’s `agent` / `wake_mode` / reinit
+- Record product harness for Hands; bind every Hand’s `agent` / `wake_mode` / reinit / **`tmux_target`**
 - Apply preferred models (see `roles-and-harness.md`)
-- Tiny baselines: `last_cycle`, `quiet_streak`, `turns_since_operator_message`, `mind_mode`, fingerprints, pane classes, optional `operator_mail` / `steward`
+- Tiny baselines: `last_cycle`, `quiet_streak`, `turns_since_operator_message`, `mind_mode`, fingerprints, pane classes, optional `operator_mail` / `steward` / `mind_session`
+- **Attach** this Mind session to the fleet (advisory `mind_session` lock); multi-fleet: list all on `FLEET_CYCLE` line
 - If scheduled Mind loop: **`steward.sh arm`** when `steward.enabled` (see [`dead-man.md`](references/dead-man.md))
 
 ### 2. Select focus
@@ -427,12 +457,13 @@ Default: **one** open housekeeping task at a time To **hand-1** on main; record 
 
 See [`mind-cycle.md`](references/mind-cycle.md). Most wakes should be no-ops.
 
-### 6. Retire
+### 6. Retire / detach / wind-down
 
 - Empty tasking + no next map package → stop loop or long backoff
-- Operator may stop schedulers when camp is idle for hours
-- **`steward.sh disarm` before or with loop stop** (false trip otherwise)
-- Wind-down procedure: [`runtime-config.md`](references/runtime-config.md)
+- Operator may stop schedulers when fleet is idle for hours
+- **Detach** each fleet: **`steward.sh disarm` same turn** (false trip otherwise)
+- Drop finished panes; leave mid-unit Hands if operator wants residual drain
+- Wind-down procedure: [`runtime-config.md`](references/runtime-config.md); multi-fleet: [`multi-fleet.md`](references/multi-fleet.md)
 
 ## Fail-fast wake (summary)
 
@@ -461,25 +492,25 @@ On unexpected dirt **outside** scope: do not erase — list, classify if blockin
 
 ## Project overlay contract
 
-**This skill is the portable process.** Camp files bind instances and may add product process. Prefer not to redefine bag-vs-gate, absorb vs integration-accept, don't-get-stuck, or **Harness alignment** without a recorded reason.
+**This skill is the portable process.** Fleet project overlays bind instances. Prefer not to redefine bag-vs-gate, absorb vs integration-accept, don't-get-stuck, or **Harness alignment** without a recorded reason.
 
-| Lives in skill | Lives in project overlay |
+| Lives in skill | Lives in fleet overlay (per project) |
 | --- | --- |
-| Roles, bag rules, dual channel, fleet axes (+ host) | Concrete Hand roster, cwds, model ids, **ssh targets** |
-| Harness alignment + preferred models (updated over time) | Live `mind.agent` / `agent_model` / `agent_launch`; Head launches |
+| Roles, bag rules, dual channel, multi-fleet attach, fleet axes (+ host) | Concrete Hand roster, cwds, model ids, **ssh**, **tmux_target** |
+| Harness alignment + preferred models | Live `mind.agent` / `agent_model` / `agent_launch`; Head launches |
 | Theme vs unit, merge clock, base-update *policy* | Campaign maps, product Status, validation commands |
-| Head loops (head-cto = post-main review), cycle kinds, modes | Role-prompt paths, absolute tool binaries **per host** |
-| Baseline field meanings; watch cursor; `pending_merges` states | Fat historical ledger rows, wind-up snapshots |
-| Pane classes, reinit contract, wind-down; **`FLEET_CYCLE` prefix** | Scheduler prompt path, durable interval task id |
+| Head loops, cycle kinds, modes | Role-prompt paths, absolute tool binaries **per host** |
+| Baseline field meanings; watch cursor; `pending_merges`; `mind_session` | Fat historical ledger rows, wind-up snapshots |
+| Pane classes, reinit, wind-down; **`FLEET_CYCLE` prefix** | Scheduler prompt path, durable interval task id |
 | Remote Hand/Head *transport* (SSH + tmux) | Real hostnames, keys, remote PATH wrappers |
-| Generic `scripts/codex-reinit.sh` | Camp `PROJECT`/`FLEET` paths; copy/symlink **on Hand host** |
+| Generic `scripts/codex-reinit.sh` / `steward.sh` | Fleet `PROJECT`/`FLEET` paths; copy/symlink **on Hand host** |
 
-Typical camp file kinds (names/layout camp-local):
+Typical fleet overlay:
 
 ```text
-fleet config           # roster + runtime + tooling + preferred models
-Mind cycle baseline    # sensors + debt + mode counters + operator_recap
-Mind scheduler overlay # must start wakes with FLEET_CYCLE …
+fleet config           # roster + runtime + tooling + preferred models + tmux_*
+Mind cycle baseline    # sensors + debt + mode counters + operator_recap + mind_session
+Mind scheduler overlay # must start wakes with FLEET_CYCLE … (fleets=… when multi)
 Head role prompts      # head-ceo / head-cto / head-cxo (+ optional personas)
 scripts/codex-reinit   # skill copy or symlink; env PROJECT + FLEET
 project Agents.md      # product + multi-agent process
@@ -549,10 +580,13 @@ Schema detail: [`runtime-config.md`](references/runtime-config.md).
 - Human escalations buried in **`mind@`** board noise with no **`operator@`** item
 - Returning interactive without presenting open **operator mail** when N>0
 - Spamming the same operator issue every cycle without new evidence
-- Stopping Mind `/loop` without **`steward.sh disarm`** (false dead-man trip)
+- Stopping Mind `/loop` or detaching without **`steward.sh disarm`** (false dead-man trip)
 - Treating steward as permanent second Mind or product bag owner
 - Dead-man heartbeat only on turn start / loop inject (masks hook deadlock)
-- Steward external email without camp `to` + `preauthorized_exec_send`
+- Steward external email without fleet `to` + `preauthorized_exec_send`
+- Dual Mind on one fleet without takeover; soft-hold Hands of the wrong fleet
+- Hardcoding `hand-1` as tmux **session** name when fleet.json has `tmux_target`
+- Global roster/baseline as control plane; auto-scanning disk for fleets
 
 ## Related skills
 
@@ -571,3 +605,5 @@ Org-title Heads and CEO/CTO/… persona bodies: [`references/heads/cast.md`](ref
 ## First exposure (not every cycle)
 
 Onboarding for a new human or foreign LLM: **[`../docs/fleet-guide.md`](../docs/fleet-guide.md)** — patterns and vocabulary only. **Do not** load that guide on every FLEET_CYCLE; use this skill + `references/` when operating.
+
+Multi-fleet design background: [`../docs/fleet-multi-camp-design.md`](../docs/fleet-multi-camp-design.md) (session-attach model).

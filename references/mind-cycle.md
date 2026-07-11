@@ -8,13 +8,19 @@ Mind is the **operator-opened** harness conversation (desktop, terminal, or othe
 
 ### Scheduled cycle prefix
 
-Every durable scheduler / loop injection **must** start with:
+Every durable scheduler / loop injection **must** start with `FLEET_CYCLE`:
 
 ```text
+# Single fleet
 FLEET_CYCLE cycle=<N> project=<root>
+
+# Multi-fleet — name every supervised fleet (attach log in chat history)
+FLEET_CYCLE fleets=mgs,faber project=<root_mgs> also=<root_faber>
 ```
 
-Anything whose first line starts with `FLEET_CYCLE` is **not** an operator message. Fix camp overlays that omit this.
+Anything whose first line starts with `FLEET_CYCLE` is **not** an operator message. Fix fleet overlays that omit this.
+
+**Multi-fleet:** one fire runs a full fail-fast **mini-cycle per fleet** on the topic line; each fleet writes its own `last_successful_cycle_at` and gets `steward.sh rearm --project <that root>`. See [`multi-fleet.md`](multi-fleet.md).
 
 ### Counters (write every cycle)
 
@@ -137,22 +143,21 @@ If N>0, present a work-through table; do not only bury a count in recap. If N=0,
 
 Optional autonomous compact hint when N>0: `+op-mail:N` on the one-liner — never expand into status spam.
 
-### Steward rearm (every successful cycle)
+### Steward rearm (every successful mini-cycle)
 
-At **cycle end** (after sensors/ops, whether acted or quiet sleep that completed):
+At **end of each fleet’s mini-cycle** (after sensors/ops, whether acted or quiet sleep that completed):
 
 ```bash
-# write last_successful_cycle_at in baseline (or let script do it)
-path/to/skills/fleet/scripts/steward.sh rearm --project <root>
+path/to/skills/fleet/scripts/steward.sh rearm --project <that-fleet-root>
 ```
 
 | Also | When |
 | --- | --- |
-| `steward.sh arm` | Loop armed / camp `mind_loop.state=running` and steward enabled |
-| `steward.sh disarm` | Operator stops loop, wind-down, intentional no-schedule — **same turn** |
+| `steward.sh arm` | Attach / loop armed / `mind_loop.state=running` and steward enabled |
+| `steward.sh disarm` | Detach, stop loop, wind-down — **same turn** |
 | `steward.sh clear` | After dead-man trip recovery |
 
-Progress signal = **successful cycle completion**, not loop inject or turn start (hook deadlock). Full protocol: [`dead-man.md`](dead-man.md).
+Progress signal = **successful cycle completion for that fleet**, not loop inject or turn start. Multi-fleet: rearm **each** fleet that was mini-cycled. Full protocol: [`dead-man.md`](dead-man.md), [`multi-fleet.md`](multi-fleet.md).
 
 ### Interaction with thorough cycles
 

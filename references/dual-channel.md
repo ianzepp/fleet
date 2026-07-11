@@ -5,6 +5,8 @@ Load for pane ops, wake/reinit, rehome, theme switch, or completion mail.
 Vivi is the **board of record** (what work exists and is done).  
 tmux is the **process layer** (whether the Hand process is alive, idle, or broken).
 
+**Process address** is always fleet.json **`tmux_target`**, not a guessed session name. Legacy fleets use session==role (`hand-1:1.1`). Multi-fleet hosts prefer session=fleet_id, window=role (`mgs:hand-1.1`).
+
 | Concern | Prefer |
 | --- | --- |
 | “This unit is done; evidence is …” | Vivi tasking done (+ optional mail **To mind**) |
@@ -12,7 +14,8 @@ tmux is the **process layer** (whether the Hand process is alive, idle, or broke
 | “Codex done/idle at `›` with open tasking” | tmux → **reinit** (kill + fresh session + short bootstrap) — not stacked wakes |
 | “Over capacity / connection failed / hung Waiting” | tmux → ops intervene (model change, retry, restart) |
 | “Human must decide / recover / guide a fix” | Vivi **To `operator@`** (need/mail) — not status To mind; see `operator-mail.md` |
-| “Mind loop dead / cycle ticks stopped” | tmux **steward** dead man — see `dead-man.md`; rearm every successful cycle |
+| “Mind loop dead / cycle ticks stopped” | per-fleet **steward** — see `dead-man.md`; rearm every successful mini-cycle |
+| Multi-fleet pane address | fleet.json **`tmux_target`** (legacy `hand-1:1.1` or `mgs:hand-1.1`) — see `multi-fleet.md` |
 | “No mail and no pane signal” | do not invent progress; sleep or escalate if bag stale |
 | “Fix landed upstream; consumer still red” | Check **pin-relative done** before re-verify doorbell |
 
