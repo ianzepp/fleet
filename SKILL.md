@@ -20,7 +20,7 @@ Abbot **Mind / Head / Hand** roles on a **multi-session fleet** (Vivi board + tm
 | --- | --- | --- | --- |
 | **mind** | `mind@…` | none | Board To: Mind; process = this chat |
 | **operator** | `operator@…` | none | Human only — [`operator-mail.md`](references/operator-mail.md) |
-| **steward** | optional | `tmux_target` | Dead-man, not Mind — [`dead-man.md`](references/dead-man.md) |
+| **steward** | optional opt-in | `tmux_target` | Dead-man, not Mind — **off by default**; operator must enable+arm per fleet — [`dead-man.md`](references/dead-man.md) |
 | **hand-N** | `hand-N@…` | via `tmux_target` | `hand-1` merges to main |
 | **head-*** | `head-*@…` | via `tmux_target` | ceo vision/buckets; cto post-main review; cxo purity (not operator-facing) |
 
@@ -178,7 +178,7 @@ FLEET_CYCLE project=/path/to/fleet …
 FLEET_CYCLE fleets=mgs,faber project=/path/mgs also=/path/faber …
 ```
 
-Loop lives in the operator TUI — no fake Mind pane. Multi-fleet: mini-cycle **each** named fleet; own tick + `steward.sh rearm --project <root>`.  
+Loop lives in the operator TUI — no fake Mind pane. Multi-fleet: mini-cycle **each** named fleet; baseline bump per fleet. **`steward.sh rearm` only if that fleet’s steward is enabled and armed** (opt-in).  
 **Bug:** `FLEET_CYCLE`-only payload ≠ silence — count human chat **between** fires.
 
 ```text
@@ -203,7 +203,7 @@ Report tracks **mode**, not acted/sleep alone. Templates: [`mind-cycle.md`](refe
 | Topic | Rule |
 | --- | --- |
 | Multi-fleet | One Mind session may supervise many fleets; **one Mind per fleet** (advisory `mind_session`); fleets= on FLEET_CYCLE line; prefer session=`fleet_id` |
-| Steward | Per-fleet success-tick watchdog. **rearm** every mini-cycle; **arm** with loop; **disarm** same turn on detach. Trip → hold + operator@ + optional email. Not second Mind |
+| Steward | **Default OFF.** Per-fleet dead-man only when operator **explicitly** enables `steward.enabled` **and** asks to arm **that** fleet. Loop ≠ steward. When armed: rearm each successful mini-cycle; disarm same turn on detach. Not second Mind |
 | operator@ | Problems / blockers / bug-guidance / human walls only. On return: operator list **first**, then recap, then ops |
 
 ## Tasking (summary)
@@ -245,12 +245,12 @@ Host axis on slots: `host`, `ssh`, host-scoped cwd/tmux/launch. Wake/reinit **on
 
 ## Lifecycle
 
-1. **Arm/attach** — identities; harness; `tmux_target`; baseline counters; `mind_session`; steward arm if looping  
+1. **Arm/attach** — identities; harness; `tmux_target`; baseline counters; `mind_session`; **do not** arm steward unless operator asked for that fleet  
 2. **Focus** — map package; Hand picks open target (no GO wait)  
-3. **Gather** — `fleet-sensors.py`; quiet if fingerprint/panes unchanged; doorbell/reinit; end: `fleet-baseline.py bump` + `steward.sh rearm`  
+3. **Gather** — `fleet-sensors.py`; quiet if fingerprint/panes unchanged; doorbell/reinit; end: `fleet-baseline.py bump` (+ `steward.sh rearm` **only if steward armed for that fleet**)  
 4. **Hand work** — show → implement → validate → unit `$polish` → done → next/sleep  
 5. **Sleep** — most wakes no-ops ([`mind-cycle.md`](references/mind-cycle.md))  
-6. **Detach/wind-down** — `steward.sh disarm` same turn; drop idle panes  
+6. **Detach/wind-down** — if steward was armed, `steward.sh disarm` same turn; drop idle panes  
 
 ### Polish / housekeeping
 
@@ -290,7 +290,8 @@ python3 <skill>/scripts/fleet-sensors.py --project <root> --text
 PROJECT=<root> FLEET=<root>/.vivi/fleet.json <skill>/scripts/codex-reinit.sh doctor hand-1
 python3 <skill>/scripts/fleet-baseline.py bump -p <root> -s 'sleep' --quiet \
   --fingerprint-file /tmp/fleet-sensors.json
-scripts/steward.sh rearm --project <root>
+# only if operator enabled+armed steward for this fleet:
+# scripts/steward.sh rearm --project <root>
 ```
 
 Desktop Mind OK; Hands stay terminal/tmux. Schema: [`runtime-config.md`](references/runtime-config.md).
@@ -300,7 +301,7 @@ Desktop Mind OK; Hands stay terminal/tmux. Schema: [`runtime-config.md`](referen
 **Bag:** GO warden; severity-as-kind; sleep while map has work; dual Mind; Heads own bags; hand-2 empty while side track exists; wait on head-ceo for obvious spine; buckets without cost ballparks.  
 **Process:** mail-only or pane-only truth; policy via tmux; mixed Hand harness; back-to-back wake stacks; wrong-host tmux; IMAP as bag sensor; unbounded watch.
 **Integrate:** packet-green≠consumer-green; “compiler residual” when integration lag; red theme merge; Mind merges packets; absorb-as-accept.  
-**Hygiene/workspace:** skip unit polish / polish foreign; Mind runs polish/HK; HK every land; score as merge gate; destructive dirt cleanup; status-only dirt; topic monogamy; deep-plan every autonomous cycle; interactive forever; FLEET_CYCLE as silence; compact report while interactive; novel autonomous reports; head-ceo permission freeze; missing FLEET_CYCLE prefix; status→operator@; skip operator present-on-return; no steward disarm; steward as Mind; inject-only heartbeat; global roster scan; hardcode session=role when `tmux_target` set.
+**Hygiene/workspace:** skip unit polish / polish foreign; Mind runs polish/HK; HK every land; score as merge gate; destructive dirt cleanup; status-only dirt; topic monogamy; deep-plan every autonomous cycle; interactive forever; FLEET_CYCLE as silence; compact report while interactive; novel autonomous reports; head-ceo permission freeze; missing FLEET_CYCLE prefix; status→operator@; skip operator present-on-return; arm steward without operator ask; leave steward armed after stop-loop; steward as Mind; inject-only heartbeat; global roster scan; hardcode session=role when `tmux_target` set.
 
 ## Companions / first exposure
 

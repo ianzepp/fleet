@@ -67,7 +67,7 @@ campaign / map
 
 On return: present operator mail list first.
 
-**Steward:** Mind **rearms** after every successful `FLEET_CYCLE`. Loop die / turn abort → hold + **operator@** + optional preauthorized external email. Disarm when stopping loop. Not a second Mind.
+**Steward:** **Default OFF.** Operator must enable + ask to arm **per fleet**. Loop ≠ steward. When armed: rearm after successful mini-cycles; trip → hold + operator@. Not a second Mind.
 
 ## Who does what
 

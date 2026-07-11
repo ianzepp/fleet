@@ -194,7 +194,8 @@ Recommended keys (extend freely; skill cares about meanings):
   "operator_inbox": "operator",
   "operator_inbox_note": "Human escalations only (problems/blockers/guidance). Not status. No tmux.",
   "steward": {
-    "enabled": true,
+    "enabled": false,
+    "note": "default OFF — operator must enable:true and explicitly ask to arm per fleet; loop ≠ steward",
     "tmux_session": "steward",
     "tmux_window": "steward",
     "tmux_target": "steward:1.1",

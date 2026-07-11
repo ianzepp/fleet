@@ -2,6 +2,18 @@
 
 Fleet-local **completed-cycle watchdog**. If Mind stops completing `FLEET_CYCLE` turns (loop timer dead, or every turn dies at hooks), something **outside the broken chat** holds the fleet and pages the human — not a second permanent Mind, not a global multi-repo service.
 
+## Default: OFF (operator opt-in)
+
+**Steward is disabled by default.** Arming a Mind loop / `FLEET_CYCLE` schedule does **not** arm steward.
+
+| Require | Meaning |
+| --- | --- |
+| `fleet.json` → `steward.enabled: true` | Operator chose this fleet may use dead-man |
+| Operator says to arm steward **for that fleet** | Explicit turn on (not implied by attach/loop) |
+| Then `steward.sh arm --project <root>` | Process + baseline armed |
+
+Mind must **not** enable or arm steward proactively. Per-fleet only — enabling on mgs does not enable faber.
+
 ## Names
 
 | Term | Meaning |
@@ -53,26 +65,31 @@ At **end** of every successful fail-fast cycle:
 mind_loop.last_successful_cycle_at = now
 mind_loop.last_cycle = N
 mind_loop.last_cycle_ok = true
-steward.last_rearm_at = now
-# optional: touch $PROJECT/.vivi/steward.rearm
+# if steward armed for this fleet:
+#   steward.last_rearm_at = now
+#   touch $PROJECT/.vivi/steward.rearm
 ```
 
 ```bash
+# only when steward is armed for this fleet:
 scripts/steward.sh rearm --project <root>
 ```
 
-**Do not** rearm only on turn start (masks hook death). Optional: rearm at **start and end** of long cycles so grace survives multi-minute acts.
+**Do not** rearm only on turn start (masks hook death). Optional: rearm at **start and end** of long cycles so grace survives multi-minute acts. Skip all rearm when steward is disabled/unarmed.
 
 ## Arm / disarm
 
 ```bash
-steward.sh arm --project <root>     # when mind_loop.state → running + durable loop
-steward.sh disarm --project <root>  # required to avoid false fire
+# only after operator enabled this fleet AND asked to arm:
+steward.sh arm --project <root>
+steward.sh disarm --project <root>  # required when stopping if it was armed
 ```
 
-**Must disarm when:** operator stops `/loop` and will not run cycles; wind-down / `wound_up`; explicit “Mind: no schedule”; fleet intentionally idle for hours.
+**Do not arm when:** loop-only / manual cycles; `steward.enabled` false or missing; operator silent on steward.
 
-Leaving loop without disarm → steward correctly assumes control-plane death and trips.
+**Must disarm when (if armed):** operator stops `/loop` and will not run cycles; wind-down / `wound_up`; explicit “Mind: no schedule”; fleet intentionally idle for hours.
+
+Leaving an **armed** steward without rearm → steward correctly assumes control-plane death and trips. Unarmed / disabled → no trip.
 
 ## Trip condition
 
@@ -180,10 +197,11 @@ Exit (`check` / trip path): `0` ok · `1` tripped this run · `2` config/error �
 
 | Event | Mind action |
 | --- | --- |
-| Successful FLEET_CYCLE end | `rearm` + write `last_successful_cycle_at` |
-| Long cycle start (optional) | early `rearm` so grace survives multi-minute work |
-| Stop loop / wind-down | `disarm` **same turn** |
-| Arm fleet / start loop | `arm` if `steward.enabled` |
+| Successful FLEET_CYCLE end | write `last_successful_cycle_at`; **`rearm` only if steward armed** |
+| Long cycle start (optional) | early `rearm` only if steward armed |
+| Stop loop / wind-down | `disarm` **same turn** if it was armed |
+| Start loop alone | **do not** arm steward |
+| Operator asks steward on **this** fleet | set `enabled: true` if needed, then `arm` |
 | Steward missing while armed | recreate via `arm` |
 | Engagement after silence | present operator@ (may include steward trip) |
 
@@ -195,7 +213,9 @@ Exit (`check` / trip path): `0` ok · `1` tripped this run · `2` config/error �
 - External email without fleet `to` + `preauthorized_exec_send`  
 - Spamming external mail every poll after trip  
 - Killing `running` Hands on trip  
-- Leaving loop mode without `disarm`  
+- Leaving **armed** steward without `disarm` when stopping  
+- Arming steward because a loop started (loop ≠ steward)  
+- Enabling steward “for safety” without operator ask  
 - Treating steward tmux as Mind process slot  
 
 ## Related

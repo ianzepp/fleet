@@ -150,7 +150,7 @@ pi --provider zai --model glm-5.2 --thinking high   # or xhigh
 - **Unstick half-dead dirt:** open the diff; class A mechanical → clear same turn; no multi-hour freeze
 - **Autonomous:** thin ops; **decide now** on reversible defaults; head-ceo optional structure help, not permission gate; file **operator mail** when human needed; compact reports
 - **Interactive:** full reasoning for operator; **rich FLEET_CYCLE reports**; maintain **operator_recap**; **present open operator@ list** on engagement
-- **Steward:** `rearm` end of every successful cycle; `arm` with loop; **`disarm` when stopping / wind-down**; never treat steward as product Mind
+- **Steward:** default OFF; arm only when operator enables+asks per fleet; then `rearm` each successful cycle; **`disarm` when stopping if armed**; never treat steward as product Mind
 
 ## Mind does not
 

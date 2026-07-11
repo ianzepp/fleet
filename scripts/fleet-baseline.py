@@ -212,7 +212,7 @@ def cmd_wound_up(args: argparse.Namespace, project: Path, baseline: Path) -> int
     ml["dropped_panes"] = dropped
     ml["handoff"] = args.handoff or (
         "Fleet wound up %s. Steward should be disarmed. "
-        "Rearm: steward.sh arm + recreate panes + FLEET_CYCLE." % now
+        "Rearm: recreate panes + FLEET_CYCLE; steward only if operator enabled+asked." % now
     )
     b["mind_loop"] = ml
     st = ensure_dict(b.get("steward"))

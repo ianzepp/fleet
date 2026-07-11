@@ -88,7 +88,7 @@ First-time single-fleet attach: [`getting-started.md`](getting-started.md) § 3.
 
 | Action | Steps |
 | --- | --- |
-| **Attach** | Read baseline `mind_session` lock → refuse if live foreign unless `--takeover` → write `mind_session={label,host,pid?,attached_at}`; `mind_loop.state=running` → `steward.sh arm --project <fleet>` if loop will run → sensor; fold operator@/steward/headline into recap |
+| **Attach** | Read baseline `mind_session` lock → refuse if live foreign unless `--takeover` → write `mind_session={label,host,pid?,attached_at}`; `mind_loop.state=running` → sensor; fold operator@/headline into recap. **Do not** arm steward unless operator explicitly enabled+asked for **that** fleet |
 | **Detach** | Stop filing new work; honest in-flight in baseline → **`steward.sh disarm --project <fleet>` same turn** → `mind_loop.state=detached` (or wound_up); clear/stamp `mind_session` → optional leave Hands mid-unit; no kill foreign WIP |
 | **Orphan** | Mind dies without detach → steward **trips after grace**. Recovery: `steward.sh clear` + reattach |
 

@@ -191,7 +191,7 @@ Attach = Mind takes steward rearm + cycle duty. **Detach is not free** — ungra
 1. Read `mind-baseline.json` → check `mind_session` lock (§6.6).
 2. Locked under live foreign session → refuse, or require `--takeover`.
 3. Write `mind_session = {label, host, pid, attached_at}`; `mind_loop.state = running`.
-4. If loop scheduled: `steward.sh arm --project <fleet>` (unless already armed by session you're replacing).
+4. Loop schedule is independent of steward. Arm steward only if operator enabled+asked for that fleet.
 5. Sensor; present baseline (op-mail, tripped?, headline) into cross-fleet recap.
 
 **Detach:**

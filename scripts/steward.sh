@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 # Fleet steward (dead man): fleet-local completed-cycle watchdog.
 #
-# Mind rearms after every successful FLEET_CYCLE. If rearm stops while armed,
+# Default OFF (steward.enabled false unless set). Operator must enable and ask
+# to arm per fleet — loop alone does not arm steward.
+# When armed: Mind rearms after every successful FLEET_CYCLE. If rearm stops,
 # steward trips: board operator@ + optional external email + hold baseline.
 #
 # Usage:
@@ -148,7 +150,8 @@ def fleet_steward():
                 ht = f"{hs}:1.1"
         hand_targets.append({"name": name, "tmux_target": ht})
     return {
-        "enabled": s.get("enabled", True),
+        # Default OFF — operator must set steward.enabled true and ask to arm.
+        "enabled": s.get("enabled", False),
         "fleet_id": fleet_id,
         "tmux_session": sess,
         "tmux_window": win,
@@ -422,8 +425,8 @@ ensure_tmux_session() {
 cmd_arm() {
   local target sess poll
   [[ -f "$FLEET" ]] || die "missing fleet.json: $FLEET"
-  if ! py cfg | "$PYTHON_BIN" -c 'import json,sys; raise SystemExit(0 if json.load(sys.stdin).get("enabled",True) else 1)'; then
-    log "steward disabled in fleet.json"
+  if ! py cfg | "$PYTHON_BIN" -c 'import json,sys; raise SystemExit(0 if json.load(sys.stdin).get("enabled", False) else 1)'; then
+    log "steward disabled in fleet.json (default OFF; operator opt-in per fleet)"
     exit 3
   fi
   cmd_arm_state

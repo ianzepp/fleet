@@ -218,7 +218,8 @@ Minimal **single-fleet host** shape (`tmux_session` == role):
     }
   },
   "steward": {
-    "enabled": false
+    "enabled": false,
+    "note": "default OFF — operator must set enabled:true and ask to arm per fleet"
   }
 }
 ```
@@ -348,14 +349,21 @@ If open/unread **operator@** items → present **first**, then status recap from
 # PROJECT="$ROOT" FLEET="$ROOT/.vivi/fleet.json" "$SK/codex-reinit.sh" reinit hand-1 --boot 'HAND WAKE …'
 ```
 
-### 3.6 Arm steward only if you will run a scheduled loop
+### 3.6 Steward is OFF by default (operator opt-in)
+
+**Do not arm steward on attach or when starting `/loop`.** Dead-man is optional.
+
+Only if the operator **explicitly** wants steward **for this fleet**:
+
+1. Set `"steward": { "enabled": true, … }` in `fleet.json` (targets/notify as needed).
+2. Operator asks to arm **this** fleet (not implied by multi-fleet siblings).
+3. Then:
 
 ```bash
-# if fleet.json steward.enabled and you will FLEET_CYCLE on a timer:
 "$SK/steward.sh" arm --project "$ROOT"
 ```
 
-If only chatting / one-shot ops, leave steward disarmed or leave prior state alone until you decide.
+Otherwise leave `enabled: false` and never call `arm` / `rearm`. Detail: [`dead-man.md`](dead-man.md).
 
 ### 3.7 Run cycles from this session
 
@@ -374,7 +382,7 @@ Each successful mini-cycle:
 ```bash
 python3 "$SK/fleet-baseline.py" bump -p "$ROOT" -s '…' [--quiet|--acted] \
   --fingerprint-file /tmp/sensors.json
-"$SK/steward.sh" rearm --project "$ROOT"    # if steward armed
+# "$SK/steward.sh" rearm --project "$ROOT"  # only if operator armed steward for this fleet
 ```
 
 Mode / reports: [`mind-cycle.md`](mind-cycle.md).
@@ -401,9 +409,9 @@ Wind-down: [`runtime-config.md`](runtime-config.md). Multi-fleet attach set: [`m
 [ ] mind_session advisory lock claimed (or takeover authorized)
 [ ] operator@ listed if N>0; then recap
 [ ] fleet-sensors.py once; act only on signal
-[ ] steward arm only if FLEET_CYCLE loop will run
-[ ] FLEET_CYCLE project=$ROOT … for scheduled wakes
-[ ] detach/disarm same turn when stopping
+[ ] steward stays OFF unless operator enabled+asked for this fleet
+[ ] FLEET_CYCLE project=$ROOT … for scheduled wakes (loop ≠ steward)
+[ ] if steward was armed: disarm same turn when stopping
 ```
 
 ## “Is it working?” (case 2 and 3)

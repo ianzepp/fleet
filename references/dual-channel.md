@@ -16,7 +16,7 @@ Pane ops, wake/reinit, rehome, theme switch, completion mail.
 | “Codex doorbell leaves text stuck / pane down / trust or error prompt” | tmux → **reinit fallback** (kill + fresh + short bootstrap) |
 | “Over capacity / connection failed / hung Waiting” | tmux → ops intervene (model / retry / restart) |
 | “Human must decide / recover / guide a fix” | Vivi **To `operator@`** (need/mail) — not status To mind; `operator-mail.md` |
-| “Mind loop dead / cycle ticks stopped” | per-fleet **steward** — `dead-man.md`; rearm every successful mini-cycle |
+| “Mind loop dead / cycle ticks stopped” | optional per-fleet **steward** (default OFF) — `dead-man.md`; rearm only if that fleet’s steward is armed |
 | Multi-fleet pane address | fleet.json **`tmux_target`** — `multi-fleet.md` |
 | “No mail and no pane signal” | do not invent progress; sleep or escalate if bag stale |
 | “Fix landed upstream; consumer still red” | Check **pin-relative done** before re-verify doorbell |

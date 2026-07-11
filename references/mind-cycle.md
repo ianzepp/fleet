@@ -138,16 +138,18 @@ python3 scripts/fleet-baseline.py bump -p <ROOT> -s '<summary>' \
   --quiet --mode autonomous \
   --fingerprint-file /tmp/fleet-sensors.json
 # or: --acted  (instead of --quiet) when board/ops moved
-scripts/steward.sh rearm --project <ROOT>
+# only if steward enabled+armed for this fleet (default: skip):
+# scripts/steward.sh rearm --project <ROOT>
 ```
 
 | Also | When |
 | --- | --- |
-| `steward.sh arm` | Attach / loop armed / `mind_loop.state=running` and steward enabled |
-| `steward.sh disarm` | Detach, stop loop, wind-down — **same turn** |
+| `steward.sh arm` | **Only** after operator sets `steward.enabled` **and** asks to arm **this** fleet — not on attach/loop alone |
+| `steward.sh rearm` | End of successful mini-cycle **if** that fleet’s steward is armed |
+| `steward.sh disarm` | If armed: detach, stop loop, wind-down — **same turn** |
 | `steward.sh clear` | After dead-man trip recovery |
 
-Progress = **successful cycle completion for that fleet**, not inject or turn start. Multi-fleet: rearm **each** mini-cycled fleet. [`dead-man.md`](dead-man.md), [`multi-fleet.md`](multi-fleet.md).
+Progress = **successful cycle completion for that fleet**, not inject or turn start. Multi-fleet: baseline bump **each** mini-cycled fleet; rearm only fleets with steward armed. [`dead-man.md`](dead-man.md), [`multi-fleet.md`](multi-fleet.md).
 
 Thorough/superficial cadence still applies (`cycle % N == 0`). Autonomous thorough = residual-shaped — **not** peer review of every packet. **head-cto** reviews main after merge.
 
