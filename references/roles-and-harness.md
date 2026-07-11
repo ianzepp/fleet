@@ -1,6 +1,6 @@
 # Roles, axes, and harness
 
-Load when arming a fleet, rebinding runtimes, or clarifying Mind/Hand/Head duties.
+Arming a fleet, rebinding runtimes, Mind/Hand/Head duties.
 
 ## Roles
 
@@ -8,15 +8,15 @@ Load when arming a fleet, rebinding runtimes, or clarifying Mind/Hand/Head dutie
 | --- | --- | --- | --- |
 | **Hand** | `hand-1`…`hand-N` | Take a **selected target** and finish it | Done tasks/needs + evidence; optional turn-end mail To `mind` |
 | **Mind** | Board **`mind@…`** — **no tmux**; process = operator TUI | Survey product; **dole out** tasking; integrate; fleet ops; pick from head-ceo buckets; **track est vs actual cost**; file/present **operator mail** | Open tasks/needs; pane scan; wake/reinit; merge queue; `cost_calibration` |
-| **Operator mail** | Board **`operator@…` only** — **no tmux** | Accrue human escalations (problems / blockers / guidance) while autonomous | Need/mail To human; presented on return — **not** status |
+| **Operator mail** | Board **`operator@…` only** — **no tmux** | Accrue human escalations while autonomous | Need/mail To human; presented on return — **not** status |
 | **Steward** | tmux **`steward`** (not Mind) | Dead-man: watch successful cycle ticks; trip → hold + page | `steward.sh`; operator@ + optional external email |
-| **head-ceo** (Head) | `head-ceo`  | Vision, sequencing; **hand-2+ buckets with effort + est_tokens** | Mail `head-ceo report:` To `mind` |
-| **head-cto** (Head) | `head-cto`  | **Code review / bug hunt on main after merge** | Mail `head-cto:` To `mind` |
-| **head-cxo** (Head) | `head-cxo`  | Self-directed complexity / purity audit (**not** operator voice) | Mail `head-cxo:` To `mind` |
+| **head-ceo** (Head) | `head-ceo` | Vision, sequencing; **hand-2+ buckets with effort + est_tokens** | Mail `head-ceo report:` To `mind` |
+| **head-cto** (Head) | `head-cto` | **Code review / bug hunt on main after merge** | Mail `head-cto:` To `mind` |
+| **head-cxo** (Head) | `head-cxo` | Self-directed complexity / purity audit (**not** operator voice) | Mail `head-cxo:` To `mind` |
 
-One Mind owns the tasking bag and integration clock: **Mind files and wakes; Heads advise.** Heads never merge, never keep product tasking “full,” and never stamp GO/NO-GO. **head-ceo** proposes **what hand-2+ could work on** (side-lane bucket); Mind decides when to bind a packet and file. Reports To: **mind** (board); Mind triages into hand-N tasks/needs.
+One Mind owns the tasking bag and integration clock: **Mind files and wakes; Heads advise.** Heads never merge, never keep product tasking “full,” never stamp GO/NO-GO. **head-ceo** proposes **what hand-2+ could work on**; Mind decides when to bind a packet and file. Reports To: **mind**; Mind triages into hand-N tasks/needs.
 
-Prefer numbered hands (`hand-N`) over a single shared `codex`. Prefer heterogeneous Head runtimes for second-party opinion; keep Hand harness aligned with Mind.
+Prefer numbered hands (`hand-N`) over shared `codex`. Prefer heterogeneous Head runtimes; keep Hand harness aligned with Mind.
 
 ## Fleet axes (identity ≠ assignment ≠ runtime)
 
@@ -29,15 +29,14 @@ hand-N  =  identity (mail + tmux)
 | Axis | Meaning | Sticky? |
 | --- | --- | --- |
 | **Identity** | Who owns bag + pane (`hand-N`) | Session name while the slot exists |
-| **Assignment** | What work that slot is on | Usually only hand-1 main + merge rights. hand-2+ assignments are transient |
-| **Runtime** | Harness + model + wake/reinit | Hand harness follows Mind. Model within harness may rebind. Heads may differ freely |
+| **Assignment** | What work that slot is on | Usually only hand-1 main + merge rights. hand-2+ transient |
+| **Runtime** | Harness + model + wake/reinit | Hand harness follows Mind. Model within harness may rebind. Heads free |
 
-Product law talks in H-numbers + current assignment. Ops read runtime from fleet (`agent`, `agent_launch`) and apply wake/reinit by harness, not H-number. Live bindings belong in **project fleet config** (fleet-local path — not a skill-mandated filename). Do not hardcode model strings into role tables as Hand identity.
+Product law talks in H-numbers + current assignment. Ops read runtime from fleet (`agent`, `agent_launch`) and apply wake/reinit by harness, not H-number. Live bindings in **project fleet config**. Do not hardcode model strings into role tables as Hand identity.
 
 ## Harness alignment (Mind ↔ Hands vs Heads)
 
-**Invariant — Hands share Mind’s harness.**
-The Mind session’s agent harness is the product control plane. Every Hand should run that same harness family. Mixed Hand harnesses under one Mind create interoperability debt (wrong wake vs reinit, wrong bootstrap, wrong pane cues).
+**Invariant — Hands share Mind’s harness.** Mixed Hand harnesses under one Mind create interoperability debt (wrong wake vs reinit, wrong bootstrap, wrong pane cues).
 
 | Role | Harness policy | Model policy |
 | --- | --- | --- |
@@ -45,23 +44,21 @@ The Mind session’s agent harness is the product control plane. Every Hand shou
 | **Hand** | **Same harness as Mind** by default | May differ within that harness (ladder) |
 | **Head** | **Prefer a different harness and/or model** | Independence is a feature |
 
-**Why Hands align:** Mind writes doorbells, reinit scripts, classify heuristics, and compact sequences for **one** product TUI.
+Hands align so Mind writes doorbells/reinit/classify/compact for **one** product TUI. Heads diversify to challenge the product plane. Default Heads: **Pi + GLM 5.2 (high/xhigh)**.
 
-**Why Heads diversify:** Heads challenge the product plane, not drain the bag. Different model (and preferably harness) reduces correlated blind spots. Default: **Pi + GLM 5.2 (high/xhigh)** — see Preferred models.
+**Arm / rebind:**
 
-**Arm / rebind rules:**
-
-1. On arm, set every Hand’s `agent` + `wake_mode` + reinit policy from Mind’s current harness (`mind.agent` / live Mind session).
-2. If Mind changes harness, rebind Hands on the next clean breakpoint — do not leave a permanent mixed Hand fleet.
-3. Capacity on a Hand: step the **same-harness** model ladder first. Do not flip Hand harness while Mind stays on the original unless operator records a temporary exception.
-4. Capacity on Mind: prefer same-harness recovery; if Mind must move harness, either rebind Hands or park Hands and recover Mind first.
+1. On arm, set every Hand’s `agent` + `wake_mode` + reinit policy from Mind’s current harness.
+2. If Mind changes harness, rebind Hands on next clean breakpoint — no permanent mixed Hand fleet.
+3. Capacity on a Hand: step **same-harness** model ladder first. Do not flip Hand harness while Mind stays original unless operator records temporary exception.
+4. Capacity on Mind: prefer same-harness recovery; if Mind must move harness, rebind Hands or park Hands and recover Mind first.
 5. Heads are **out of** this rule. Rebind a Head only for its own capacity or operator preference.
 
 **Anti-pattern:** “H3 is always Codex” / “language spine is always Grok” as product law. Harness is ops binding from Mind, not permanent Hand identity. Assignment stays independent of harness.
 
 ## Preferred models by role
 
-Default arm preferences. Live ids live in project fleet config (`agent_model`, `agent_launch`, effort flags). Capacity ladders step same-harness; they do not invent permanent Hand identity from model strings.
+Default arm preferences. Live ids in project fleet config (`agent_model`, `agent_launch`, effort flags). Capacity ladders step same-harness; they do not invent permanent Hand identity from model strings.
 
 ### Product plane (Mind + Hands — one harness family)
 
@@ -75,16 +72,16 @@ Default arm preferences. Live ids live in project fleet config (`agent_model`, `
 | **Grok** | **Hand** (under desktop Mind) | Grok 4.5 | harness default |
 | **Pi (`llama-router`)** | **Hand** (under desktop Mind, local/discrete units) | `ornith-35b-q8` | reasoning off |
 
-Notes:
-
-- Under **Grok**, Mind and Hand share the same model class (Grok 4.5) and harness.
-- Under **Codex**, Mind and Hand may differ within the family (sol/medium vs luna/xhigh); harness stays Codex.
-- **Claude Code desktop as Mind is a declared exception to Harness alignment** (and an **experimental** control-plane shape). The desktop app has no local CLI for a tmux pane, so Hands cannot match Mind’s harness literally. Treat **Grok as the fleet’s one Hand harness** in this shape: desktop Mind files tasking and reads panes by hand; Grok Hands use normal Grok wake without a tmux-resident Mind.
-- **Why desktop Mind exists (experiment):** (1) **token budget** — keep deep or interactive Mind work off the product Hand harness; (2) **failure isolation** — local tmux/shell death should not take Mind; Mind death should not take Hands. Combine with **remote Hands/Heads** (`ssh-remote.md`) for further isolation. Expect learning and fleet-specific tweaks.
-- Reserve **Codex** under desktop Mind only if Grok capacity is exhausted — reinit-after-unit assumes a scriptable Mind loop; a human Mind can do it but with more toil.
-- Heads still default to **Pi + GLM 5.2** regardless of Mind harness.
-- **Pi against local `llama-router` (`ornith-35b-q8`)** is a validated alternate Hand for desktop-Mind when work must stay fully local and units are discrete/bounded — see **Pi-as-Hand** below.
-- Capacity ladders start at these primaries, then step models in fleet `runtime_fallback` (do not flip product harness first).
+| Note | Detail |
+| --- | --- |
+| Grok | Mind and Hand share model class (Grok 4.5) and harness |
+| Codex | Mind/Hand may differ within family (sol/medium vs luna/xhigh); harness stays Codex |
+| Claude desktop Mind | **Declared exception to Harness alignment** (experimental). No local CLI for tmux pane → Hands cannot match Mind harness. Treat **Grok as fleet Hand harness**: desktop Mind files tasking + reads panes; Grok Hands use normal Grok wake without tmux-resident Mind |
+| Why desktop Mind | (1) **token budget** — deep/interactive Mind off product Hand harness; (2) **failure isolation** — tmux/shell death ≠ Mind death. Combine with remote Hands/Heads (`ssh-remote.md`). Expect learning/tweaks |
+| Codex under desktop Mind | Only if Grok capacity exhausted — reinit-after-unit assumes scriptable Mind loop |
+| Heads | Still **Pi + GLM 5.2** regardless of Mind harness |
+| Pi local Hand | Validated alternate for desktop-Mind when fully local + discrete/bounded units — see Pi-as-Hand |
+| Capacity | Start at primaries, step models in `runtime_fallback` (do not flip product harness first) |
 
 ### Pi-as-Hand (local models)
 
@@ -92,21 +89,16 @@ Validated 2026-07-11 against `ornith-35b-q8` via local `llama-router` (`~/.pi/ag
 
 | Topic | Guidance |
 | --- | --- |
-| Scope | Capable on discrete, well-specified units (write, run, self-verify). Not a Grok/Codex substitute for ambiguous, multi-step, or long-context spine work. |
-| Wake | Same doorbell pattern as Grok: plain `pi` (no `--print`) idles in tmux; `tmux send-keys … Enter` wakes; context retained across wakes; `/compact` works (errors only on too-small session). |
-| Autonomy | No built-in agentic loop or reinit-after-unit. Passive between wakes like Grok. Codex alone has after-unit reinit. |
-| Slash surface | `/help` is not recognized (goes to model as text). Do not assume Grok command parity beyond tested commands. |
-| cwd | Pin by true process cwd, not a preceding shell `cd` in a compound command. Prefer subshell or `tmux new-session -c <cwd>`. Verify on first use in a new packet (`pwd` + relative marker file). |
-| Cost | Fully local, zero marginal API cost. Step back to Grok/Codex if a unit needs real multi-step reasoning. |
+| Scope | Discrete, well-specified units (write, run, self-verify). Not a Grok/Codex substitute for ambiguous / multi-step / long-context spine |
+| Wake | Same doorbell as Grok: plain `pi` (no `--print`) idles in tmux; `send-keys … Enter` wakes; context retained; `/compact` works (errors only on too-small session) |
+| Autonomy | No built-in agentic loop or reinit-after-unit. Passive between wakes like Grok. Codex alone has after-unit reinit |
+| Slash surface | `/help` not recognized (goes to model as text). Do not assume Grok command parity beyond tested commands |
+| cwd | Pin by true process cwd, not preceding shell `cd` in compound command. Prefer subshell or `tmux new-session -c <cwd>`. Verify on first use in new packet |
+| Cost | Fully local, zero marginal API. Step back to Grok/Codex if unit needs real multi-step reasoning |
 
 ```bash
-# persistent Hand pane (preferred)
 pi --provider llama-router --model ornith-35b-q8
-
-# one-shot (no session retained)
 pi --provider llama-router --model ornith-35b-q8 --print --no-session "<task>"
-
-# cwd-safe launch
 (cd /path/to/worktrees/<slug> && pi --provider llama-router --model ornith-35b-q8 …)
 ```
 
@@ -114,60 +106,54 @@ pi --provider llama-router --model ornith-35b-q8 --print --no-session "<task>"
 
 | Role | Harness | Preferred model | Effort / thinking |
 | --- | --- | --- | --- |
-| **head-ceo** | **Pi** | GLM 5.2 | **high** or **xhigh** |
-| **head-cto** | **Pi** | GLM 5.2 | **high** or **xhigh** |
-| **head-cxo** | **Pi** | GLM 5.2 | **high** or **xhigh** |
+| **head-ceo** / **head-cto** / **head-cxo** | **Pi** | GLM 5.2 | **high** or **xhigh** |
 
-Advisors are largely one-shot (assign → report). Pi fits that better than a long product TUI. Product Hands stay on Mind’s harness for continuous bag drain.
+Advisors are largely one-shot (assign → report). Prefer Pi even when Mind is Grok or Codex.
 
 ```text
 pi --provider zai --model glm-5.2 --thinking high   # or xhigh
 ```
 
-Heads need not match Mind’s product harness. Prefer Pi even when Mind is Grok or Codex.
-
 ## Hand does
 
 - Cheap intake; `show` only the chosen handle
 - Drain open tasks/needs for **its** identity; validate; mark done with evidence
-- Advance campaign/docs Status when stage criteria hold and residuals for that stage are empty (Status must not overclaim — e.g. static checks ≠ GPU product run)
-- **After a product unit lands:** run **`$polish`** on **changed source files from this unit only** — see main skill **End-of-unit polish**
-- Exit when tasking empty for focus **and** map has no next package (or operator pause) — not when a Mind stamp is missing
-- Clean turn end: mark done; send turn-end / **ready-to-merge** mail when useful
-- **hand-2+ after unit:** clean commit + tasking done + turn-end; do not invent main work or merge to main. Expect Mind to refill next map unit same cycle when the campaign still has work
-- **hand-2+ after theme ready-to-merge:** wait only for **integration** (Mind review → merge via hand-1)
+- Advance campaign/docs Status when stage criteria hold and residuals empty (Status must not overclaim — e.g. static checks ≠ GPU product run)
+- **After product unit lands:** `$polish` on **changed source files from this unit only** — main skill **End-of-unit polish**
+- Exit when tasking empty for focus **and** map has no next package (or operator pause) — not when Mind stamp missing
+- Clean turn end: mark done; turn-end / **ready-to-merge** mail when useful
+- **hand-2+ after unit:** clean commit + tasking done + turn-end; no invent main work or merge. Expect Mind refill same cycle when campaign still has work
+- **hand-2+ after theme RTM:** wait only for **integration** (Mind review → merge via hand-1)
 - **Don't get stuck:** classify dirt A/B/C; file needs same turn; **pivot** when one item blocks
 
 ## Mind does
 
-- **Is the operator entry point:** the conversation the human is in **is** Mind (not a second ops pane; board mail is `mind@…` + **`operator@…`** — no tmux for either)
-- Resolve **interaction mode** each cycle (`turns_since_operator_message`, `mind_mode`, `FLEET_CYCLE` /loop) — see main skill + `mind-cycle.md`
-- Find missed work, Status overclaims, missing evidence; file **targets** with where / done-when / evidence bar (**to the owning Hand**)
-- **Integration absorb/accept** — bookkeeping and “good enough to merge/queue,” not deep peer code review of every packet
-- Stay quiet when fingerprint unchanged, panes healthy, and no ops signal
-- Each wake: cheap **fleet pane scan**; **Grok doorbell** or **Codex reinit** (prefer `scripts/codex-reinit.sh`) when idle/done with open targets
-- Residual finding → **task** to Hand; agent decision hold → **need**; **human** wall / problem / blocker / bug-guidance → **`operator@`** (see `operator-mail.md`); **tmux pointer only**
-- **Post-main polish advisory:** when main HEAD moves, run `$polish` `suggest-polish-files.py` (JSON, capped); if scores ≥ fleet threshold, file a bounded polish **task** — Mind does not execute the polish loop
-- **Major-inflection housekeeping:** only at campaign end / large multi-theme merge / stage closeout / operator ask — file **one** `$housekeeping` **task** To hand-1; never after routine lands
-- **Capacity packing:** when picking from head-ceo side-lane buckets, use `effort` / `est_tokens` (and recent `cost_calibration` deltas) so free Hands take appropriate-sized work while spine Hands are long-running
-- **Cost calibration:** on Hand done for a bound candidate, record actual tokens (harness if available, else Mind ballpark) vs head-ceo estimate; keep a short delta history
-- **Unstick half-dead dirt:** open the diff; class A mechanical (fmt) → clear same turn; do not freeze for hours
-- **Autonomous:** thin ops; **decide now** on reversible defaults; head-ceo is optional structure help, not a permission gate; file **operator mail** when human needed
-- **Interactive:** full reasoning for operator; **rich FLEET_CYCLE reports** (not one-liners); maintain **operator_recap**; **present open operator@ list** on engagement
-- **Autonomous:** compact cycle reports (one-line quiet / short acted; optional `+op-mail:N`)
-- Keep operator recap buffer since `last_operator_message_at`
-- **Steward:** `rearm` at end of every successful cycle; `arm` with loop; **`disarm` when stopping loop / wind-down**; never treat steward as product Mind
+- **Is the operator entry point:** human conversation **is** Mind (board = `mind@…` + **`operator@…`** — no tmux for either)
+- Resolve **interaction mode** each cycle — main skill + `mind-cycle.md`
+- Find missed work, Status overclaims, missing evidence; file **targets** with where / done-when / evidence bar (**to owning Hand**)
+- **Integration absorb/accept** — bookkeeping and “good enough to merge/queue,” not deep peer review of every packet
+- Stay quiet when fingerprint unchanged, panes healthy, no ops signal
+- Each wake: cheap **fleet pane scan**; **Grok doorbell** or **Codex reinit** (`scripts/codex-reinit.sh`) when idle/done with open targets
+- Residual → **task** to Hand; agent decision hold → **need**; **human** wall / problem / blocker / bug-guidance → **`operator@`** (`operator-mail.md`); **tmux pointer only**
+- **Post-main polish advisory:** main HEAD moves → `suggest-polish-files.py` (JSON, capped); scores ≥ threshold → bounded polish **task** — Mind does not run polish loop
+- **Major-inflection housekeeping:** campaign end / large multi-theme merge / stage closeout / operator ask only — **one** `$housekeeping` **task** To hand-1; never after routine lands
+- **Capacity packing:** when picking head-ceo side-lane buckets, use `effort` / `est_tokens` + recent `cost_calibration`
+- **Cost calibration:** on Hand done for bound candidate, record actual tokens vs head-ceo estimate; short delta history
+- **Unstick half-dead dirt:** open the diff; class A mechanical → clear same turn; no multi-hour freeze
+- **Autonomous:** thin ops; **decide now** on reversible defaults; head-ceo optional structure help, not permission gate; file **operator mail** when human needed; compact reports
+- **Interactive:** full reasoning for operator; **rich FLEET_CYCLE reports**; maintain **operator_recap**; **present open operator@ list** on engagement
+- **Steward:** `rearm` end of every successful cycle; `arm` with loop; **`disarm` when stopping / wind-down**; never treat steward as product Mind
 
 ## Mind does not
 
 - Issue stage start/closeout GO/NO-GO as binding protocol
-- Require multi-round mail before the next map square
-- **Own fleet code-review quality** (that is **head-cto on main after merge**)
+- Require multi-round mail before next map square
+- **Own fleet code-review quality** (**head-cto on main after merge**)
 - Run full `$polish` or `$housekeeping` itself; thrash polish every quiet cycle; fire housekeeping on routine main lands
-- Steal the Hand’s unit or rewrite their WIP mid-flight (raise; don’t hijack unless operator asks)
+- Steal Hand’s unit or rewrite WIP mid-flight (raise; don’t hijack unless operator asks)
 - Treat status-only dirty as multi-cycle freeze without classification
-- Require introspecting its own model/reasoning tier to choose behavior
-- Treat Hand/Head board mail or a **FLEET_CYCLE-only** payload as operator engagement (human chat *between* fires still counts)
+- Require introspecting own model/reasoning tier to choose behavior
+- Treat Hand/Head board mail or **FLEET_CYCLE-only** payload as operator engagement (human chat *between* fires still counts)
 - Wait multiple cycles on head-ceo for a decision it can make with a default
 - Treat strong guidance as a hard ban that freezes progress
 - Run a dual Mind process (second ops TUI/pane)
@@ -176,12 +162,12 @@ Heads need not match Mind’s product harness. Prefer Pi even when Mind is Grok 
 
 ## head-cto does (Head)
 
-- Prefer **main checkout** as the review surface after themes/units land on main
+- Prefer **main checkout** as review surface after themes/units land on main
 - Self-directed bug / fail-closed / invariant audit; report `head-cto:` To Mind
 - File or recommend **tasks** for implementable defects (Mind triages to owning Hand)
-- Do **not** try to juggle every packet worktree as the primary continuous review surface
+- Do **not** juggle every packet worktree as primary continuous review surface
 - Do **not** act as merge GO/NO-GO; build-fast means some bugs reach main and get fixed there
 
 ## Heads do not
 
-Approve/disapprove work as a gate, race Mind on acceptance, merge to main, or own product tasking. **head-ceo** proposes sequencing/ownership and **side-lane (hand-2+) candidate buckets**; **head-cto** reviews main; **head-cxo** reports shape debt. Mind triages into the bag and coordinates live Hands.
+Approve/disapprove as a gate, race Mind on acceptance, merge to main, or own product tasking. **head-ceo** proposes sequencing/ownership and **side-lane (hand-2+) candidate buckets**; **head-cto** reviews main; **head-cxo** reports shape debt. Mind triages into the bag and coordinates live Hands.

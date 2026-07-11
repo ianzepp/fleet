@@ -1,8 +1,6 @@
 # Operator mail
 
-Durable **human inbox** for issues that accumulate while Mind runs **autonomous**
-(or whenever the human is not in the loop). Distinct from the fleet board
-(`mind@`) and from `operator_recap` (chat memory).
+Durable **human inbox** while Mind runs **autonomous** (or human not in loop). Distinct from fleet board (`mind@`) and `operator_recap` (chat memory).
 
 ## Identity
 
@@ -10,18 +8,14 @@ Durable **human inbox** for issues that accumulate while Mind runs **autonomous*
 | --- | --- |
 | **Identity token** | `operator` |
 | **Mail** | `operator@<mailspace>.local` |
-| **tmux** | **none** (same class as `mind` — not a fleet process slot) |
-| **Process** | Human operator, via the Mind TUI when they return |
-
-Arm once per fleet:
+| **tmux** | **none** (same class as `mind` — not a process slot) |
+| **Process** | Human operator, via Mind TUI on return |
 
 ```bash
 vivi mailspace identity add operator --project <root>
 ```
 
-CLI patterns for list/send (and all fleet board commands): [`vivi.md`](vivi.md).
-
-Fleet overlay:
+CLI list/send: [`vivi.md`](vivi.md).
 
 ```json
 {
@@ -29,8 +23,6 @@ Fleet overlay:
   "operator_inbox_note": "Human-facing escalations only. Not status. No tmux."
 }
 ```
-
-Baseline (optional counters):
 
 ```json
 {
@@ -48,43 +40,35 @@ Baseline (optional counters):
 
 **Accrue work for the human**, not progress theatre.
 
-| File To `operator` when… | Do **not** file when… |
+| File To `operator` when… | Do **not** when… |
 | --- | --- |
-| A **problem happened** that Mind/Hands cannot safely auto-recover (auth hard-stop, fleet-wide harness death, data-loss risk) | Routine cycle status, absorbs, HEADs moved |
-| A **critical blocker** remains unaddressed after Mind already decided/pivoted where possible | Open Hand tasks still draining normally |
-| A **bug / defect** needs **explicit human guidance** on fix direction (product intent, security trade-off, external account) | Implementable defects with a clear residual → **task** To Hand |
-| True **human-only wall** (credentials, policy, spend, external ticket) | Reversible defaults Mind should just take |
+| **Problem** Mind/Hands cannot safely auto-recover (auth hard-stop, fleet-wide harness death, data-loss risk) | Routine cycle status, absorbs, HEADs moved |
+| **Critical blocker** unaddressed after Mind already decided/pivoted | Open Hand tasks still draining |
+| **Bug** needs **explicit human guidance** (product intent, security, external account) | Implementable defects with clear residual → **task** To Hand |
+| True **human-only wall** (credentials, policy, spend, external ticket) | Reversible defaults Mind should take |
 
-**Not** for:
+**Not for:** status; done/absorb (Hand → `mind`); Head reports (Head → `mind`); head-cxo purity notes; anything only in `operator_recap`.
 
-- Status updates, “still running”, “cycle N quiet”
-- Done/absorb bookkeeping (Hand → `mind`)
-- Head advisory reports (Head → `mind`; Mind triages)
-- head-cxo purity notes (not operator-facing)
-- Everything that belongs in `operator_recap` only
-
-## Split: mind vs operator vs recap vs need
+## Surfaces
 
 | Surface | Audience | Content |
 | --- | --- | --- |
 | **`mind@`** | Mind (ops) | Hand done/evidence, Head reports, RTM, bag bookkeeping |
 | **`operator@`** | Human | Problems, blockers, bugs needing guidance |
-| **`operator_recap`** (baseline) | Mind → chat | Compact “what happened while you were gone” *status* |
+| **`operator_recap`** | Mind → chat | Compact “what happened while gone” *status* |
 | **task** To Hand | Hand | Implementable work with done-when |
-| **need** To Hand / Mind | Agent | Decision for someone *on the board* |
+| **need** To Hand/Mind | Agent | Decision for someone *on the board* |
 | **need** To **operator** | Human | Decision wall that *is* operator mail |
-
-`operator` is the **To:** for human escalations. Prefer:
 
 | Situation | Kind To `operator` |
 | --- | --- |
 | Human must choose among options | **need** — default + options; Mind pivots other work |
-| Incident / finding that needs eyes or policy | **mail** — subject prefix below; body = evidence + ask |
-| Already implementable once human answers | After answer: file **task** To Hand; close the need |
+| Incident / finding needing eyes or policy | **mail** — subject prefix; body = evidence + ask |
+| Implementable once human answers | After answer: **task** To Hand; close need |
 
-Do **not** use **task** To `operator` (operator is not a Hand bag).
+Do **not** use **task** To `operator`.
 
-## Subject prefixes (strong guidance)
+## Subject prefixes
 
 ```text
 operator: problem — <one line>
@@ -93,53 +77,44 @@ operator: bug-guidance — <one line>
 operator: need — <one line>
 ```
 
-Body always includes:
-
-1. **What happened** (facts, handles, HEADs, pane class)
-2. **Why human** (what Mind already tried / why default is unsafe)
-3. **Ask** (decision, credential, guidance) + **default** if any
-4. **Impact** if ignored (blocked path, risk)
-5. **Related** bag items / map packages
+Body: (1) **what happened** (facts, handles, HEADs, pane) (2) **why human** (tried / default unsafe) (3) **ask** + **default** (4) **impact** if ignored (5) **related** bag/map.
 
 ## Who files
 
-| Role | Files To `operator`? |
+| Role | To `operator`? |
 | --- | --- |
 | **Mind** | **Yes** — primary filer during autonomous cycles |
-| **Hand** | Prefer escalate To **`mind`** first; Mind refiles To `operator` if truly human. Hand may file **need** To `operator` only for hard human-only walls after externalizing (default + options), then **pivot** |
-| **Heads** | **No** direct To `operator`. Reports stay To `mind`. Mind promotes a finding if it needs the human |
+| **Hand** | Prefer To **`mind`** first; Mind refiles if truly human. Hand may file **need** To `operator` only for hard human-only walls (default + options), then **pivot** |
+| **Heads** | **No**. Reports To `mind`. Mind promotes if human needed |
 
 ## When to file (Mind)
 
-Same turn the wall is recognized — **do not** wait for the operator to return to “remember” it.
+Same turn the wall is recognized — do not wait for operator return.
 
 ```text
-1. Is it implementable without human intent? → task To Hand
-2. Is a safe reversible default available? → decide now; recap note; no operator mail
-3. Is it human-only / unsafe to default? → file To operator (need or mail); pivot
-4. Already filed same issue? → do not spam; update/thread if material new evidence
+1. Implementable without human intent? → task To Hand
+2. Safe reversible default? → decide now; recap note; no operator mail
+3. Human-only / unsafe to default? → file To operator (need or mail); pivot
+4. Already filed same issue? → no spam; update/thread if material new evidence
 ```
 
-**Dedup:** before filing, `vivi mail list --for operator` / open needs. Same subject class + same root cause → reply on thread or skip.
-
-**Cap (guidance):** at most a few new operator items per cycle. Prefer one rich need over five status-shaped mails.
+**Dedup:** `vivi mail list --for operator` / open needs before filing. Same subject class + root cause → reply on thread or skip.  
+**Cap:** few new operator items per cycle; prefer one rich need over five status-shaped mails.
 
 ## Present on operator return
 
-When Mind detects **engagement** (human prose, mode → interactive, “catch me up”, “what’s waiting”):
+On **engagement** (human prose, mode → interactive, “catch me up”, “what’s waiting”):
 
-1. List **open/unread operator mail + open needs** To `operator` **before** or **with** the status recap
-2. Present a short table the human can work through
-3. For each item: summarize → wait for guidance → close/reply → file resulting **task** To Hand if any
+1. List **open/unread operator mail + open needs** **before** or **with** status recap
+2. Short table human can work through
+3. Per item: summarize → guidance → close/reply → file **task** To Hand if any
 4. Record `operator_mail.last_presented_at` + handles
 
 ```bash
-vivi mailspace status --project <root>   # operator row if present
+vivi mailspace status --project <root>
 vivi mail list --for operator --project <root>
-vivi need list --for operator --project <root>   # if fleet uses needs to operator
+vivi need list --for operator --project <root>
 ```
-
-**Chat shape (interactive):**
 
 ```text
 ## Operator mail (N waiting)
@@ -150,43 +125,33 @@ vivi need list --for operator --project <root>   # if fleet uses needs to operat
 Work through #1 first? (or: “skip for now / clear noise”)
 ```
 
-If **N = 0**: say so once; do not invent items. Then normal recap / cycle status.
+If **N=0**: say so once; no invent. Then normal recap.
 
-**Catch-up order (strong guidance):**
-
-1. Operator mail (action required)
-2. `operator_recap` (what moved)
-3. Live bag / pane / HEAD (current ops)
+**Catch-up order:** (1) operator mail (2) `operator_recap` (3) live bag/pane/HEAD.
 
 ## Autonomous interaction
 
-In autonomous mode Mind still **files** To `operator` when rules match. It does **not**:
+Still **files** To `operator` when rules match. Does **not**: wait multi-cycle for reply before pivoting; dump items into one-line cycle report (optional `+op-mail:N`); confuse operator mail with success metrics.
 
-- Wait multi-cycle for a reply before pivoting other work
-- Dump operator items into the compact one-line cycle report (optional one-token hint: `+op-mail:N` if N>0)
-- Confuse operator mail with success metrics
-
-In interactive mode after silence, **always** surface the list if non-empty.
+Interactive after silence: **always** surface list if non-empty.
 
 ## Anti-patterns
 
 - Status To `operator` (“Gap2 done”, “still running”)
 - Flooding one problem every cycle without new evidence
-- Using `mind@` as the human backlog (board noise buries escalations)
+- Using `mind@` as human backlog
 - Filing implementable bugs as operator mail instead of Hand **tasks**
-- Heads mailing the human directly (cxo especially)
-- Treating operator mail as a second Mind process or tmux slot
-- Freezing the fleet empty-handed because operator mail is open (pivot)
+- Heads mailing human directly (cxo especially)
+- Treating operator mail as second Mind process or tmux slot
+- Freezing fleet empty-handed because operator mail is open (pivot)
 
 ## Related: steward trip
 
-When the **steward** dead man trips (Mind cycle ticks stopped), it files
-**operator@** and may send external email. That is a first-class human page —
-present it with other operator mail on return. See [`dead-man.md`](dead-man.md).
+Steward dead-man trip files **operator@** (+ optional external email). First-class page — present with other operator mail. See [`dead-man.md`](dead-man.md).
 
 ## Arm checklist
 
 - [ ] `vivi mailspace identity add operator --project <root>`
 - [ ] `operator_inbox` in fleet config
-- [ ] Mind knows: human walls → `operator`; status → recap / mind board
+- [ ] Mind: human walls → `operator`; status → recap / mind board
 - [ ] Return path: present operator list on engagement

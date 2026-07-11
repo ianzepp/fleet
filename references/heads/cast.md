@@ -17,20 +17,14 @@ Load when arming Heads, writing role prompts, or renaming identities.
 | **`head-cfo`** | [`personas/cfo.md`](personas/cfo.md) | Cost, effort, sustainability (on demand) | Pairs with cost calibration |
 | **`head-cmo`** | [`personas/cmo.md`](personas/cmo.md) | Positioning / audience (on demand) | Lazy |
 
-**Default armed Heads** for a coding fleet: `head-ceo` + `head-cto` + optional **`head-cxo`**.  
+**Default armed Heads** (coding fleet): `head-ceo` + `head-cto` + optional **`head-cxo`**.  
 Others: mail identity + pane only when Mind assigns them.
 
 ### CXO = purity (not operator voice)
 
-In fleet, **CXO does not mean external/operator communications.** That is **Mind**
-(the human’s TUI + recap / interactive reports).
+In fleet, **CXO ≠ external/operator communications.** That is **Mind** (human TUI + recap / interactive reports).
 
-**Why purity sits on CXO:** the **XO executes**. Hands (and the fleet’s delivery
-path) are the execution surface. Unearned complexity, excess layers, and muddy
-modules make execution slower, riskier, and less idiot-proof. head-cxo therefore
-has a **direct interest** in keeping the product shape simple enough that work
-stays executable — not in speaking for the operator. Classic purity loop, org
-title that owns the pain of complexity.
+**Why purity on CXO:** the **XO executes**. Hands (and delivery path) are the execution surface. Unearned complexity, excess layers, muddy modules make execution slower, riskier, less idiot-proof. head-cxo has a **direct interest** in product shape simple enough that work stays executable — not in speaking for the operator. Classic purity loop; org title that owns complexity pain.
 
 ## Harness
 
@@ -59,5 +53,4 @@ title that owns the pain of complexity.
 
 ## Archived skill
 
-Persona content lives here. Do not re-arm a
-separate executive-team ops runtime; use fleet Heads.
+Persona content lives here. Do not re-arm a separate executive-team ops runtime; use fleet Heads.

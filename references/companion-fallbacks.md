@@ -1,29 +1,16 @@
 # Companion skill fallbacks
 
-When this skill is packaged **alone**, companion skills may be missing. Use
-**these short theses** so Mind/Hands still behave correctly. Prefer the full
-skill when it is installed (`$polish`, `$housekeeping`, etc.).
+When packaged **alone**, companions may be missing. Use these theses so Mind/Hands still behave. Prefer full skill when installed.
 
-**Rule:** if a full skill is loadable, use it. If not, apply the fallback here
-and state in evidence which fallback you used.
-
----
+**Rule:** full skill loadable → use it. Else apply fallback + state which fallback in evidence.
 
 ## Mail / board CLI (`$mail` / Vivi)
 
-**Hard dependency:** `$fleet` requires the **`vivi` CLI**. There is no board
-fallback if Vivi is missing — install via Homebrew or curl first
-([`getting-started.md`](getting-started.md)). The optional `$mail` skill only
-documents richer Vivi/IMAP product workflows; it does not replace the binary.
+**Hard dependency:** `$fleet` requires **`vivi` CLI**. No board fallback if missing — install first ([`getting-started.md`](getting-started.md)). Optional `$mail` skill ≠ binary.
 
-**Fleet board command card:** full normal-cycle set lives in **[`vivi.md`](vivi.md)**
-(status, list/show, send/done, watch, thread, operator@, help tree). Use that
-instead of re-scanning `vivi --help` every action.
+**Command card:** full normal-cycle set in **[`vivi.md`](vivi.md)** — use instead of re-scanning help every action.
 
-**Thesis:** Project mailspaces are the **board of record** for tasks/needs/wants/mail.
-Not IMAP personal email.
-
-**Minimal cheat sheet** (detail → `vivi.md`):
+**Thesis:** Project mailspaces = **board of record** (tasks/needs/wants/mail). Not IMAP personal email.
 
 ```bash
 vivi mailspace status --project <root>
@@ -33,122 +20,78 @@ vivi mailspace identity add|list --project <root>
 vivi mail thread <handle> --project <root>
 ```
 
-**Kinds:** task = implementable; need = decision (default + options); want = non-blocking; mail = deliberation/status.
+**Kinds:** task=implementable; need=decision (default+options); want=non-blocking; mail=deliberation/status.
 
-**External email (steward pages):** `vivi compose` → `vivi exec send` only when fleet preauthorizes (see `dead-man.md`). Otherwise use board `operator@` only.
-
----
+**External email (steward pages):** `vivi compose` → `vivi exec send` only when fleet preauthorizes (`dead-man.md`). Else board `operator@` only.
 
 ## Polish (`$polish`)
 
-**Thesis:** Improve **one primary source file at a time** after a product unit.
-Correctness → structure → hygiene, only for that file and tightly coupled tests/docs.
-Commit cohesive polish before the next file.
+**Thesis:** One primary source file at a time after a product unit. Correctness → structure → hygiene for that file + tightly coupled tests/docs. Commit before next file.
 
-**Do:** serial per-file; unit-scoped primaries only.  
-**Don't:** repo-wide cleanup, foreign WIP, unbounded architecture rewrites.
+| Do | Don't |
+| --- | --- |
+| Serial per-file; unit-scoped primaries | Repo-wide cleanup, foreign WIP, unbounded rewrites |
 
-**Mind advisory (no full polish by Mind):** after main HEAD moves, rank churn:
+**Mind advisory** (no full polish by Mind) after main HEAD moves:
 
 ```bash
 python3 <path-to-this-skill>/scripts/suggest-polish-files.py --repo <main> --json --limit 15
 ```
 
-File at most one Hand task for top files if score ≥ threshold (default 500). Scores are routing, not quality grades.
+≤1 Hand task if score ≥ threshold (default 500). Scores = routing, not quality grades.
 
-**Hand end-of-unit:** list primary sources this unit changed → polish those only → then mark task done.
-
----
+**Hand end-of-unit:** polish primaries this unit changed → mark done.
 
 ## Housekeeping (`$housekeeping`)
 
-**Thesis:** Multi-phase **repo maintenance** (refresh, lint/hygiene, tests, format, docs).
-Very expensive — similar cost to a large delivery unit.
+**Thesis:** Multi-phase **repo maintenance** (refresh, lint, tests, format, docs). Cost ≈ large delivery unit.
 
-**Fleet:** Mind **files** one task To hand-1 only at **major inflection** (goal/campaign complete, large multi-theme merge, stage closeout, operator ask). Never after routine lands.
+**Fleet:** Mind files one task To hand-1 only at **major inflection** (campaign complete, large multi-theme merge, stage closeout, operator ask). Never after routine lands.
 
-**Fallback process for Hand:**
-
-1. Prefer repo/CI documented commands.
-2. Do not destroy foreign dirty.
-3. Hygiene: production/test boundary (no unwrap/panic in non-test prod code if repo bans them).
-4. Run lint/test/format in the order the repo uses; fix mechanical failures; stop on product judgment.
-5. Commit after each successful phase when the tree changed.
-6. Report residual honestly.
-
----
+**Hand fallback:** (1) prefer repo/CI commands (2) no destroy foreign dirty (3) prod/test boundary hygiene (4) lint/test/format in repo order; fix mechanical; stop on product judgment (5) commit after each successful phase (6) report residual honestly.
 
 ## Correctness (`$correctness`)
 
-**Thesis:** Hunt **behavioral bugs** — invariants, races, data-loss, fail-closed gaps.
-Not style. Not “docs look fine.”
+**Thesis:** Behavioral bugs — invariants, races, data-loss, fail-closed. Not style.
 
-**Fleet:** Hands and **head-cto** use this lens. head-cto owns post-main review; Hands ship the best unit they can.
+**Fleet:** Hands + **head-cto**. head-cto owns post-main review; Hands ship best unit they can.
 
-**Fallback process:**
-
-1. Name the invariant or contract under test.
-2. Prefer failing tests or reproduction over vibes.
-3. Fix root cause; don’t weaken tests to green.
-4. Cover the bug with a regression when feasible.
-5. Report residual risk if scope was partial.
-
----
+**Fallback:** name invariant → failing test/repro → fix root cause (no weaken tests) → regression if feasible → residual risk if partial.
 
 ## Cleanliness (`$cleanliness`)
 
-**Thesis:** Shape **structure** without changing intended behavior — size, boundaries,
-dispatch, naming, comment quality, complexity.
+**Thesis:** Shape structure without changing intended behavior (size, boundaries, dispatch, naming, complexity).
 
-**Fleet:** Pairs with **head-cxo** (complexity/purity). Hands may apply lightly during polish.
+**Fleet:** pairs with **head-cxo**. Hands may apply lightly during polish.
 
-**Fallback process:** prefer extract helpers, guard clauses, clear modules; avoid drive-by architecture; no behavior change without tests.
-
----
+**Fallback:** extract helpers, guard clauses, clear modules; no drive-by architecture; no behavior change without tests.
 
 ## Campaign (`$campaign`)
 
-**Thesis:** A **campaign artifact** routes multiple related tracks. It selects and
-orders **campaign stages**; it does not implement code.
+**Thesis:** Routes related tracks; selects/orders **stages**; does not implement.
 
 | Term | Meaning |
 | --- | --- |
 | Campaign artifact | Top-level routing document |
-| Campaign stage | Lowers to delivery and/or factory work — not a code task |
+| Campaign stage | Lowers to delivery/factory — not a code task |
 
-**Fleet fallback:** if no campaign skill, treat `factory/` or repo goal docs as the **map**: current stage, next unblocked unit, stop conditions. Mind files Hand tasks from that map. Don’t invent GO/NO-GO gates.
-
----
+**Fallback:** treat `factory/` or goal docs as **map** (current stage, next unblocked unit, stop conditions). Mind files Hand tasks. No invent GO/NO-GO.
 
 ## Delivery (`$delivery`)
 
-**Thesis:** Compile messy intake into a **delivery spec** (plan only). Does not implement.
+**Thesis:** Compile intake into a **delivery spec** (plan only). Does not implement.
 
-**Fleet fallback:** a task’s done-when + context **is** the mini-spec. Include: where, done-when, validation, out of scope. Mind writes that into Vivi task bodies.
-
----
+**Fallback:** task done-when + context = mini-spec. Include: where, done-when, validation, out of scope. Mind writes into Vivi task bodies.
 
 ## Factory (`$factory`)
 
-**Thesis:** Execute multi-phase work: plan → implement → verify → review → commit, with
-bounded autonomy and subagents when useful.
+**Thesis:** plan → implement → verify → review → commit; bounded autonomy + subagents when useful.
 
-**Fleet fallback:** Hands implement **one open task** at a time with:
+**Hand fallback (one open task):** show task → implement in scope → targeted validate → end-of-unit polish → mark done + evidence To mind → next bag item or idle for doorbell.
 
-1. Show task / clarify done-when  
-2. Implement in allowed scope  
-3. Targeted validate  
-4. End-of-unit polish (fallback above)  
-5. Mark done + evidence To mind  
-6. Next bag item or idle for Mind doorbell  
+Mind owns bag refill, integration clock, multi-hand packing — not a separate factory supervisor.
 
-Mind owns bag refill, integration clock, and multi-hand packing — not a separate factory supervisor process.
-
----
-
-## Map / goal docs (no skill required)
-
-Prefer repo paths when present:
+## Map / goal docs
 
 ```text
 factory/INDEX.md
@@ -156,27 +99,23 @@ factory/goals/*.md
 GOAL.md, ROADMAP.md, docs/goals/
 ```
 
-**Mind:** pick unblocked next unit; file task To Hand; absorb Status when criteria hold.  
+**Mind:** pick unblocked next unit; file task; absorb Status when criteria hold.  
 **Hand:** update goal checkboxes/Status only for what this unit proved.
 
-If no map exists, Mind files from operator intent or head-ceo sequencing, still as concrete tasks with done-when.
+No map → file from operator intent or head-ceo sequencing as concrete tasks with done-when.
 
----
-
-## Optional companions (brief)
+## Optional companions
 
 | Missing skill | Fallback one-liner |
 | --- | --- |
 | **poker-face** | Re-read promises vs evidence; list unmet claims; no greenwashing |
 | **bonsai** | Local readability/naming pass without behavior change |
-| **red-green** | Fail a test first, then make it pass for serious coverage work |
-| **zombie-docs** | Don’t trust docs; verify claims against code/tests |
-
----
+| **red-green** | Fail a test first, then make it pass |
+| **zombie-docs** | Don’t trust docs; verify against code/tests |
 
 ## Packaging checklist
 
-This skill directory is self-contained when it includes:
+Self-contained when includes:
 
 ```text
 SKILL.md

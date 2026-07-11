@@ -1,26 +1,26 @@
 # Runtime fallback, config, baseline, wind-down
 
-Load for capacity recovery, Codex reinit scripts, fleet/baseline schemas, or fleet wind-up.
+Load for capacity recovery, Codex reinit, fleet/baseline schemas, wind-up.
 
-## Skill scripts (cycle helpers)
+## Skill scripts
 
-All paths are under this skill’s `scripts/` (self-contained package).
+Paths under this skill’s `scripts/`.
 
 ### Portability (macOS + Linux)
 
 | Requirement | Detail |
 | --- | --- |
-| **Shell scripts** | **bash 3.2+** (`#!/usr/bin/env bash`). Not `sh`, not zsh-as-script. macOS stock `/bin/bash` 3.2 is OK. |
+| **Shell** | **bash 3.2+** (`#!/usr/bin/env bash`). Not `sh`/zsh-as-script. macOS stock bash OK. |
 | **Python** | **3.9+** via `#!/usr/bin/env python3` (or `PYTHON_BIN`). No third-party deps. |
-| **PATH** | `scripts/lib/env.sh` fills common dirs (system, `~/.cargo`, `~/.local`, Homebrew, linuxbrew) without requiring a login shell. |
+| **PATH** | `scripts/lib/env.sh` fills common dirs without login shell. |
 | **Overrides** | `TMUX_BIN`, `PYTHON_BIN`, `VIVI_BIN`, `CODEX_BIN`, `PS_BIN`, … |
-| **Dates** | Prefer `date -u +%s` / `+%Y-%m-%dT%H:%M:%SZ` (BSD + GNU). ISO `Z` timestamps are normalized in Python (`…Z` → `…+00:00`) for 3.9–3.10. |
-| **JSON** | UTF-8 read/write; baseline updates use same-dir temp + `os.replace` (atomic on POSIX). |
+| **Dates** | Prefer `date -u +%s` / `+%Y-%m-%dT%H:%M:%SZ`. ISO `Z` → `+00:00` in Python for 3.9–3.10. |
+| **JSON** | UTF-8; baseline updates use same-dir temp + `os.replace`. |
 | **Smoke** | `scripts/smoke-portability.sh [--project <root>]` |
 
-Do **not** hardcode only `/opt/homebrew/...` in new scripts. Prefer `fleet_find_*` from `lib/env.sh` or PATH + multi-candidate lists.
+Do **not** hardcode only `/opt/homebrew/...`. Prefer `fleet_find_*` from `lib/env.sh` or PATH + multi-candidate lists.
 
-### `fleet-sensors.py` — cheap snapshot
+### `fleet-sensors.py`
 
 ```bash
 python3 scripts/fleet-sensors.py --project <root>            # JSON
@@ -28,9 +28,9 @@ python3 scripts/fleet-sensors.py --project <root> --text
 python3 scripts/fleet-sensors.py --project <root> --no-watch # skip mailspace watch
 ```
 
-Emits board status, open handles, pane classes, git tip, fingerprint, `signals[]`, `quiet_hint`. Exit `0` ok · `1` hard error · `2` partial.
+Emits board status, open handles, pane classes, git tip, fingerprint, `signals[]`, `quiet_hint`. Exit `0` ok · `1` hard · `2` partial.
 
-### `fleet-baseline.py` — mind-baseline bookkeeping
+### `fleet-baseline.py`
 
 ```bash
 python3 scripts/fleet-baseline.py get -p <root>
@@ -40,53 +40,52 @@ python3 scripts/fleet-baseline.py rearm-note -p <root>
 python3 scripts/fleet-baseline.py wound-up -p <root> -s 'wound_up' --dropped hand-1,hand-2
 ```
 
-`--project/-p` may appear before or after the subcommand. `bump` increments `last_cycle`, quiet/mode counters, stores fingerprint/pane_classes, and touches `mind_loop.last_successful_cycle_at` (pair with `steward.sh rearm`).
+`--project/-p` before or after subcommand. `bump` increments `last_cycle`, quiet/mode counters, stores fingerprint/pane_classes, touches `mind_loop.last_successful_cycle_at` (pair with `steward.sh rearm`).
 
-### `fleet-doorbell.sh` — Grok/Pi pointer wake
+### `fleet-doorbell.sh`
 
 ```bash
 scripts/fleet-doorbell.sh --project <root> hand-1 [--handle HEX] [--note '…'] [--force]
 ```
 
-Resolves fleet.json `tmux_target`; refuses running/down/rate-limit unless `--force`; records `last_hand_wake` in baseline.
+Resolves fleet.json `tmux_target`; refuses running/down/rate-limit unless `--force`; records `last_hand_wake`.
 
-### `codex-reinit.sh` — Codex doctor/heal/reinit
-
-Fleet-agnostic Codex doctor/heal/reinit (ported from faberlang production helper).
+### `codex-reinit.sh`
 
 ```bash
-# from fleet root, or set PROJECT + FLEET
-PROJECT=/path/to/fleet FLEET=/path/to/fleet.json \
-  scripts/codex-reinit.sh doctor
+PROJECT=/path/to/fleet FLEET=/path/to/fleet.json scripts/codex-reinit.sh doctor
 scripts/codex-reinit.sh heal hand-3
 scripts/codex-reinit.sh reinit hand-1 --boot 'HAND WAKE …'
 scripts/codex-reinit.sh classify hand-2
 ```
 
-- Defaults: `PROJECT` from cwd or parent of `FLEET`; `FLEET` = `$PROJECT/.vivi/fleet.json`
-- Never `exec codex`; pane shell stays parent; short bootstrap only
-- Exit codes: reinit `0/1/2 stuck_idle/3`; doctor `0/1/2` as in script header
-- Fleets may symlink into `.vivi/codex-reinit.sh` and wrap env
+| Rule | Detail |
+| --- | --- |
+| Defaults | `PROJECT` from cwd or parent of `FLEET`; `FLEET`=`$PROJECT/.vivi/fleet.json` |
+| Launch | Never `exec codex`; pane shell stays parent; short bootstrap only |
+| Exit | reinit `0/1/2 stuck_idle/3`; doctor `0/1/2` (script header) |
+| Symlink | Fleets may wrap via `.vivi/codex-reinit.sh` |
 
-### `steward.sh` — dead-man
+### `steward.sh`
 
 See [`dead-man.md`](dead-man.md). `arm` / `rearm` / `disarm` / `check` / `clear` / `loop`.
-## Runtime fallback (capacity / unavailability)
 
-**Invariant:** assignment (hand-N, side lane, merge rights) does **not** change when a model is full. Only **runtime** rebinds (`agent_model`, `agent_launch`, and only carefully `agent` / `wake_mode`). Source of truth: fleet `runtime_fallback` + per-hand fields + **Harness alignment**.
+## Runtime fallback
+
+**Invariant:** assignment (hand-N, side lane, merge rights) does **not** change on model full. Only **runtime** rebinds (`agent_model`, `agent_launch`, carefully `agent`/`wake_mode`). Source: fleet `runtime_fallback` + per-hand fields + harness alignment.
 
 ### Failure classes
 
 | Class | Cues | First response |
 | --- | --- | --- |
-| **Capacity** | over capacity, rate limit, 429, usage limit, “try again later” | Step model ladder (**same harness as Mind** for Hands) |
-| **Auth / quota hard stop** | account exhausted, login required | Park that harness; escalate operator; pivot other hands |
+| **Capacity** | rate limit, 429, usage limit, “try again later” | Step model ladder (**same harness as Mind** for Hands) |
+| **Auth / quota hard stop** | account exhausted, login required | Park harness; escalate operator; pivot other hands |
 | **Connection** | ECONNRESET, disconnect | One same-model reinit; then capacity ladder |
-| **Harness dead** | crash loop, session destroy | Recreate shell + launch; if loop → model ladder, then **Mind-aligned** harness recovery |
+| **Harness dead** | crash loop, session destroy | Recreate shell + launch; if loop → model ladder → **Mind-aligned** harness recovery |
 
 ### Model ladder
 
-Prefer staying on the **Mind-aligned product harness** while possible. Fleet names an ordered ladder **per harness** (example shape only — do not invent ids not in fleet):
+Prefer **Mind-aligned product harness**. Fleet names ordered ladders **per harness** (do not invent ids not in fleet):
 
 ```text
 codex_model_ladder_mind:  [ gpt-5.6-sol@medium, … ]
@@ -95,105 +94,90 @@ grok_model_ladder:        [ grok-4.5, … ]
 head_pi_model:            [ glm-5.2@high, glm-5.2@xhigh, … ]
 ```
 
-**When `error_capacity` on a Hand (or similar):**
+**On `error_capacity`:**
 
-1. Confirm not mid-successful `running` with real progress → wait
-2. Advance that Hand’s `agent_model` one step **on the same harness**; rewrite `agent_launch`
-3. **Reinit** (Codex) or doorbell after restart (Grok) with short bootstrap — not stacked wakes
+1. Not mid-successful `running` with real progress → wait
+2. Advance Hand `agent_model` one step **same harness**; rewrite `agent_launch`
+3. **Reinit** (Codex) or doorbell after restart (Grok) — short bootstrap, no stacked wakes
 4. Baseline `last_runtime_fallback` {hand, from, to, reason, cycle, at}
-5. **At most one model step per Hand per cycle** — do not spin the whole ladder
-6. Ladder exhausted → park Hand or escalate; **do not** silently move the Hand to a different harness while Mind stays on the original (exception requires operator note + plan to re-align)
+5. **≤1 model step per Hand per cycle**
+6. Ladder exhausted → park or escalate; **do not** silently move Hand to different harness while Mind stays on original (exception: operator note + re-align plan)
 
-**Heads** may use their own ladder / alternate harness without waiting for Mind.
+**Heads** may use own ladder/alternate harness without waiting for Mind.
 
 ### Harness fallback (after model ladder exhausted)
 
-**Hands** stay harness-aligned with Mind. Product harness flip is a **fleet-wide Mind decision**, not a per-Hand convenience:
+**Hands** stay harness-aligned with Mind. Product harness flip = **fleet-wide Mind decision**, not per-Hand convenience:
 
-1. Exhaust same-harness model ladder on the affected Hand(s)
-2. If Mind’s harness is fleet-dead: recover **Mind** (operator if needed), set new `mind.agent`, then rebind **all Hands** to that harness on clean breakpoints
-3. Temporary single-Hand exception (operator only): record in baseline; still prefer re-align ASAP
-4. Heads may already be on alternate harnesses; leave them unless they fail too
+1. Exhaust same-harness model ladder on affected Hand(s)
+2. If Mind harness fleet-dead: recover **Mind**, set new `mind.agent`, rebind **all Hands** on clean breakpoints
+3. Temporary single-Hand exception (operator only): baseline note; re-align ASAP
+4. Heads already on alternate harnesses: leave unless they fail too
 
-Do **not** treat “flip H3 to pi while Mind stays Grok” as the default recovery.
+Do **not** default to “flip H3 to pi while Mind stays Grok.”
 
-Harness flip for the product plane = update `mind.agent` + every Hand’s `agent` + `agent_launch` + `wake_mode`, then clean launch. **Assignment unchanged.**
+Harness flip = update `mind.agent` + every Hand’s `agent` + `agent_launch` + `wake_mode`, clean launch. **Assignment unchanged.**
 
 ### Per-cycle budget (anti-thrash)
 
-- Max **~2** capacity-driven model flips per cycle fleet-wide for product slots
-- Product **harness** flips are rare (Mind-plane); do not burn the budget on them casually
-- Normal reinit-after-unit does **not** count as fallback
-- Never flip a `running` Hand for capacity unless pane shows hard capacity error
-- Prefer flipping **idle/error** product slots first (model only, same harness)
+| Rule | Detail |
+| --- | --- |
+| Capacity model flips | Max **~2**/cycle fleet-wide for product slots |
+| Product harness flips | Rare (Mind-plane) |
+| Reinit-after-unit | Does **not** count as fallback |
+| Running Hand | Never flip for capacity unless pane shows hard capacity error |
+| Prefer | Flip **idle/error** product slots first (model only, same harness) |
 
-### Mind / orchestrator hard limit — recovery
+### Mind hard limit
 
-If the Mind session dies (hard quota / dead harness), it cannot self-heal inside the dead session.
+If Mind dies (hard quota / dead harness), it cannot self-heal inside the dead session.
 
-| Situation | What works | What does not |
+| Situation | Works | Does not |
 | --- | --- | --- |
-| Soft pressure | Keep product on **same-harness cheaper models**; shorten prose; skip nonessential Head wakes | Migrating Hands onto a different harness while Mind stays put |
-| Session alive but tool errors | Fail-fast sleep; one-line baseline; next fire retries | Infinite retry same turn |
-| **Hard stop** | **Operator recovery** (below) | Silent hope; thrashing hands without a live Mind |
+| Soft pressure | Same-harness cheaper models; shorten prose; skip nonessential Head wakes | Migrating Hands to different harness while Mind stays |
+| Session alive, tool errors | Fail-fast sleep; one-line baseline; next fire retries | Infinite retry same turn |
+| **Hard stop** | **Operator recovery** | Silent hope; thrashing hands without live Mind |
 
-**Operator recovery:**
+**Operator recovery:** leave mid-unit hands if working → start **new Mind** → open `$fleet` + overlay; one cycle or re-arm → set `mind.agent` (plan Hand rebind if harness changed) → optional temp-runtime note → do **not** stop product hands unless rebinding them.
 
-1. Leave mid-unit product hands alone if still working
-2. Start a **new Mind** session (same or temporary harness) in the project
-3. Open `$fleet` + fleet overlay; run **one** cycle or re-arm scheduler
-4. Set/update `mind.agent` for the live Mind harness. If Mind harness changed, plan Hand rebind on clean breakpoints
-5. Optional fleet note for temporary Mind runtime; revert later
-6. Do **not** require product hands to stop for Mind recovery unless rebinding them to the new harness
+**Scheduler honesty:** durable interval only helps if **some** session is alive. Dead Mind → operator reattach or run manually.
 
-**Scheduler honesty:** a durable interval task only helps if **some** session is alive to execute it. Dead Mind → operator must reattach or run manually.
-
-Always write fallbacks into baseline and fleet per-hand runtime fields.
+Always write fallbacks into baseline + fleet per-hand runtime fields.
 
 ## Codex reinit production contract
 
-**Problem:** Codex after a unit parks at ready prompt and does not pull the next tasking item. Stacked wake lines fail or keep **stale bootstrap** alive for hours.
+**Problem:** Codex parks at ready prompt after a unit; stacked wakes fail or keep **stale bootstrap** alive for hours.
 
-**Policy:** when `agent=codex` is **done** and next work exists → **kill Codex + fresh session + short bootstrap**. One clean start. Harness is a fleet binding, not part of the H-number.
+**Policy:** `agent=codex` **done** + next work exists → **kill Codex + fresh session + short bootstrap**. One clean start. Harness is fleet binding, not part of H-number.
 
-### When to reinit
+| When to reinit | When not |
+| --- | --- |
+| Turn-end / ready-to-merge **and** bag has next target | `running` / mid-unit |
+| `done_idle` or long `idle_prompt` + **open tasking** | Empty tasking + operational pause (refill first if map has next) |
+| Process down + open tasking or standby with current law | Already reinited this Hand this cycle (unless died again) |
+| Unblock (pin-refresh, merge) + open tasking — current one-line fact | Fleet `agent` ≠ `codex` |
 
-1. Turn-end / ready-to-merge this cycle **and** bag has (or just received) next target
-2. `done_idle` or long `idle_prompt` + **open tasking**
-3. Process down + open tasking or need to stand by with current law
-4. Unblock (pin-refresh, merge) + open tasking — reinit with **current** one-line fact
-
-### When not
-
-- `running` / mid-unit
-- Tasking empty + operational pause only (refill first if map has next)
-- Already reinited this Hand this cycle (unless died again)
-- Fleet `agent` is not `codex`
-
-### Prefer a project script
-
-Fleets often ship a reinit helper (path is fleet-local). Suggested commands:
+### Prefer project script
 
 | Command | Role |
 | --- | --- |
 | `doctor` / `doctor hand-N` | Bag-aware health; no kill |
-| `heal` / `heal hand-N` | Auto-reinit slots that need it (idle/done/error + open tasking) |
+| `heal` / `heal hand-N` | Auto-reinit idle/done/error + open tasking |
 | `snapshot` / `snapshot hand-N` | Forensic dump (pane, board, fleet) |
 | `classify` / `status` | Pane class / status |
 | `reinit hand-N --boot '…'` | One Hand; refuse if running unless FORCE |
 | `reinit-all --boot-template '…{name}…'` | Sparingly; budget still applies |
 
-Suggested exit codes (reinit): `0` ok · `1` hard fail · `2` **stuck_idle** (ready but never Working) · `3` bad args.  
-Doctor: `0` healthy · `1` unhealthy · `2` trust/stuck/starving.  
-On reinit exit 2: one more reinit same cycle OK; if still stuck next cycle → model ladder or snapshot + operator.
+Exit (reinit): `0` ok · `1` hard · `2` **stuck_idle** · `3` bad args. Doctor: `0` healthy · `1` unhealthy · `2` trust/stuck/starving.  
+Exit 2 → one more reinit same cycle OK; still stuck next cycle → model ladder or snapshot + operator.
 
 **Classify traps:** do not treat tool `timeout N cmd` or `error: test failed` as `error_connection` when pane is live Working. Prefer doctor evidence over raw greps.
 
-**Manual fallback** if script missing: kill agent children of pane only; leave tmux+shell; launch without `exec` via fleet `agent_launch`; short bootstrap; record `last_codex_reinit_at`.
+**Manual fallback:** kill agent children of pane only; leave tmux+shell; launch without `exec` via fleet `agent_launch`; short bootstrap; record `last_codex_reinit_at`.
 
 **Forbidden:** multi-paragraph argv holds; stacking wakes on finished ready; reinit `running` without FORCE; `exec codex`.
 
-Mind default under thrash: **doctor then heal** over hand greps + stacked wakes.
+Mind under thrash: **doctor then heal** over hand greps + stacked wakes.
 
 ## Fleet config schema
 
@@ -314,35 +298,33 @@ Recommended keys (extend freely; skill cares about meanings):
 }
 ```
 
-**Never hardcode model strings as Hand identity.** Read `agent_launch` from fleet. Hand `agent` should match `mind.agent` unless baseline records an operator exception. Default model picks come from preferred models; fleet may override for capacity or experiment, then re-align when quiet.
+**Never hardcode model strings as Hand identity.** Read `agent_launch` from fleet. Hand `agent` should match `mind.agent` unless baseline records operator exception. Defaults from preferred_models; override for capacity/experiment, re-align when quiet.
 
-Prefer absolute paths from fleet `tooling` over `which` every cycle (nvm/`pi` often missing from bare Mind shells).
+Prefer absolute paths from fleet `tooling` over `which` every cycle.
 
 ## Baseline schema
-
-Maintain at least:
 
 ```text
 last_cycle, last_cycle_at, last_cycle_kind, last_cycle_summary
 quiet_streak                      # consecutive no-signal product cycles
 turns_since_operator_message      # Mind cycles since last human operator prose
-mind_mode                         # autonomous | interactive (resolved this cycle)
-mind_mode_override optional       # ops_only | deep | clear — operator sticky force
-last_operator_message_at          # timestamp or cycle id of last operator prose
-operator_recap                    # short material status list since last operator message
-operator_mail                     # {identity, open_count, last_filed_at, last_presented_*} human inbox counters
-steward                           # {armed, last_rearm_at, tripped, tripped_at, last_external_*} dead-man state
-mind_loop.last_successful_cycle_at  # successful mini-cycle end tick (steward watches this)
+mind_mode                         # autonomous | interactive
+mind_mode_override optional       # ops_only | deep | clear
+last_operator_message_at
+operator_recap                    # short material status since last operator message
+operator_mail                     # {identity, open_count, last_filed_at, last_presented_*}
+steward                           # {armed, last_rearm_at, tripped, tripped_at, last_external_*}
+mind_loop.last_successful_cycle_at
 mind_session optional             # advisory attach lock {label, host, pid, attached_at}
 mind_loop.state                    # running | detached | wound_up | dead_man_tripped | …
-mind_watch_cursor_path optional   # path to vivi mailspace watch --cursor-file
-last_actionable_fingerprint   # fleet bags + heads/dirty + panes
+mind_watch_cursor_path optional
+last_actionable_fingerprint
 pending_reviews[]
 pending_merges[]
-active_packets{} or active_lanes{}   # slug → head, branch, worker
+active_packets{} or active_lanes{}
 last_thorough_cycle, last_thorough_fingerprint
-fleet_mirror / pane_classes   # (optional alias key)
-last_hand_wake_*, last_codex_reinit_*, last_runtime_fallback   # 
+fleet_mirror / pane_classes
+last_hand_wake_*, last_codex_reinit_*, last_runtime_fallback
 head-ceo.{awaiting_report, last_assign_handle, last_reinit_at}
 side_lane_candidates[] optional
   # {id, title, why_off_main, seams, packet_scope,
@@ -352,37 +334,33 @@ side_lane_candidates[] optional
 cost_calibration[] optional
   # {id, title, head_ceo_effort, est_tokens, actual_tokens, delta_ratio,
   #  head_ceo_model, hand_model, closed_at, notes}
-  # Mind uses recent delta_ratio to bias pick order / capacity packing
-head-cto.last_report_*, head-cxo.last_report_* 
-mind_loop.{state, handoff, mechanism, …}   # armed | running | stopping | wound_up; mechanism e.g. grok_/loop
-half_dead[] optional                # path, class A/B/C, age_cycles, note
+head-cto.last_report_*, head-cxo.last_report_*
+mind_loop.{state, handoff, mechanism, …}
+half_dead[] optional              # path, class A/B/C, age_cycles, note
 polish_advisory optional:
-  score_threshold          # default 500 — file polish task only if score >= this
+  score_threshold          # default 500
   max_files_per_task       # default 3
   max_tasks_per_cycle      # default 1
-  script optional          # override path to suggest-polish-files.py
-  last_scan_head           # main tip last scanned (skip re-scan until HEAD moves)
-  last_scan_at
-  last_top[]               # {path, score} sample from last run
-  open_polish_paths[]      # paths already covered by open polish tasks
-  last_filed_handle optional
+  script optional
+  last_scan_head, last_scan_at, last_top[], open_polish_paths[], last_filed_handle
 housekeeping_advisory optional:
-  last_filed_at
-  last_filed_head          # main tip when housekeeping was filed
-  last_reason              # campaign_end | large_merge | stage_closeout | operator
-  open_handle optional     # open task handle if any
-  min_commits_for_large_merge optional  # fleet heuristic; default defer if unsure
+  last_filed_at, last_filed_head, last_reason
+  open_handle optional
+  min_commits_for_large_merge optional
 ```
 
-**Mode counters vs quiet:** `quiet_streak` is product silence (nothing to do). `turns_since_operator_message` is **human** silence in the Mind chat. A busy fleet can have `quiet_streak = 0` and still be **autonomous** if the operator has not spoken for ≥ 3 cycles. Scheduled wakes must use the **`FLEET_CYCLE`** prefix (see main skill / mind-cycle).
+| Counter | Meaning |
+| --- | --- |
+| `quiet_streak` | Product silence |
+| `turns_since_operator_message` | **Human** silence in Mind chat |
 
-Ignore-lists for tasking noise may live in baseline (`ignore_bag_handles`, `ignore_subjects_prefixes`) without deleting board history.
+Busy fleet can have `quiet_streak=0` and still be **autonomous** if operator silent ≥3 cycles. Scheduled wakes use **`FLEET_CYCLE`** prefix (main skill / mind-cycle).
 
-**Polish advisory:** after main lands, Mind runs `$polish`’s `suggest-polish-files.py` (read-only). Score ≥ threshold → one bounded polish **task** to a Hand. Defaults and procedure: `mind-cycle.md`.
+Ignore-lists may live in baseline (`ignore_bag_handles`, `ignore_subjects_prefixes`) without deleting board history.
 
-**Housekeeping advisory:** Mind files `$housekeeping` only at **major inflection** (campaign end / large merge / stage closeout / operator). Never every land. Procedure: `mind-cycle.md`.
+**Polish advisory:** after main lands, Mind runs `$polish`’s `suggest-polish-files.py` (read-only). Score ≥ threshold → one bounded polish **task**. Defaults: `mind-cycle.md`.
 
-Optional fleet JSON mirror:
+**Housekeeping advisory:** file `$housekeeping` only at **major inflection** (campaign end / large merge / stage closeout / operator). Never every land. Procedure: `mind-cycle.md`.
 
 ```json
 "polish_advisory": {
@@ -398,34 +376,31 @@ Optional fleet JSON mirror:
 
 ## Fleet wind-down and rearm
 
-Part of orderly fleet shutdown (and lifecycle **Retire**).
+Orderly shutdown (lifecycle **Retire**).
 
-### When to wind down
-
-- Operator requests wind-up / stop after N cycles
-- Map empty + bags empty + no pending merge queue for a long quiet streak
-- Orchestrator must stop but product residue can wait
+| When | |
+| --- | --- |
+| Operator requests wind-up / stop after N cycles | |
+| Map empty + bags empty + no pending merge queue for long quiet streak | |
+| Orchestrator must stop; product residue can wait | |
 
 ### Procedure
 
-1. **Stop filing new keep-screen-moving targets** unless operator wants one last drain
-2. **Absorb** finished lands: note HEADs, light-accept recent ranges, update `pending_reviews` / `pending_merges` honesty (do not invent theme RTMs)
-3. **Classify each slot:**
-   - empty tasking + clean/idle → finished → eligible to drop pane
-   - open product tasking mid-unit → **keep** or operator-stop with residual noted
-   - open tasking is only human/env gate → treat as finished for wind-down; leave need open
-4. **Drop panes** for finished hands and Heads (`tmux kill-session`); leave mid-product hands if operator wants residual drain
-5. **Baseline** `mind_loop.state = wound_up` with: dropped/kept panes, tips, residual open handles, handoff for rearm
+1. **Stop** filing new keep-screen-moving targets (unless last drain)
+2. **Absorb** finished lands: HEADs, light-accept, honest `pending_reviews`/`pending_merges` (no invent theme RTMs)
+3. **Classify each slot:** empty+clean/idle → drop; mid-unit product → keep or operator-stop with residual; human/env gate only → finished for wind-down, leave need open
+4. **Drop panes** for finished hands/Heads (`tmux kill-session`); leave mid-product if residual drain wanted
+5. **Baseline** `mind_loop.state = wound_up`: dropped/kept panes, tips, residual handles, handoff
 6. Optional pointer to kept hands: fleet wound up; continue bag or idle
-7. Cancel Mind `/loop` or harness scheduler **in the operator session** if stopping the loop
-8. **`steward.sh disarm --project <root>`** same turn (or before stop) so dead man does not false-trip — **per fleet** if multi-attached
+7. Cancel Mind `/loop` or harness scheduler **in operator session** if stopping loop
+8. **`steward.sh disarm --project <root>`** same turn — **per fleet** if multi-attached
 9. Clear or stamp `mind_session` / `mind_loop.state = wound_up` (or `detached`)
 
-### What wind-down is not
-
-- Not “all side tips are on main” (re-check ancestry separately)
-- Not permission to `stash`/`reset` foreign dirt
-- Not auto-closing open needs (env gates, operator decisions stay on the board)
+| Wind-down is not | |
+| --- | --- |
+| “All side tips on main” | Re-check ancestry separately |
+| Permission to `stash`/`reset` foreign dirt | |
+| Auto-closing open needs | Env gates / operator decisions stay on board |
 
 ### Rearm
 
@@ -433,5 +408,5 @@ Part of orderly fleet shutdown (and lifecycle **Retire**).
 2. Read baseline handoff + open taskings
 3. Refill starvation if maps still have work
 4. Set `mind_loop.state = armed|running`; clear or archive wind-up block
-5. Optional head-ceo assign if structural debt remains (e.g. merge-order research)
-6. Mind remains the operator TUI — do not create a second Mind process
+5. Optional head-ceo assign if structural debt remains
+6. Mind remains operator TUI — no second Mind process

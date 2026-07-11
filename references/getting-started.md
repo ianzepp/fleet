@@ -1,10 +1,8 @@
 # Getting started with `$fleet`
 
-**Audience:** you installed this skill (or received a copy) and need a working fleet.
+**Audience:** skill installed (or received); need a working fleet.
 
-**Not every-cycle reading.** After attach, operate from `SKILL.md` + surface-specific references. Vocabulary: [`fleet-guide.md`](fleet-guide.md). Multi-fleet detail: [`multi-fleet.md`](multi-fleet.md).
-
----
+**Not every-cycle reading.** After attach, operate from `SKILL.md` + surface-specific references. Vocabulary: [`fleet-guide.md`](fleet-guide.md). Multi-fleet: [`multi-fleet.md`](multi-fleet.md).
 
 ## Which case are you in?
 
@@ -14,10 +12,7 @@
 | **2 — Initialize project** | Dependencies OK; project has no fleet yet | Vivi mailspace + fleet tracking files + first panes | [§ Initialize a project](#2-initialize-a-project) |
 | **3 — Attach Mind** | Fleet already exists (`.vivi/fleet.json`, board, maybe panes) | This session becomes Mind for that fleet | [§ Attach Mind to an existing fleet](#3-attach-mind-to-an-existing-fleet) |
 
-Typical order for a brand-new machine: **1 → 2 → 3**.  
-Returning operator opening a new chat: **3 only**.
-
----
+Brand-new machine: **1 → 2 → 3**. Returning operator, new chat: **3 only**.
 
 ## What a fleet is (30 seconds)
 
@@ -26,22 +21,18 @@ Returning operator opening a new chat: **3 only**.
 | **Board** | Work (tasks, needs, wants, mail) | **Vivi** project mailspace under `$ROOT/.vivi/` |
 | **Panes** | Process (alive / idle / error) | **tmux** (Hands / Heads / steward) |
 
-**Mind** = the operator’s current agent conversation (this chat) — **not** a tmux pane.  
+**Mind** = operator’s current agent conversation — **not** a tmux pane.  
 **Fleet** = one project root + its `.vivi/` overlay (durability boundary).
 
-There is **no board without Vivi**. Do not invent a second tasking protocol if `vivi` is missing.
-
-### Tracking files (project overlay)
+**No board without Vivi.** Do not invent a second tasking protocol if `vivi` is missing.
 
 | Path | Role |
 | --- | --- |
 | `$ROOT/.vivi/` | Vivi mailspace root (sqlite board, identities, blobs) |
 | `$ROOT/.vivi/fleet.json` | Roster: Hands/Heads, `tmux_target`, agents, steward, focus |
 | `$ROOT/.vivi/mind-baseline.json` | Cycle counters, fingerprints, mode, `mind_session` lock, recap |
-| `$ROOT/.vivi/mind-watch.cursor` | Optional mailspace watch watermark (created by sensors/watch) |
-| `$ROOT/.vivi/steward.rearm` / `steward.log` | Optional dead-man bookkeeping when steward is used |
-
----
+| `$ROOT/.vivi/mind-watch.cursor` | Optional mailspace watch watermark |
+| `$ROOT/.vivi/steward.rearm` / `steward.log` | Optional dead-man bookkeeping when steward used |
 
 ## 1. Install dependencies
 
@@ -60,77 +51,48 @@ There is **no board without Vivi**. Do not invent a second tasking protocol if `
 | --- | --- |
 | **tmux** | Hand/Head/steward process plane |
 | **git** | HEAD / dirty sensors |
-| **Agent harness** for Hands (same family as Mind) | Grok, Codex, … — see `roles-and-harness.md` |
+| **Agent harness** for Hands (same family as Mind) | Grok, Codex, … — `roles-and-harness.md` |
 
-### Optional
+Optional: companion skills → [`companion-fallbacks.md`](companion-fallbacks.md). External email → steward **pages** only; board `operator@` works without it.
 
-Companion skills (`$polish`, …) → [`companion-fallbacks.md`](companion-fallbacks.md) if missing.  
-External email in Vivi → steward **pages** only; board `operator@` works without it.
+### Install Vivi (before case 2)
 
-### Install Vivi (do this before case 2)
-
-Vivi is the **Vivarium** project; binary name is **`vivi`**.
-
-**macOS — Homebrew (preferred):**
+Binary **`vivi`** (Vivarium). Upstream: [vivarium README — Install](https://github.com/ianzepp/vivarium#install).
 
 ```bash
-brew install ianzepp/tap/vivarium
-vivi --version
-```
+# macOS Homebrew (preferred)
+brew install ianzepp/tap/vivarium && vivi --version
 
-**macOS or Linux — curl:**
-
-```bash
+# macOS/Linux curl
 curl -fsSL https://raw.githubusercontent.com/ianzepp/vivarium/main/install.sh | bash
-# ensure ~/.local/bin or install dir is on PATH
-vivi --version
-```
+# ensure ~/.local/bin or install dir on PATH
 
-**From source:**
-
-```bash
+# From source
 git clone https://github.com/ianzepp/vivarium.git
-cd vivarium && cargo install --path .
-vivi --version
-```
+cd vivarium && cargo install --path . && vivi --version
 
-**Verify:**
-
-```bash
+# Verify (stop if any fail — case 2/3 will not work)
 command -v vivi
 vivi --version          # want 4.6+ (prefer 4.7+)
-vivi mailspace --help   # init / status / watch / identity
+vivi mailspace --help
 ```
-
-If these fail, **stop** — case 2 and 3 will not work.
-
-Upstream: [vivarium README — Install](https://github.com/ianzepp/vivarium#install).
 
 ### Place this skill + host check
 
 ```bash
-SK=<path-to-this-skill>/scripts   # directory with SKILL.md’s scripts/
+SK=<path-to-this-skill>/scripts
 ls "$SK/steward.sh" "$SK/fleet-sensors.py" "$SK/lib/env.sh"
 bash "$SK/smoke-portability.sh"
-
-bash --version          # or /bin/bash --version
-python3 --version       # ≥ 3.9
-command -v tmux && tmux -V
-command -v git
+bash --version; python3 --version   # ≥ 3.9
+command -v tmux && tmux -V; command -v git
 ```
 
-Optional overrides: `VIVI_BIN`, `TMUX_BIN`, `PYTHON_BIN`.  
-Portability: [`runtime-config.md`](runtime-config.md) § Portability.
-
-When deps are green → **case 2** (new project) or **case 3** (fleet already on disk).
-
----
+Optional: `VIVI_BIN`, `TMUX_BIN`, `PYTHON_BIN`. Portability: [`runtime-config.md`](runtime-config.md). Deps green → **case 2** or **case 3**.
 
 ## 2. Initialize a project
 
-**When:** dependencies are installed; `$ROOT` has no usable fleet yet (no mailspace, or no `fleet.json`).
-
-**Goal:** durable board + fleet tracking files + at least one Hand pane, ready for Mind attach (case 3).
+**When:** deps installed; `$ROOT` has no usable fleet (no mailspace, or no `fleet.json`).  
+**Goal:** durable board + fleet tracking files + ≥1 Hand pane, ready for Mind attach.
 
 ### 2.1 Pick the root
 
@@ -140,7 +102,7 @@ cd "$ROOT"
 # Prefer a git checkout or worktree you will actually work in
 ```
 
-All fleet state for this project is under `$ROOT/.vivi/`.
+All fleet state under `$ROOT/.vivi/`.
 
 ### 2.2 Initialize the Vivi mailspace
 
@@ -152,19 +114,13 @@ vivi mailspace status --project "$ROOT"
 ### 2.3 Add canonical identities
 
 ```bash
-# Board + human (no tmux)
 vivi mailspace identity add mind --project "$ROOT"
 vivi mailspace identity add operator --project "$ROOT"
-
-# Hands
 vivi mailspace identity add hand-1 --project "$ROOT"
 # vivi mailspace identity add hand-2 --project "$ROOT"   # multi-hand later
-
-# Heads — add when you will use them
 vivi mailspace identity add head-ceo --project "$ROOT"
 vivi mailspace identity add head-cto --project "$ROOT"
 vivi mailspace identity add head-cxo --project "$ROOT"
-
 vivi mailspace identity list --project "$ROOT"
 ```
 
@@ -213,13 +169,11 @@ Minimal **single-fleet host** shape (`tmux_session` == role):
 }
 ```
 
-Replace paths, `agent` / `agent_launch`, and `cwd` for your harness and checkout.  
-Full schema and multi-fleet `tmux_layout`: [`runtime-config.md`](runtime-config.md), [`multi-fleet.md`](multi-fleet.md).
+Replace paths, `agent` / `agent_launch`, and `cwd`. Full schema / multi-fleet `tmux_layout`: [`runtime-config.md`](runtime-config.md), [`multi-fleet.md`](multi-fleet.md).
 
 **Required (or created on first cycle):** `$ROOT/.vivi/mind-baseline.json`
 
 ```bash
-# Seed empty baseline (Mind / fleet-baseline.py will flesh it out)
 printf '%s\n' '{}' > "$ROOT/.vivi/mind-baseline.json"
 ```
 
@@ -235,7 +189,7 @@ tmux send-keys -t hand-1:1.1 Enter
 # optional: tmux attach -t hand-1
 ```
 
-Heads and steward panes can wait until you enable them.
+Heads and steward panes can wait until enabled.
 
 ### 2.6 Smoke the board
 
@@ -254,17 +208,14 @@ bash "$SK/smoke-portability.sh" --project "$ROOT"
 
 ### 2.7 Next step
 
-Project is **initialized**. Open (or continue in) an operator agent session and do **[case 3 — Attach Mind](#3-attach-mind-to-an-existing-fleet)**.
-
----
+Project **initialized**. Open operator agent session → **[case 3 — Attach Mind](#3-attach-mind-to-an-existing-fleet)**.
 
 ## 3. Attach Mind to an existing fleet
 
-**When:** `$ROOT/.vivi/fleet.json` (and usually a mailspace) already exist. You opened a **new** operator chat, resumed after compact, or are taking over ops for this project.
+**When:** `$ROOT/.vivi/fleet.json` (and usually mailspace) already exist. New operator chat, resume after compact, or taking over ops.  
+**Goal:** this conversation becomes the **Mind session**.
 
-**Goal:** this conversation becomes the **Mind session** for the fleet — load context, claim attach, sense, then cycle.
-
-Do **not** create a second Mind tmux pane. Do **not** re-init the mailspace unless the board is intentionally being rebuilt.
+Do **not** create a second Mind tmux pane. Do **not** re-init mailspace unless intentionally rebuilding the board.
 
 ### 3.1 Confirm the fleet is real
 
@@ -290,10 +241,8 @@ python3 "$SK/fleet-sensors.py" --project "$ROOT" --text
 
 ### 3.2 Load process (this session)
 
-In the operator agent chat:
-
-1. Load **`$fleet`** (`SKILL.md`). Thin first turn: main skill + this file if attach is unclear; open other refs as surfaces hit.
-2. State the attach explicitly (for history and for you):
+1. Load **`$fleet`** (`SKILL.md`). Thin first turn: main skill + this file if attach unclear; open other refs as surfaces hit.
+2. State the attach explicitly:
 
 ```text
 Attaching Mind to fleet project=$ROOT
@@ -306,7 +255,7 @@ Attaching Mind to fleet project=$ROOT
 At most **one Mind session per fleet** (advisory — not a hard OS lock). On attach:
 
 1. Read `$ROOT/.vivi/mind-baseline.json` → `mind_session`.
-2. If locked by a **live foreign** session → refuse unless the operator asks for **takeover**.
+2. If locked by a **live foreign** session → refuse unless operator asks for **takeover**.
 3. Write / refresh:
 
 ```json
@@ -319,7 +268,7 @@ At most **one Mind session per fleet** (advisory — not a hard OS lock). On att
 
 4. Set `mind_loop.state` toward `running` when you will cycle (not if only inspecting).
 
-Forced takeover overwrites the advisory lock — use only when the operator confirms the other Mind is dead or yielded. Detail: [`multi-fleet.md`](multi-fleet.md) § Attach / detach.
+Forced takeover overwrites the advisory lock — only when operator confirms the other Mind is dead or yielded. Detail: [`multi-fleet.md`](multi-fleet.md) § Attach / detach.
 
 ### 3.4 Present operator mail and recap (if returning)
 
@@ -328,7 +277,7 @@ vivi need list --for operator --project "$ROOT"
 vivi mail list --for operator --project "$ROOT"
 ```
 
-If any open/unread **operator@** items → present them **first**, then status recap from baseline `operator_recap` / last cycle summary. Rules: [`operator-mail.md`](operator-mail.md).
+If open/unread **operator@** items → present **first**, then status recap from baseline `operator_recap` / last cycle summary. Rules: [`operator-mail.md`](operator-mail.md).
 
 ### 3.5 Sense panes; rehome only if needed
 
@@ -338,7 +287,6 @@ If any open/unread **operator@** items → present them **first**, then status r
 - `down` / `error_*` → recreate pane or runtime ladder — do not assume init case 2.
 
 ```bash
-# pointer wake when idle + open tasking (Grok / Pi-style)
 "$SK/fleet-doorbell.sh" --project "$ROOT" hand-1
 ```
 
@@ -349,7 +297,7 @@ If any open/unread **operator@** items → present them **first**, then status r
 "$SK/steward.sh" arm --project "$ROOT"
 ```
 
-If you are only chatting / one-shot ops, leave steward disarmed or leave prior state alone until you decide.
+If only chatting / one-shot ops, leave steward disarmed or leave prior state alone until you decide.
 
 ### 3.7 Run cycles from this session
 
@@ -378,13 +326,13 @@ Mode / reports: [`mind-cycle.md`](mind-cycle.md).
 Same turn as you stop supervising:
 
 ```bash
-"$SK/steward.sh" disarm --project "$ROOT"   # if it was armed — avoid false trip
+"$SK/steward.sh" disarm --project "$ROOT"   # if armed — avoid false trip
 # baseline: mind_loop.state = detached (or wound_up); clear or stamp mind_session
 ```
 
-Leaving without detach while steward is armed → steward **trips after grace** (correct failsafe). Recovery: `steward.sh clear` + re-attach (this case again).
+Leaving without detach while steward armed → steward **trips after grace** (correct failsafe). Recovery: `steward.sh clear` + re-attach (this case again).
 
-Wind-down (panes down, long idle): [`runtime-config.md`](runtime-config.md). Multi-fleet attach set: [`multi-fleet.md`](multi-fleet.md).
+Wind-down: [`runtime-config.md`](runtime-config.md). Multi-fleet attach set: [`multi-fleet.md`](multi-fleet.md).
 
 ### Attach checklist (copy)
 
@@ -400,9 +348,7 @@ Wind-down (panes down, long idle): [`runtime-config.md`](runtime-config.md). Mul
 [ ] detach/disarm same turn when stopping
 ```
 
----
-
-## “Is it working?” (both case 2 and 3)
+## “Is it working?” (case 2 and 3)
 
 | Check | Signal |
 | --- | --- |
@@ -414,8 +360,6 @@ Wind-down (panes down, long idle): [`runtime-config.md`](runtime-config.md). Mul
 | Pane | `tmux has-session` for the session in `tmux_target` |
 | Sensors | `fleet-sensors.py --text` exit 0 or 2 (partial), not 1 |
 | Mind attach | You can name `$ROOT`, bag state, and pane class without re-init |
-
----
 
 ## Common failures
 
@@ -431,8 +375,6 @@ Wind-down (panes down, long idle): [`runtime-config.md`](runtime-config.md). Mul
 | Two Minds / lock conflict | 3 | One session per fleet; takeover only if authorized |
 | Steward trip after chat died | 3 | `steward.sh clear` + re-attach; disarm next time |
 | Re-ran `mailspace init` on live fleet | 3 | Avoid; restore from backup if board wiped |
-
----
 
 ## What to read next
 

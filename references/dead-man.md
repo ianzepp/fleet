@@ -1,31 +1,26 @@
 # Dead man / steward
 
-Fleet-local **completed-cycle watchdog**. Goal: if Mind stops completing
-`FLEET_CYCLE` turns (loop timer dead, or every turn dies at hooks), something
-**outside the broken chat** brings the fleet to a **safe hold** and pages the
-human — not a second permanent Mind, not a global multi-repo service.
+Fleet-local **completed-cycle watchdog**. If Mind stops completing `FLEET_CYCLE` turns (loop timer dead, or every turn dies at hooks), something **outside the broken chat** holds the fleet and pages the human — not a second permanent Mind, not a global multi-repo service.
 
 ## Names
 
 | Term | Meaning |
 | --- | --- |
-| **Dead man** | The arm / rearm / trip mechanism |
-| **Steward** | tmux session + loop that implements it (`steward`) |
-| **Mind** | Operator TUI only — still the only product control plane when healthy |
+| **Dead man** | Arm / rearm / trip mechanism |
+| **Steward** | tmux session + loop (`steward`) |
+| **Mind** | Operator TUI only — sole product control plane when healthy |
 
-**Steward is not Mind.** On trip it holds and notifies; it does not own the map
-long-term or become a dual merge authority.
+**Steward is not Mind.** On trip: hold + notify. Does not own the map long-term or become dual merge authority.
 
-## Problem (why this exists)
+## Problem
 
-| Failure | What happens |
+| Failure | Effect |
 | --- | --- |
-| Grok `/loop` timer dies | No more `FLEET_CYCLE` injections → fleet freezes |
-| Hook / turn hard-abort | Loop may still fire, but every turn dies before cycle end → **deadlock** |
-| Mind session crash | Same: no successful cycle ticks |
+| Grok `/loop` timer dies | No more `FLEET_CYCLE` → fleet freezes |
+| Hook / turn hard-abort | Loop fires but every turn dies before cycle end → **deadlock** |
+| Mind session crash | No successful cycle ticks |
 
-**Signal that matters:** end-of-**successful**-cycle tick — not “process up”, not
-“loop fired”, not “turn started”.
+**Signal that matters:** end-of-**successful**-cycle tick — not process up / loop fired / turn started.
 
 ## Architecture
 
@@ -48,13 +43,11 @@ tmux **target from fleet.json** (legacy steward:1.1 or mgs:steward.1)
     soft-hold idle Hands via fleet.json hand tmux_targets only
 ```
 
-Steward is **not** a child of the Mind turn — Mind death does not kill it.  
-Under **session-per-fleet**, steward is a **window** in the fleet session.
+Steward is **not** a child of the Mind turn — Mind death does not kill it. Under **session-per-fleet**, steward is a **window** in the fleet session.
 
 ## Progress tick (Mind)
 
-At the **end** of every successful fail-fast cycle (acted or quiet sleep that
-finished sensors/ops):
+At **end** of every successful fail-fast cycle:
 
 ```text
 mind_loop.last_successful_cycle_at = now
@@ -64,43 +57,22 @@ steward.last_rearm_at = now
 # optional: touch $PROJECT/.vivi/steward.rearm
 ```
 
-Also run:
-
 ```bash
 scripts/steward.sh rearm --project <root>
 ```
 
-**Do not** rearm only on turn start (masks hook death). Optional: rearm at
-**start and end** of long cycles so grace is not burned during multi-minute acts.
+**Do not** rearm only on turn start (masks hook death). Optional: rearm at **start and end** of long cycles so grace survives multi-minute acts.
 
 ## Arm / disarm
 
-### Arm (fleet running with scheduled Mind)
-
-When `mind_loop.state → running` and a durable loop is armed:
-
 ```bash
-steward.sh arm --project <root>
+steward.sh arm --project <root>     # when mind_loop.state → running + durable loop
+steward.sh disarm --project <root>  # required to avoid false fire
 ```
 
-Creates/attaches tmux `steward`, starts the poll loop, sets
-`steward.armed = true` in baseline.
+**Must disarm when:** operator stops `/loop` and will not run cycles; wind-down / `wound_up`; explicit “Mind: no schedule”; fleet intentionally idle for hours.
 
-### Disarm (required — avoid false fire)
-
-Mind **must** disarm when:
-
-- Operator stops `/loop` and will not run cycles
-- Wind-down / `mind_loop.state → wound_up`
-- Explicit “Mind: no schedule”
-- Fleet intentionally idle for hours
-
-```bash
-steward.sh disarm --project <root>
-```
-
-If Mind leaves loop mode without disarm, steward will correctly assume control
-plane death and trip.
+Leaving loop without disarm → steward correctly assumes control-plane death and trips.
 
 ## Trip condition
 
@@ -115,19 +87,14 @@ Default `grace_sec`: `max(3 * interval_sec, 900)` (e.g. 5m cycle → 15m).
 
 ## Trip actions (hold protocol)
 
-1. **Baseline:** `mind_loop.state = dead_man_tripped` (or keep `running` +
-   `steward.tripped = true`); record `steward.tripped_at`, last tick, note
-2. **operator@:** one board item (need or mail), subject prefix
-   `operator: problem — steward trip — <fleet>`
-3. **External email** (if fleet `notify.external_email` + preauth): short page
-4. **Safe-stop:** do **not** kill `running` Hands; optional pointer to
-   idle Hands with open bag: finish open bag only, then idle; **no new map packages**
+1. **Baseline:** `mind_loop.state = dead_man_tripped` (or keep `running` + `steward.tripped=true`); record `tripped_at`, last tick, note
+2. **operator@:** one board item; subject `operator: problem — steward trip — <fleet>`
+3. **External email** if `notify.external_email` + preauth
+4. **Safe-stop:** do **not** kill `running` Hands; optional pointer to idle Hands with open bag: finish bag only, then idle; **no new map packages**
 5. **Do not** merge, refill spine, or become permanent Mind
 6. Stay armed-but-tripped until human/Mind **clear** + rearm or full disarm
 
 ### External email (Vivi)
-
-Project mailspace is local-only. Off-box page uses IMAP/SMTP account:
 
 ```bash
 vivi compose --account <account> --to <you@…> \
@@ -136,24 +103,17 @@ vivi compose --account <account> --to <you@…> \
 vivi exec send --account <account> path/to/draft.eml
 ```
 
-**Policy exception (narrow):** fleet may set
-`steward.notify.preauthorized_exec_send: true` for **this template only** —
-trip page to configured `to` addresses. Not a general agent send license.
-Compose/exec: `companion-fallbacks.md` (Mail section).
+**Policy exception (narrow):** `steward.notify.preauthorized_exec_send: true` for **this template only** — trip page to configured `to`. Not a general agent send license. Compose/exec: `companion-fallbacks.md` (Mail).
 
-If SMTP fails: still complete board + baseline; log error; do not block hold.
-
-**Dedupe:** at most one external page per `dedupe_hours` (default 6) per trip
-incident.
+SMTP fail → still complete board + baseline; log error; do not block hold.  
+**Dedupe:** ≤1 external page per `dedupe_hours` (default 6) per trip incident.
 
 ## Clear / recover
 
-Operator or new Mind session:
-
 1. Read operator@ + baseline `steward` block  
 2. Fix loop/hooks or start healthy Mind  
-3. `steward.sh clear --project <root>` (clear trip flag)  
-4. Successful cycle rearms; or `arm` again if disarmed  
+3. `steward.sh clear --project <root>`  
+4. Successful cycle rearms; or `arm` if disarmed  
 5. Resume product map  
 
 ## Fleet config
@@ -179,8 +139,8 @@ Operator or new Mind session:
 }
 ```
 
-Session-per-fleet example: `"tmux_session": "mgs", "tmux_window": "steward", "tmux_target": "mgs:steward.1"`.  
-Soft-hold Hands: script reads each hand’s `tmux_target` from fleet.json (never hardcodes session==`hand-1`).
+Session-per-fleet: `"tmux_session": "mgs", "tmux_window": "steward", "tmux_target": "mgs:steward.1"`.  
+Soft-hold: script reads each hand’s `tmux_target` from fleet.json (never hardcode session==`hand-1`).
 
 | Field | Notes |
 | --- | --- |
@@ -197,30 +157,24 @@ mind_loop.last_successful_cycle_at
 mind_loop.last_cycle_ok
 mind_loop.interval_sec          # optional; default 300
 steward:
-  armed                         # bool
-  armed_at
-  last_rearm_at
-  tripped                       # bool
-  tripped_at
-  last_trip_reason
-  last_external_notify_at
-  last_external_error
+  armed, armed_at, last_rearm_at
+  tripped, tripped_at, last_trip_reason
+  last_external_notify_at, last_external_error
   disarmed_at
 ```
 
 ## Script
 
 ```bash
-# from fleet, or PROJECT=…
 scripts/steward.sh arm    --project <root>
 scripts/steward.sh rearm  --project <root>
 scripts/steward.sh disarm --project <root>
 scripts/steward.sh status --project <root>
 scripts/steward.sh check  --project <root>   # one-shot; may trip
-scripts/steward.sh clear  --project <root>   # clear trip after recovery
+scripts/steward.sh clear  --project <root>
 ```
 
-Exit codes (`check` / loop trip path): `0` ok · `1` tripped this run · `2` config/error · `3` disarmed/inactive.
+Exit (`check` / trip path): `0` ok · `1` tripped this run · `2` config/error · `3` disarmed/inactive.
 
 ## Mind cycle integration
 
@@ -230,19 +184,19 @@ Exit codes (`check` / loop trip path): `0` ok · `1` tripped this run · `2` con
 | Long cycle start (optional) | early `rearm` so grace survives multi-minute work |
 | Stop loop / wind-down | `disarm` **same turn** |
 | Arm fleet / start loop | `arm` if `steward.enabled` |
-| Steward session missing while armed | recreate via `arm` (health-check) |
+| Steward missing while armed | recreate via `arm` |
 | Engagement after silence | present operator@ (may include steward trip) |
 
 ## Anti-patterns
 
 - Heartbeat only on turn start or loop inject  
 - Steward as permanent second Mind / product bag owner  
-- Global multi-fleet system service scanning home directories for fleets  
+- Global multi-fleet system scanning home for fleets  
 - External email without fleet `to` + `preauthorized_exec_send`  
 - Spamming external mail every poll after trip  
 - Killing `running` Hands on trip  
 - Leaving loop mode without `disarm`  
-- Treating steward tmux as Mind process slot for operator chat  
+- Treating steward tmux as Mind process slot  
 
 ## Related
 

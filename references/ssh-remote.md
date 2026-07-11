@@ -1,21 +1,21 @@
 # Remote Hands and Heads over SSH
 
-Load when a Hand or Head runs on a **different host** than Mind (SSH + remote tmux), or when arming a mixed local/remote fleet.
+Load when Hand/Head runs on a **different host** than Mind (SSH + remote tmux), or arming mixed local/remote fleet.
 
-**Experimental strong guidance** — not host-specific. Any reachable host with SSH, tmux, and the agent binary works. Do not hardcode a particular server name into product law.
+**Experimental strong guidance** — not host-specific. Any host with SSH, tmux, agent binary. Do not hardcode a server name into product law.
 
 ## Why
 
-| Goal | How remote slots help |
+| Goal | Remote slots help |
 | --- | --- |
-| **Failure isolation** | Mind (desktop or local CLI) survives local tmux/shell death; remote panes keep running |
-| **Token / machine budget** | Heavy Hands on a server; Mind stays light on the operator machine |
-| **Compute / auth locality** | Work where the checkout, GPU, or agent login already lives |
-| **Heads too** | head-ceo / head-cto / head-cxo may sit on remote tmux the same way Hands do |
+| **Failure isolation** | Mind survives local tmux/shell death; remote panes keep running |
+| **Token / machine budget** | Heavy Hands on server; Mind light on operator machine |
+| **Compute / auth locality** | Work where checkout, GPU, or agent login lives |
+| **Heads too** | head-ceo / head-cto / head-cxo same pattern as Hands |
 
-Mind may be local CLI, desktop app, or even another host. **Process truth** is still tmux on the **Hand/Head host**; **work truth** is still Vivi against the **mailspace project root** that owns the bag.
+**Process truth** = tmux on Hand/Head host. **Work truth** = Vivi against mailspace root that owns the bag.
 
-## Axes (same three, plus host)
+## Axes (+ host)
 
 ```text
 hand-N / head-*  =  identity (mail + remote tmux session name)
@@ -24,46 +24,47 @@ hand-N / head-*  =  identity (mail + remote tmux session name)
               └── host         local | ssh target (where pane + cwd live)
 ```
 
-| Field (fleet JSON) | Meaning |
+| Field | Meaning |
 | --- | --- |
-| `host` | Optional. Omit or `"local"` = co-located with Mind ops. Non-local = remote slot. |
-| `ssh` | SSH invocation prefix, e.g. `ssh -o BatchMode=yes user@host` (or a wrapper script) |
+| `host` | Omit/`"local"` = co-located. Non-local = remote. |
+| `ssh` | e.g. `ssh -o BatchMode=yes user@host` |
 | `tmux_session` / `tmux_target` | Session/pane **on that host** |
-| `cwd` | Path **on that host** (not Mind’s laptop path) |
-| `agent_launch` | Command run **on that host** (include PATH setup if non-login SSH is bare) |
-| `mailspace_project` | Optional. Project root for `vivi --project` if different from Mind’s view of the tree |
+| `cwd` | Path **on that host** |
+| `agent_launch` | Command **on that host** (PATH if non-login SSH bare) |
+| `mailspace_project` | Optional. `vivi --project` root if ≠ Mind’s view |
 
-**Binding rule still holds:** mail identity token == tmux session name (on the host that runs the pane).
+**Binding:** mail identity token == tmux session name (on host running the pane).
 
 ## Dual channel when remote
 
-| Concern | Where it runs |
+| Concern | Where |
 | --- | --- |
 | Pane scan / capture | `ssh … 'tmux capture-pane -t <target> …'` |
 | Doorbell | `ssh … 'tmux send-keys -t <target> -l -- "…"'` then Enter |
-| Codex reinit / heal | Run `scripts/codex-reinit.sh` **on the Hand host** (`PROJECT`/`FLEET` remote paths), or SSH-wrap it |
-| Vivi bag / watch / thread | Against the **mailspace that owns the board** — usually `vivi --project <root>` on a host that can see that `.vivi/` |
-| Git work | Remote `cwd` checkout / worktree on the Hand host |
+| Codex reinit / heal | `scripts/codex-reinit.sh` **on Hand host** (or SSH-wrap); remote `PROJECT`/`FLEET` |
+| Vivi bag / watch / thread | Host that can see board `.vivi/` |
+| Git work | Remote `cwd` checkout / worktree |
 
-Do not assume Mind’s local `tmux` sees remote sessions. Do not assume laptop and remote share one filesystem unless the fleet deliberately mounts or syncs it.
+Local `tmux` does not see remote sessions. No shared FS unless fleet mounts/syncs it.
 
 ## Mailspace coherence
 
-One board of record per fleet. Options:
+One board of record per fleet:
 
-1. **Remote project owns `.vivi/`** — Mind calls `ssh host 'vivi --project /remote/root …'` (or rsync is wrong-direction for live board).  
-2. **Shared/synced tree** — both hosts see the same project path (rare; document it).  
-3. **Mind-local mailspace only** — Hands never run `vivi` locally; Mind files/shows everything (Hands only implement from pointers) — weaker for remote Hands that need bag CLI.
+| Option | When |
+| --- | --- |
+| **1. Remote owns `.vivi/`** | Prefer when Hand git root is remote. Mind: `ssh host 'vivi --project /remote/root …'` |
+| **2. Shared/synced tree** | Both hosts same path (rare; document) |
+| **3. Mind-local only** | Hands implement from pointers — weaker if remote Hands need bag CLI |
 
-Prefer (1) when the Hand’s git root is remote. **Watch and thread** must hit the same SQLite event ledger the fleet uses.
+Watch/thread must hit the same SQLite ledger. Rsync is wrong-direction for live board.
 
-## Ops recipes (generic)
+## Ops recipes
 
-### Arm a remote Hand
+### Arm remote Hand
 
 ```bash
 SSH='ssh -o BatchMode=yes user@remote-host'
-# Ensure login-like PATH if non-interactive shells are bare
 REMOTE_PATH='export PATH="$HOME/.local/bin:$HOME/.cargo/bin:$HOME/.nvm/versions/node/v24.15.0/bin:$PATH"'
 
 $SSH "tmux has-session -t hand-N 2>/dev/null || \
@@ -72,7 +73,7 @@ $SSH "$REMOTE_PATH; tmux send-keys -t hand-N:1.1 -l -- 'codex' "  # or grok / pi
 $SSH "tmux send-keys -t hand-N:1.1 Enter"
 ```
 
-Discover real `tmux_target` (base-index) once; store in fleet.
+Discover real `tmux_target` once; store in fleet.
 
 ### Pane classify / wake
 
@@ -82,7 +83,7 @@ $SSH "tmux send-keys -t hand-N:1.1 -l -- 'HAND WAKE hand-N. Bag: show <handle>. 
 $SSH 'tmux send-keys -t hand-N:1.1 Enter'
 ```
 
-Same pointer-only content rules as local dual-channel.
+Same pointer-only rules as local dual-channel.
 
 ### Remote reinit (Codex)
 
@@ -91,11 +92,11 @@ $SSH 'export PATH=…; PROJECT=/path/on/remote FLEET=/path/to/fleet.json \
   /path/to/codex-reinit.sh heal hand-N'
 ```
 
-Copy or symlink skill `scripts/codex-reinit.sh` onto the remote host; do not assume Mind’s laptop path exists there.
+Copy/symlink skill `scripts/codex-reinit.sh` onto remote; laptop path may not exist there.
 
 ### Remote Head
 
-Same pattern: identity = session name (`head-ceo`, `head-cto`, `head-cxo`), `agent=pi` (or fleet preference), clean-slate/reinit policy unchanged — only the transport is SSH.
+Identity = session name; `agent=pi` (or fleet preference); clean-slate/reinit policy unchanged — transport is SSH.
 
 ## Fleet config sketch
 
@@ -125,35 +126,28 @@ Same pattern: identity = session name (`head-ceo`, `head-cto`, `head-cxo`), `age
 }
 ```
 
-Fleets may use a small wrapper (`fleet-ssh hand-2 tmux …`) instead of raw `ssh` strings. Skill cares about meanings, not the wrapper name.
+Wrapper (`fleet-ssh hand-2 tmux …`) OK; skill cares about meanings.
 
-## Mind cycle when some slots are remote
+## Mind cycle with remote slots
 
-Cheap sensors still run every cycle; for each remote slot:
-
-1. `$ssh tmux has-session` / capture / classify (rate-limit; SSH RTT costs more than local)
-2. Open bag for that identity via the **shared** mailspace project
-3. Wake/reinit by **that slot’s runtime on that host**
-
-Fail-fast still applies: do not open a long SSH tunnel monologue every quiet cycle. Batch remote captures when possible.
+Per remote slot (rate-limit; SSH RTT > local): (1) `$ssh tmux has-session` / capture / classify (2) open bag via **shared** mailspace (3) wake/reinit by **that slot’s runtime on that host**. Fail-fast: no long SSH monologue every quiet cycle; batch captures.
 
 ## Desktop Mind + remote Hands
 
-A natural experiment: operator Mind in a desktop app; all product Hands (and optional Heads) on remote tmux. Mind has no local Hand panes. Benefits: token split + isolation from both local tmux death and terminal death. Duties unchanged — only transport and `host` fields change.
+Operator Mind in desktop app; product Hands (+ optional Heads) on remote tmux. Duties unchanged — only transport + `host` fields.
 
 ## Pitfalls
 
 | Do | Don't |
 | --- | --- |
-| Store **host-scoped** cwd and absolute remote binaries | Assume laptop PATH/`which` on remote |
-| Verify first capture after arm | Trust fleet JSON without live pane path/command |
-| Run reinit on the Hand host | Kill local processes for a remote Hand |
-| One mailspace board of record | Split “truth” across two unrelated `.vivi/` DBs without a plan |
-| Prefer packet/remote for hand-2+ first | Put hand-1 merge-to-main on remote before fleet is ready |
+| Host-scoped cwd + absolute remote binaries | Assume laptop PATH/`which` on remote |
+| Verify first capture after arm | Trust fleet JSON without live pane |
+| Reinit on Hand host | Kill local processes for a remote Hand |
+| One mailspace board of record | Split truth across two `.vivi/` DBs |
+| Prefer packet/remote for hand-2+ first | hand-1 merge-to-main on remote before ready |
 
 ## Related
 
-- Pane/wake semantics: `dual-channel.md`
-- Vivi watch/thread for Mind sensors: `dual-channel.md` (mailspace watch / thread)
-- Codex script: `scripts/codex-reinit.sh` + `runtime-config.md`
+- Pane/wake + Vivi watch/thread: `dual-channel.md`
+- Codex: `scripts/codex-reinit.sh` + `runtime-config.md`
 - Roles / desktop Mind: `roles-and-harness.md`
