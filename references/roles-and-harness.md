@@ -146,6 +146,7 @@ Heads need not match Mind’s product harness. Prefer Pi even when Mind is Grok 
 - Each wake: cheap **fleet pane scan**; **Grok doorbell** or **Codex reinit** (prefer `scripts/codex-reinit.sh`) when idle/done with open targets
 - Residual finding → **task** to Hand; **need** only for real decision hold; **tmux pointer only**
 - **Post-main polish advisory:** when main HEAD moves, run `$polish` `suggest-polish-files.py` (JSON, capped); if scores ≥ camp threshold, file a bounded polish **task** — Mind does not execute the polish loop
+- **Major-inflection housekeeping:** only at campaign end / large multi-theme merge / stage closeout / operator ask — file **one** `$housekeeping` **task** To hand-1; never after routine lands
 - **Unstick half-dead dirt:** open the diff; class A mechanical (fmt) → clear same turn; do not freeze for hours
 - **Autonomous:** thin ops; **decide now** on reversible defaults; head-strategist is optional structure help, not a permission gate
 - **Interactive:** full reasoning for operator; maintain **operator_recap** for when they return
@@ -156,7 +157,7 @@ Heads need not match Mind’s product harness. Prefer Pi even when Mind is Grok 
 - Issue stage start/closeout GO/NO-GO as binding protocol
 - Require multi-round mail before the next map square
 - **Own fleet code-review quality** (that is **head-correctness on main after merge**)
-- Run full `$polish` itself or thrash polish tasks every quiet cycle (advisory is post-main + threshold only)
+- Run full `$polish` or `$housekeeping` itself; thrash polish every quiet cycle; fire housekeeping on routine main lands
 - Steal the Hand’s unit or rewrite their WIP mid-flight (raise; don’t hijack unless operator asks)
 - Treat status-only dirty as multi-cycle freeze without classification
 - Require introspecting its own model/reasoning tier to choose behavior

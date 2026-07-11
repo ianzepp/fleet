@@ -25,6 +25,7 @@ Choose kind by **what response is required**, then state severity in subject/bod
 | Must someone choose a path, grant authority, supply input, or resolve an external dependency first? | **need** — include default + options; pivot while waiting |
 | Is it safe to ship/merge without this improvement? | **want** |
 | Did Mind’s post-main polish advisory clear `score_threshold` for named files? | **task** To hand-1 (or owner) — run `$polish` on those primaries only |
+| Major inflection (campaign end / large merge / stage closeout) and no open housekeeping? | **task** To hand-1 — run `$housekeeping` on main (expensive; one at a time) |
 | Is no action requested? | **mail** |
 
 Put urgency on the item, not in its kind (e.g. `merge blocker: …`, `critical: …`, or the board priority field). A needs-only bag may be treated as a decision hold; misfiling defects there parks a healthy Hand.

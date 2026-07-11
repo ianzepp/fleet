@@ -279,13 +279,23 @@ polish_advisory optional:
   last_top[]               # {path, score} sample from last run
   open_polish_paths[]      # paths already covered by open polish tasks
   last_filed_handle optional
+housekeeping_advisory optional:
+  last_filed_at
+  last_filed_head          # main tip when housekeeping was filed
+  last_reason              # campaign_end | large_merge | stage_closeout | operator
+  open_handle optional     # open task handle if any
+  min_commits_for_large_merge optional  # camp heuristic; default defer if unsure
 ```
 
 **Mode counters vs quiet:** `quiet_streak` is product silence (nothing to do). `turns_since_operator_message` is **human** silence in the Mind chat. A busy fleet can have `quiet_streak = 0` and still be **autonomous** if the operator has not spoken for ≥ 3 cycles. Scheduled wakes must use the **`FLEET_CYCLE`** prefix (see main skill / mind-cycle).
 
 Ignore-lists for tasking noise may live in baseline (`ignore_bag_handles`, `ignore_subjects_prefixes`) without deleting board history.
 
-**Polish advisory:** after main lands, Mind runs `$polish`’s `suggest-polish-files.py` (read-only). Score ≥ threshold → one bounded polish **task** to a Hand. Defaults and procedure: `mind-cycle.md`. Optional fleet JSON mirror:
+**Polish advisory:** after main lands, Mind runs `$polish`’s `suggest-polish-files.py` (read-only). Score ≥ threshold → one bounded polish **task** to a Hand. Defaults and procedure: `mind-cycle.md`.
+
+**Housekeeping advisory:** Mind files `$housekeeping` only at **major inflection** (campaign end / large merge / stage closeout / operator). Never every land. Procedure: `mind-cycle.md`.
+
+Optional fleet JSON mirror:
 
 ```json
 "polish_advisory": {
@@ -293,6 +303,9 @@ Ignore-lists for tasking noise may live in baseline (`ignore_bag_handles`, `igno
   "max_files_per_task": 3,
   "max_tasks_per_cycle": 1,
   "script": "/Users/ianzepp/work/ianzepp/skills/polish/scripts/suggest-polish-files.py"
+},
+"housekeeping_advisory": {
+  "note": "file only at major inflection; one open task at a time"
 }
 ```
 

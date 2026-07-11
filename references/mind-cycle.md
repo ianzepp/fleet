@@ -166,6 +166,7 @@ Optional: thorough review every N cycles when the counter is divisible by N (e.g
 | Hand mid-flight dirty (main or packet) | Mind | cheap red-flag scan; obvious residuals → Vivi + pointer (not deep peer review) |
 | Main moved after merge | Correctness | post-main code review / bug hunt (self-directed) |
 | Main moved (merge / feature land / spine unit on main) | Mind | **Post-main polish advisory** (cheap score scan → optional polish **task**) — below |
+| **Major inflection** on main (campaign end, large multi-theme merge, stage closeout) | Mind | **Housekeeping task** (expensive) — not polish; not every land — below |
 | Same dirty paths block spine ≥2 cycles, no A/B/C note | Mind | **Open the diff** (half-dead); classify; file style/claim/quarantine; pivot targets for Hand |
 | Map Status mtime changed | Either | skim Status lines; then bag |
 | Tasking empty + next package selected | Hand / Mind | start package or **refill** + wake/reinit |
@@ -307,6 +308,58 @@ Camps with **no polish history** score very high (large “never polished” pen
 | Score = churn-since-polish routing | “High score means bug” |
 
 **head-correctness** still owns post-main **bug** review. **head-purity** still owns excess-layer audits. Polish advisory is ship-quality hygiene only.
+
+## Major-inflection housekeeping (Mind — expensive, rare)
+
+`$housekeeping` is a **full multi-phase** maintenance cycle (refresh, lint, hygiene ratchet, tests, format, docs). Cost is in the same league as a large factory goal. Treat it as an **inflection tax**, not a post-land habit.
+
+### When to file (strong guidance)
+
+| Inflection | Signal Mind can use |
+| --- | --- |
+| **Campaign / factory goal complete** | Map Status done; focus goal checkboxes closed; bags empty for that hunt |
+| **Large merge batch** | Multi-theme or multi-packet merge to main, or operator-named “integrate everything” land — not a single residual commit |
+| **Stage / delivery closeout** | Campaign stage flips complete; delivery graph node closed |
+| **Operator ask** | Explicit “run housekeeping” / “hygiene pass on main” |
+
+### When **not** to file
+
+- Ordinary main unit land (use polish advisory instead)
+- Every thorough cycle or every quiet streak
+- Mid-spine with open product tasking (housekeeping will thrash the Hand off the map)
+- Packet branch only (housekeeping targets **main checkout**)
+- Open housekeeping task already exists (`housekeeping_advisory.open_handle`)
+- Same `last_filed_head` / campaign id already filed (do not re-fire)
+
+### How Mind acts
+
+```text
+1. Classify the event: inflection? or routine land?
+2. If routine → polish advisory path only; skip housekeeping
+3. If inflection:
+   a. Prefer product bags for the closed work empty (or operator override)
+   b. Main clean enough to host multi-phase work (not mid dirty product unit)
+   c. File ONE task To hand-1: subject "housekeeping: <campaign|merge|stage> on main"
+   d. Body: run $housekeeping on <main_checkout>; phases per skill; stop on judgment;
+      evidence To mind; do not expand into new product goals
+   e. Doorbell only if hand-1 idle — never interrupt a running product unit mid-turn
+   f. Baseline: last_filed_at, last_filed_head, last_reason, open_handle
+```
+
+**Default owner:** hand-1 (main). Do not assign full housekeeping to packet hands.
+
+**Ordering:** product closeout residuals and merge green-gate first; then housekeeping. Polish advisory may still run on the land (cheap); housekeeping is the coarse pass after the map chapter ends.
+
+### Cost honesty
+
+| Action | Relative cost | Cadence |
+| --- | --- | --- |
+| End-of-unit `$polish` (Hand) | Low–medium | Every product unit |
+| Post-main polish advisory | Seconds (git history) | Main HEAD moves |
+| `$housekeeping` | **Very high** | Major inflection only |
+| Full factory goal | Very high | Map selection |
+
+If unsure whether a merge is “large,” **default to no housekeeping** and file a need with default “defer until campaign end” — do not spend a Hand day on ambiguous “pretty big” lands.
 
 ## Residual scan (Mind) — not peer code review
 
