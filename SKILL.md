@@ -514,3 +514,7 @@ Schema detail: [`runtime-config.md`](references/runtime-config.md).
 - `$factory` — multi-phase implementation when the Hand executes a large unit
 - `$campaign` / `$delivery` — map and delivery packages the Hand drains
 - `$executive-team` — broader role cast; fleet is the tasking bag-loop subset
+
+## First exposure (not every cycle)
+
+Onboarding for a new human or foreign LLM: **[`../docs/fleet-guide.md`](../docs/fleet-guide.md)** — patterns and vocabulary only. **Do not** load that guide on every FLEET_CYCLE; use this skill + `references/` when operating.
