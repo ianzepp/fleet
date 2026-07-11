@@ -371,10 +371,16 @@ Scheduled or manual wakes must be recognizable as ops, not operator prose:
 
 ```text
 # Single fleet
-FLEET_CYCLE project=$ROOT
+FLEET_CYCLE fleets=myfleet
+# or: FLEET_CYCLE project=$ROOT
 
-# Multi-fleet (list every fleet this Mind session supervises)
-FLEET_CYCLE fleets=mgs,faber project=/path/mgs also=/path/faber
+# Multi-fleet — slugs on first line; paths in body (not also=/also2=)
+FLEET_CYCLE fleets=mgs,faber,nacht
+
+Roots:
+  mgs:   /path/to/minted-geek-swarm
+  faber: /path/to/faberlang
+  nacht: /path/to/nachtbagger
 ```
 
 Each successful mini-cycle:

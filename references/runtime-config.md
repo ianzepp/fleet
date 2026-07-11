@@ -190,6 +190,10 @@ Recommended keys (extend freely; skill cares about meanings):
   "legacy_hand_identity": "codex",
   "fleet_id": "mgs",
   "tmux_layout": "legacy",
+  "git": {
+    "main_cwd": "/path/to/primary/git/checkout",
+    "note": "optional — workspace containers without .git at fleet root; sensors use this tip"
+  },
   "mind_inbox": "mind",
   "operator_inbox": "operator",
   "operator_inbox_note": "Human escalations only (problems/blockers/guidance). Not status. No tmux.",

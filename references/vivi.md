@@ -67,9 +67,11 @@ vivi need list --for hand-1 --project "$ROOT" --status open
 vivi need list --for operator --project "$ROOT" --status open
 vivi mail list --for operator --project "$ROOT"
 
-vivi task show <handle> --project "$ROOT"
+vivi show <handle>                    # by id only — no --project on show
 vivi mail thread <handle> --project "$ROOT"   # multi-hop lineage
 ```
+
+**`vivi show`** takes message handles only (not `--project`). Use list/`--project` to discover handles; then `vivi show <handle>`.
 
 Paid path: list/show what changed; `mail thread` when lineage matters; residual **tasks** To owning Hand. **Do not** unbounded-block on `watch` during fail-fast cycles.
 

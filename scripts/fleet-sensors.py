@@ -115,9 +115,59 @@ def list_open_handles(vivi: str, project: str, identity: str, kind: str = "task"
     return handles
 
 
-def git_tip(cwd: Path) -> Dict[str, Any]:
-    if not cwd.is_dir() or not (cwd / ".git").exists():
-        return {"cwd": str(cwd), "error": "not a git dir"}
+def git_root(cwd: Path) -> Optional[Path]:
+    """Walk parents for .git (file or dir) — workspace containers often lack root git."""
+    cur = cwd.resolve() if cwd.is_dir() else cwd.parent
+    for _ in range(12):
+        if (cur / ".git").exists():
+            return cur
+        if cur.parent == cur:
+            break
+        cur = cur.parent
+    return None
+
+
+def git_tip(cwd: Path, fleet: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    """Tip for a product checkout. Walks parents; container fleets may set git.main_cwd
+    or rely on a single-level child .git scan when project root is not a repo."""
+    candidates = []  # type: List[Path]
+    if cwd:
+        candidates.append(Path(cwd))
+    if fleet:
+        gcfg = fleet.get("git") if isinstance(fleet.get("git"), dict) else {}
+        for key in ("main_cwd", "primary"):
+            p = gcfg.get(key)
+            if p:
+                candidates.append(Path(p))
+        # one-level children of fleet project (workspace container)
+        proj = fleet.get("project")
+        if proj:
+            pp = Path(proj)
+            if pp.is_dir():
+                try:
+                    for child in sorted(pp.iterdir()):
+                        if child.is_dir() and not child.name.startswith(".") and (child / ".git").exists():
+                            candidates.append(child)
+                except OSError:
+                    pass
+    seen = set()  # type: set
+    last_err = {"cwd": str(cwd), "error": "not a git dir"}
+    for cand in candidates:
+        key = str(cand)
+        if key in seen:
+            continue
+        seen.add(key)
+        root = git_root(cand) if cand else None
+        if root is None:
+            continue
+        tip = _git_tip_at(root)
+        if tip.get("sha"):
+            return tip
+        last_err = tip
+    return last_err
+
+
+def _git_tip_at(cwd: Path) -> Dict[str, Any]:
     rc, out = run(["git", "-C", str(cwd), "log", "-1", "--format=%H %s"], timeout=10)
     if rc != 0:
         return {"cwd": str(cwd), "error": out.strip()[:200]}
@@ -308,7 +358,23 @@ def main() -> int:
             out["signals"].append(f"pane_{name}_{pclass}")
         if bag_open and pclass in ("idle_prompt", "done_idle", "unknown"):
             out["signals"].append(f"wake_candidate_{name}")
-        if bag_open == 0 and pclass in ("idle_prompt", "done_idle"):
+        # Starvation is a candidate only — suppress when fleet/baseline marks intentional pause
+        packet = h.get("packet") if isinstance(h.get("packet"), dict) else {}
+        pkt_state = str(packet.get("state") or "").lower()
+        paused_pkt = pkt_state.startswith("paused") or pkt_state in ("hold", "operational_pause")
+        op_pauses = baseline.get("operational_pauses") or []
+        hand_paused = False
+        if isinstance(op_pauses, list):
+            for p in op_pauses:
+                if isinstance(p, dict) and p.get("hand") == name:
+                    hand_paused = True
+                    break
+        if (
+            bag_open == 0
+            and pclass in ("idle_prompt", "done_idle")
+            and not paused_pkt
+            and not hand_paused
+        ):
             out["signals"].append(f"starvation_candidate_{name}")
 
         out["hands"][name] = {
@@ -328,11 +394,13 @@ def main() -> int:
             "wake_enabled": h.get("wake_enabled", True),
             "min_seconds_between_wakes": h.get("min_seconds_between_wakes", 180),
             "merges_to_main": h.get("merges_to_main", False),
+            "packet_state": packet.get("state"),
+            "operational_pause": hand_paused or paused_pkt,
         }
 
-        # git for main hand
+        # git for main hand (walk up from cwd; container fleets scan children / git.main_cwd)
         if h.get("merges_to_main") or name == fleet.get("default_hand"):
-            out["git"]["main"] = git_tip(Path(cwd))
+            out["git"]["main"] = git_tip(Path(cwd), fleet)
 
     # heads (optional pane scan)
     for key in ("head-ceo", "head-cto", "head-cxo"):

@@ -57,21 +57,27 @@ Lazy Head windows: declare Heads in fleet.json; create tmux windows on first ass
 
 **One fire = mini-cycle every fleet under supervision.**
 
+**First line = attach set (slugs).** Paths are **not** topic-line abbreviations — put them in the body.
+
 ```text
-FLEET_CYCLE fleets=mgs,faber project=/path/mgs also=/path/faber
-# or list roots only:
-FLEET_CYCLE fleets=/path/to/mgs,/path/to/faber
+FLEET_CYCLE fleets=mgs,faber,nacht
+
+Roots (slug → project path):
+  mgs:   /path/to/minted-geek-swarm
+  faber: /path/to/faberlang
+  nacht: /path/to/nachtbagger
 ```
 
 | Rule | Detail |
 | --- | --- |
-| Coverage | Every fleet on topic line gets a full fail-fast mini-cycle |
-| Durability | Each fleet writes its **own** `last_successful_cycle_at` + `steward.sh rearm --project <that root>` |
+| Coverage | Every **slug** on the first line gets a full fail-fast mini-cycle |
+| Paths | Body map, attach memory, or each fleet’s `fleet.json` → `project` — **not** `also=` / `also2=` invent-keys |
+| Durability | Each fleet writes its **own** `last_successful_cycle_at` (+ `steward.sh rearm` **only if** that fleet’s steward is armed) |
 | Isolation | Never file To fleet A while processing fleet B |
-| Topic line | **Attached set log** — attach/detach by changing the line |
+| Topic line | **Attached set log** — attach/detach by changing the slug list |
 | Report | One line/block per fleet; mode-gated richness |
 
-Single-fleet: `FLEET_CYCLE project=/path/to/one/fleet …`
+Single-fleet: `FLEET_CYCLE fleets=mgs` or `FLEET_CYCLE project=/path/to/one/fleet …`
 
 ### Mini-cycle body (per fleet)
 

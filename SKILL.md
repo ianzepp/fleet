@@ -173,12 +173,27 @@ Job fixed; **budget** follows engagement (not model id). Write every cycle:
 
 ### FLEET_CYCLE prefix (required)
 
+**First line** = attach log only (what fleets this fire covers). **Do not** invent path keys on the topic line (`also=`, `also2=`, …).
+
 ```text
-FLEET_CYCLE project=/path/to/fleet …
-FLEET_CYCLE fleets=mgs,faber project=/path/mgs also=/path/faber …
+# Single fleet — either slug or one project= is enough
+FLEET_CYCLE fleets=mgs
+FLEET_CYCLE project=/path/to/one/fleet
+
+# Multi-fleet — slugs only on the first line
+FLEET_CYCLE fleets=mgs,faber,nacht
 ```
 
-Loop lives in the operator TUI — no fake Mind pane. Multi-fleet: mini-cycle **each** named fleet; baseline bump per fleet. **`steward.sh rearm` only if that fleet’s steward is enabled and armed** (opt-in).  
+**Paths** live **below** the first line (loop body / durable prompt), as a plain slug→root map Mind already knows from attach:
+
+```text
+Roots:
+  mgs:   /path/to/minted-geek-swarm
+  faber: /path/to/faberlang
+  nacht: /path/to/nachtbagger
+```
+
+Resolve each slug via that map (or `fleet.json` `project` when already open). Loop lives in the operator TUI — no fake Mind pane. Multi-fleet: mini-cycle **each** named fleet; baseline bump per fleet. **`steward.sh rearm` only if that fleet’s steward is enabled and armed** (opt-in).  
 **Bug:** `FLEET_CYCLE`-only payload ≠ silence — count human chat **between** fires.
 
 ```text
@@ -226,7 +241,7 @@ Vivi = work. tmux = process. Address = **`tmux_target`**.
 | Pane class | Action |
 | --- | --- |
 | `running` | No wake |
-| `idle_prompt` / `done_idle` + open | Pointer doorbell (Codex uses submit-settle delay) |
+| `idle_prompt` / `done_idle` + open | Pointer doorbell (Codex submit-settle). First wake per Hand never rate-limits |
 | `idle_prompt` / `done_idle` + open + Codex stuck after doorbell | Reinit fallback |
 | empty + map next | Starve-file then wake |
 | `error_*` / `down` | Ops / recreate |

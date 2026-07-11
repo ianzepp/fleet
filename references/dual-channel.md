@@ -139,7 +139,7 @@ Grok: placeholder (“Build anything”) while idle ≠ in-flight. Prefer `Waiti
 
 Codex: `•` monologue then `›` is often an **answer that stopped**. Back-to-back `HAND WAKE` lines without submit-settle are the failure mode.
 
-Rate-limit wakes (`min_seconds_between_wakes`). Never `send-keys` into `running` unless operator allows cancel+replace. Prefer project **classify script** over ad-hoc greps (avoids false `error_connection` from tool text like `timeout 1800 ./script`).
+Rate-limit wakes (`min_seconds_between_wakes`) **only when that Hand already has a prior doorbell** (`last_hand_wake.by_hand.<name>.count ≥ 1`). **No last wake / count 0 → never rate-limit** (cold attach, first wake after recreate). Never `send-keys` into `running` unless operator allows cancel+replace. Prefer project **classify script** over ad-hoc greps (avoids false `error_connection` from tool text like `timeout 1800 ./script`).
 
 | Situation | Action |
 | --- | --- |

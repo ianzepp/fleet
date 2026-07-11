@@ -12,15 +12,25 @@ Every durable scheduler / loop injection **must** start with `FLEET_CYCLE`:
 
 ```text
 # Single fleet
-FLEET_CYCLE cycle=<N> project=<root>
+FLEET_CYCLE fleets=mgs
+# or: FLEET_CYCLE project=<root>
 
-# Multi-fleet — name every supervised fleet (attach log in chat history)
-FLEET_CYCLE fleets=mgs,faber project=<root_mgs> also=<root_faber>
+# Multi-fleet — slugs only on the first line (attach log)
+FLEET_CYCLE fleets=mgs,faber,nacht
+```
+
+**Paths belong in the body**, not invented topic-line keys:
+
+```text
+Roots:
+  mgs:   /path/to/minted-geek-swarm
+  faber: /path/to/faberlang
+  nacht: /path/to/nachtbagger
 ```
 
 First line `FLEET_CYCLE` ⇒ **not** operator message. Fix overlays that omit this.
 
-**Multi-fleet:** one fire = fail-fast **mini-cycle per fleet**; each fleet writes own `last_successful_cycle_at` + `steward.sh rearm --project <that root>`. [`multi-fleet.md`](multi-fleet.md).
+**Multi-fleet:** one fire = fail-fast **mini-cycle per fleet**; each fleet writes own `last_successful_cycle_at` (+ steward rearm only if armed). [`multi-fleet.md`](multi-fleet.md).
 
 ### Counters (write every cycle)
 

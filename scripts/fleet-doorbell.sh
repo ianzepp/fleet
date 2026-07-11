@@ -9,6 +9,9 @@
 # Portable: macOS + Linux. Override with TMUX_BIN / PYTHON_BIN /
 # FLEET_DOORBELL_SUBMIT_DELAY_SEC.
 #
+# Rate limit (min_seconds_between_wakes): only if this Hand has prior wake
+# count >= 1 in baseline last_hand_wake.by_hand.<name>. First wake never limited.
+#
 # Exit: 0 sent · 1 refused (running / rate-limit / missing) · 2 usage/config error
 set -euo pipefail
 
@@ -146,9 +149,22 @@ else:
     sys.stderr.write("error\tunknown slot\n")
     sys.exit(2)
 
-last_at = b.get("last_hand_wake_at") or b.get("last_hunter_wake_at") or ""
-last_wake = b.get("last_hand_wake") if isinstance(b.get("last_hand_wake"), dict) else {}
+# Per-hand last wake preferred; global stamp is fallback only when it matches this hand.
+by = ((b.get("last_hand_wake") or {}).get("by_hand") or {})
+per = by.get(name) if name else None
+if isinstance(per, dict) and per.get("at"):
+    last_at = per.get("at") or ""
+    wake_count = int(per.get("count") or 0)
+else:
+    last_at = ""
+    wake_count = 0
+    # legacy global: only if last target was this hand
+    gl = b.get("last_hand_wake") or {}
+    if (gl.get("target") == name or b.get("last_hand_wake_target") == name):
+        last_at = b.get("last_hand_wake_at") or b.get("last_hunter_wake_at") or gl.get("at") or ""
+        wake_count = 1 if last_at else 0
 # TSV — tabs only; values must not contain tabs
+# last field: per-hand wake count (0 = never woken this tracking era → no rate limit)
 fields = [
     target,
     session,
@@ -157,7 +173,8 @@ fields = [
     str(int(wake_enabled)),
     mail or "",
     last_at or "",
-    (last_wake.get("target") or ""),
+    name or "",
+    str(int(wake_count)),
 ]
 sys.stdout.write("\t".join(fields) + "\n")
 PY
@@ -206,7 +223,7 @@ elif [[ -n "$NAME" ]]; then
   # Avoid pipeline so resolve failures trip set -e.
   _resolve_out="$(resolve)" || exit $?
   # shellcheck disable=SC2034
-  IFS="$(printf '\t')" read -r RESOLVED_TARGET SESSION AGENT MIN_GAP WAKE_EN MAIL LAST_AT LAST_TARGET <<EOF
+  IFS="$(printf '\t')" read -r RESOLVED_TARGET SESSION AGENT MIN_GAP WAKE_EN MAIL LAST_AT LAST_TARGET WAKE_COUNT <<EOF
 $_resolve_out
 EOF
 else
@@ -228,8 +245,9 @@ if [[ "$CLASS" == "down" ]]; then
   exit 1
 fi
 
-# rate limit — parse ISO via python (handles Z on all 3.9+)
-if [[ "$FORCE" -ne 1 && -n "${LAST_AT:-}" && "${MIN_GAP:-0}" -gt 0 ]]; then
+# Rate limit only when this Hand has a prior successful doorbell (count>=1 + last_at).
+# No last wake / count 0 → never refuse (cold attach, first wake after recreate).
+if [[ "$FORCE" -ne 1 && "${WAKE_COUNT:-0}" -ge 1 && -n "${LAST_AT:-}" && "${MIN_GAP:-0}" -gt 0 ]]; then
   NOW_EPOCH="$(fleet_date_epoch)"
   LAST_EPOCH="$("$PYTHON_BIN" -c '
 import sys
@@ -249,8 +267,8 @@ except Exception:
 ' "${LAST_AT}")"
   if [[ "$LAST_EPOCH" -gt 0 ]]; then
     DELTA=$((NOW_EPOCH - LAST_EPOCH))
-    if [[ "$DELTA" -lt "$MIN_GAP" && "${LAST_TARGET:-}" == "$NAME" ]]; then
-      echo "refused: rate limit ${DELTA}s < ${MIN_GAP}s since last wake of $NAME" >&2
+    if [[ "$DELTA" -lt "$MIN_GAP" ]]; then
+      echo "refused: rate limit ${DELTA}s < ${MIN_GAP}s since last wake of $NAME (count=${WAKE_COUNT})" >&2
       exit 1
     fi
   fi
@@ -297,12 +315,19 @@ if p.is_file():
 now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 b["project"] = b.get("project") or project
 b["last_hand_wake_at"] = now
+prev = b.get("last_hand_wake") if isinstance(b.get("last_hand_wake"), dict) else {}
+by = prev.get("by_hand") if isinstance(prev.get("by_hand"), dict) else {}
+key = name or target
+old = by.get(key) if isinstance(by.get(key), dict) else {}
+count = int(old.get("count") or 0) + 1
+by[key] = {"at": now, "count": count, "handle": handle or None, "tmux_target": target}
 b["last_hand_wake"] = {
-    "target": name or target,
+    "target": key,
     "handle": handle or None,
     "tmux_target": target,
     "at": now,
     "reason": "doorbell",
+    "by_hand": by,
 }
 p.parent.mkdir(parents=True, exist_ok=True)
 text = json.dumps(b, indent=2, ensure_ascii=False) + "\n"

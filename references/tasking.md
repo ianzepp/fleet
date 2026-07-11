@@ -94,6 +94,7 @@ Empty hand-2 + no candidates and no map side track → operational pause (record
 | Situation | Meaning | Mind action |
 | --- | --- | --- |
 | **Any hand-N** idle + empty + map has **unblocked** next unit | **Starvation** | File next target **same cycle** + wake/reinit |
+| **hand-N** idle + empty + packet `paused*` / baseline `operational_pauses` | **Operational pause** | Do **not** treat `starvation_candidate_*` alone as act — refill only when unpausing |
 | **hand-1** idle + empty + `pending_merges` or spine residuals | Starvation | Merge task and/or next spine targets |
 | **hand-2+** just finished a **unit** (not theme) | Not success-idle | Absorb/review; **refill** next packet unit |
 | **hand-2+** after **theme** RTM, empty, waiting merge | **Operational pause** | Review → accept → merge to h1; optional light pivot if map has unrelated work |
