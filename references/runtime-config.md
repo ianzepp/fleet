@@ -10,9 +10,9 @@ Camp-agnostic Codex doctor/heal/reinit (ported from faberlang production helper)
 # from camp root, or set PROJECT + FLEET
 PROJECT=/path/to/camp FLEET=/path/to/fleet.json \
   path/to/skills/fleet/scripts/codex-reinit.sh doctor
-path/to/skills/fleet/scripts/codex-reinit.sh heal hunter-3
-path/to/skills/fleet/scripts/codex-reinit.sh reinit hunter-1 --boot 'HAND WAKE …'
-path/to/skills/fleet/scripts/codex-reinit.sh classify hunter-2
+path/to/skills/fleet/scripts/codex-reinit.sh heal hand-3
+path/to/skills/fleet/scripts/codex-reinit.sh reinit hand-1 --boot 'HAND WAKE …'
+path/to/skills/fleet/scripts/codex-reinit.sh classify hand-2
 ```
 
 - Defaults: `PROJECT` from cwd or parent of `FLEET`; `FLEET` = `$PROJECT/.vivi/fleet.json` or `hunter-fleet.json`
@@ -22,7 +22,7 @@ path/to/skills/fleet/scripts/codex-reinit.sh classify hunter-2
 
 ## Runtime fallback (capacity / unavailability)
 
-**Invariant:** assignment (H-number, side lane, merge rights) does **not** change when a model is full. Only **runtime** rebinds (`agent_model`, `agent_launch`, and only carefully `agent` / `wake_mode`). Source of truth: fleet `runtime_fallback` + per-hunter fields + **Harness alignment**.
+**Invariant:** assignment (hand-N, side lane, merge rights) does **not** change when a model is full. Only **runtime** rebinds (`agent_model`, `agent_launch`, and only carefully `agent` / `wake_mode`). Source of truth: fleet `runtime_fallback` + per-hand fields + **Harness alignment**.
 
 ### Failure classes
 
@@ -49,7 +49,7 @@ head_pi_model:            [ glm-5.2@high, glm-5.2@xhigh, … ]
 1. Confirm not mid-successful `running` with real progress → wait
 2. Advance that Hand’s `agent_model` one step **on the same harness**; rewrite `agent_launch`
 3. **Reinit** (Codex) or doorbell after restart (Grok) with short bootstrap — not stacked wakes
-4. Baseline `last_runtime_fallback` {hunter, from, to, reason, cycle, at}
+4. Baseline `last_runtime_fallback` {hand, from, to, reason, cycle, at}
 5. **At most one model step per Hand per cycle** — do not spin the whole ladder
 6. Ladder exhausted → park Hand or escalate; **do not** silently move the Hand to a different harness while Mind stays on the original (exception requires operator note + plan to re-align)
 
@@ -97,7 +97,7 @@ If the Mind session dies (hard quota / dead harness), it cannot self-heal inside
 
 **Scheduler honesty:** a durable interval task only helps if **some** session is alive to execute it. Dead Mind → operator must reattach or run manually.
 
-Always write fallbacks into baseline and fleet per-hunter runtime fields.
+Always write fallbacks into baseline and fleet per-hand runtime fields.
 
 ## Codex reinit production contract
 
@@ -125,11 +125,11 @@ Camps often ship a reinit helper (path is camp-local). Suggested commands:
 
 | Command | Role |
 | --- | --- |
-| `doctor` / `doctor hunter-N` | Bag-aware health; no kill |
-| `heal` / `heal hunter-N` | Auto-reinit slots that need it (idle/done/error + open tasking) |
-| `snapshot` / `snapshot hunter-N` | Forensic dump (pane, board, fleet) |
+| `doctor` / `doctor hand-N` | Bag-aware health; no kill |
+| `heal` / `heal hand-N` | Auto-reinit slots that need it (idle/done/error + open tasking) |
+| `snapshot` / `snapshot hand-N` | Forensic dump (pane, board, fleet) |
 | `classify` / `status` | Pane class / status |
-| `reinit hunter-N --boot '…'` | One hunter; refuse if running unless FORCE |
+| `reinit hand-N --boot '…'` | One Hand; refuse if running unless FORCE |
 | `reinit-all --boot-template '…{name}…'` | Sparingly; budget still applies |
 
 Suggested exit codes (reinit): `0` ok · `1` hard fail · `2` **stuck_idle** (ready but never Working) · `3` bad args.  
@@ -151,9 +151,9 @@ Recommended keys (extend freely; skill cares about meanings):
 ```json
 {
   "version": 1,
-  "default_hunter": "hunter-1",
-  "legacy_hunter_identity": "codex",
-  "mind_inbox": null,
+  "default_hand": "hand-1",
+  "legacy_hand_identity": "codex",
+  "mind_inbox": "mind",
   "binding_rule": "mail_identity == tmux_session token (Hands/Heads only; Mind is operator TUI)",
   "mind": {
     "agent": "grok",
@@ -186,12 +186,12 @@ Recommended keys (extend freely; skill cares about meanings):
     "hand_harness_follows_mind": true,
     "heads_prefer_pi": true
   },
-  "hunters": {
-    "hunter-1": {
-      "mail_identity": "hunter-1",
+  "hands": {
+    "hand-1": {
+      "mail_identity": "hand-1",
       "host": "local",
-      "tmux_session": "hunter-1",
-      "tmux_target": "hunter-1:1.1",
+      "tmux_session": "hand-1",
+      "tmux_target": "hand-1:1.1",
       "cwd": "/path/to/main",
       "agent": "grok",
       "agent_model": "grok-4.5",
@@ -203,8 +203,8 @@ Recommended keys (extend freely; skill cares about meanings):
       "wake_mode": "tmux_send_keys",
       "min_seconds_between_wakes": 180
     },
-    "hunter-2": {
-      "mail_identity": "hunter-2",
+    "hand-2": {
+      "mail_identity": "hand-2",
       "host": "remote.example",
       "ssh": "ssh -o BatchMode=yes remote.example",
       "cwd": "/path/on/remote/side-lane",
@@ -215,8 +215,8 @@ Recommended keys (extend freely; skill cares about meanings):
       "packet": { "slug": "…", "branch": "…", "state": "assigned" }
     }
   },
-  "strategist": {
-    "mail_identity": "strategist",
+  "head-strategist": {
+    "mail_identity": "head-strategist",
     "agent": "pi",
     "agent_model": "glm-5.2",
     "thinking": "high",
@@ -224,15 +224,15 @@ Recommended keys (extend freely; skill cares about meanings):
     "clean_slate_per_assignment": true,
     "role_prompt": "<camp-path>/strategist-role-prompt.txt"
   },
-  "correctness": {
-    "mail_identity": "correctness",
+  "head-correctness": {
+    "mail_identity": "head-correctness",
     "agent": "pi",
     "agent_model": "glm-5.2",
     "thinking": "high",
     "self_directed": true
   },
-  "purity": {
-    "mail_identity": "purity",
+  "head-purity": {
+    "mail_identity": "head-purity",
     "agent": "pi",
     "agent_model": "glm-5.2",
     "thinking": "high",
@@ -265,8 +265,8 @@ active_packets{} or active_lanes{}   # slug → head, branch, worker
 last_thorough_cycle, last_thorough_fingerprint
 hunter_fleet mirror / pane_classes
 last_hunter_wake_*, last_codex_reinit_*, last_runtime_fallback
-strategist.{awaiting_report, last_assign_handle, last_reinit_at}
-correctness.last_report_*, purity.last_report_*
+head-strategist.{awaiting_report, last_assign_handle, last_reinit_at}
+head-correctness.last_report_*, head-purity.last_report_*
 mind_loop.{state, handoff, mechanism, …}   # armed | running | stopping | wound_up; mechanism e.g. grok_/loop
 half_dead[] optional                # path, class A/B/C, age_cycles, note
 ```

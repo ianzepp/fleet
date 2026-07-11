@@ -6,28 +6,28 @@ Load when arming a fleet, rebinding runtimes, or clarifying Mind/Hand/Head dutie
 
 | Role | Typical identity | Job | Output |
 | --- | --- | --- | --- |
-| **Hand** | `hunter-1`…`hunter-N` (legacy: `codex`) | Take a **selected target** and finish it | Done tasks/needs + evidence; optional turn-end mail |
-| **Mind** | *(no default callsign)* — **operator session** | Survey product; fill tasking; integrate; fleet ops | Open tasks/needs; pane scan; wake/reinit; merge queue |
-| **Strategist** (Head) | `strategist` | Ownership, sequencing, seams, gate honesty — not bag drain | Mail `strategist report:` To Mind |
-| **Correctness** (Head) | `correctness` | **Code review / bug hunt on main after merge** (not packet-worktree thrash) | Mail `correctness:` To Mind |
-| **Purity** (Head) | `purity` | Self-directed unearned-complexity / excess-layer audit | Mail `purity:` To Mind |
+| **Hand** | `hand-1`…`hand-N` (legacy: `hunter-N`, `codex`) | Take a **selected target** and finish it | Done tasks/needs + evidence; optional turn-end mail To `mind` |
+| **Mind** | Board **`mind@…` only** — **no tmux**; process = operator TUI | Survey product; fill tasking; integrate; fleet ops | Open tasks/needs; pane scan; wake/reinit; merge queue |
+| **Strategist** (Head) | `head-strategist` | Ownership, sequencing, seams, gate honesty — not bag drain | Mail `head-strategist report:` To `mind` |
+| **Correctness** (Head) | `head-correctness` | **Code review / bug hunt on main after merge** | Mail `head-correctness:` To `mind` |
+| **Purity** (Head) | `head-purity` | Self-directed unearned-complexity / excess-layer audit | Mail `head-purity:` To `mind` |
 
-One Mind owns the tasking bag and integration clock. Heads never merge, never keep product tasking “full,” and never stamp GO/NO-GO. They report To: Mind; Mind triages into hunter-N tasks/needs.
+One Mind owns the tasking bag and integration clock. Heads never merge, never keep product tasking “full,” and never stamp GO/NO-GO. They report To: **mind** (board); Mind triages into hand-N tasks/needs.
 
-Prefer numbered hands (`hunter-N`) over a single shared `codex`. Prefer heterogeneous Head runtimes for second-party opinion; keep Hand harness aligned with Mind.
+Prefer numbered hands (`hand-N`) over a single shared `codex`. Prefer heterogeneous Head runtimes for second-party opinion; keep Hand harness aligned with Mind.
 
 ## Fleet axes (identity ≠ assignment ≠ runtime)
 
 ```text
-hunter-N  =  identity (mail + tmux)
+hand-N  =  identity (mail + tmux)
               ├── assignment   focus / packet / cwd / merge rights
               └── runtime      harness + model + wake/reinit policy
 ```
 
 | Axis | Meaning | Sticky? |
 | --- | --- | --- |
-| **Identity** | Who owns bag + pane (`hunter-N`) | Session name while the slot exists |
-| **Assignment** | What work that slot is on | Usually only hunter-1 main + merge rights. hunter-2+ assignments are transient |
+| **Identity** | Who owns bag + pane (`hand-N`) | Session name while the slot exists |
+| **Assignment** | What work that slot is on | Usually only hand-1 main + merge rights. hand-2+ assignments are transient |
 | **Runtime** | Harness + model + wake/reinit | Hand harness follows Mind. Model within harness may rebind. Heads may differ freely |
 
 Product law talks in H-numbers + current assignment. Ops read runtime from fleet (`agent`, `agent_launch`) and apply wake/reinit by harness, not H-number. Live bindings belong in **project fleet config** (camp-local path — not a skill-mandated filename). Do not hardcode model strings into role tables as Hand identity.
@@ -132,8 +132,8 @@ Heads need not match Mind’s product harness. Prefer Pi even when Mind is Grok 
 - **After a product unit lands:** run **`$polish`** on **changed source files from this unit only** — see main skill **End-of-unit polish**
 - Exit when tasking empty for focus **and** map has no next package (or operator pause) — not when a Mind stamp is missing
 - Clean turn end: mark done; send turn-end / **ready-to-merge** mail when useful
-- **hunter-2+ after unit:** clean commit + tasking done + turn-end; do not invent main work or merge to main. Expect Mind to refill next map unit same cycle when the campaign still has work
-- **hunter-2+ after theme ready-to-merge:** wait only for **integration** (Mind review → merge via hunter-1)
+- **hand-2+ after unit:** clean commit + tasking done + turn-end; do not invent main work or merge to main. Expect Mind to refill next map unit same cycle when the campaign still has work
+- **hand-2+ after theme ready-to-merge:** wait only for **integration** (Mind review → merge via hand-1)
 - **Don't get stuck:** classify dirt A/B/C; file needs same turn; **pivot** when one item blocks
 
 ## Mind does
@@ -166,7 +166,7 @@ Heads need not match Mind’s product harness. Prefer Pi even when Mind is Grok 
 ## Correctness does (Head)
 
 - Prefer **main checkout** as the review surface after themes/units land on main
-- Self-directed bug / fail-closed / invariant audit; report `correctness:` To Mind
+- Self-directed bug / fail-closed / invariant audit; report `head-correctness:` To Mind
 - File or recommend **tasks** for implementable defects (Mind triages to owning Hand)
 - Do **not** try to juggle every packet worktree as the primary continuous review surface
 - Do **not** act as merge GO/NO-GO; build-fast means some bugs reach main and get fixed there

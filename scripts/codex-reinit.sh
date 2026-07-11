@@ -1,5 +1,5 @@
 #!/bin/bash
-# Generic Codex reinit for fleet hunter-N (camp-agnostic).
+# Generic Codex reinit for fleet hand-N (camp-agnostic).
 # Set PROJECT and FLEET (or run from a camp with fleet JSON).
 #
 # Invariants:
@@ -11,18 +11,18 @@
 #   - after bootstrap, require Working (or exit STUCK_IDLE)
 #
 # Usage:
-#   .vivi/codex-reinit.sh status   hunter-1
-#   .vivi/codex-reinit.sh classify hunter-1
+#   .vivi/codex-reinit.sh status   hand-1
+#   .vivi/codex-reinit.sh classify hand-1
 #   .vivi/codex-reinit.sh doctor            # fleet health + bag join (no kill)
-#   .vivi/codex-reinit.sh doctor   hunter-2 # one slot, verbose evidence
-#   .vivi/codex-reinit.sh probe    hunter-1 # same as doctor one-slot
+#   .vivi/codex-reinit.sh doctor   hand-2 # one slot, verbose evidence
+#   .vivi/codex-reinit.sh probe    hand-1 # same as doctor one-slot
 #   .vivi/codex-reinit.sh snapshot [hunter] # forensic dump under /tmp/codex-debug-*
 #   .vivi/codex-reinit.sh heal              # reinit idle/error + open bag (leave running)
-#   .vivi/codex-reinit.sh heal     hunter-3 # one slot only
-#   .vivi/codex-reinit.sh reinit   hunter-1 --boot 'short pointer…'
-#   .vivi/codex-reinit.sh reinit   hunter-2 --boot-file /tmp/boot.txt
-#   .vivi/codex-reinit.sh reinit   hunter-3 --no-boot
-#   .vivi/codex-reinit.sh reinit-all --boot-template 'hunter={name}. vivi --for {name}. Implement open bag now.'
+#   .vivi/codex-reinit.sh heal     hand-3 # one slot only
+#   .vivi/codex-reinit.sh reinit   hand-1 --boot 'short pointer…'
+#   .vivi/codex-reinit.sh reinit   hand-2 --boot-file /tmp/boot.txt
+#   .vivi/codex-reinit.sh reinit   hand-3 --no-boot
+#   .vivi/codex-reinit.sh reinit-all --boot-template 'HAND WAKE {name}. vivi --for {name}. Implement open bag now.'
 #
 # Env overrides: PROJECT, CODEX_BIN, TMUX_BIN, VIVI_BIN, MODEL, LOG, FORCE=1
 # Exit: 0 ok · 1 hard fail · 2 stuck-idle (ready but never Working) · 3 bad args
@@ -136,7 +136,7 @@ bag_first_handle() {
   BAG_BOARD_TEXT="$out" "$PYTHON_BIN" - <<'PY'
 import os, re
 text = os.environ.get("BAG_BOARD_TEXT", "")
-# lines like: "  ea00ac1  2026-07-11T...  hunter-1@...  P2 task: ..."
+# lines like: "  ea00ac1  2026-07-11T...  hand-1@...  P2 task: ..."
 for line in text.splitlines():
     m = re.match(r"\s+([0-9a-f]{7,})\s+", line)
     if m:
@@ -167,7 +167,7 @@ fleet_resolve() {
 import json, sys
 fleet_path, name = sys.argv[1], sys.argv[2]
 f = json.loads(open(fleet_path).read())
-h = (f.get("hunters") or {}).get(name)
+h = (f.get("hands") or {}).get(name)
 if not h and name == "lab-codex":
     h = (f.get("lab") or {}).get("lab-codex")
 if not h:
@@ -580,7 +580,7 @@ cmd_reinit_all() {
   names=$("$PYTHON_BIN" - "$FLEET" <<'PY'
 import json, sys
 f = json.loads(open(sys.argv[1]).read())
-for name, h in sorted((f.get("hunters") or {}).items()):
+for name, h in sorted((f.get("hands") or {}).items()):
     if (h.get("agent") or "") == "codex":
         print(name)
 PY
@@ -605,7 +605,7 @@ codex_hunter_names() {
   "$PYTHON_BIN" - "$FLEET" <<'PY'
 import json, sys
 f = json.loads(open(sys.argv[1]).read())
-for name, h in sorted((f.get("hunters") or {}).items()):
+for name, h in sorted((f.get("hands") or {}).items()):
     if (h.get("agent") or "") == "codex":
         print(name)
 PY

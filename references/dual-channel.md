@@ -39,8 +39,8 @@ vivi mail watch | vivi task watch | vivi need watch | vivi want watch
 | `--for <identity>` (Hand/Head, or optional camp `mind_inbox`) | Whose local events wake the watcher |
 | `--kinds mail,task,need` | Default; `want` opt-in via `--kinds` |
 | `--events delivered,moved` | Default lifecycle |
-| `--match-from hunter-2` | Only that Hand’s deliveries |
-| `--match-subject-prefix …` | e.g. ready-to-merge / `strategist report:` |
+| `--match-from hand-2` | Only that Hand’s deliveries |
+| `--match-subject-prefix …` | e.g. ready-to-merge / `head-strategist report:` |
 | `--handle <h>` | Wait for one item |
 | `--once` | Non-blocking scan — **prefer on fail-fast cycles** |
 | `--until-count N` | Exit after N matches (default 1) |
@@ -63,9 +63,9 @@ vivi mailspace watch --for mind --project "$ROOT" \
   --json
 # Only if camp defined a board-only `mind` identity — Mind itself is still the operator TUI
 
-# Example: bounded wait for hunter-2 RTM (match-from; To: mind_inbox if used)
+# Example: bounded wait for hand-2 RTM (match-from; To: mind_inbox if used)
 vivi mail watch --for mind --project "$ROOT" \
-  --match-from hunter-2 \
+  --match-from hand-2 \
   --match-subject-prefix "ready-to-merge" \
   --timeout 60s --until-count 1
 ```
@@ -92,18 +92,20 @@ Reply lineage: `vivi mail reply <handle>`; sends support `--reply-to`; lifecycle
 
 | Mail | tmux session | Typical pane target |
 | --- | --- | --- |
-| `hunter-1@…` | `hunter-1` | `hunter-1` or `hunter-1:1.1` (respect window base-index) |
-| `hunter-2@…` | `hunter-2` | `hunter-2` |
+| `mind@…` | **none** | Operator TUI only |
+| `hand-1@…` | `hand-1` | `hand-1` or `hand-1:1.1` (respect window base-index) |
+| `hand-2@…` | `hand-2` | `hand-2` |
+| `head-correctness@…` | `head-correctness` | `head-correctness:1.1` |
 
 Put the map in **project fleet config** (camp-local path). Example shape:
 
 ```json
 {
   "version": 1,
-  "default_hunter": "hunter-1",
-  "legacy_hunter_identity": "codex",
-  "mind_inbox": null,
-  "mind_inbox_note": "Optional board-only identity for To: Mind mail. Mind process = operator TUI, not this field. Never use retired callsign reviewer.",
+  "default_hand": "hand-1",
+  "legacy_hand_identity": "codex",
+  "mind_inbox": "mind",
+  "mind_inbox_note": "Board-only To: mind. Process = operator TUI. No tmux for mind.",
   "mind": { "agent": "grok", "note": "Product harness for Hands; Mind is operator session" },
   "agent_policy": {
     "hands_follow_mind_harness": true,
@@ -118,11 +120,11 @@ Put the map in **project fleet config** (camp-local path). Example shape:
     },
     "head": { "agent": "pi", "model": "glm-5.2", "thinking": "high|xhigh" }
   },
-  "hunters": {
-    "hunter-1": {
-      "mail_identity": "hunter-1",
-      "tmux_session": "hunter-1",
-      "tmux_target": "hunter-1:1.1",
+  "hands": {
+    "hand-1": {
+      "mail_identity": "hand-1",
+      "tmux_session": "hand-1",
+      "tmux_target": "hand-1:1.1",
       "cwd": "/path/to/project",
       "agent": "grok",
       "merges_to_main": true,
@@ -131,21 +133,28 @@ Put the map in **project fleet config** (camp-local path). Example shape:
       "min_seconds_between_wakes": 180
     }
   },
-  "strategist": { "mail_identity": "strategist", "agent": "pi" },
-  "correctness": { "mail_identity": "correctness", "agent": "pi", "self_directed": true },
-  "purity": { "mail_identity": "purity", "agent": "pi", "self_directed": true },
-  "binding_rule": "mail_identity == tmux_session token"
+  "head-strategist": { "mail_identity": "head-strategist", "tmux_session": "head-strategist", "agent": "pi" },
+  "head-correctness": { "mail_identity": "head-correctness", "tmux_session": "head-correctness", "agent": "pi", "self_directed": true },
+  "head-purity": { "mail_identity": "head-purity", "tmux_session": "head-purity", "agent": "pi", "self_directed": true },
+  "binding_rule": "mail_identity == tmux_session token (Hands/Heads only; mind has no tmux)"
 }
 ```
 
 Camp-specific durable law may live in a Mind/scheduler overlay or project `Agents.md` — treat as an **overlay** on this skill.
 
-Arm: `vivi mailspace identity add hunter-1 --project <root>` and  
-`tmux new-session -d -s hunter-1 -c <cwd>` (then start the agent).
+Arm:
+
+```bash
+vivi mailspace identity add mind --project <root>          # board only
+vivi mailspace identity add hand-1 --project <root>
+vivi mailspace identity add head-correctness --project <root>
+tmux new-session -d -s hand-1 -c <cwd>                     # Hands/Heads only
+# no tmux for mind
+```
 
 ## Pane scan (Mind, every cycle — keep cheap)
 
-For each fleet hunter:
+For each fleet Hand and Head (not mind):
 
 ```text
 1. tmux has-session -t <tmux_session>   → down | up
@@ -207,9 +216,9 @@ Under **Harness alignment**, product Hands share Mind’s harness, so the fleet 
 **How:**
 
 1. File next task/need **before** launch so a handle exists
-2. Kill **Codex children of pane_pid only** — leave tmux + shell. If session gone: `tmux new-session -d -s hunter-N -c <packet-cwd>`
+2. Kill **Codex children of pane_pid only** — leave tmux + shell. If session gone: `tmux new-session -d -s hand-N -c <packet-cwd>`
 3. Launch without `exec` using that Hand’s fleet **`agent_launch`**
-4. One short first message: identity, never merge main (if packet), `vivi --for hunter-N`, open handle(s), one verb, optional one-line unblock fact
+4. One short first message: identity, never merge main (if packet), `vivi --for hand-N`, open handle(s), one verb, optional one-line unblock fact
 5. Enter once. Record `last_codex_reinit_at` in baseline
 
 ### Goal bootstrap support
@@ -248,11 +257,11 @@ For Codex, use **reinit** instead of stacking this doorbell after a unit. Pi loc
 Good:
 
 ```text
-HAND WAKE hunter-1. Bag: show <handle>. vivi --project <root> --for hunter-1. Continue.
+HAND WAKE hand-1. Bag: show <handle>. vivi --project <root> --for hand-1. Continue.
 ```
 
 ```text
-HAND WAKE hunter-2. Read inbox/mail <handle> then bag. Identity hunter-2. Continue.
+HAND WAKE hand-2. Read inbox/mail <handle> then bag. Identity hand-2. Continue.
 ```
 
 Bad: full multi-agent policy, stage graphs, long defaults lists, quoting forbidden git verbs as “don’t do X.”
@@ -265,7 +274,7 @@ Ops interventions (model/retry) stay one-liners; detail goes to Vivi if needed. 
 
 ### Prefer rehome when
 
-- hunter-2+ reassigned to a new packet
+- hand-2+ reassigned to a new packet
 - packet shell prepared but session still has main-checkout cwd
 - operator wants clean baseline in the packet (fresh Grok, no resume)
 - session `down` / process dead
@@ -279,8 +288,8 @@ Prefer **theme-switch `/compact`** (Grok) when cwd and identity are already corr
 2. Exit Grok cleanly: send /quit  (alias /exit)  — own turn, then Enter
 3. Wait until pane_current_command is a shell (zsh/bash), not grok
 4. Confirm or create session with correct -c:
-     tmux new-session -d -s hunter-N -c <packet-or-main-cwd> -n main
-   Respect window/pane base-index (often 1 → target hunter-N:1.1)
+     tmux new-session -d -s hand-N -c <packet-or-main-cwd> -n main
+   Respect window/pane base-index (often 1 → target hand-N:1.1)
 5. From shell already in the right cwd, start Grok
 6. Verify: pane path == fleet cwd; command is grok; then short bootstrap doorbell
 ```
@@ -304,15 +313,15 @@ Bootstrap after restart is still **pointer-only**. Full assignment stays in Vivi
 | `tmux send-keys -t … -l -- '…'` for literal text | Rely on unescaped `*` in unquoted shell args |
 | Single-quote each `--deny 'Bash(…*)'` for zsh | Paste deny lists without quotes into interactive zsh |
 | Prefer plain `grok …` / `codex …` | `exec grok` / **`exec codex`** — can leave pane unusable or destroy session |
-| Recreate with `tmux new-session -d -s hunter-N -c <cwd>` if session died | Assume old session still exists after bad restart |
+| Recreate with `tmux new-session -d -s hand-N -c <cwd>` if session died | Assume old session still exists after bad restart |
 | Match fleet `tmux_target` to real base-index (`1.1` vs `0.0`) | Hardcode wrong indices after recreate |
 | Fresh Grok (no `--resume`) when rehoming to new packet baseline | Blindly resume main-checkout session into packet cwd |
 | `--resume <id>` only when continuing same workspace/theme intentionally | Resume across packet reassignment without operator intent |
 | After start: check `#{pane_current_path}` and short capture | Trust fleet JSON alone without verifying live pane |
 
 ```bash
-tmux has-session -t hunter-N || \
-  tmux new-session -d -s hunter-N -c '<fleet cwd>' -n main
+tmux has-session -t hand-N || \
+  tmux new-session -d -s hand-N -c '<fleet cwd>' -n main
 ```
 
 Record restarts in baseline when useful. Product state still lives in Vivi; process rehome is not a bag event unless you also file/clear targets.
@@ -328,7 +337,7 @@ Sequence (Grok):
 1. File the next task/need first so its handle exists
 2. Require `idle_prompt`, then send `/compact` alone and wait for idle again
 3. Keep identity, `vivi --for`, main/packet role, and campaign in the compact instruction; drop finished implementation detail
-4. Send: `HAND WAKE hunter-N. Compact done. Show <handle>. Continue.`
+4. Send: `HAND WAKE hand-N. Compact done. Show <handle>. Continue.`
 5. Record compact/wake in baseline when useful
 
 Never combine `/compact` and the new assignment in one keystroke or compact without next target. High TUI context usage is only a hint, not a control-plane field.
@@ -336,20 +345,20 @@ Never combine `/compact` and the new assignment in one keystroke or compact with
 ## Completion mail (optional; preferred when turn succeeds)
 
 ```text
-From: hunter-N → mind   # or camp mind_inbox; optional if task done is enough
-Subject: hunter-N turn end: <one line>
+From: hand-N → mind   # or camp mind_inbox; optional if task done is enough
+Subject: hand-N turn end: <one line>
 Body: cleared <handle>|none · HEAD <sha>|dirty · tasking left: … · next: … · blocked: none|…
 ```
 
 Board `task done` / `need done` remains the primary durable signal even if this mail is skipped. Do not use retired **`reviewer`** as To:.
 
-## Ready-to-merge mail (hunter-2+ preferred template)
+## Ready-to-merge mail (hand-2+ preferred template)
 
 High-signal handoff so Mind can absorb without reverse-engineering the pane. Send when packet unit is done, tree clean, worker stopped.
 
 ```text
-From: hunter-2 → mind
-Subject: hunter-2 turn end: ready-to-merge <packet-slug>
+From: hand-2 → mind
+Subject: hand-2 turn end: ready-to-merge <packet-slug>
 
 ready-to-merge packet <packet-slug>
 
@@ -375,11 +384,11 @@ task <handle> (<subject>)
 - none | <paths that moved on main vs base — or "not checked">
 
 ## Integration
-Operator/main merges via hunter-1; this Hand does not merge to main.
+Operator/main merges via hand-1; this Hand does not merge to main.
 ```
 
-Mind on receipt: **absorb** → review → **accept** or residual mail back to worker → on accept set `pending_merges` state `queued_for_h1` and file merge task to hunter-1 (or queue if h1 mid-phase). Optional short tmux to worker: `Packet accepted. Merge with hunter-1. Wait.`
+Mind on receipt: **absorb** → review → **accept** or residual mail back to worker → on accept set `pending_merges` state `queued_for_hand1` and file merge task to hand-1 (or queue if h1 mid-phase). Optional short tmux to worker: `Packet accepted. Merge with hand-1. Wait.`
 
-**Long-term continuous packets:** do **not** file a merge to hunter-1 after every task unit. Prefer **theme-level** ready-to-merge (major delivery unit, Stage N close, or operator-named theme). Units → absorb/review/**refill next map unit** on the packet only; one merge task per theme.
+**Long-term continuous packets:** do **not** file a merge to hand-1 after every task unit. Prefer **theme-level** ready-to-merge (major delivery unit, Stage N close, or operator-named theme). Units → absorb/review/**refill next map unit** on the packet only; one merge task per theme.
 
 Ready-to-merge **validation** should include claimed tests **and** `cargo fmt --check` (or project equivalent) on touched packet repos so theme merges do not create red main. Merger re-checks green on main after absorb.

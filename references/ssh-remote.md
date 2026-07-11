@@ -18,7 +18,7 @@ Mind may be local CLI, desktop app, or even another host. **Process truth** is s
 ## Axes (same three, plus host)
 
 ```text
-hunter-N / strategist / …  =  identity (mail + remote tmux session name)
+hand-N / strategist / …  =  identity (mail + remote tmux session name)
               ├── assignment   focus / packet / remote cwd / merge rights
               ├── runtime      harness + model + wake/reinit policy
               └── host         local | ssh target (where pane + cwd live)
@@ -66,10 +66,10 @@ SSH='ssh -o BatchMode=yes user@remote-host'
 # Ensure login-like PATH if non-interactive shells are bare
 REMOTE_PATH='export PATH="$HOME/.local/bin:$HOME/.cargo/bin:$HOME/.nvm/versions/node/v24.15.0/bin:$PATH"'
 
-$SSH "tmux has-session -t hunter-N 2>/dev/null || \
-  tmux new-session -d -s hunter-N -c /path/on/remote -n main"
-$SSH "$REMOTE_PATH; tmux send-keys -t hunter-N:1.1 -l -- 'codex' "  # or grok / pi
-$SSH "tmux send-keys -t hunter-N:1.1 Enter"
+$SSH "tmux has-session -t hand-N 2>/dev/null || \
+  tmux new-session -d -s hand-N -c /path/on/remote -n main"
+$SSH "$REMOTE_PATH; tmux send-keys -t hand-N:1.1 -l -- 'codex' "  # or grok / pi
+$SSH "tmux send-keys -t hand-N:1.1 Enter"
 ```
 
 Discover real `tmux_target` (base-index) once; store in fleet.
@@ -77,9 +77,9 @@ Discover real `tmux_target` (base-index) once; store in fleet.
 ### Pane classify / wake
 
 ```bash
-$SSH 'tmux capture-pane -t hunter-N:1.1 -p -S -25'
-$SSH "tmux send-keys -t hunter-N:1.1 -l -- 'HAND WAKE hunter-N. Bag: show <handle>. Continue.'"
-$SSH 'tmux send-keys -t hunter-N:1.1 Enter'
+$SSH 'tmux capture-pane -t hand-N:1.1 -p -S -25'
+$SSH "tmux send-keys -t hand-N:1.1 -l -- 'HAND WAKE hand-N. Bag: show <handle>. Continue.'"
+$SSH 'tmux send-keys -t hand-N:1.1 Enter'
 ```
 
 Same pointer-only content rules as local dual-channel.
@@ -88,7 +88,7 @@ Same pointer-only content rules as local dual-channel.
 
 ```bash
 $SSH 'export PATH=…; PROJECT=/path/on/remote FLEET=/path/to/fleet.json \
-  /path/to/codex-reinit.sh heal hunter-N'
+  /path/to/codex-reinit.sh heal hand-N'
 ```
 
 Copy or symlink skill `scripts/codex-reinit.sh` onto the remote host; do not assume Mind’s laptop path exists there.
@@ -101,13 +101,13 @@ Same pattern: identity = session name (`strategist`, `correctness`, `purity`), `
 
 ```json
 {
-  "hunters": {
-    "hunter-2": {
-      "mail_identity": "hunter-2",
+  "hands": {
+    "hand-2": {
+      "mail_identity": "hand-2",
       "host": "remote.example",
       "ssh": "ssh -o BatchMode=yes remote.example",
-      "tmux_session": "hunter-2",
-      "tmux_target": "hunter-2:1.1",
+      "tmux_session": "hand-2",
+      "tmux_target": "hand-2:1.1",
       "cwd": "/home/user/work/camp",
       "agent": "codex",
       "agent_launch": "export PATH=…; codex",
@@ -115,8 +115,8 @@ Same pattern: identity = session name (`strategist`, `correctness`, `purity`), `
       "wake_mode": "tmux_send_keys_via_ssh"
     }
   },
-  "correctness": {
-    "mail_identity": "correctness",
+  "head-correctness": {
+    "mail_identity": "head-correctness",
     "host": "remote.example",
     "ssh": "ssh -o BatchMode=yes remote.example",
     "agent": "pi",
@@ -125,7 +125,7 @@ Same pattern: identity = session name (`strategist`, `correctness`, `purity`), `
 }
 ```
 
-Camps may use a small wrapper (`fleet-ssh hunter-2 tmux …`) instead of raw `ssh` strings. Skill cares about meanings, not the wrapper name.
+Camps may use a small wrapper (`fleet-ssh hand-2 tmux …`) instead of raw `ssh` strings. Skill cares about meanings, not the wrapper name.
 
 ## Mind cycle when some slots are remote
 
@@ -149,7 +149,7 @@ A natural experiment: operator Mind in a desktop app; all product Hands (and opt
 | Verify first capture after arm | Trust fleet JSON without live pane path/command |
 | Run reinit on the Hand host | Kill local processes for a remote Hand |
 | One mailspace board of record | Split “truth” across two unrelated `.vivi/` DBs without a plan |
-| Prefer packet/remote for hunter-2+ first | Put hunter-1 merge-to-main on remote before camp is ready |
+| Prefer packet/remote for hand-2+ first | Put hand-1 merge-to-main on remote before camp is ready |
 
 ## Related
 

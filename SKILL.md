@@ -1,23 +1,34 @@
 ---
 name: fleet
-description: Multi-agent fleet management with Mind/Head/Hand roles (Abbot pattern) — Mind (ops) fills tasking, Hands (workers) clear work, Heads (advisors) research; Hands share Mind harness, Heads prefer alternate models/harnesses; dual-channel Vivi+tmux, multi-lane integration, runtime fallback, wind-down. Correctness owns post-main code review; Mind modes via FLEET_CYCLE + turns_since_operator_message; Vivi mailspace watch/thread; SSH remote Hands/Heads; hard bans vs strong guidance. Use for hunter-N fleets, codex reinit, keep-screen-moving, don't-get-stuck, long unattended Mind cycles.
+description: Multi-agent fleet management with Mind/Head/Hand roles (Abbot pattern) — Mind (operator TUI + mind@ board inbox), Hands (hand-1…hand-N) clear work, Heads (head-strategist/head-correctness/head-purity) advise; Hands share Mind harness; dual-channel Vivi+tmux; multi-lane integration. Use for hand-N fleets, codex reinit, keep-screen-moving, don't-get-stuck, FLEET_CYCLE Mind loops.
 ---
 
 # Fleet
 
 **Roles follow Abbot’s Mind / Head / Hand pattern** (see `~/work/ianzepp/abbot/README.md`: agent layer as roles under one control plane). This skill applies that pattern to a **multi-session fleet** (mail board + tmux panes), not Abbot’s in-process kernel.
 
-| Role | Job | Typical callsign / binding |
+| Role | Job | Canonical identity |
 | --- | --- | --- |
-| **Mind** | Ops / control loop: tasking, integrate, pane ops, cycle cadence | **The operator’s current agent TUI/session** — not a hunter, not a dedicated Mind pane |
-| **Head** | Advisory: strategist, correctness, purity — research and reports, not bag drain | same as role name (mail + optional tmux) |
-| **Hand** | Execution: take one open target, implement, validate, mark done | `hunter-1`…`hunter-N` (mail + tmux) |
+| **Mind** | Ops: tasking, integrate, pane ops, cycle cadence | **Operator’s current TUI** + board-only mail **`mind@…`** (no tmux) |
+| **Head** | Advisory research/reports, not bag drain | **`head-strategist`**, **`head-correctness`**, **`head-purity`** (mail + tmux) |
+| **Hand** | Execute one selected target | **`hand-1`…`hand-N`** (mail + tmux) |
 
-**Mind is not a fleet slot.** It is the human-opened conversation (this TUI, desktop app, or CLI) where the operator is. Do **not** invent a default mail/tmux identity named `reviewer` or a second “Mind Grok” pane to host ops. Hands and Heads are the slots that bind **mail identity == tmux session**. Optional camp field `mind_inbox` may name a **board-only** identity for “To: Mind” mail if useful — still not a process slot.
+## Identity contract (canonical)
 
-Skill vocabulary is Mind / Head / Hand. Callsigns are only for Heads and Hands.
+| Identity | Mail | tmux session | Notes |
+| --- | --- | --- | --- |
+| **mind** | `mind@<mailspace>.local` | **none** | Board inbox for To: Mind only. Process = operator TUI. |
+| **hand-N** | `hand-N@…` | `hand-N` | Workers. `hand-1` merges to main; `hand-2+` packets. |
+| **head-strategist** | `head-strategist@…` | `head-strategist` | Sequencing / ownership advice |
+| **head-correctness** | `head-correctness@…` | `head-correctness` | Post-main code review / bug audit |
+| **head-purity** | `head-purity@…` | `head-purity` | Complexity / excess-layer audit |
 
-**Evolution:** formerly `$hunter-gatherer` (with a `reviewer` gatherer identity). Canonical skill is **`$fleet`**. The **reviewer** callsign is **retired**.
+**Binding rule (Hands/Heads only):** mail identity token == tmux session name.  
+**Mind is not a fleet process slot.** Do not create `reviewer`, dual Mind panes, or tmux for `mind`.
+
+**Retired:** `reviewer`, `gatherer`, bare `strategist` / `correctness` / `purity` as mail ids, `hunter-N` as default (legacy camps may still use `hunter-N` / `hunters` key during migration; **new** fleets use `hand-N` / `hands`).
+
+**Evolution:** formerly `$hunter-gatherer`. Canonical skill is **`$fleet`**.
 
 **Process core (strong guidance):** Mind fills the tasking bag; Hand empties it. Progress is **open tasking + campaign/map**, not approval stamps.
 
@@ -29,7 +40,7 @@ Skill vocabulary is Mind / Head / Hand. Callsigns are only for Heads and Hands.
 
 **Mind is the operator entry point.** The harness conversation the human is in (this TUI, desktop app, or CLI) **is** Mind. There is no separate “reviewer” process. Model and reasoning tier are operator setup. Cognitive budget follows **interaction mode** (below), not guessed model id.
 
-**Code quality ownership:** each **Hand** ships the best code it can (implement, validate, polish). **Correctness (Head)** owns **code review on main after merge** — not Mind peer-review of every WIP/packet. Build fast, fail fast; bugs on main are fixed on main.
+**Code quality ownership:** each **Hand** ships the best code it can (implement, validate, polish). **head-correctness** owns **code review on main after merge** — not Mind peer-review of every WIP/packet. Build fast, fail fast; bugs on main are fixed on main.
 
 ```text
 campaign / focus map
@@ -43,7 +54,7 @@ campaign / focus map
                  │ dual channel
         Vivi (truth of work) + tmux (truth of process)
 
-   Heads (strategist / correctness / purity) ──mail To: Mind──► triage into tasking
+   Heads (head-strategist / head-correctness / head-purity) ──mail To: mind──► triage into tasking
 ```
 
 ## When To Use
@@ -82,7 +93,7 @@ Reserve **hard ban** language for actions that break the platform, tree, or mult
 | [`dual-channel.md`](references/dual-channel.md) | Pane classes, doorbell, reinit, rehome, `/compact`, mail templates, **mailspace watch / thread** |
 | [`mind-cycle.md`](references/mind-cycle.md) | Modes, cycle prefix, fail-fast, absorb/accept (integration), operator recap |
 | [`multi-lane.md`](references/multi-lane.md) | Side lanes, theme→main, base-update, pin-relative, `pending_merges` |
-| [`heads.md`](references/heads.md) | Strategist / **correctness (post-main review)** / purity |
+| [`heads.md`](references/heads.md) | head-strategist / **head-correctness** / head-purity |
 | [`ssh-remote.md`](references/ssh-remote.md) | Hands/Heads on another host (SSH + remote tmux); host-scoped cwd; remote reinit |
 | [`runtime-config.md`](references/runtime-config.md) | Capacity ladders, baseline schema, wind-down, script env, `host`/`ssh` fields |
 | [`scripts/codex-reinit.sh`](scripts/codex-reinit.sh) | Codex doctor / heal / reinit / classify (camp-agnostic; set `PROJECT`/`FLEET`) |
@@ -146,10 +157,10 @@ Formatter guidance (global Agents.md): after inspect, formatter output is intent
 
 | Role | Job | Does not |
 | --- | --- | --- |
-| **Hand** | Drain own open tasks/needs; validate; mark done; polish unit sources; own ship quality | Wait for GO mail; merge packet→main (hunter-2+); erase foreign WIP |
-| **Mind** | Operator session: file targets; integrate; pane ops; refill starvation; residual scan | Stage GO/NO-GO; steal Hand unit; freeze on status-only dirty; deep code review of all WIP; **running as a dedicated `reviewer` hunter pane** |
-| **Correctness** | **Code review / bug hunt on main after merge** | Own product tasking bag; block merges as GO/NO-GO stamp; juggle every packet worktree as primary review surface |
-| **Other Heads** | Strategist sequencing; purity complexity | Own product tasking; merge; stamp accept |
+| **Hand** (`hand-N`) | Drain own open tasks/needs; validate; mark done; polish unit sources; own ship quality | Wait for GO mail; merge packet→main (`hand-2+`); erase foreign WIP |
+| **Mind** (operator TUI + `mind@`) | File targets; integrate; pane ops; refill starvation; residual scan | Stage GO/NO-GO; steal Hand unit; freeze on status-only dirty; deep code review; **tmux slot named reviewer/mind** |
+| **head-correctness** | **Code review / bug hunt on main after merge** | Own product tasking bag; block merges as GO/NO-GO stamp |
+| **head-strategist / head-purity** | Sequencing; complexity audit | Own product tasking; merge; stamp accept |
 
 Identity ≠ assignment ≠ runtime. Hand harness follows Mind; Heads prefer alternate runtimes. Detail: [`roles-and-harness.md`](references/roles-and-harness.md).
 
@@ -203,7 +214,7 @@ Optional override (`Mind: deep` / `Mind: ops only`) beats auto-detect until clea
 
 | Mode | When | Cognitive budget |
 | --- | --- | --- |
-| **Autonomous** | `turns_since_operator_message >= 3`, `FLEET_CYCLE` /loop fire, or no operator this session | **Thin ops** even if high reasoning is available. Sensors, classify, file/wake/reinit, short absorb/integration accept, fail-fast sleep. **Decide now** on reversible defaults — do not park on strategist. |
+| **Autonomous** | `turns_since_operator_message >= 3`, `FLEET_CYCLE` /loop fire, or no operator this session | **Thin ops** even if high reasoning is available. Sensors, classify, file/wake/reinit, short absorb/integration accept, fail-fast sleep. **Decide now** on reversible defaults — do not park on head-strategist. |
 | **Interactive** | Operator engaged this turn, or fewer than 3 silent cycles after engagement | **Full reasoning** for the exchange; still Mind. |
 
 ### Operator recap buffer (autonomous)
@@ -226,7 +237,7 @@ Autonomous output stays structurally short. Detail: [`mind-cycle.md`](references
 Hard stop: open tasks/needs for the current hunt.  
 Not a hard stop: missing Mind “GO” mail.
 
-**hunter-1** = main checkout, merges to main. **hunter-2+** = packet assignments, never merge to main; unit → refill; theme → ready-to-merge.
+**hand-1** = main checkout, merges to main. **hand-2+** = packet assignments, never merge to main; unit → refill; theme → ready-to-merge.
 
 Empty product bags + map still has unblocked next work = **starvation** (file + wake same cycle). Detail: [`tasking.md`](references/tasking.md).
 
@@ -269,11 +280,11 @@ Generic recipes (no particular server name): [`ssh-remote.md`](references/ssh-re
 
 ### 1. Arm
 
-- Bag exists (mailspace identities or equivalent)
-- Hand and Mind share project root and map (campaign/GOAL)
-- Record Mind’s harness; bind every Hand’s `agent` / `wake_mode` / reinit to it
+- Bag exists: identities **`mind`** (board only), **`hand-N`**, **`head-*`**
+- Hands/Heads share project map; Mind is operator TUI (no mind tmux)
+- Record product harness for Hands; bind every Hand’s `agent` / `wake_mode` / reinit
 - Apply preferred models (see `roles-and-harness.md`)
-- Tiny role baselines: `last_cycle`, `quiet_streak`, `turns_since_operator_message`, `mind_mode`, fingerprints, pane classes
+- Tiny baselines: `last_cycle`, `quiet_streak`, `turns_since_operator_message`, `mind_mode`, fingerprints, pane classes
 
 ### 2. Select focus
 
@@ -340,7 +351,7 @@ Detail: [`mind-cycle.md`](references/mind-cycle.md). Multi-lane / theme merge / 
 ### Never (destructive — hard bans)
 
 - `stash` / `reset` / `restore` / `clean` / force-push to “make room”
-- Polish or rewrite another hunter’s mid-flight semantic WIP
+- Polish or rewrite another agent’s mid-flight semantic WIP
 - Overwrite foreign paths with write tools just because the tree looks messy
 
 ### Always (when dirt blocks you)
@@ -372,7 +383,7 @@ Typical camp file kinds (names/layout camp-local):
 fleet config           # roster + runtime + tooling + preferred models
 Mind cycle baseline    # sensors + debt + mode counters + operator_recap
 Mind scheduler overlay # must start wakes with FLEET_CYCLE …
-Head role prompts      # strategist / correctness / purity
+Head role prompts      # head-strategist / head-correctness / head-purity
 scripts/codex-reinit   # skill copy or symlink; env PROJECT + FLEET
 project Agents.md      # product + multi-agent process
 ```
@@ -388,7 +399,7 @@ Schema detail: [`runtime-config.md`](references/runtime-config.md).
 - Mind as game warden (stage licenses, GO/NO-GO) or blocking a Hand on missing GO with no residual
 - Encoding severity as queue kind (implementable merge blocker filed as `need`)
 - Sleeping with empty product tasking while the map has unblocked next work
-- Filing to retired identities when `hunter-N` is default; packet merges / unbounded spine on hunter-2+
+- Filing to retired identities (`hunter-N`, bare `correctness`, `reviewer`) when `hand-N` / `head-*` / `mind` are canonical; packet merges / unbounded spine on hand-2+
 - Heads owning product tasking or merge queues; thrashing strategist assign while a report is outstanding
 
 ### Dual channel and process
@@ -407,7 +418,7 @@ Schema detail: [`runtime-config.md`](references/runtime-config.md).
 - Packet-green as consumer-green without pin ancestry
 - “Compiler residual” when the class is integration lag
 - Theme merge that creates durable red main
-- Interrupting dirty hunter-1 for a merge; Mind merging packets; skipping watch-scope drift
+- Interrupting dirty hand-1 for a merge; Mind merging packets; skipping watch-scope drift
 - Accepting “complete” when evidence is static/manual but claim is product-run, without saying so
 - Writing “absorb” when you mean **accept**
 

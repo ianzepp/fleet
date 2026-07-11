@@ -40,40 +40,40 @@ During iterative review, consolidate findings from the same root cause and accep
 | “NO-GO next stage” | next stage not selected / no package — file charting work or leave planned |
 | dual approval thrash | one tasking bag; Hand drains; Mind refills |
 
-Hard stop for hunter: open tasks/needs for the current hunt.  
+Hard stop for Hand: open tasks/needs for the current assignment.  
 Not a hard stop: missing Mind congratulations or “GO” mail.
 
 ## Multi-hand bags
 
-- File targets **to a specific hunter** (`To: hunter-1`), not broadcast
+- File targets **to a specific Hand** (`To: hand-1`), not broadcast
 - One handle has one owner — do not put the same P1 on two hands
 - Partition by focus (campaign track, repo, or package) when possible
-- Legacy `codex` may remain readable during migration; **new** targets go to `hunter-N`
+- Legacy `codex` may remain readable during migration; **new** targets go to `hand-N`
 
 ## Fleet priorities (main vs packet)
 
 | Slot | Workspace role | Merge to main? |
 | --- | --- | --- |
-| **hunter-1** | **Main checkout** (sticky workspace role — not sticky model) | **Yes** — only hunter-1 merges packet branches into main (when Mind assigns it) |
-| **hunter-2+** | **Dynamically assigned** — usually worktree packets (`worktrees/<slug>/…`); rehome when reassigned | **Never** — commits on packet branch; unit done → refill; theme → ready-to-merge |
+| **hand-1** | **Main checkout** (sticky workspace role — not sticky model) | **Yes** — only hand-1 merges packet branches into main (when Mind assigns it) |
+| **hand-2+** | **Dynamically assigned** — usually worktree packets (`worktrees/<slug>/…`); rehome when reassigned | **Never** — commits on packet branch; unit done → refill; theme → ready-to-merge |
 
 Rules:
 
-1. File campaign spine to hunter-1. Assign hunter-2+ to operator-created worktree packets for bounded work; never put unbounded spine work there. Packet↔hunter bindings are **current assignment**, not permanent types.
+1. File campaign spine to hand-1. Assign hand-2+ to operator-created worktree packets for bounded work; never put unbounded spine work there. Packet↔hand bindings are **current assignment**, not permanent types.
 2. Hunter-1 should run while its map has packages or residuals. Idle + empty is starvation: refill targets, queue a merge, wake/reinit by **H1’s current runtime**. Quiet only when map and residual bag are both empty.
 3. Hunter-2+ never merge/rebase/delete packet worktrees or invent main work. After a **unit**: mark done + turn-end; Mind refills next map unit (or reassigns). After a **theme** boundary: ready-to-merge mail; Mind owns merge clock.
-4. Mind absorbs unit lands without merging; at theme accept creates `pending_merges` + merge task for hunter-1.
-5. At a clean breakpoint, wake/reinit hunter-1 for merge; defer while main is mid-phase or dirty. Merge checks watch-scope drift and green-gate; absorb then accept as a separate step.
+4. Mind absorbs unit lands without merging; at theme accept creates `pending_merges` + merge task for hand-1.
+5. At a clean breakpoint, wake/reinit hand-1 for merge; defer while main is mid-phase or dirty. Merge checks watch-scope drift and green-gate; absorb then accept as a separate step.
 6. **Runtime vs assignment:** assignment (main vs packet) is orthogonal to **model** within a harness. **Hand harness is not free** — it follows Mind. Rebind model/launch without renaming the Hand or moving assignment; rebind Hand harness only when Mind’s harness changes or operator records an exception.
 
 ### Idle empty tasking (keep the screen moving)
 
 | Situation | Meaning | Mind action |
 | --- | --- | --- |
-| **Any hunter-N** idle + empty tasking + map has **unblocked** next unit | **Starvation** | File next target **same cycle** + wake/reinit |
-| **hunter-1** idle + empty + `pending_merges` or spine residuals | Starvation | Merge task and/or next spine targets |
-| **hunter-2+** just finished a **unit** (not theme) | Not success-idle | Absorb/review; **refill** next packet unit |
-| **hunter-2+** after **theme** ready-to-merge, empty, waiting merge | **Operational pause** | Review → accept → merge to h1; optional light pivot unit if map has unrelated work |
+| **Any hand-N** idle + empty tasking + map has **unblocked** next unit | **Starvation** | File next target **same cycle** + wake/reinit |
+| **hand-1** idle + empty + `pending_merges` or spine residuals | Starvation | Merge task and/or next spine targets |
+| **hand-2+** just finished a **unit** (not theme) | Not success-idle | Absorb/review; **refill** next packet unit |
+| **hand-2+** after **theme** ready-to-merge, empty, waiting merge | **Operational pause** | Review → accept → merge to h1; optional light pivot unit if map has unrelated work |
 | **Operational pause only** | Allowed empty/hold | base-update wait · mid-unit · operator pause · map empty · hard upstream with need filed (prefer pivot if one exists) |
 | Head “empty tasking” | N/A — no product tasking | Scan mail; soft-wake only if stuck; never map-refill |
 
@@ -111,8 +111,8 @@ When on the **paid path**, after sensors fire:
 ```text
 1. status counts
 2. optional: mailspace watch --once (new events since cursor)
-3. open task list for each active hunter
-4. open need list for each active hunter
+3. open task list for each active hand
+4. open need list for each active hand
 5. want list only if hunting polish by design
 6. show only the selected handle
 7. if exchange is multi-hop: vivi mail thread <handle> (or rely on show’s thread context)

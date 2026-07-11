@@ -117,11 +117,11 @@ Long 5–10m loops only work if most wakes **exit in seconds**. Tokens/context a
 
 Compare to baseline. **Sleep immediately** when:
 
-- fleet actionable fingerprint unchanged (hunter-N only; ignore legacy codex for this)
+- fleet actionable fingerprint unchanged (hand-N only; ignore legacy codex for this)
 - no relevant main/packet HEAD/dirty move
 - no new mailspace watch hits (if using cursor)
 - pane classes unchanged and not `error_*`
-- not (hunter-1 idle + empty + map/merge debt)
+- not (hand-1 idle + empty + map/merge debt)
 - not (idle + open tasking needing doorbell/**Codex reinit**)
 - not (empty tasking + map next = starvation unfilled)
 - `pending_reviews` / `pending_merges` empty or explicitly deferred this cycle
@@ -153,7 +153,7 @@ Optional: thorough review every N cycles when the counter is divisible by N (e.g
 | Same dirty paths block spine ≥2 cycles, no A/B/C note | Mind | **Open the diff** (half-dead); classify; file style/claim/quarantine; pivot targets for Hand |
 | Map Status mtime changed | Either | skim Status lines; then bag |
 | Tasking empty + next package selected | Hand / Mind | start package or **refill** + wake/reinit |
-| Head report mail | Mind | absorb; triage to hunter-N when actionable |
+| Head report mail | Mind | absorb; triage to hand-N when actionable |
 | Approach / sequencing fork | Strategist (or Mind) | one advisory report / note |
 | Pane `idle_prompt` + open tasking (**Grok**) | Mind | doorbell wake |
 | Pane `done_idle` / idle + open tasking (**Codex**) | Mind | **Codex reinit** |
@@ -191,7 +191,7 @@ Pane classes + cheap dirty/HEAD delta. If a Hand is mid-mod (dirty in their scop
 
 ### Thorough
 
-Re-diff vs `last_thorough_fingerprint`. Unchanged → quiet thorough (still run pane scan). If moved: review product on **all fleet scopes** (main + each active side lane); file residuals **To owning hunter-N**; update thorough fingerprint.
+Re-diff vs `last_thorough_fingerprint`. Unchanged → quiet thorough (still run pane scan). If moved: review product on **all fleet scopes** (main + each active side lane); file residuals **To owning hand-N**; update thorough fingerprint.
 
 ### Sensors (always first — keep cheap)
 
@@ -204,7 +204,7 @@ Re-diff vs `last_thorough_fingerprint`. Unchanged → quiet thorough (still run 
 4. Mind inbox top (advice / review / permission / advisor reports)
    # board mail ≠ operator message for mode purposes
    # paid path: vivi mail thread <handle> when lineage matters
-5. Open tasks/needs for each hunter-N (legacy shared identity: list only if migrating;
+5. Open tasks/needs for each hand-N (legacy shared identity: list only if migrating;
    do not use legacy counts for quiet/wake/starvation)
 6. Main HEAD + dirty for focus repos (project names the list)
 7. Each active side lane: status -sb + HEAD + branch (local or remote cwd)
@@ -243,10 +243,10 @@ In **autonomous** mode, keep it residual-shaped and short; **decide now** on obv
 
 **How:**
 
-1. Identify owner from fleet (main dirty → likely hunter-1; packet dirty → that packet’s worker)
+1. Identify owner from fleet (main dirty → likely hand-1; packet dirty → that packet’s worker)
 2. Diff only in-scope paths; cheap scan for Status lies, missing done marks, scope bleed, empty bag starvation
 3. **Integration accept** (green enough): clear matching `pending_reviews` / advance packet toward merge when validation evidence and scope look honest — not a full audit
-4. **Red flag residual:** file a **task** **To: hunter-N**; **need** only for real decision hold; short tmux pointer
+4. **Red flag residual:** file a **task** **To: hand-N**; **need** only for real decision hold; short tmux pointer
 5. Do **not** paste essays into tmux. Do **not** `git` cleanup foreign WIP
 6. Do **not** re-litigate style as multi-cycle freeze — class A dirt clears same turn
 
@@ -259,7 +259,7 @@ Safety-critical implementable findings (data loss, auth, destructive scope): hig
 | Term | Meaning | When | Quality bar |
 | --- | --- | --- | --- |
 | **Absorb** | Reconcile sensors into baseline/bag awareness | Every cycle when something moved | Low — bookkeeping honesty |
-| **Accept** | Integration accept: unit/packet good enough to clear review debt, close map square, or queue merge to hunter-1 | Thorough or opportunistic residual pass with honest evidence | Medium — tests/claims/scope honesty, not full code review |
+| **Accept** | Integration accept: unit/packet good enough to clear review debt, close map square, or queue merge to hand-1 | Thorough or opportunistic residual pass with honest evidence | Medium — tests/claims/scope honesty, not full code review |
 | **Code review** | Correctness Head on **main after merge** | After land on main | High — bugs, fail-closed, multi-theme interactions |
 
 | Role | Says… |
@@ -276,10 +276,10 @@ Safety-critical implementable findings (data loss, auth, destructive scope): hig
 Maintain in fleet baseline (or fleet state):
 
 ```text
-pending_reviews[]: { hunter, range or shas, paths, reason, since_cycle, status }
+pending_reviews[]: { hand, range or shas, paths, reason, since_cycle, status }
 pending_merges[]:  {
   packet_slug, branch, worker, tip, base, theme?,
-  state: active | ready | reviewing | queued_for_h1 | merged
+  state: active | ready | reviewing | queued_for_hand1 | merged
        | partial_merged | integrated_publish_pending | abandoned
 }
 ```
@@ -288,24 +288,24 @@ pending_merges[]:  {
 | --- | --- |
 | Hand marks done / HEAD jumps on their scope | **Absorb**; add `pending_reviews` if not yet **accepted** |
 | Thorough or opportunistic review pass | **Accept** (clear debt) or file residuals; drain backlog when possible |
-| Packet ready-to-merge mail (theme or whole one-shot packet) | **Absorb** → review → **accept** or residual → state `queued_for_h1` + merge task |
+| Packet ready-to-merge mail (theme or whole one-shot packet) | **Absorb** → review → **accept** or residual → state `queued_for_hand1` + merge task |
 | Long-term packet unit (not theme) | **Absorb**/review; next target to worker; **no** merge task to h1 |
-| hunter-1 idle + empty + pending_merges queued | Prefer merge task doorbell **now** (clean breakpoint) |
-| hunter-1 idle + empty + map still open | Refill targets **and** drain review/merge debt |
-| hunter-1 completes merge | **Absorb** merge on main → **accept** merge (or residual) as its own step |
+| hand-1 idle + empty + pending_merges queued | Prefer merge task doorbell **now** (clean breakpoint) |
+| hand-1 idle + empty + map still open | Refill targets **and** drain review/merge debt |
+| hand-1 completes merge | **Absorb** merge on main → **accept** merge (or residual) as its own step |
 
 ## Sensors: main + packets + fleet bags only
 
 Cheap fingerprint should include:
 
-1. Open tasks/needs for **each hunter-N** (not legacy `codex` for quiet/wake decisions — log codex only if migration still open)
+1. Open tasks/needs for **each hand-N** (not legacy `codex` for quiet/wake decisions — log codex only if migration still open)
 2. Main HEADs + dirty for focus repos
 3. **Each active packet:** `git -C worktrees/<slug>/<writable> status` + `rev-parse HEAD` + branch name
 4. Pane class per Hand
 
 Packet dirty counts as that worker’s mid-flight WIP (residual-scan scope for Mind; not correctness’s primary surface).
 
-## Merge task body (to hunter-1)
+## Merge task body (to hand-1)
 
 When Mind **accepts** a packet, the merge task should name at least:
 
@@ -319,13 +319,13 @@ When Mind **accepts** a packet, the merge task should name at least:
   Main often moves while the packet is open. Non-empty drift on watch paths → stop and report. Empty / only expected doc paths → proceed
 - done-when: on main, green validation, note back to Mind (task done + optional turn-end mail)
 
-| hunter-1 state | Action |
+| hand-1 state | Action |
 | --- | --- |
 | Idle + empty tasking | File merge task + doorbell **now** |
-| Running / dirty mid-phase | File or keep `queued_for_h1`; **do not** interrupt |
+| Running / dirty mid-phase | File or keep `queued_for_hand1`; **do not** interrupt |
 | Idle + other open targets | Merge may be higher priority than new spine work if packet is blocking; else queue |
 
-After hunter-1 reports merge done: Mind **absorbs**, then **accepts** the main result (or files residual). Operator may retire worktrees later.
+After hand-1 reports merge done: Mind **absorbs**, then **accepts** the main result (or files residual). Operator may retire worktrees later.
 
 ## Optional cadence backoff
 
@@ -336,7 +336,7 @@ Fail-fast is required. Interval backoff is **optional** for multi-hour idle:
 | 0–2 | base (e.g. 5m) |
 | 3–5 | 2× base |
 | 6–10 | 4× / ~20–30m |
-| 11+ | ~1h or sleep until operator/hunter signal |
+| 11+ | ~1h or sleep until operator/Hand signal |
 
 Reset `quiet_streak` on real progress: new/changed tasking item, HEAD move, Status absorb, filed residual, completed unit, successful wake, or ops intervention.
 
@@ -346,4 +346,4 @@ If the scheduler cannot change interval, still no-op cheaply each fire.
 
 ## Supervisor loops
 
-Periodic Mind/scout only help while product moves, residuals are open, or fleet panes need liveness care. Empty tasking + flat trees + healthy idle panes → quiet or back off. Do not “keep the campaign alive” with restated plateaus after the Hand exited — restart hunter, select next map package, back off, or stop.
+Periodic Mind/scout only help while product moves, residuals are open, or fleet panes need liveness care. Empty tasking + flat trees + healthy idle panes → quiet or back off. Do not “keep the campaign alive” with restated plateaus after the Hand exited — restart Hand, select next map package, back off, or stop.
