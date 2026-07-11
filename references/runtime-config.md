@@ -154,7 +154,9 @@ Recommended keys (extend freely; skill cares about meanings):
   "default_hand": "hand-1",
   "legacy_hand_identity": "codex",
   "mind_inbox": "mind",
-  "binding_rule": "mail_identity == tmux_session token (Hands/Heads only; Mind is operator TUI)",
+  "operator_inbox": "operator",
+  "operator_inbox_note": "Human escalations only (problems/blockers/guidance). Not status. No tmux.",
+  "binding_rule": "mail_identity == tmux_session token (Hands/Heads only; mind+operator are board-only, no tmux)",
   "mind": {
     "agent": "grok",
     "agent_model": "grok-4.5",
@@ -257,7 +259,8 @@ turns_since_operator_message      # Mind cycles since last human operator prose
 mind_mode                         # autonomous | interactive (resolved this cycle)
 mind_mode_override optional       # ops_only | deep | clear — operator sticky force
 last_operator_message_at          # timestamp or cycle id of last operator prose
-operator_recap                    # short material-change list since last operator message
+operator_recap                    # short material status list since last operator message
+operator_mail                     # {identity, open_count, last_filed_at, last_presented_*} human inbox counters
 mind_watch_cursor_path optional   # path to vivi mailspace watch --cursor-file
 last_actionable_fingerprint   # fleet bags + heads/dirty + panes
 pending_reviews[]

@@ -7,10 +7,11 @@ tmux is the **process layer** (whether the Hand process is alive, idle, or broke
 
 | Concern | Prefer |
 | --- | --- |
-| “This unit is done; evidence is …” | Vivi tasking done (+ optional mail) |
+| “This unit is done; evidence is …” | Vivi tasking done (+ optional mail **To mind**) |
 | “Grok idle at prompt with open tasking” | tmux → **pointer doorbell** |
 | “Codex done/idle at `›` with open tasking” | tmux → **reinit** (kill + fresh session + short bootstrap) — not stacked wakes |
 | “Over capacity / connection failed / hung Waiting” | tmux → ops intervene (model change, retry, restart) |
+| “Human must decide / recover / guide a fix” | Vivi **To `operator@`** (need/mail) — not status To mind; see `operator-mail.md` |
 | “No mail and no pane signal” | do not invent progress; sleep or escalate if bag stale |
 | “Fix landed upstream; consumer still red” | Check **pin-relative done** before re-verify doorbell |
 
@@ -36,7 +37,7 @@ vivi mail watch | vivi task watch | vivi need watch | vivi want watch
 
 | Flag | Fleet use |
 | --- | --- |
-| `--for <identity>` (Hand/Head, or optional camp `mind_inbox`) | Whose local events wake the watcher |
+| `--for <identity>` (Hand/Head, `mind`, or `operator`) | Whose local events wake the watcher |
 | `--kinds mail,task,need` | Default; `want` opt-in via `--kinds` |
 | `--events delivered,moved` | Default lifecycle |
 | `--match-from hand-2` | Only that Hand’s deliveries |

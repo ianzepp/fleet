@@ -22,15 +22,28 @@ Choose kind by **what response is required**, then state severity in subject/bod
 | Question | Route |
 | --- | --- |
 | Can the owner implement this now from the stated invariant and done-when? | **task** — even when critical, safety-sensitive, or merge-blocking |
-| Must someone choose a path, grant authority, supply input, or resolve an external dependency first? | **need** — include default + options; pivot while waiting |
+| Must a **Hand or Mind** choose a path, grant authority, or resolve an external dependency first? | **need** To that agent — include default + options; pivot while waiting |
+| Must the **human operator** choose, grant credentials/policy, or give bug-fix guidance? | **need or mail To `operator@`** — not To mind board noise; see [`operator-mail.md`](operator-mail.md) |
+| Problem / critical blocker / bug needing human guidance while autonomous? | **operator@** (not status, not Hand done) |
 | Is it safe to ship/merge without this improvement? | **want** |
 | Did Mind’s post-main polish advisory clear `score_threshold` for named files? | **task** To hand-1 (or owner) — run `$polish` on those primaries only |
 | Major inflection (campaign end / large merge / stage closeout) and no open housekeeping? | **task** To hand-1 — run `$housekeeping` on main (expensive; one at a time) |
-| Is no action requested? | **mail** |
+| Is no action requested (deliberation only)? | **mail** To relevant board identity — **not** To `operator` |
 
 Put urgency on the item, not in its kind (e.g. `merge blocker: …`, `critical: …`, or the board priority field). A needs-only bag may be treated as a decision hold; misfiling defects there parks a healthy Hand.
 
 When a need is answered: close/reply the decision item and file the resulting work as a **task**. Do not leave concrete work hidden inside a resolved need.
+
+### To: routing (Hand vs mind vs operator)
+
+| To | Use for |
+| --- | --- |
+| **`hand-N`** | Product work the Hand drains (tasks/needs) |
+| **`mind`** | Fleet board: done/evidence, Head reports, RTM, bag bookkeeping |
+| **`operator`** | Human-only escalations: problems, unaddressed critical blockers, bugs needing guidance |
+| **Heads** | Assigns / research requests — reports come back To mind |
+
+Never **task** To `operator` (not a Hand). Prefer subject prefixes `operator: problem|blocker|bug-guidance|need — …`.
 
 During iterative review, consolidate findings from the same root cause and acceptance gate into one bounded task when they share owner and validation. Split when ownership, invariant, or done-when is genuinely independent.
 
@@ -101,7 +114,8 @@ Do not sleep merely because all **product** bags are empty; check the map, `pend
 
 | Situation | Required action |
 | --- | --- |
-| Path / name / scope / order / ABI / package / stop | Same turn: **need or mail** to Mind with **default + options** |
+| Path / name / scope / order / ABI / package / stop (agent can default) | Same turn: **need or mail** to Mind with **default + options** |
+| Path / policy / bug-fix **needs human** | **need/mail To `operator@`** (or To mind → Mind refiles operator); **pivot** |
 | Filename / docs layout only | Campaign convention or default in the need; keep working |
 | Waiting for a reply | **Switch targets** — do not freeze |
 | Human-only wall | Send the need first, then switch targets |

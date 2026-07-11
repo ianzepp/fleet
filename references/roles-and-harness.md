@@ -7,7 +7,8 @@ Load when arming a fleet, rebinding runtimes, or clarifying Mind/Hand/Head dutie
 | Role | Typical identity | Job | Output |
 | --- | --- | --- | --- |
 | **Hand** | `hand-1`…`hand-N` (legacy: `hunter-N`, `codex`) | Take a **selected target** and finish it | Done tasks/needs + evidence; optional turn-end mail To `mind` |
-| **Mind** | Board **`mind@…` only** — **no tmux**; process = operator TUI | Survey product; **dole out** tasking; integrate; fleet ops; pick from strategist buckets; **track est vs actual cost** | Open tasks/needs; pane scan; wake/reinit; merge queue; `cost_calibration` |
+| **Mind** | Board **`mind@…`** — **no tmux**; process = operator TUI | Survey product; **dole out** tasking; integrate; fleet ops; pick from strategist buckets; **track est vs actual cost**; file/present **operator mail** | Open tasks/needs; pane scan; wake/reinit; merge queue; `cost_calibration` |
+| **Operator mail** | Board **`operator@…` only** — **no tmux** | Accrue human escalations (problems / blockers / guidance) while autonomous | Need/mail To human; presented on return — **not** status |
 | **head-ceo** (Head) | `head-ceo` (legacy: head-strategist) | Vision, sequencing; **hand-2+ buckets with effort + est_tokens** | Mail `head-ceo report:` To `mind` |
 | **head-cto** (Head) | `head-cto` (legacy: head-correctness) | **Code review / bug hunt on main after merge** | Mail `head-cto:` To `mind` |
 | **head-cxo** (Head) | `head-cxo` (legacy: head-purity) | Self-directed complexity / purity audit (**not** operator voice) | Mail `head-cxo:` To `mind` |
@@ -138,21 +139,21 @@ Heads need not match Mind’s product harness. Prefer Pi even when Mind is Grok 
 
 ## Mind does
 
-- **Is the operator entry point:** the conversation the human is in **is** Mind (not a `reviewer` Hand, not a second ops pane; board mail is `mind@…` only — no tmux)
+- **Is the operator entry point:** the conversation the human is in **is** Mind (not a `reviewer` Hand, not a second ops pane; board mail is `mind@…` + **`operator@…`** — no tmux for either)
 - Resolve **interaction mode** each cycle (`turns_since_operator_message`, `mind_mode`, `FLEET_CYCLE` /loop) — see main skill + `mind-cycle.md`
 - Find missed work, Status overclaims, missing evidence; file **targets** with where / done-when / evidence bar (**to the owning Hand**)
 - **Integration absorb/accept** — bookkeeping and “good enough to merge/queue,” not deep peer code review of every packet
 - Stay quiet when fingerprint unchanged, panes healthy, and no ops signal
 - Each wake: cheap **fleet pane scan**; **Grok doorbell** or **Codex reinit** (prefer `scripts/codex-reinit.sh`) when idle/done with open targets
-- Residual finding → **task** to Hand; **need** only for real decision hold; **tmux pointer only**
+- Residual finding → **task** to Hand; agent decision hold → **need**; **human** wall / problem / blocker / bug-guidance → **`operator@`** (see `operator-mail.md`); **tmux pointer only**
 - **Post-main polish advisory:** when main HEAD moves, run `$polish` `suggest-polish-files.py` (JSON, capped); if scores ≥ camp threshold, file a bounded polish **task** — Mind does not execute the polish loop
 - **Major-inflection housekeeping:** only at campaign end / large multi-theme merge / stage closeout / operator ask — file **one** `$housekeeping` **task** To hand-1; never after routine lands
 - **Capacity packing:** when picking from strategist side-lane buckets, use `effort` / `est_tokens` (and recent `cost_calibration` deltas) so free Hands take appropriate-sized work while spine Hands are long-running
 - **Cost calibration:** on Hand done for a bound candidate, record actual tokens (harness if available, else Mind ballpark) vs strategist estimate; keep a short delta history
 - **Unstick half-dead dirt:** open the diff; class A mechanical (fmt) → clear same turn; do not freeze for hours
-- **Autonomous:** thin ops; **decide now** on reversible defaults; head-strategist is optional structure help, not a permission gate
-- **Interactive:** full reasoning for operator; **rich FLEET_CYCLE reports** (not one-liners); maintain **operator_recap** and surface its delta in-cycle
-- **Autonomous:** compact cycle reports (one-line quiet / short acted)
+- **Autonomous:** thin ops; **decide now** on reversible defaults; head-strategist is optional structure help, not a permission gate; file **operator mail** when human needed
+- **Interactive:** full reasoning for operator; **rich FLEET_CYCLE reports** (not one-liners); maintain **operator_recap**; **present open operator@ list** on engagement
+- **Autonomous:** compact cycle reports (one-line quiet / short acted; optional `+op-mail:N`)
 - Keep operator recap buffer since `last_operator_message_at`
 
 ## Mind does not
@@ -168,7 +169,8 @@ Heads need not match Mind’s product harness. Prefer Pi even when Mind is Grok 
 - Wait multiple cycles on head-ceo for a decision it can make with a default
 - Treat strong guidance as a hard ban that freezes progress
 - Run as a dedicated **`reviewer` / gatherer** mail+tmux identity (retired)
-- Create tmux for **`mind`** (board inbox only)
+- Create tmux for **`mind`** or **`operator`** (board inboxes only)
+- File status / absorbs / “still running” To **`operator@`**
 
 ## head-cto does (Head)
 

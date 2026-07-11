@@ -1,6 +1,6 @@
 ---
 name: fleet
-description: Multi-agent fleet management with Mind/Head/Hand roles (Abbot pattern) — Mind (operator TUI + mind@ board inbox), Hands (hand-1…hand-N) clear work, Heads (head-ceo/head-cto/head-cxo + optional org personas) advise; Hands share Mind harness; dual-channel Vivi+tmux; multi-lane integration. Use for hand-N fleets, codex reinit, keep-screen-moving, don't-get-stuck, FLEET_CYCLE Mind loops.
+description: Multi-agent fleet management with Mind/Head/Hand roles (Abbot pattern) — Mind (operator TUI + mind@ board inbox + operator@ human escalations), Hands (hand-1…hand-N) clear work, Heads (head-ceo/head-cto/head-cxo + optional org personas) advise; Hands share Mind harness; dual-channel Vivi+tmux; multi-lane integration. Use for hand-N fleets, codex reinit, keep-screen-moving, don't-get-stuck, FLEET_CYCLE Mind loops.
 ---
 
 # Fleet
@@ -10,6 +10,7 @@ description: Multi-agent fleet management with Mind/Head/Hand roles (Abbot patte
 | Role | Job | Canonical identity |
 | --- | --- | --- |
 | **Mind** | Ops: tasking, integrate, pane ops, cycle cadence | **Operator’s current TUI** + board-only mail **`mind@…`** (no tmux) |
+| **Operator mail** | Human escalation inbox (problems / blockers / guidance) | Board-only **`operator@…`** (no tmux) — not a process slot |
 | **Head** | Advisory research/reports, not bag drain | **`head-ceo`**, **`head-cto`**, **`head-cxo`** (legacy: head-strategist / head-correctness / head-purity) (mail + tmux) |
 | **Hand** | Execute one selected target | **`hand-1`…`hand-N`** (mail + tmux) |
 
@@ -17,7 +18,8 @@ description: Multi-agent fleet management with Mind/Head/Hand roles (Abbot patte
 
 | Identity | Mail | tmux session | Notes |
 | --- | --- | --- | --- |
-| **mind** | `mind@<mailspace>.local` | **none** | Board inbox for To: Mind only. Process = operator TUI. |
+| **mind** | `mind@<mailspace>.local` | **none** | Fleet **board** for To: Mind (Hand done, Head reports, bag bookkeeping). Process = operator TUI. |
+| **operator** | `operator@<mailspace>.local` | **none** | **Human** inbox for problems, critical blockers, bugs needing guidance. Not status. Detail: [`operator-mail.md`](references/operator-mail.md). |
 | **hand-N** | `hand-N@…` | `hand-N` | Workers. `hand-1` merges to main; `hand-2+` packets. |
 | **head-ceo** | `head-ceo@…` | `head-ceo` | Vision / sequencing / side-lane buckets (legacy: head-strategist) |
 | **head-cto** | `head-cto@…` | `head-cto` | Post-main code review / bugs (legacy: head-correctness) |
@@ -25,7 +27,7 @@ description: Multi-agent fleet management with Mind/Head/Hand roles (Abbot patte
 | *optional* | `head-cpo` / `head-cso` / … | same token | Lazy org Heads — see `references/heads/cast.md` |
 
 **Binding rule (Hands/Heads only):** mail identity token == tmux session name.  
-**Mind is not a fleet process slot.** Do not create `reviewer`, dual Mind panes, or tmux for `mind`.
+**Mind and operator are not fleet process slots.** Do not create `reviewer`, dual Mind panes, or tmux for `mind` / `operator`.
 
 **Retired:** `reviewer`, `gatherer`, bare `strategist` / `correctness` / `purity` as mail ids, `hunter-N` as default, standalone **`$executive-team`** skill (personas live under `fleet/references/heads/personas/`). Legacy camps may still use `hunter-N`, `head-strategist`, `head-correctness`, `head-purity`; **new** fleets use `hand-N`, `head-ceo`, `head-cto`, `head-cxo`.
 
@@ -65,6 +67,9 @@ campaign / focus map
         Vivi (truth of work) + tmux (truth of process)
 
    Heads (head-ceo / head-cto / head-cxo) ──mail To: mind──► triage into tasking
+
+   Mind ──problems / blockers / guidance──► operator@  (human; present on return)
+   status / absorbs / cycle noise          ──► mind@ + operator_recap only
 ```
 
 ## When To Use
@@ -88,7 +93,7 @@ Reserve **hard ban** language for actions that break the platform, tree, or mult
 | **Strong guidance** | Interaction mode, thorough modulus, harness alignment, head-ceo use, absorb/accept vocabulary, theme vs unit merge cadence, preferred models |
 | **Not a ban** | “I might violate autonomous mode if I think hard” — if the operator is engaged or a safe default is clear, **act** |
 
-**Decide now:** waiting multiple cycles for head-ceo / head-cto / operator permission when a reversible default exists is a rules-of-engagement failure. File a need with default when human input is truly required; otherwise pick the default, record it, continue.
+**Decide now:** waiting multiple cycles for head-ceo / head-cto / operator permission when a reversible default exists is a rules-of-engagement failure. When human input is truly required, file To **`operator@`** (need/mail — see [`operator-mail.md`](references/operator-mail.md)) with default + options and **pivot**; otherwise pick the default, record it, continue.
 
 ## References
 
@@ -101,7 +106,8 @@ Reserve **hard ban** language for actions that break the platform, tree, or mult
 | [`roles-and-harness.md`](references/roles-and-harness.md) | Arming, rebinding, duties, preferred models, Pi-as-Hand; Mind = operator session |
 | [`tasking.md`](references/tasking.md) | Filing targets, queue kind, multi-hand, starvation, Hand decision continuity |
 | [`dual-channel.md`](references/dual-channel.md) | Pane classes, doorbell, reinit, rehome, `/compact`, mail templates, **mailspace watch / thread** |
-| [`mind-cycle.md`](references/mind-cycle.md) | Modes, cycle prefix, fail-fast, absorb/accept, **polish advisory**, **housekeeping inflection**, operator recap |
+| [`mind-cycle.md`](references/mind-cycle.md) | Modes, cycle prefix, fail-fast, absorb/accept, **polish advisory**, **housekeeping inflection**, operator recap, **operator mail present-on-return** |
+| [`operator-mail.md`](references/operator-mail.md) | **`operator@` human inbox** — problems / blockers / bug-guidance; not status; present when operator returns |
 | [`multi-lane.md`](references/multi-lane.md) | Side lanes, theme→main, base-update, pin-relative, `pending_merges` |
 | [`heads.md`](references/heads.md) | head-ceo / **head-cto** / **head-cxo** loops |
 | [`heads/cast.md`](references/heads/cast.md) | Head org titles + persona index (was executive-team) |
@@ -130,7 +136,7 @@ Reserve **hard ban** language for actions that break the platform, tree, or mult
 | Uncommitted dirt on a path you need | **Open the diff** → classify A/B/C → act | Status-only “foreign dirty → leave forever” |
 | Integration lag (fix not on pin/main) | Queue merge / base-update / pin-refresh; pivot product | Thrash re-verify on correctly blocked consumer |
 | Pane dead / capacity / stuck idle + open tasking | Wake / reinit / runtime fallback by fleet | Stack wakes; hope without ops |
-| Hard human-only wall | Need filed + pivot other targets | Silent stall of the whole session |
+| Hard human-only wall | **operator@** need/mail + pivot other targets (not silent monologue; not status To mind) | Silent stall of the whole session |
 
 **Only sleep** when the actionable bag for the focus is empty **and** the map has no next unblocked unit — not because one item is awkward.
 
@@ -169,7 +175,8 @@ Formatter guidance (global Agents.md): after inspect, formatter output is intent
 | Role | Job | Does not |
 | --- | --- | --- |
 | **Hand** (`hand-N`) | Drain own open tasks/needs; validate; mark done; polish unit sources; own ship quality | Wait for GO mail; merge packet→main (`hand-2+`); erase foreign WIP |
-| **Mind** (operator TUI + `mind@`) | File targets; integrate; pane ops; refill starvation; pick side-lane work from map/head-ceo bucket | Stage GO/NO-GO; steal Hand unit; freeze on status-only dirty; deep code review; **tmux slot named reviewer/mind** |
+| **Mind** (operator TUI + `mind@`) | File targets; integrate; pane ops; refill starvation; pick side-lane work from map/head-ceo bucket; file/present **operator mail** | Stage GO/NO-GO; steal Hand unit; freeze on status-only dirty; deep code review; **tmux slot named reviewer/mind/operator** |
+| **operator@** | Accrue human escalations while autonomous; presented on return | Status updates; Hand bag drain; Head reports |
 | **head-cto** | **Code review / bug hunt on main after merge** | Own product tasking bag; block merges as GO/NO-GO stamp |
 | **head-ceo** | Vision; sequencing; **hand-2+ candidate buckets** | File Hand tasks; merge; stamp accept |
 | **head-cxo** | Complexity / purity audit | Own product tasking; merge; stamp accept; operator-facing mail |
@@ -227,6 +234,7 @@ if engaged:
   → turns_since_operator_message = 0
   → last_operator_message_at = time of that human message (or now if this turn)
   → refresh operator_recap window
+  → **present operator@ mail list** if any open/unread (before or with recap) — work through with human
 else:
   → turns_since_operator_message += 1
   → if turns_since_operator_message >= 3:
@@ -256,7 +264,20 @@ Detail + templates: [`mind-cycle.md`](references/mind-cycle.md).
 
 ### Operator recap buffer
 
-After the last operator message, assume ~1–2 cycles of monitoring, then they may be gone. Keep a **compact recap** in context (and baseline if useful) of what changed since `last_operator_message_at`: merges, HEADs, filed/done handles, pane/ops events, mode flips, open debt. Survive `/compact` by re-stating the recap in the compact keep-list. When the operator returns (“catch me up”, “what happened”), answer from that buffer first — reduced detail is fine; blank amnesia is not.
+After the last operator message, assume ~1–2 cycles of monitoring, then they may be gone. Keep a **compact recap** in context (and baseline if useful) of what changed since `last_operator_message_at`: merges, HEADs, filed/done handles, pane/ops events, mode flips, open debt. Survive `/compact` by re-stating the recap in the compact keep-list. When the operator returns (“catch me up”, “what happened”), answer from that buffer — reduced detail is fine; blank amnesia is not.
+
+### Operator mail (human escalation inbox)
+
+**`operator@`** is a **dedicated board identity** for issues that accrue while the camp is autonomous (or the human is away). It is **not** status, not Hand done mail, and not Head reports.
+
+| File To `operator` | Do not file |
+| --- | --- |
+| Problems that happened and need human recovery | Cycle status / absorbs / “still running” |
+| Critical blockers still unaddressed after pivot | Implementable residuals → **task** To Hand |
+| Bugs that need **explicit guidance** on fix direction | Safe defaults Mind should just take |
+| Human-only walls (creds, policy, spend) | Head research (stays To `mind`) |
+
+On operator return: **list open/unread operator mail first**, then recap, then live ops. Detail: [`operator-mail.md`](references/operator-mail.md).
 
 ## The tasking bag (summary)
 
@@ -315,11 +336,11 @@ Generic recipes (no particular server name): [`ssh-remote.md`](references/ssh-re
 
 ### 1. Arm
 
-- Bag exists: identities **`mind`** (board only), **`hand-N`**, **`head-*`**
-- Hands/Heads share project map; Mind is operator TUI (no mind tmux)
+- Bag exists: identities **`mind`** (fleet board), **`operator`** (human escalations), **`hand-N`**, **`head-*`**
+- Hands/Heads share project map; Mind is operator TUI (no mind/operator tmux)
 - Record product harness for Hands; bind every Hand’s `agent` / `wake_mode` / reinit
 - Apply preferred models (see `roles-and-harness.md`)
-- Tiny baselines: `last_cycle`, `quiet_streak`, `turns_since_operator_message`, `mind_mode`, fingerprints, pane classes
+- Tiny baselines: `last_cycle`, `quiet_streak`, `turns_since_operator_message`, `mind_mode`, fingerprints, pane classes, optional `operator_mail`
 
 ### 2. Select focus
 
@@ -417,7 +438,7 @@ Use **absorb** (bookkeeping) vs **accept** (integration bar — not full code re
 list paths → open diff → class A / B / C → act or pivot same turn
 ```
 
-On unexpected dirt **outside** scope: do not erase — list, classify if blocking, work around or escalate. Sub-agents escalate to parent; parent escalates true ambiguity to the operator **after** filing a need with a default.
+On unexpected dirt **outside** scope: do not erase — list, classify if blocking, work around or escalate. Sub-agents escalate to parent; parent escalates true ambiguity via **`operator@`** (need/mail with default) — not only private monologue.
 
 ## Project overlay contract
 
@@ -505,6 +526,10 @@ Schema detail: [`runtime-config.md`](references/runtime-config.md).
 - Scheduled wakes without a leading `FLEET_CYCLE` prefix
 - Treating strong guidance as a hard ban that forbids progress
 - **Reviewer / gatherer identity** as Mind: dedicated `reviewer` mail+tmux slot, shell inject into a “Mind pane,” or dual Mind processes
+- Status / absorbs / “still running” filed To **`operator@`** (that inbox is problems/blockers/guidance only)
+- Human escalations buried in **`mind@`** board noise with no **`operator@`** item
+- Returning interactive without presenting open **operator mail** when N>0
+- Spamming the same operator issue every cycle without new evidence
 
 ## Related skills
 

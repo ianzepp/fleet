@@ -25,7 +25,8 @@ Anything whose first line starts with `FLEET_CYCLE` is **not** an operator messa
 | `last_operator_message_at` | Cycle id / time of last operator prose |
 | `mind_mode` | `autonomous` \| `interactive` (resolved this cycle) |
 | `mind_mode_override` | optional sticky operator force (`ops_only` / `deep` / clear) |
-| `operator_recap` | Compact bullet list of material changes since last operator message |
+| `operator_recap` | Compact bullet list of material **status** changes since last operator message |
+| `operator_mail` | Optional counters for **`operator@`** inbox (open_count, last_presented_*) — not status |
 
 **Operator message** = human prose in the Mind session (question, instruction, review request, design chat, skill edits) — any human turn that is not a scheduled cycle injection.
 
@@ -51,6 +52,7 @@ Anything whose first line starts with `FLEET_CYCLE` is **not** an operator messa
                  if this wake is FLEET_CYCLE-only but history engaged: keep silence=0,
                  prefer thin ops for the cycle body but do NOT treat as multi-cycle abandon
      refresh operator_recap window from that engagement point
+     **present operator@ list** if open/unread > 0 (before or with recap) — see operator-mail.md
 
 4. If not engaged:
      turns_since_operator_message += 1
@@ -84,7 +86,8 @@ In autonomous mode, Mind **still**:
 - Refills starvation, doorbells/reinits by runtime
 - Absorbs moved HEADs; files implementable residuals as **tasks**
 - Uses **needs** for real decision holds (default + options), not monologue
-- Updates **operator_recap** so a returning human is not amnesiac
+- Updates **operator_recap** so a returning human is not amnesiac (status only)
+- Files **operator@** need/mail for problems, critical blockers, and bugs needing human guidance — not status
 
 In autonomous mode, Mind **does not**:
 
@@ -92,6 +95,8 @@ In autonomous mode, Mind **does not**:
 - Act as post-merge **code audit** (that is **head-cto on main**)
 - Wait multi-cycle on head-ceo when a safe default exists
 - Freeze on class A formatter dirt without opening the diff
+- Dump status updates into **operator@**
+- Idle waiting for operator mail replies when other map targets exist
 
 **Escalation ladder (cheapest first):**
 
@@ -100,7 +105,7 @@ In autonomous mode, Mind **does not**:
 | Pane/capacity/runtime | Fleet ops (reinit / ladder) **now** |
 | Class A dirt / obvious residual | Style-commit or **task** To Hand **now** |
 | Implementable defect | **task** To owning Hand |
-| Human-only wall | **need** To operator (default + options); **pivot** other work — do not idle |
+| Human-only wall / unsafe default / needs guidance | **need or mail To `operator@`** (default + options); **pivot** — do not bury in mind board noise |
 | Structural sequencing only (optional) | head-ceo assign — **do not block** product cycles waiting; decide interim default |
 
 Waiting several cycles for head-ceo “permission” is a rules-of-engagement failure.
@@ -111,7 +116,26 @@ Full reasoning for operator questions and instructions. On **FLEET_CYCLE** while
 
 ### Operator recap buffer
 
-Maintain a short list of **material** changes since `last_operator_message_at`: HEADs/merges, filed/done handles, pane ops, mode, open debt. Re-seed after `/compact`. On return phrases (“catch me up”, “what happened”, “summary”), answer from recap first. Interactive FLEET_CYCLE reports should **surface** the recap delta, not only store it.
+Maintain a short list of **material status** changes since `last_operator_message_at`: HEADs/merges, filed/done handles, pane ops, mode, open debt. Re-seed after `/compact`. Interactive FLEET_CYCLE reports should **surface** the recap delta, not only store it.
+
+### Operator mail (present on return)
+
+**`operator@`** holds human action items (problems / blockers / bug-guidance). Full rules: [`operator-mail.md`](operator-mail.md).
+
+On engagement / “catch me up” / “what’s waiting”:
+
+1. **Operator mail list** first (open/unread need+mail To `operator`)
+2. Then **operator_recap** (what moved)
+3. Then live bag / panes / HEAD
+
+```bash
+vivi mail list --for operator --project <root>
+vivi need list --for operator --project <root>   # if used
+```
+
+If N>0, present a work-through table; do not only bury a count in recap. If N=0, say empty once.
+
+Optional autonomous compact hint when N>0: `+op-mail:N` on the one-liner — never expand into status spam.
 
 ### Interaction with thorough cycles
 
