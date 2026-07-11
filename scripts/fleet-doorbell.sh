@@ -184,29 +184,27 @@ sys.stdout.write("\t".join(fields) + "\n")
 PY
 }
 
-# Classify pane quickly (same heuristics as sensors subset)
+# Classify pane quickly (subset of fleet-sensors heuristics; BSD+GNU grep -Eiq).
 classify() {
   local target=$1
   local session=${target%%:*}
+  local t class
   if ! "$TMUX_BIN" has-session -t "$session" 2>/dev/null; then
     echo down
     return 0
   fi
-  local t
   t="$("$TMUX_BIN" capture-pane -t "$target" -p -S -20 2>/dev/null || true)"
-  # Use grep -E -i; works on BSD (macOS) and GNU (Linux). Prefer -q for quiet.
-  if printf '%s\n' "$t" | grep -Eiq 'Working \(|esc to interrupt|Waiting for response|Responding'; then
-    echo running
-    return 0
-  fi
-  if printf '%s\n' "$t" | grep -Eiq 'Yes, continue|Do you trust|trust this workspace'; then
-    echo trust_prompt
-    return 0
-  fi
-  if printf '%s\n' "$t" | grep -Eiq 'over capacity|rate limit|usage limit'; then
-    echo error_capacity
-    return 0
-  fi
+  # Order matters: first match wins.
+  for class in \
+    'running|Working \(|esc to interrupt|Waiting for response|Responding' \
+    'trust_prompt|Yes, continue|Do you trust|trust this workspace' \
+    'error_capacity|over capacity|rate limit|usage limit'
+  do
+    if printf '%s\n' "$t" | grep -Eiq "${class#*|}"; then
+      echo "${class%%|*}"
+      return 0
+    fi
+  done
   echo idle
   return 0
 }
