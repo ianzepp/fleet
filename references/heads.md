@@ -77,8 +77,8 @@ Bands = **routing hints**. Prefer ranges; uncertain → estimate high. **Do not 
 1. Absorb into `side_lane_candidates[]` with `effort`/`est_tokens`/`est_basis`
 2. Pick/file when hand-2 idle+empty; match size to free capacity + recent calibration
 3. Bound → `status:bound`, `filed_handle`, `filed_at`
-4. On Hand done/theme absorb → record **actual** tokens (harness or Mind ballpark + `actual_source`)
-5. Append `cost_calibration[]` `{est, actual, delta_ratio≈actual/est, models, …}`
+4. On Hand done/theme absorb → record actuals when known (`actual_source=harness|mind_estimate|unavailable`). Codex often → `unavailable` — do not invent numbers
+5. Append `cost_calibration[]` `{est, actual_tokens?, actual_source, delta_ratio?, models, …}` — omit `delta_ratio` if actual unknown
 6. Bias later picks with recent deltas — inform, don’t hard-block
 7. Stale candidates: re-ask or drop — no thrash every quiet cycle
 

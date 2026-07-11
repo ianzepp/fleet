@@ -36,25 +36,33 @@ Product law talks in H-numbers + current assignment. Ops read runtime from fleet
 
 ## Harness alignment (Mind ↔ Hands vs Heads)
 
-**Invariant — Hands share Mind’s harness.** Mixed Hand harnesses under one Mind create interoperability debt (wrong wake vs reinit, wrong bootstrap, wrong pane cues).
+**Rule (one line):** default product-plane alignment (Hands share Mind’s harness); **documented fleet config exceptions win** — do not “normalize” a deliberate heterogeneous fleet.
 
 | Role | Harness policy | Model policy |
 | --- | --- | --- |
-| **Mind** | Source of truth for product harness | May change for capacity; Hands follow |
+| **Mind** | Source of truth for product harness *unless* fleet records a Hand exception | May change for capacity; Hands follow when aligned |
 | **Hand** | **Same harness as Mind** by default | May differ within that harness (ladder) |
 | **Head** | **Prefer a different harness and/or model** | Independence is a feature |
 
-Hands align so Mind writes doorbells/reinit/classify/compact for **one** product TUI. Heads diversify to challenge the product plane. Default Heads: **Pi + GLM 5.2 (high/xhigh)**.
+Same-harness Hands keep one wake/reinit/bootstrap surface. Heads diversify to challenge the product plane. Default Heads: **Pi + GLM 5.2 (high/xhigh)**.
+
+**Documented exceptions (do not override without operator):**
+
+| Exception | Why |
+| --- | --- |
+| Desktop Claude Mind + Grok/Pi Hands | No desktop harness in tmux — Hands cannot match Mind |
+| Pi Hand under desktop Mind | Local discrete units; zero API cost |
+| Operator-recorded temporary mixed Hands | Capacity/experiment — baseline note; re-align when quiet |
 
 **Arm / rebind:**
 
-1. On arm, set every Hand’s `agent` + `wake_mode` + reinit policy from Mind’s current harness.
-2. If Mind changes harness, rebind Hands on next clean breakpoint — no permanent mixed Hand fleet.
-3. Capacity on a Hand: step **same-harness** model ladder first. Do not flip Hand harness while Mind stays original unless operator records temporary exception.
+1. On arm, set every Hand’s `agent` + `wake_mode` + reinit from Mind’s harness **unless** fleet already pins a different Hand `agent`.
+2. If Mind changes harness, rebind Hands on next clean breakpoint — except documented exceptions.
+3. Capacity on a Hand: step **same-harness** model ladder first. Do not flip Hand harness while Mind stays original unless operator records exception.
 4. Capacity on Mind: prefer same-harness recovery; if Mind must move harness, rebind Hands or park Hands and recover Mind first.
 5. Heads are **out of** this rule. Rebind a Head only for its own capacity or operator preference.
 
-**Anti-pattern:** “H3 is always Codex” / “language spine is always Grok” as product law. Harness is ops binding from Mind, not permanent Hand identity. Assignment stays independent of harness.
+**Anti-pattern:** “H3 is always Codex” as permanent product law **or** forcing all Hands onto Mind’s harness when fleet.json already declares a valid exception. Assignment stays independent of harness.
 
 ## Preferred models by role
 
@@ -138,7 +146,7 @@ pi --provider zai --model glm-5.2 --thinking high   # or xhigh
 - **Post-main polish advisory:** main git tip moves → `suggest-polish-files.py` (JSON, capped); scores ≥ threshold → bounded polish **task** — Mind does not run polish loop
 - **Major-inflection housekeeping:** campaign end / large multi-theme merge / stage closeout / operator ask only — **one** `$housekeeping` **task** To hand-1; never after routine lands
 - **Capacity packing:** when picking head-ceo side-lane buckets, use `effort` / `est_tokens` + recent `cost_calibration`
-- **Cost calibration:** on Hand done for bound candidate, record actual tokens vs head-ceo estimate; short delta history
+- **Cost calibration:** on Hand done for bound candidate, record actual vs est when known. If TUI does not surface usage (common for **Codex** interactive): `actual_tokens=null`, `actual_source=unavailable` (or `mind_estimate` if Mind ballparks). **Do not invent** token numbers.
 - **Unstick half-dead dirt:** open the diff; class A mechanical → clear same turn; no multi-hour freeze
 - **Autonomous:** thin ops; **decide now** on reversible defaults; head-ceo optional structure help, not permission gate; file **operator mail** when human needed; compact reports
 - **Interactive:** full reasoning for operator; **rich FLEET_CYCLE reports**; maintain **operator_recap**; **present open operator@ list** on engagement

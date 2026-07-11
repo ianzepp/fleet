@@ -25,7 +25,11 @@
 #   .vivi/codex-reinit.sh reinit   hand-3 --no-boot
 #   .vivi/codex-reinit.sh reinit-all --boot-template 'HAND WAKE {name}. vivi --for {name}. Implement open bag now.'
 #
-# Env overrides: PROJECT, CODEX_BIN, TMUX_BIN, VIVI_BIN, PYTHON_BIN, MODEL, LOG, FORCE=1
+# Env overrides: PROJECT, CODEX_BIN, TMUX_BIN, VIVI_BIN, PYTHON_BIN, MODEL,
+#                CODEX_EFFORT, LOG, FORCE=1
+# Launch: prefers fleet hand agent_launch when set; else synthesizes
+#   cd <cwd> && $CODEX_BIN -m <model> -c model_reasoning_effort=<effort>
+# Default effort for synthesized launch: CODEX_EFFORT or xhigh (Hand preferred).
 # Requires: bash 3.2+, python3 >= 3.9. Portable macOS + Linux.
 # Exit: 0 ok · 1 hard fail · 2 stuck-idle (ready but never Working) · 3 bad args
 #       doctor: 0 healthy · 1 any slot unhealthy · 2 trust/stuck/starving needing action
@@ -66,7 +70,8 @@ GREP_BIN="${GREP_BIN:-$(fleet_find_bin grep /usr/bin/grep /bin/grep || echo grep
 MKDIR_BIN="${MKDIR_BIN:-$(fleet_find_bin mkdir /bin/mkdir /usr/bin/mkdir || echo mkdir)}"
 DATE_BIN="${DATE_BIN:-$(fleet_find_bin date /bin/date /usr/bin/date || echo date)}"
 LOG="${LOG:-/tmp/fleet-codex-reinit.log}"
-MODEL="${MODEL:-}" # empty → fleet/agent default
+MODEL="${MODEL:-}" # empty → fleet agent_model (or --model on reinit)
+CODEX_EFFORT="${CODEX_EFFORT:-}" # empty → xhigh when synthesizing (Hand preferred)
 WAIT_READY_SEC="${WAIT_READY_SEC:-45}"
 WAIT_WORKING_SEC="${WAIT_WORKING_SEC:-90}"
 WAIT_SETTLE_SEC="${WAIT_SETTLE_SEC:-8}"
@@ -397,10 +402,37 @@ kill_codex() {
   return 1
 }
 
+# Build pane launch line: prefer fleet agent_launch; else codex -m + effort.
+# Always cd to fleet cwd first so packet rehomes stick even if launch omits cd.
+build_launch_cmd() {
+  local cwd=$1 model=$2 launch=$3
+  local effort qcwd
+  # portable enough quote for spaces (no newlines expected in cwd)
+  qcwd=$(printf '%s' "$cwd" | sed "s/'/'\\\\''/g")
+  qcwd="'$qcwd'"
+  if [[ -n "${launch// }" ]]; then
+    # Honor fleet agent_launch (flags, wrappers, effort, auth env).
+    # Strip a leading "cd … &&" so fleet cwd wins; wrap so "a; b" still runs under cd.
+    launch="${launch#"${launch%%[![:space:]]*}"}" # ltrim
+    if [[ "$launch" == cd\ * ]]; then
+      if [[ "$launch" == *"&&"* ]]; then
+        launch="${launch#*&&}"
+        launch="${launch#"${launch%%[![:space:]]*}"}"
+      fi
+    fi
+    printf 'cd %s && { %s; }' "$qcwd" "$launch"
+    return 0
+  fi
+  effort="${CODEX_EFFORT:-xhigh}"
+  # Match preferred Hand effort; operators set agent_launch for non-defaults.
+  printf 'cd %s && %s -m %s -c model_reasoning_effort=%s' \
+    "$qcwd" "$CODEX_BIN" "$model" "$effort"
+}
+
 launch_codex() {
-  local target=$1 cwd=$2 model=$3
+  local target=$1 cwd=$2 model=$3 launch=${4:-}
   local launch_cmd pid i t trusted=0
-  launch_cmd="cd ${cwd} && ${CODEX_BIN} -m ${model} -c model_reasoning_effort=low"
+  launch_cmd="$(build_launch_cmd "$cwd" "$model" "$launch")"
   log "launch: $launch_cmd"
   "$TMUX_BIN" send-keys -t "$target" -l -- "$launch_cmd"
   "$TMUX_BIN" send-keys -t "$target" Enter
@@ -523,9 +555,14 @@ cmd_reinit() {
   local session cwd target model launch
   IFS=$'\t' read -r session cwd target model launch < <(fleet_resolve "$name")
   [[ -n "$MODEL" ]] && model="$MODEL"
+  # --model override: synthesize from MODEL (ignore agent_launch model flags)
+  if [[ -n "$MODEL" ]]; then
+    log "MODEL override=$MODEL (using synthesized launch, not agent_launch)"
+    launch=""
+  fi
 
   log "======== REINIT $name ========"
-  log "session=$session target=$target cwd=$cwd model=$model"
+  log "session=$session target=$target cwd=$cwd model=$model launch=${launch:-"(synthesize)"}"
 
   # refuse to kill mid-flight unless FORCE=1
   if "$TMUX_BIN" has-session -t "$session" 2>/dev/null; then
@@ -548,7 +585,7 @@ cmd_reinit() {
 
   kill_codex "$target" "$cwd" || true
   topo "$target" || true
-  launch_codex "$target" "$cwd" "$model" || return 1
+  launch_codex "$target" "$cwd" "$model" "$launch" || return 1
   topo "$target" || true
 
   if [[ "$no_boot" -eq 0 && -n "$boot" ]]; then

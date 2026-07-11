@@ -172,7 +172,7 @@ Hands share Mind’s harness (usually one column). Heads may use the other on pu
 
 1. File next task/need **before** launch so a handle exists
 2. Kill **Codex children of pane_pid only** — leave tmux + shell. If session gone: `tmux new-session -d -s hand-N -c <packet-cwd>`
-3. Launch without `exec` using that Hand’s **`agent_launch`**
+3. Launch without `exec` using that Hand’s **`agent_launch`** (helper honors it; synthesizes only if empty)
 4. One short first message: identity, never merge main (if packet), `vivi --for hand-N`, open handle(s), one verb, optional one-line unblock fact
 5. Enter once. Record `last_codex_reinit_at` in baseline
 

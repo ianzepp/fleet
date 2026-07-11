@@ -56,7 +56,7 @@ Canon for absorb/accept: [`mind-cycle.md`](references/mind-cycle.md) § Absorb v
 | Multi-hand | Mind files/wakes/merges clock; head-ceo side-lane bucket (`effort`+`est_tokens`); Mind calibrates est vs actual |
 | Starvation | Empty bag + unblocked map work → file+wake same cycle |
 | Stuck | Freeze fails — name, unstick, pivot. No status-only blocked cycles |
-| Harness | Hands = Mind harness; Heads prefer alternate |
+| Harness | **Default:** Hands = Mind harness; Heads prefer alternate. **Fleet config exceptions win** (desktop Mind, Pi Hand, operator-recorded mixed) — [`roles-and-harness.md`](references/roles-and-harness.md) |
 | Quality | Hand ships unit quality; **head-cto** reviews **main after merge** — not Mind peer-review of every packet |
 | Hygiene | Mind never runs `$polish`/`$housekeeping` itself |
 
@@ -90,7 +90,7 @@ Core process here; detail in `references/` + `scripts/`.
 
 | Context | Load |
 | --- | --- |
-| **Cold attach** (new session, empty context, post-`/compact` without recap) | This file + [`getting-started.md`](references/getting-started.md) §3 + [`fleet-guide.md`](references/fleet-guide.md) once for shape/vocab |
+| **Cold attach** (new session, empty context, post-`/compact` without recap) | **Order:** (1) this file (2) [`fleet-guide.md`](references/fleet-guide.md) once for vocab (3) [`getting-started.md`](references/getting-started.md) §3 for attach steps |
 | **Hot cycle** (mode/counters/state already in context) | This file alone if quiet; open a ref when that surface hits |
 | **Arm / first Mind turn on a live fleet** | This file + refs for surfaces you will touch this turn |
 
@@ -283,10 +283,13 @@ Skill = portable process. Overlay = roster, paths, models, ssh, maps, Status.
 ```
 
 ```bash
-# Placeholders: <skill> <root> <hex> — tokens without <> are literals (--text, rearm, …)
+# Placeholders: <skill> <root> <hex> — tokens without <> are literals
 python3 <skill>/scripts/fleet-sensors.py --project <root> --text
-python3 <skill>/scripts/fleet-sensors.py --project <root>   # JSON default
+# Grok/Pi wake:
 <skill>/scripts/fleet-doorbell.sh --project <root> hand-1 --handle <hex>
+# Codex wake (not doorbell):
+PROJECT=<root> FLEET=<root>/.vivi/fleet.json \
+  <skill>/scripts/codex-reinit.sh reinit hand-1 --boot 'HAND WAKE …'
 python3 <skill>/scripts/fleet-baseline.py bump -p <root> -s 'sleep' --quiet \
   --fingerprint-file /tmp/fleet-sensors.json
 scripts/steward.sh rearm --project <root>

@@ -283,11 +283,18 @@ If open/unread **operator@** items → present **first**, then status recap from
 
 - Prefer **`fleet-sensors.py --project $ROOT`** over hand-rolled dumps.
 - `running` → do not wake.
-- `idle_prompt` / `done_idle` + open bag → doorbell (Grok) or reinit (Codex).
+- `idle_prompt` / `done_idle` + open bag → **by Hand harness** (below).
 - `down` / `error_*` → recreate pane or runtime ladder — do not assume init case 2.
 
 ```bash
-"$SK/fleet-doorbell.sh" --project "$ROOT" hand-1
+# Grok / Pi (pointer wake — do NOT use for Codex)
+"$SK/fleet-doorbell.sh" --project "$ROOT" hand-1 --handle <hex>
+
+# Codex (reinit — never stack HAND WAKE lines)
+PROJECT="$ROOT" FLEET="$ROOT/.vivi/fleet.json" \
+  "$SK/codex-reinit.sh" reinit hand-1 --boot 'HAND WAKE hand-1. Bag: show next open. Continue.'
+# inspect only:  "$SK/codex-reinit.sh" doctor hand-1
+# heal idle+open: "$SK/codex-reinit.sh" heal
 ```
 
 ### 3.6 Arm steward only if you will run a scheduled loop

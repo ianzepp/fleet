@@ -73,7 +73,7 @@ Not a hard stop: missing Mind congratulations or “GO” mail.
 
 Empty hand-2 + no candidates and no map side track → operational pause (record why) **or** assign head-ceo “what should hand-2 run in parallel (with cost ballparks)?” — not silent multi-cycle empty while INDEX has a second unblocked goal.
 
-**Estimates = head-ceo-owned; calibration = Mind-owned.** Hands do not invent token math. Optional: Hand turn-end may note harness usage if TUI surfaces it — Mind still writes the calibration row.
+**Estimates = head-ceo-owned; calibration = Mind-owned.** Hands do not invent token math. Optional: Hand turn-end notes harness usage **if the TUI surfaces it**. **Codex TUI** often has no reliable token counter → Mind writes `actual_source=unavailable` (or `mind_estimate`) — never fabricated `actual_tokens`.
 
 ## Fleet priorities (main vs packet)
 

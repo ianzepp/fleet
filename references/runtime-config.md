@@ -62,7 +62,7 @@ scripts/codex-reinit.sh classify hand-2
 | Rule | Detail |
 | --- | --- |
 | Defaults | `PROJECT` from cwd or parent of `FLEET`; `FLEET`=`$PROJECT/.vivi/fleet.json` |
-| Launch | Never `exec codex`; pane shell stays parent; short bootstrap only |
+| Launch | Prefer Hand **`agent_launch`** (after `cd` to fleet cwd). If empty: `codex -m <agent_model> -c model_reasoning_effort=xhigh` (`CODEX_EFFORT` / `--model` overrides). Never `exec codex` |
 | Exit | reinit `0/1/2 stuck_idle/3`; doctor `0/1/2` (script header) |
 | Symlink | Fleets may wrap via `.vivi/codex-reinit.sh` |
 
@@ -330,10 +330,11 @@ side_lane_candidates[] optional
   # {id, title, why_off_main, seams, packet_scope,
   #  effort S|M|L|XL, est_tokens, est_basis,
   #  status open|bound|done|dropped, filed_handle?,
-  #  actual_tokens?, actual_source harness|mind_estimate?, closed_at?}
+  #  actual_tokens?, actual_source harness|mind_estimate|unavailable?, closed_at?}
 cost_calibration[] optional
-  # {id, title, head_ceo_effort, est_tokens, actual_tokens, delta_ratio,
-  #  head_ceo_model, hand_model, closed_at, notes}
+  # {id, title, head_ceo_effort, est_tokens, actual_tokens?, actual_source,
+  #  delta_ratio?, head_ceo_model, hand_model, closed_at, notes}
+  # Codex TUI: often actual_source=unavailable — never invent actual_tokens
 head-cto.last_report_*, head-cxo.last_report_*
 mind_loop.{state, handoff, mechanism, …}
 half_dead[] optional              # path, class A/B/C, age_cycles, note
