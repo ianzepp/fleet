@@ -16,6 +16,7 @@ import json
 import re
 import shutil
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -33,6 +34,25 @@ def run(cmd: List[str], timeout: float = 30.0) -> tuple:
 def load_json(path: Path) -> dict:
     data = _load_json(path, default={})
     return data if isinstance(data, dict) else {}
+
+
+def _parse_iso(s):
+    """Parse an ISO-8601 timestamp to a tz-aware datetime; unparseable/None -> None."""
+    if not s:
+        return None
+    try:
+        dt = datetime.fromisoformat(str(s).replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    return dt.replace(tzinfo=timezone.utc) if dt.tzinfo is None else dt
+
+
+def _secs_since(ts_iso, now_dt):
+    """Seconds between ts_iso and now_dt, or None if ts_iso is unparseable."""
+    t = _parse_iso(ts_iso)
+    if t is None:
+        return None
+    return (now_dt - t).total_seconds()
 
 
 def classify_pane(text: str, session_exists: bool) -> str:
@@ -115,50 +135,75 @@ def list_open_handles(vivi: str, project: str, identity: str, kind: str = "task"
     return handles
 
 
+def _parse_mail_line(line):
+    """Parse one `vivi mail list` row into (handle, date, from, subject) or None.
+
+    Format is version-dependent: `handle [iso-date] from subject…` — the date
+    column may be absent. Leading whitespace is ignored; handle must be hex.
+    """
+    line = line.strip()
+    if not line or line.startswith("handle"):
+        return None
+    parts = line.split(None, 3)
+    if len(parts) < 3 or not re.match(r"^[a-f0-9]{6,}$", parts[0]):
+        return None
+    if len(parts) >= 4 and re.match(r"^\d{4}-\d{2}-\d{2}T", parts[1]):
+        return parts[0], parts[1], parts[2], parts[3].strip()
+    return parts[0], None, parts[1], (parts[2].strip() if len(parts) > 2 else "")
+
+
 def list_mail_from_operator(
     vivi: str, project: str, mind_identity: str, operator_identity: str, limit: int = 20
 ) -> List[Dict[str, str]]:
-    """Cheap scan of mind@ for mail FROM operator@ (operator feedback / decisions).
-
-    vivi mail list lines look like:
-      <handle>  <from@mailspace>  <subject…>
-    """
+    """Cheap scan of mind@ for mail FROM operator@ (operator feedback / decisions)."""
+    if not vivi:
+        return []
     cmd = [vivi, "mail", "list", "--for", mind_identity, "--project", project]
     rc, out = run(cmd, timeout=20)
     if rc != 0 or not out.strip():
         return []
     op_token = (operator_identity or "operator").lower()
-    # match operator@… or bare operator as local-part
-    op_pat = re.compile(
-        r"^([a-f0-9]{6,})\s+(\S*operator\S*)\s+(.*)$",
-        re.I,
-    )
     found = []  # type: List[Dict[str, str]]
     for line in out.splitlines():
-        line = line.strip()
-        if not line or line.startswith("handle"):
+        parsed = _parse_mail_line(line)
+        if parsed is None:
             continue
-        m = op_pat.match(line)
-        if not m:
-            # fallback: handle + from column contains operator
-            parts = line.split(None, 2)
-            if len(parts) < 3 or not re.match(r"^[a-f0-9]{6,}$", parts[0]):
-                continue
-            fr = parts[1].lower()
-            if "operator" not in fr and not fr.startswith(op_token + "@"):
-                continue
-            found.append({"handle": parts[0], "from": parts[1], "subject": parts[2].strip()})
+        handle, date, frm, subj = parsed
+        fl = frm.lower()
+        if op_token not in fl and not fl.startswith("operator@"):
             continue
-        fr = m.group(2).lower()
-        if op_token not in fr and not fr.startswith("operator@"):
+        found.append({"handle": handle, "from": frm, "subject": subj, "date": date})
+        if len(found) >= limit:
+            break
+    return found
+
+
+def list_mail_from_identity(vivi, project, recipient, sender_tokens, limit=5):
+    """Newest-first mail in `recipient`'s inbox FROM any of `sender_tokens`.
+
+    Detects executive-head sweep completion: a head "completed" a sweep when a
+    mail appears in the report inbox (default reviewer) from that head's mail
+    identity or a legacy alias (strategist / correctness / purity). Cheap line
+    scan of `vivi mail list`; returns [{handle, from, subject, date}], newest
+    first (mail list is newest-first).
+    """
+    if not vivi or not recipient:
+        return []
+    cmd = [vivi, "mail", "list", "--for", recipient, "--project", project]
+    rc, out = run(cmd, timeout=20)
+    if rc != 0 or not out.strip():
+        return []
+    tokens = [str(t).lower() for t in sender_tokens if t]
+    found = []
+    for line in out.splitlines():
+        parsed = _parse_mail_line(line)
+        if parsed is None:
             continue
-        found.append(
-            {
-                "handle": m.group(1),
-                "from": m.group(2),
-                "subject": m.group(3).strip(),
-            }
-        )
+        handle, date, frm, subj = parsed
+        fl = frm.lower()
+        if not any(tok and tok in fl for tok in tokens):
+            continue
+        found.append({"handle": handle, "from": frm, "subject": subj, "date": date})
         if len(found) >= limit:
             break
     return found
@@ -262,6 +307,11 @@ def main() -> int:
     fleet = load_json(fleet_path)
     baseline_path = project / ".vivi" / "mind-baseline.json"
     baseline = load_json(baseline_path)
+    # previous fingerprint — loaded early so the head-cadence loop can read
+    # round-tripped last_completed/last_handle state; also used by quiet-sleep below
+    prev = baseline.get("last_actionable_fingerprint") or {}
+    if not isinstance(prev, dict):
+        prev = {}
     tooling = fleet.get("tooling") or {}
 
     vivi = which("vivi", tooling, "vivi") or which("vivi")
@@ -281,6 +331,7 @@ def main() -> int:
         tmux = "tmux"
     mind_inbox = fleet.get("mind_inbox") or "mind"
     operator_inbox = fleet.get("operator_inbox") or "operator"
+    head_report_inbox = fleet.get("head_report_inbox") or "reviewer"
     hands = fleet.get("hands") or fleet.get("hunters") or {}
 
     partial = False
@@ -481,7 +532,16 @@ def main() -> int:
         if h.get("merges_to_main") or name == fleet.get("default_hand"):
             out["git"]["main"] = git_tip(Path(cwd), fleet)
 
-    # heads (optional pane scan)
+    # heads (optional pane scan) + executive cadence (cron-equivalent scheduling).
+    # A head is "due" when min_seconds_between_sweeps has elapsed since its last
+    # observed completion mail AND its pane is not mid-pass. Completion is detected
+    # by a new mail from the head (identity or legacy alias) in the report inbox;
+    # the last-seen handle round-trips in the fingerprint so the loop is
+    # self-correcting with no separate state file. Opt-in: a fleet must set
+    # executive_cadence.enabled=true on a head entry; absent config leaves the
+    # head inert (no behavior change for fleets that do not opt in).
+    HEAD_DEFAULT_INTERVALS = {"head-ceo": 86400, "head-cto": 1800, "head-cxo": 3000}
+    now_dt = datetime.now(timezone.utc)
     for key in ("head-ceo", "head-cto", "head-cxo"):
         block = fleet.get(key)
         if not isinstance(block, dict):
@@ -500,10 +560,82 @@ def main() -> int:
                 )
         pclass = classify_pane(tail, sess_ok)
         pane_classes[key] = pclass
+
+        cad = block.get("executive_cadence") if isinstance(block.get("executive_cadence"), dict) else {}
+        sweep_enabled = bool(cad.get("enabled", False))
+        sweep_interval = int(cad.get("min_seconds_between_sweeps") or HEAD_DEFAULT_INTERVALS.get(key, 3600))
+        sweep_mode = cad.get("sweep_mode")
+        sender_tokens = [block.get("mail_identity") or key]
+        la = block.get("legacy_aliases")
+        if isinstance(la, list):
+            sender_tokens += [str(x) for x in la]
+        elif isinstance(la, str):
+            sender_tokens.append(la)
+        recent = (
+            list_mail_from_identity(vivi, str(project), head_report_inbox, sender_tokens, limit=5)
+            if (sweep_enabled and vivi)
+            else []
+        )
+        cur_top = recent[0]["handle"] if recent else None
+        top_date = recent[0].get("date") if recent else None
+
+        pk = key.replace("-", "_")  # head_ceo
+        prev_last_handle = prev.get("%s_last_handle" % pk) if isinstance(prev, dict) else None
+        prev_last_completed = prev.get("%s_last_completed" % pk) if isinstance(prev, dict) else None
+
+        completed_this_cycle = False
+        if prev_last_handle is None and prev_last_completed is None:
+            # bootstrap: seed from existing history (real mail date when available)
+            last_handle = cur_top
+            last_completed = top_date if cur_top else None
+        elif cur_top is not None and cur_top != prev_last_handle:
+            completed_this_cycle = True
+            last_handle = cur_top
+            last_completed = top_date or now_iso()
+        else:
+            last_handle = prev_last_handle
+            last_completed = prev_last_completed
+
+        head_paused = False
+        if isinstance(op_pauses, list):
+            for p in op_pauses:
+                if isinstance(p, dict) and (p.get("hand") == key or p.get("head") == key):
+                    head_paused = True
+                    break
+
+        secs = _secs_since(last_completed, now_dt) if last_completed else None
+        interval_elapsed = (secs is None) or (secs >= sweep_interval)
+        sweep_due = (
+            sweep_enabled
+            and not head_paused
+            and not posture_suppresses_starvation
+            and pclass != "running"
+            and interval_elapsed
+        )
+        overdue_sec = None
+        if sweep_enabled and secs is not None and secs > sweep_interval:
+            overdue_sec = int(secs - sweep_interval)
+
+        short = pk.split("_", 1)[1]  # ceo | cto | cxo
+        if sweep_due:
+            out["signals"].append("head_due_%s" % short)
+        if pclass in ("error_capacity", "error_connection", "down", "trust_prompt"):
+            out["signals"].append("pane_%s_%s" % (key, pclass))
+
         out["heads"][key] = {
             "tmux_target": target,
             "pane_class": pclass,
             "pane_tail": "\n".join((tail or "").splitlines()[-8:]),
+            "sweep_enabled": sweep_enabled,
+            "sweep_mode": sweep_mode,
+            "sweep_interval": sweep_interval,
+            "sweep_due": sweep_due,
+            "sweep_overdue_sec": overdue_sec,
+            "sweep_completed_this_cycle": completed_this_cycle,
+            "sweep_last_completed": last_completed,
+            "sweep_last_handle": last_handle,
+            "sweep_top_handle": cur_top,
+            "sweep_paused": head_paused or posture_suppresses_starvation,
         }
 
     # steward block from fleet + baseline + optional pane
@@ -556,17 +688,21 @@ def main() -> int:
         "steward_tripped": out["steward"].get("tripped"),
         "map_focus": (fleet.get("focus") or {}).get("chapter") or (fleet.get("focus") or {}).get("primary_goal"),
     }
+    # Round-trip executive-cadence state inside the fingerprint itself.
+    # fleet-baseline.py persists `fingerprint` verbatim as last_actionable_fingerprint,
+    # so head last_completed/last_handle survive across cycles with no extra state file.
+    for _hk, _hd in out["heads"].items():
+        _sk = _hk.replace("-", "_")
+        fp["%s_due" % _sk] = _hd.get("sweep_due")
+        fp["%s_last_completed" % _sk] = _hd.get("sweep_last_completed")
+        fp["%s_last_handle" % _sk] = _hd.get("sweep_last_handle")
     out["fingerprint"] = fp
     out["pane_classes"] = pane_classes
 
-    prev = baseline.get("last_actionable_fingerprint") or {}
-    if not isinstance(prev, dict):
-        # legacy gatherer baselines stored a string fingerprint
-        prev = {}
-    # quiet if fingerprint equal and no hard signals
+    # quiet if fingerprint equal and no hard signals (prev loaded near baseline)
     hard = [s for s in out["signals"] if not s.startswith("starvation_candidate")]
     # starvation when bag empty + idle + map still has chapter? Mind decides map; we only flag candidates
-    fp_cmp = {k: fp.get(k) for k in ("hand1_open", "hand2_open", "next_handle_h1", "next_handle_h2", "swarm_head", "hand1_class", "hand2_class", "operator_open", "steward_tripped")}
+    fp_cmp = {k: fp.get(k) for k in ("hand1_open", "hand2_open", "next_handle_h1", "next_handle_h2", "swarm_head", "hand1_class", "hand2_class", "operator_open", "steward_tripped", "head_ceo_due", "head_cto_due", "head_cxo_due")}
     prev_cmp = {k: prev.get(k) for k in fp_cmp}
     out["quiet_hint"] = fp_cmp == prev_cmp and not hard and not out["steward"].get("tripped")
     out["baseline_last_cycle"] = baseline.get("last_cycle")
@@ -603,6 +739,25 @@ def main() -> int:
                     h.get("next_handle"),
                     h.get("pane_class"),
                     h.get("tmux_target"),
+                )
+            )
+        for name, hd in out["heads"].items():
+            if not hd.get("sweep_enabled"):
+                continue
+            extra = (
+                " DUE"
+                if hd.get("sweep_due")
+                else (" overdue=%ss" % hd.get("sweep_overdue_sec") if hd.get("sweep_overdue_sec") is not None else "")
+            )
+            lines.append(
+                "  %s: class=%s sweep=%s last=%s%s target=%s"
+                % (
+                    name,
+                    hd.get("pane_class"),
+                    hd.get("sweep_interval"),
+                    (hd.get("sweep_last_completed") or "never")[:19],
+                    extra,
+                    hd.get("tmux_target"),
                 )
             )
         print("\n".join(lines))
