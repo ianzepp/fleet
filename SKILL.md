@@ -7,15 +7,17 @@ description: Multi-agent fleet management with Mind/Head/Hand roles (Abbot patte
 
 **Roles follow Abbot’s Mind / Head / Hand pattern** (see `~/work/ianzepp/abbot/README.md`: agent layer as roles under one control plane). This skill applies that pattern to a **multi-session fleet** (mail board + tmux panes), not Abbot’s in-process kernel.
 
-| Role | Job | Typical callsign |
+| Role | Job | Typical callsign / binding |
 | --- | --- | --- |
-| **Mind** | Ops / control loop: tasking, review, integrate, pane ops, cycle cadence | `reviewer` |
-| **Head** | Advisory cognition: strategist, correctness, purity — research and reports, not bag drain | same as role name |
-| **Hand** | Execution: take one open target, implement, validate, mark done | `hunter-1`…`hunter-N` |
+| **Mind** | Ops / control loop: tasking, integrate, pane ops, cycle cadence | **The operator’s current agent TUI/session** — not a hunter, not a dedicated Mind pane |
+| **Head** | Advisory: strategist, correctness, purity — research and reports, not bag drain | same as role name (mail + optional tmux) |
+| **Hand** | Execution: take one open target, implement, validate, mark done | `hunter-1`…`hunter-N` (mail + tmux) |
 
-Callsigns (`hunter-N`, `reviewer`) are **mail/tmux identities**. Skill vocabulary is Mind / Head / Hand.
+**Mind is not a fleet slot.** It is the human-opened conversation (this TUI, desktop app, or CLI) where the operator is. Do **not** invent a default mail/tmux identity named `reviewer` or a second “Mind Grok” pane to host ops. Hands and Heads are the slots that bind **mail identity == tmux session**. Optional camp field `mind_inbox` may name a **board-only** identity for “To: Mind” mail if useful — still not a process slot.
 
-**Evolution:** formerly `$hunter-gatherer`. Canonical skill name is **`$fleet`**.
+Skill vocabulary is Mind / Head / Hand. Callsigns are only for Heads and Hands.
+
+**Evolution:** formerly `$hunter-gatherer` (with a `reviewer` gatherer identity). Canonical skill is **`$fleet`**. The **reviewer** callsign is **retired**.
 
 **Process core (strong guidance):** Mind fills the tasking bag; Hand empties it. Progress is **open tasking + campaign/map**, not approval stamps.
 
@@ -25,7 +27,7 @@ Callsigns (`hunter-N`, `reviewer`) are **mail/tmux identities**. Skill vocabular
 
 **Harness alignment (strong guidance):** Hands run the **same agent harness as Mind**. Heads **prefer alternate harnesses/models**.
 
-**Mind is the operator entry point.** The harness conversation the human opens (desktop app, terminal TUI, or other) **is** Mind. Model and reasoning tier are operator setup; Mind does not need to introspect them. Cognitive budget follows **interaction mode** (below), not guessed model id.
+**Mind is the operator entry point.** The harness conversation the human is in (this TUI, desktop app, or CLI) **is** Mind. There is no separate “reviewer” process. Model and reasoning tier are operator setup. Cognitive budget follows **interaction mode** (below), not guessed model id.
 
 **Code quality ownership:** each **Hand** ships the best code it can (implement, validate, polish). **Correctness (Head)** owns **code review on main after merge** — not Mind peer-review of every WIP/packet. Build fast, fail fast; bugs on main are fixed on main.
 
@@ -49,7 +51,7 @@ campaign / focus map
 - Project-local multi-agent loops (often Vivi mailspace identities)
 - Factory/campaign work with a residual finder and an implementer
 - Long recurring agent wakes (5–10m) that must **fail fast** when idle
-- Reframing “reviewer approval” into residual tasks instead of stage licenses
+- Reframing approval stamps into residual tasks instead of stage licenses
 - Fleet of Hand sessions bound to tmux panes (liveness + doorbell)
 - Hands/Heads on remote hosts via SSH + tmux (same process, different host)
 
@@ -75,7 +77,7 @@ Reserve **hard ban** language for actions that break the platform, tree, or mult
 
 | Reference / script | Load when |
 | --- | --- |
-| [`roles-and-harness.md`](references/roles-and-harness.md) | Arming, rebinding, duties, preferred models, Pi-as-Hand, desktop Mind |
+| [`roles-and-harness.md`](references/roles-and-harness.md) | Arming, rebinding, duties, preferred models, Pi-as-Hand; Mind = operator session |
 | [`tasking.md`](references/tasking.md) | Filing targets, queue kind, multi-hand, starvation, Hand decision continuity |
 | [`dual-channel.md`](references/dual-channel.md) | Pane classes, doorbell, reinit, rehome, `/compact`, mail templates, **mailspace watch / thread** |
 | [`mind-cycle.md`](references/mind-cycle.md) | Modes, cycle prefix, fail-fast, absorb/accept (integration), operator recap |
@@ -145,7 +147,7 @@ Formatter guidance (global Agents.md): after inspect, formatter output is intent
 | Role | Job | Does not |
 | --- | --- | --- |
 | **Hand** | Drain own open tasks/needs; validate; mark done; polish unit sources; own ship quality | Wait for GO mail; merge packet→main (hunter-2+); erase foreign WIP |
-| **Mind** | File targets; integrate; pane ops; refill starvation; residual scan (not peer code review) | Stage GO/NO-GO; steal Hand unit; freeze on status-only dirty; deep code review of all WIP |
+| **Mind** | Operator session: file targets; integrate; pane ops; refill starvation; residual scan | Stage GO/NO-GO; steal Hand unit; freeze on status-only dirty; deep code review of all WIP; **running as a dedicated `reviewer` hunter pane** |
 | **Correctness** | **Code review / bug hunt on main after merge** | Own product tasking bag; block merges as GO/NO-GO stamp; juggle every packet worktree as primary review surface |
 | **Other Heads** | Strategist sequencing; purity complexity | Own product tasking; merge; stamp accept |
 
@@ -167,21 +169,19 @@ Track (write every cycle into the Mind baseline):
 
 **Not** operator messages:
 
-- Scheduled cycle wakes that begin with the fixed prefix **`FLEET_CYCLE`** (required — see below)
+- Scheduled cycle wakes in **this** Mind session that begin with **`FLEET_CYCLE`** (Grok `/loop`, harness scheduler, etc.)
 - Hand/Head board mail, pane captures, automation boilerplate without that human intent
 
 ### Scheduled cycle prefix (required for auto-mode)
 
-Every durable Mind scheduler / loop injection **must** begin with a fixed designator so it is never mistaken for the operator:
+When Mind uses a harness loop/scheduler **in the operator session** (e.g. Grok `/loop 5m …`), the recurring prompt **must** begin with:
 
 ```text
 FLEET_CYCLE cycle=<N> project=<root>
 …rest of thin cycle instructions…
 ```
 
-Optional second line tags are fine (`mode=autonomous`, camp name). Camps may add more after the first line; **line 1 must start with `FLEET_CYCLE`**. Grok and similar harnesses already use obvious instructional headers — this makes the rule portable and classifiable.
-
-If a wake lacks `FLEET_CYCLE` and is clearly scheduler-shaped, still treat as non-operator; prefer fixing the overlay next cycle.
+Do **not** implement Mind cadence by spawning a second agent pane or a shell that `send-keys` into a “reviewer” session. Loop lives where Mind lives — the operator TUI.
 
 ### Mode selection
 
@@ -203,7 +203,7 @@ Optional override (`Mind: deep` / `Mind: ops only`) beats auto-detect until clea
 
 | Mode | When | Cognitive budget |
 | --- | --- | --- |
-| **Autonomous** | `turns_since_operator_message >= 3`, `FLEET_CYCLE` wake, or no operator this session | **Thin ops** even if high reasoning is available. Sensors, classify, file/wake/reinit, short absorb/integration accept, fail-fast sleep. **Decide now** on reversible defaults — do not park on strategist. |
+| **Autonomous** | `turns_since_operator_message >= 3`, `FLEET_CYCLE` /loop fire, or no operator this session | **Thin ops** even if high reasoning is available. Sensors, classify, file/wake/reinit, short absorb/integration accept, fail-fast sleep. **Decide now** on reversible defaults — do not park on strategist. |
 | **Interactive** | Operator engaged this turn, or fewer than 3 silent cycles after engagement | **Full reasoning** for the exchange; still Mind. |
 
 ### Operator recap buffer (autonomous)
@@ -377,7 +377,7 @@ scripts/codex-reinit   # skill copy or symlink; env PROJECT + FLEET
 project Agents.md      # product + multi-agent process
 ```
 
-**Desktop Mind (experimental):** Mind may run in a desktop app (e.g. Claude Code) while Hands stay in terminal/tmux **local or remote**. Reasons: token budget control, and **failure isolation** (local tmux/shell death should not take Mind; Mind death should not take remote Hands). Hands still follow product Hand harness policy for that shape. Pair with remote slots: [`ssh-remote.md`](references/ssh-remote.md).
+**Desktop Mind:** Mind may be a desktop app (e.g. Claude Code) while Hands stay in terminal/tmux **local or remote**. Same rule: Mind is the operator conversation, not a `reviewer` pane. Pair with remote slots: [`ssh-remote.md`](references/ssh-remote.md).
 
 Schema detail: [`runtime-config.md`](references/runtime-config.md).
 
@@ -427,6 +427,7 @@ Schema detail: [`runtime-config.md`](references/runtime-config.md).
 - Waiting on strategist for a reversible default instead of deciding now
 - Scheduled wakes without a leading `FLEET_CYCLE` prefix
 - Treating strong guidance as a hard ban that forbids progress
+- **Reviewer / gatherer identity** as Mind: dedicated `reviewer` mail+tmux slot, shell inject into a “Mind pane,” or dual Mind processes
 
 ## Related skills
 

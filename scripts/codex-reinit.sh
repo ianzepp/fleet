@@ -53,7 +53,7 @@ fi
 PS_BIN="${PS_BIN:-/bin/ps}"
 PGREP_BIN="${PGREP_BIN:-/usr/bin/pgrep}"
 PYTHON_BIN="${PYTHON_BIN:-/opt/homebrew/bin/python3}"
-# Bare gatherer shells often lack coreutils on PATH — pin them.
+# Bare Mind/ops shells often lack coreutils on PATH — pin them.
 export PATH="/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin:${PATH:-}:/Users/ianzepp/.cargo/bin"
 HEAD_BIN="${HEAD_BIN:-/usr/bin/head}"
 TAIL_BIN="${TAIL_BIN:-/usr/bin/tail}"
@@ -136,7 +136,7 @@ bag_first_handle() {
   BAG_BOARD_TEXT="$out" "$PYTHON_BIN" - <<'PY'
 import os, re
 text = os.environ.get("BAG_BOARD_TEXT", "")
-# lines like: "  ea00ac1  2026-07-11T...  reviewer@...  P2 task: ..."
+# lines like: "  ea00ac1  2026-07-11T...  hunter-1@...  P2 task: ..."
 for line in text.splitlines():
     m = re.match(r"\s+([0-9a-f]{7,})\s+", line)
     if m:
@@ -145,7 +145,7 @@ for line in text.splitlines():
 PY
 }
 
-# Default short bootstrap for heal/reinit when gatherer did not supply --boot.
+# Default short bootstrap for heal/reinit when Mind did not supply --boot.
 default_boot() {
   local name=$1
   local handle
@@ -670,10 +670,10 @@ doctor_one() {
         __doctor_rc=2
         __heal_needed=1
       elif [[ $bag_needs_only -eq 1 ]]; then
-        rec="idle + needs-only (no auto-heal; gatherer triage hold vs implementable)"
+        rec="idle + needs-only (no auto-heal; Mind triage hold vs implementable)"
         # action note only — do not thrash reinit on env-gated needs
       else
-        rec="ok (idle + empty bag — gatherer should refill map if not pause)"
+        rec="ok (idle + empty bag — Mind should refill map if not pause)"
       fi
       ;;
     trust_prompt)
@@ -895,7 +895,7 @@ cmd_heal() {
 
   for name in $names; do
     __heal_needed=0
-    # doctor_one prints slot line; capture to log only if quiet? keep stdout for gatherer.
+    # doctor_one prints slot line; keep stdout for Mind ops.
     doctor_one "$name" 0
     if [[ ${__heal_needed:-0} -ne 1 ]]; then
       echo "  skip $name (no heal needed)"

@@ -36,7 +36,7 @@ vivi mail watch | vivi task watch | vivi need watch | vivi want watch
 
 | Flag | Fleet use |
 | --- | --- |
-| `--for reviewer` (Mind) or `--for hunter-N` | Whose local events wake the watcher |
+| `--for <identity>` (Hand/Head, or optional camp `mind_inbox`) | Whose local events wake the watcher |
 | `--kinds mail,task,need` | Default; `want` opt-in via `--kinds` |
 | `--events delivered,moved` | Default lifecycle |
 | `--match-from hunter-2` | Only that Hand’s deliveries |
@@ -55,14 +55,16 @@ vivi mail watch | vivi task watch | vivi need watch | vivi want watch
 **Do not** block a whole autonomous cycle on an unbounded watch (`--until-count 0` without timeout) unless the operator explicitly wants a long wait.
 
 ```bash
-# Example: Mind cheap — any new work To reviewer
-vivi mailspace watch --for reviewer --project "$ROOT" \
+# Example: Mind cheap — board event scan (optional mind_inbox identity, or omit --for and use status)
+vivi mailspace status --project "$ROOT"
+vivi mailspace watch --for mind --project "$ROOT" \
   --once --write-cursor \
   --cursor-file "$ROOT/.vivi/mind-watch.cursor" \
   --json
+# Only if camp defined a board-only `mind` identity — Mind itself is still the operator TUI
 
-# Example: bounded wait for hunter-2 RTM mail
-vivi mail watch --for reviewer --project "$ROOT" \
+# Example: bounded wait for hunter-2 RTM (match-from; To: mind_inbox if used)
+vivi mail watch --for mind --project "$ROOT" \
   --match-from hunter-2 \
   --match-subject-prefix "ready-to-merge" \
   --timeout 60s --until-count 1
@@ -100,8 +102,9 @@ Put the map in **project fleet config** (camp-local path). Example shape:
   "version": 1,
   "default_hunter": "hunter-1",
   "legacy_hunter_identity": "codex",
-  "gatherer_identity": "reviewer",
-  "mind": { "agent": "grok", "note": "Hands inherit this harness family" },
+  "mind_inbox": null,
+  "mind_inbox_note": "Optional board-only identity for To: Mind mail. Mind process = operator TUI, not this field. Never use retired callsign reviewer.",
+  "mind": { "agent": "grok", "note": "Product harness for Hands; Mind is operator session" },
   "agent_policy": {
     "hands_follow_mind_harness": true,
     "heads_prefer_pi": true,
@@ -333,19 +336,19 @@ Never combine `/compact` and the new assignment in one keystroke or compact with
 ## Completion mail (optional; preferred when turn succeeds)
 
 ```text
-From: hunter-N → reviewer
+From: hunter-N → mind   # or camp mind_inbox; optional if task done is enough
 Subject: hunter-N turn end: <one line>
 Body: cleared <handle>|none · HEAD <sha>|dirty · tasking left: … · next: … · blocked: none|…
 ```
 
-Board `task done` / `need done` remains the primary durable signal even if this mail is skipped.
+Board `task done` / `need done` remains the primary durable signal even if this mail is skipped. Do not use retired **`reviewer`** as To:.
 
 ## Ready-to-merge mail (hunter-2+ preferred template)
 
 High-signal handoff so Mind can absorb without reverse-engineering the pane. Send when packet unit is done, tree clean, worker stopped.
 
 ```text
-From: hunter-2 → reviewer
+From: hunter-2 → mind
 Subject: hunter-2 turn end: ready-to-merge <packet-slug>
 
 ready-to-merge packet <packet-slug>

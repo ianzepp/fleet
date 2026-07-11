@@ -72,7 +72,7 @@ In autonomous mode, Mind **still**:
 In autonomous mode, Mind **does not**:
 
 - Deep-plan strategy “because the model can”
-- Act as fleet **code reviewer** (that is **correctness on main**)
+- Act as post-merge **code audit** (that is **correctness on main**)
 - Wait multi-cycle on strategist when a safe default exists
 - Freeze on class A formatter dirt without opening the diff
 
@@ -317,7 +317,7 @@ When Mind **accepts** a packet, the merge task should name at least:
 - **watch-scope drift** before merge:  
   `git diff --name-only <base>..HEAD -- <watch-paths>`  
   Main often moves while the packet is open. Non-empty drift on watch paths → stop and report. Empty / only expected doc paths → proceed
-- done-when: on main, green validation, note back to reviewer
+- done-when: on main, green validation, note back to Mind (task done + optional turn-end mail)
 
 | hunter-1 state | Action |
 | --- | --- |

@@ -7,7 +7,7 @@ Load when arming a fleet, rebinding runtimes, or clarifying Mind/Hand/Head dutie
 | Role | Typical identity | Job | Output |
 | --- | --- | --- | --- |
 | **Hand** | `hunter-1`…`hunter-N` (legacy: `codex`) | Take a **selected target** and finish it | Done tasks/needs + evidence; optional turn-end mail |
-| **Mind** | `reviewer` | Survey product; fill tasking; review; integrate; fleet ops | Open tasks/needs; pane scan; wake/reinit; merge queue |
+| **Mind** | *(no default callsign)* — **operator session** | Survey product; fill tasking; integrate; fleet ops | Open tasks/needs; pane scan; wake/reinit; merge queue |
 | **Strategist** (Head) | `strategist` | Ownership, sequencing, seams, gate honesty — not bag drain | Mail `strategist report:` To Mind |
 | **Correctness** (Head) | `correctness` | **Code review / bug hunt on main after merge** (not packet-worktree thrash) | Mail `correctness:` To Mind |
 | **Purity** (Head) | `purity` | Self-directed unearned-complexity / excess-layer audit | Mail `purity:` To Mind |
@@ -138,8 +138,8 @@ Heads need not match Mind’s product harness. Prefer Pi even when Mind is Grok 
 
 ## Mind does
 
-- **Is the operator entry point:** the human-opened harness conversation is Mind; model/tier is operator setup
-- Resolve **interaction mode** each cycle (`turns_since_operator_message`, `mind_mode`, `FLEET_CYCLE` prefix) — see main skill + `mind-cycle.md`
+- **Is the operator entry point:** the conversation the human is in **is** Mind (not a `reviewer` hunter, not a second ops pane)
+- Resolve **interaction mode** each cycle (`turns_since_operator_message`, `mind_mode`, `FLEET_CYCLE` /loop) — see main skill + `mind-cycle.md`
 - Find missed work, Status overclaims, missing evidence; file **targets** with where / done-when / evidence bar (**to the owning Hand**)
 - **Integration absorb/accept** — bookkeeping and “good enough to merge/queue,” not deep peer code review of every packet
 - Stay quiet when fingerprint unchanged, panes healthy, and no ops signal
@@ -161,6 +161,7 @@ Heads need not match Mind’s product harness. Prefer Pi even when Mind is Grok 
 - Treat Hand/Head board mail or `FLEET_CYCLE` wakes as operator engagement
 - Wait multiple cycles on strategist for a decision it can make with a default
 - Treat strong guidance as a hard ban that freezes progress
+- Run as a dedicated **`reviewer` / gatherer** mail+tmux identity (retired)
 
 ## Correctness does (Head)
 

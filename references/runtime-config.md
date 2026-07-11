@@ -153,12 +153,12 @@ Recommended keys (extend freely; skill cares about meanings):
   "version": 1,
   "default_hunter": "hunter-1",
   "legacy_hunter_identity": "codex",
-  "gatherer_identity": "reviewer",
-  "binding_rule": "mail_identity == tmux_session token",
+  "mind_inbox": null,
+  "binding_rule": "mail_identity == tmux_session token (Hands/Heads only; Mind is operator TUI)",
   "mind": {
     "agent": "grok",
     "agent_model": "grok-4.5",
-    "note": "Product harness source of truth; Hands inherit agent family"
+    "note": "Product harness for Hands; Mind is not a fleet slot / not reviewer"
   },
   "agent_policy": {
     "hands_follow_mind_harness": true,
@@ -267,7 +267,7 @@ hunter_fleet mirror / pane_classes
 last_hunter_wake_*, last_codex_reinit_*, last_runtime_fallback
 strategist.{awaiting_report, last_assign_handle, last_reinit_at}
 correctness.last_report_*, purity.last_report_*
-gatherer_loop.{state, handoff, …}   # armed | running | stopping | wound_up
+mind_loop.{state, handoff, mechanism, …}   # armed | running | stopping | wound_up; mechanism e.g. grok_/loop
 half_dead[] optional                # path, class A/B/C, age_cycles, note
 ```
 
@@ -294,9 +294,9 @@ Part of orderly camp shutdown (and lifecycle **Retire**).
    - open product tasking mid-unit → **keep** or operator-stop with residual noted
    - open tasking is only human/env gate → treat as finished for wind-down; leave need open
 4. **Drop panes** for finished hands and Heads (`tmux kill-session`); leave mid-product hands if operator wants residual drain
-5. **Baseline** `gatherer_loop.state = wound_up` with: dropped/kept panes, tips, residual open handles, handoff for rearm
+5. **Baseline** `mind_loop.state = wound_up` with: dropped/kept panes, tips, residual open handles, handoff for rearm
 6. Optional pointer to kept hands: fleet wound up; continue bag or idle
-7. Cancel or detach durable Mind scheduler if operator is stopping the loop
+7. Cancel Mind `/loop` or harness scheduler **in the operator session** if stopping the loop
 
 ### What wind-down is not
 
@@ -309,5 +309,6 @@ Part of orderly camp shutdown (and lifecycle **Retire**).
 1. Recreate tmux sessions from fleet (`cwd`, `agent_launch`)
 2. Read baseline handoff + open taskings
 3. Refill starvation if maps still have work
-4. Set `gatherer_loop.state = armed|running`; clear or archive wind-up block
+4. Set `mind_loop.state = armed|running`; clear or archive wind-up block
 5. Optional strategist assign if structural debt remains (e.g. merge-order research)
+6. Mind remains the operator TUI — do not recreate a `reviewer` pane
