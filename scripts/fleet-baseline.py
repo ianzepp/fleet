@@ -147,9 +147,8 @@ def cmd_rearm_note(project: Path, baseline: Path) -> int:
     ml = ensure_ml(b)
     ml["last_successful_cycle_at"] = now
     ml["last_cycle_ok"] = True
-    st = ensure_dict(b.get("steward"))
-    st["last_rearm_at"] = now
-    b["steward"] = st
+    b["mind_loop"] = ml
+    # Cycle clock only — steward.last_rearm_at is steward.sh arm/rearm, not this.
     b["project"] = b.get("project") or str(project)
     save_json(baseline, b)
     print(json.dumps({"ok": True, "last_successful_cycle_at": now}, ensure_ascii=False))
@@ -222,10 +221,8 @@ def cmd_bump(args: argparse.Namespace, project: Path, baseline: Path) -> int:
     if ml.get("state") in (None, "armed", "detached"):
         ml["state"] = "running"
     b["mind_loop"] = ml
-
-    st = ensure_dict(b.get("steward"))
-    st["last_rearm_at"] = now
-    b["steward"] = st
+    # Do not stamp steward.last_rearm_at here — that is steward.sh arm/rearm only.
+    # Cycle success for dead-man is mind_loop.last_successful_cycle_at (above).
 
     save_json(baseline, b)
     print(

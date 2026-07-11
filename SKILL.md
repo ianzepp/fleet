@@ -22,7 +22,7 @@ Abbot **Mind / Head / Hand** roles on a **multi-session fleet** (Vivi board + tm
 | **operator** | `operator@…` | none | Human only — [`operator-mail.md`](references/operator-mail.md) |
 | **steward** | optional opt-in | `tmux_target` | Dead-man, not Mind — **off by default**; operator must enable+arm per fleet — [`dead-man.md`](references/dead-man.md) |
 | **hand-N** | `hand-N@…` | via `tmux_target` | `hand-1` merges to main |
-| **head-*** | `head-*@…` | via `tmux_target` | ceo vision/buckets; cto post-main review; cxo purity (not operator-facing) |
+| **head-*** | `head-*@…` | via `tmux_target` | ceo=strategist (map health/buckets); cto post-main+gates; cxo purity (not operator-facing) |
 
 | Layout | Binding |
 | --- | --- |

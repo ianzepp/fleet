@@ -53,14 +53,20 @@ Prefer `show` first; `thread` for multi-hop / residual / RTM. `--infer` = histor
 
 ## Binding rule
 
-**Mail identity token == tmux session name.**
+**Ops always use fleet.json `tmux_target`.** Two layouts:
 
-| Mail | tmux session | Typical pane target |
+| Layout | Mail identity | tmux session | Typical `tmux_target` |
+| --- | --- | --- | --- |
+| **legacy** (single-fleet host) | role (`hand-1`) | role (`hand-1`) | `hand-1:1.1` |
+| **session-per-fleet** (multi-fleet host) | role (`hand-1`) | `fleet_id` | `mgs:hand-1.1` (window=role) |
+
+| Mail | tmux (legacy) | Notes |
 | --- | --- | --- |
-| `mind@…` | **none** | Operator TUI only |
-| `hand-1@…` | `hand-1` | `hand-1` or `hand-1:1.1` (respect base-index) |
-| `hand-2@…` | `hand-2` | `hand-2` |
-| `head-cto@…` | `head-cto` | `head-cto:1.1` |
+| `mind@…` | **none** | Operator TUI only — no mind tmux |
+| `hand-1@…` | `hand-1` or fleet session | Respect base-index; never invent target |
+| `head-cto@…` | `head-cto` or fleet session | Heads may be lazy (create on first assign) |
+
+Do **not** hardcode `session == role` when `tmux_target` is set. Multi-fleet detail: [`multi-fleet.md`](multi-fleet.md).
 
 Map lives in **project fleet config**:
 
@@ -69,8 +75,11 @@ Map lives in **project fleet config**:
   "version": 1,
   "default_hand": "hand-1",
   "legacy_hand_identity": "codex",
+  "fleet_id": "example",
+  "tmux_layout": "legacy",
   "mind_inbox": "mind",
   "mind_inbox_note": "Board-only To: mind. Process = operator TUI. No tmux for mind.",
+  "head_report_inbox": "mind",
   "mind": { "agent": "grok", "note": "Product harness for Hands; Mind is operator session" },
   "agent_policy": {
     "hands_follow_mind_harness": true,
@@ -101,7 +110,7 @@ Map lives in **project fleet config**:
   "head-ceo": { "mail_identity": "head-ceo", "tmux_session": "head-ceo", "agent": "pi" },
   "head-cto": { "mail_identity": "head-cto", "tmux_session": "head-cto", "agent": "pi", "self_directed": true },
   "head-cxo": { "mail_identity": "head-cxo", "tmux_session": "head-cxo", "agent": "pi", "self_directed": true },
-  "binding_rule": "mail_identity == tmux_session token (Hands/Heads only; mind has no tmux)"
+  "binding_rule": "legacy: mail_identity==tmux_session; session_per_fleet: mail_identity==role, session==fleet_id; always use tmux_target (Hands/Heads only; mind has no tmux)"
 }
 ```
 

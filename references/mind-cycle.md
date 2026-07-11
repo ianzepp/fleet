@@ -222,7 +222,8 @@ $SK/fleet-doorbell.sh --project "$ROOT" hand-1 --handle <hex> --note 'bag open'
 python3 $SK/fleet-sensors.py --project "$ROOT" > /tmp/fleet-sensors.json
 python3 $SK/fleet-baseline.py bump -p "$ROOT" -s 'sleep' --quiet \
   --fingerprint-file /tmp/fleet-sensors.json
-$SK/steward.sh rearm --project "$ROOT"
+# only if steward enabled+armed for this fleet (default: skip):
+# $SK/steward.sh rearm --project "$ROOT"
 ```
 
 | Helper | Job |

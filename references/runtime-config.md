@@ -23,12 +23,14 @@ Do **not** hardcode only `/opt/homebrew/...`. Prefer `fleet_find_*` from `lib/en
 ### `fleet-sensors.py`
 
 ```bash
-python3 scripts/fleet-sensors.py --project <root>            # JSON
+python3 scripts/fleet-sensors.py --project <root>            # JSON (default)
 python3 scripts/fleet-sensors.py --project <root> --text
 python3 scripts/fleet-sensors.py --project <root> --no-watch # skip mailspace watch
+python3 scripts/fleet-sensors.py -p <root> --fleet <path/to/fleet.json>
+python3 scripts/fleet-sensors.py -p <root> --tail 12 --cursor-file <path>
 ```
 
-Emits board status, open handles, pane classes, git tip, fingerprint, `signals[]`, `quiet_hint`. Exit `0` ok · `1` hard · `2` partial.
+Emits board status, open handles, pane classes, git tip, fingerprint, `signals[]`, `quiet_hint`, posture, Head cadence due flags. Exit `0` ok · `1` hard · `2` partial.
 
 ### `fleet-baseline.py`
 
@@ -36,11 +38,13 @@ Emits board status, open handles, pane classes, git tip, fingerprint, `signals[]
 python3 scripts/fleet-baseline.py get -p <root>
 python3 scripts/fleet-baseline.py bump -p <root> -s 'sleep' --quiet \
   --fingerprint-file /tmp/sensors.json
-python3 scripts/fleet-baseline.py rearm-note -p <root>
+# optional: --acted · --operator-engaged · --kind superficial|thorough · --mode …
+# · --fingerprint-json · --pane-classes-json · --debt-json · --recap · --no-increment-silence
+python3 scripts/fleet-baseline.py rearm-note -p <root>   # cycle clock only
 python3 scripts/fleet-baseline.py wound-up -p <root> -s 'wound_up' --dropped hand-1,hand-2
 ```
 
-`--project/-p` before or after subcommand. `bump` increments `last_cycle`, quiet/mode counters, stores fingerprint/pane_classes, merges `sensors.heads` → `head-*`.`last_report_*`, touches `mind_loop.last_successful_cycle_at` (pair with `steward.sh rearm`).
+`--project/-p` before or after subcommand. `bump` increments `last_cycle`, quiet/mode counters, stores fingerprint/pane_classes, merges `sensors.heads` → `head-*`.`last_report_*`, touches **`mind_loop.last_successful_cycle_at`** (dead-man cycle clock). It does **not** arm steward or stamp `steward.last_rearm_at` — that is `steward.sh arm|rearm` only (when steward is enabled+armed).
 
 ### `verify-fleet-json.py`
 
@@ -62,9 +66,11 @@ skill cares about meanings") — unknown keys are NOT rejected. Exit `0` ok ·
 
 ```bash
 scripts/fleet-doorbell.sh --project <root> hand-1 [--handle HEX] [--note '…'] [--force]
+scripts/fleet-doorbell.sh --project <root> hand-1 --target <session:win.pane> --message '…'
+# optional env: FLEET_DOORBELL_SUBMIT_DELAY_SEC (Codex submit-settle)
 ```
 
-Resolves fleet.json `tmux_target`; refuses running/down/rate-limit unless `--force`; records `last_hand_wake`.
+Resolves fleet.json `tmux_target` (or `--target`); refuses running/down/rate-limit unless `--force`; records `last_hand_wake`.
 
 ### `codex-reinit.sh` (fallback)
 
@@ -84,7 +90,7 @@ scripts/codex-reinit.sh classify hand-2
 
 ### `steward.sh`
 
-See [`dead-man.md`](dead-man.md). `arm` / `rearm` / `disarm` / `check` / `clear` / `loop`.
+See [`dead-man.md`](dead-man.md). Subcommands: `arm` / `rearm` / `disarm` / `check` / `status` / `clear` / `trip` / `loop`. Default **enabled false**.
 
 ## Runtime fallback
 
@@ -220,8 +226,8 @@ Recommended keys (extend freely; skill cares about meanings):
   "mind_inbox": "mind",
   "operator_inbox": "operator",
   "operator_inbox_note": "Human escalations only (problems/blockers/guidance). Not status. No tmux.",
-  "head_report_inbox": "reviewer",
-  "head_report_inbox_note": "Inbox identity that executive heads mail reports to, for sweep-completion detection. Default 'reviewer'.",
+  "head_report_inbox": "mind",
+  "head_report_inbox_note": "Inbox Heads report into for sweep-completion detection. Default mind (process law: To mind@). Legacy camps may set reviewer until renamed.",
   "steward": {
     "enabled": false,
     "note": "default OFF — operator must enable:true and explicitly ask to arm per fleet; loop ≠ steward",
@@ -312,7 +318,7 @@ Recommended keys (extend freely; skill cares about meanings):
     "executive_cadence": {
       "enabled": false,
       "min_seconds_between_sweeps": 86400,
-      "sweep_mode": "trajectory"
+      "sweep_mode": "expansion"
     }
   },
   "head-cto": {
@@ -335,20 +341,21 @@ Recommended keys (extend freely; skill cares about meanings):
 
 **Executive cadence (optional, per head).** Any head entry may carry an
 `executive_cadence` block: `{enabled, min_seconds_between_sweeps, sweep_mode}`.
-When `enabled`, `fleet-sensors.py` surfaces the head as `head_due_<role>` (a hard
-signal + a `head_<role>_due` fingerprint key for quiet_hint only) once the
-interval has elapsed since its last observed completion mail. Completion is
-detected by a new mail from the head's `mail_identity` or `legacy_aliases` in
-`head_report_inbox` (default `reviewer`). Durable state lives on baseline
-`head-*` blocks: `last_report_handle` + `last_report_at` (same home as
-head-cto/head-cxo report bookkeeping and head-ceo assign/report fields).
-`fleet-baseline.py bump --fingerprint-file <sensors.json>` merges those fields
-from `sensors.heads` and does **not** store them in
-`last_actionable_fingerprint`. One-cycle migrate still reads legacy fingerprint
-`head_*_last_*` when the baseline block is empty. Per-role conventions:
-`head-ceo` trajectory / daily (86400), `head-cto` honesty / 30min (1800),
-`head-cxo` coherence / 50min (3000). Inert by default; opt in per fleet.
-Validate with `verify-fleet-json.py`.
+When `enabled`, `fleet-sensors.py` surfaces the head as `head_due_<role>` once the
+interval has elapsed since its last observed completion mail (and the pane is not
+`running`). Completion is a new mail from the head's `mail_identity` or
+`legacy_aliases` in `head_report_inbox` (default **`mind`** — Heads report To mind@).
+Durable state lives on baseline `head-*` blocks: `last_report_handle` +
+`last_report_at`. `fleet-baseline.py bump --fingerprint-file <sensors.json>` merges
+those fields from `sensors.heads` and does **not** store them in
+`last_actionable_fingerprint`.
+
+`sweep_mode` is free-form for Mind assign flavor. When unset, sensors default from
+**posture**: growth → `expansion`, standby → `stewardship`, dormant → `paused`
+(and cadence sweeps are **paused only in dormant**). Default intervals when
+`min_seconds_between_sweeps` omitted: head-ceo **86400**, head-cto **1800**,
+head-cxo **3000**. Cadence is inert unless `enabled: true`. Validate with
+`verify-fleet-json.py`.
 
 **Never hardcode model strings as Hand identity.** Read `agent_launch` from fleet. Hand `agent` should match `mind.agent` unless baseline records operator exception. Defaults from preferred_models; override for capacity/experiment, re-align when quiet.
 

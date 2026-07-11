@@ -192,10 +192,10 @@ def list_mail_from_identity(vivi, project, recipient, sender_tokens, limit=5):
     """Newest-first mail in `recipient`'s inbox FROM any of `sender_tokens`.
 
     Detects executive-head sweep completion: a head "completed" a sweep when a
-    mail appears in the report inbox (default reviewer) from that head's mail
-    identity or a legacy alias (strategist / correctness / purity). Cheap line
-    scan of `vivi mail list`; returns [{handle, from, subject, date}], newest
-    first (mail list is newest-first).
+    mail appears in the report inbox (default mind) from that head's mail
+    identity or a configured legacy_aliases entry (e.g. strategist/correctness/
+    purity). Cheap line scan of `vivi mail list`; returns
+    [{handle, from, subject, date}], newest first (mail list is newest-first).
     """
     if not vivi or not recipient:
         return []
@@ -502,7 +502,8 @@ def main() -> int:
     tmux = resolve_tmux_bin(tooling if isinstance(tooling, dict) else None)
     mind_inbox = fleet.get("mind_inbox") or "mind"
     operator_inbox = fleet.get("operator_inbox") or "operator"
-    head_report_inbox = fleet.get("head_report_inbox") or "reviewer"
+    # Heads report To mind@; legacy fleets may set head_report_inbox: reviewer.
+    head_report_inbox = fleet.get("head_report_inbox") or "mind"
     hands = fleet.get("hands") or fleet.get("hunters") or {}
 
     partial = False
@@ -827,7 +828,8 @@ def main() -> int:
         "last_rearm_at"
     )
     out["steward"] = {
-        "enabled": st_cfg.get("enabled", True),
+        # Default OFF — match steward.sh and process law (opt-in dead-man).
+        "enabled": st_cfg.get("enabled", False),
         "armed": bool(st_base.get("armed")),
         "tripped": bool(st_base.get("tripped")),
         "tmux_target": st_target,

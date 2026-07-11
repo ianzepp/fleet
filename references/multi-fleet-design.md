@@ -110,7 +110,7 @@ Mailspace project-local. **Two fleets never share a Vivi store.**
 
 ### 4.5 Steward / dead man (today, per fleet)
 
-Fleet-local tmux `steward` + `scripts/steward.sh`. Mind **rearms** after every successful `FLEET_CYCLE`. Miss past grace → trip (baseline hold, **operator@**, optional email, soft-hold idle Hands). Already `--project` scoped — **no isolation redesign**.
+Fleet-local tmux `steward` + `scripts/steward.sh`. **Ops law (current):** steward is **opt-in** (`enabled` default false); rearm only when that fleet’s steward is enabled **and** armed — not every FLEET_CYCLE by default. Miss past grace → trip (baseline hold, **operator@**, optional email, soft-hold idle Hands). Already `--project` scoped — **no isolation redesign**. (This section is design archive; prefer `dead-man.md` + `SKILL.md` for live process.)
 
 ### 4.6 Scaling limit (why this design exists)
 
