@@ -167,7 +167,8 @@ hunter-N  =  identity (mail + tmux)
 **Product law** talks in H-numbers + current assignment. **Ops** read runtime from
 fleet (`agent`, `agent_launch`) and apply wake/reinit by harness, not by H-number.
 Do not hardcode model strings into role tables as if they were Hand identity.
-Live bindings belong in project `.vivi/hunter-fleet.json` (or equivalent).
+Live bindings belong in the **project fleet config** (path chosen by the camp
+overlay — not a skill-mandated filename).
 
 ### Harness alignment (Mind ↔ Hands vs Heads)
 
@@ -219,7 +220,7 @@ Hand identity. Assignment (main vs packet) stays independent of harness.
 ### Preferred models by role
 
 These are **default arm preferences** for this operator’s fleet. Live ids still
-belong in project `.vivi/hunter-fleet.json` (`agent_model`, `agent_launch`,
+belong in the **project fleet config** (`agent_model`, `agent_launch`,
 effort/thinking flags). Capacity fallbacks step a same-harness ladder; they do
 not invent a permanent Hand identity from model strings.
 
@@ -436,13 +437,8 @@ bag/Status honesty on thorough cycles.
 | `hunter-1@…` | `hunter-1` | `hunter-1` or `hunter-1:1.1` (respect window base-index) |
 | `hunter-2@…` | `hunter-2` | `hunter-2` |
 
-Put the map in project config (recommended):
-
-```text
-.vivi/hunter-fleet.json
-```
-
-Shape:
+Put the map in **project fleet config** (path is camp-local; do not hard-require
+a skill-owned filename). Example shape:
 
 ```json
 {
@@ -491,7 +487,7 @@ Shape:
 }
 ```
 
-Camp-specific durable law may live in `.vivi/gatherer-scheduler-prompt.txt` or
+Camp-specific durable law may live in a Mind/scheduler overlay prompt or
 project `Agents.md` — treat that as an **overlay** on this skill when present.
 
 Arm: `vivi mailspace identity add hunter-1 --project <root>` and
@@ -808,8 +804,8 @@ wakes on a correctly blocked product hunter.
   **Preferred models by role** (Grok 4.5 / Codex sol·medium Mind & luna·xhigh Hand;
   Heads → Pi + GLM 5.2 high/xhigh).
 - Optional scout for approach-only advice
-- Create tiny role baselines under the project (e.g. `.vivi/gatherer-baseline.json`,
-  optional `.vivi/hunter-fleet.json`): `last_cycle`, `quiet_streak`,
+- Create tiny role baselines under the project (Mind cycle baseline + fleet
+  config — paths are camp-local): `last_cycle`, `quiet_streak`,
   `last_actionable_fingerprint`, fleet pane classes, optional `repo_heads`
 
 ### 2. Select focus
@@ -1219,15 +1215,16 @@ don't-get-stuck, or **Harness alignment** (Hands = Mind harness).
 | Baseline *field meanings* and `pending_merges` states | Fat historical ledger rows, wind-up snapshots |
 | Pane classes, reinit contract, wind-down procedure | Scheduler prompt path, durable 5m task id |
 
-Recommended project files (names optional):
+Recommended **kinds** of project files (names and directory layout are
+camp-local — skill does not mandate `hunter-fleet.json` or similar):
 
 ```text
-.vivi/hunter-fleet.json              # roster + runtime + tooling paths
-.vivi/gatherer-baseline.json         # cycle sensors + debt + advisor state
-.vivi/gatherer-scheduler-prompt.txt  # thin camp overlay; prefer pointing here
-.vivi/*-role-prompt.txt              # strategist / correctness / purity
-.vivi/codex-reinit.sh                # optional production reinit (see contract)
-project Agents.md                    # product + multi-agent law
+fleet config           # roster + runtime + tooling paths + preferred models
+Mind cycle baseline    # cycle sensors + debt + advisor state
+Mind scheduler overlay # thin camp process prompt when using a durable loop
+Head role prompts      # strategist / correctness / purity
+reinit helper (opt.)   # Codex (or other) reinit doctor/heal script
+project Agents.md      # product + multi-agent law
 ```
 
 Prefer absolute paths from fleet `tooling` over `which` every cycle (nvm/`pi`
@@ -1263,7 +1260,7 @@ side lane); file residuals **To owning hunter-N**; update thorough fingerprint.
 ### Sensors (always first — keep cheap)
 
 ```text
-1. Read baseline + hunter-fleet.json (pending_reviews, pending_merges, active lanes)
+1. Read baseline + fleet config (pending_reviews, pending_merges, active lanes)
 2. Board status counts (vivi mailspace status)
 3. Mind inbox top (advice / review / permission / advisor reports)
 4. Open tasks/needs for each hunter-N (legacy shared identity: list only if migrating;
@@ -1661,7 +1658,7 @@ not part of the H-number.
 
 ### Prefer a project script
 
-Camps often ship `.vivi/codex-reinit.sh` (or equivalent). Suggested commands:
+Camps often ship a reinit helper script (path is camp-local). Suggested commands:
 
 | Command | Role |
 | --- | --- |
@@ -1765,7 +1762,7 @@ Recommended keys (extend freely; skill cares about meanings):
     "thinking": "high",
     "agent_launch": "pi --provider zai --model glm-5.2 --thinking high",
     "clean_slate_per_assignment": true,
-    "role_prompt": ".vivi/strategist-role-prompt.txt"
+    "role_prompt": "<camp-path>/strategist-role-prompt.txt"
   },
   "correctness": {
     "mail_identity": "correctness",
