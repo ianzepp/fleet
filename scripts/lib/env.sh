@@ -27,21 +27,13 @@ fleet_require_bash() {
   fi
 }
 
-# Prepend common tool dirs without clobbering an already-good PATH.
-# Order: keep caller PATH first, then fill gaps with system + user + optional brew.
+# Append common tool dirs that are not already on PATH (never reorder caller's PATH).
 fleet_bootstrap_path() {
-  local d extras
-  extras=""
-  # shellcheck disable=SC2088
+  local d extras=""
   for d in \
-    /usr/bin \
-    /bin \
-    /usr/sbin \
-    /sbin \
-    "${HOME}/.cargo/bin" \
-    "${HOME}/.local/bin" \
-    /opt/homebrew/bin \
-    /usr/local/bin \
+    /usr/bin /bin /usr/sbin /sbin \
+    "${HOME}/.cargo/bin" "${HOME}/.local/bin" \
+    /opt/homebrew/bin /usr/local/bin \
     /home/linuxbrew/.linuxbrew/bin
   do
     [[ -n "$d" && -d "$d" ]] || continue
@@ -155,15 +147,10 @@ fleet_date_epoch() {
   date -u +%s
 }
 
-# Resolve a project path to absolute (fail if missing).
+# Resolve a project path to absolute (fail if empty or not a directory).
 fleet_abs_project() {
   local p="$1"
-  if [[ -z "$p" ]]; then
-    return 1
-  fi
-  if [[ ! -d "$p" ]]; then
-    return 1
-  fi
+  [[ -n "$p" && -d "$p" ]] || return 1
   (CDPATH= cd -- "$p" && pwd)
 }
 

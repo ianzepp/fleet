@@ -75,47 +75,23 @@ usage() {
 [[ -f "$BASELINE" ]] || echo '{}' >"$BASELINE"
 touch "$LOG"
 
-# --- JSON helpers via python ---
+# --- JSON helpers via python (fleet_common for load/save/time) ---
 py() {
-  "$PYTHON_BIN" - "$PROJECT" "$FLEET" "$BASELINE" "$@" <<'PY'
+  FLEET_SCRIPTS="$_FLEET_SCRIPT_DIR" "$PYTHON_BIN" - "$PROJECT" "$FLEET" "$BASELINE" "$@" <<'PY'
 import json, os, sys, time
 from datetime import datetime, timezone
 from pathlib import Path
+
+# bash sets FLEET_SCRIPTS (python - has no __file__)
+sys.path.insert(0, os.environ.get("FLEET_SCRIPTS") or ".")
+from fleet_common import load_json, now_iso, save_json  # noqa: E402
 
 project, fleet_path, baseline_path = sys.argv[1], sys.argv[2], sys.argv[3]
 op = sys.argv[4]
 args = sys.argv[5:]
 
-def now_iso():
-    return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-
-def load_json(path, default=None):
-    p = Path(path)
-    if not p.is_file():
-        return {} if default is None else default
-    try:
-        return json.loads(p.read_text(encoding="utf-8"))
-    except Exception:
-        return {} if default is None else default
-
 def save_baseline(b):
-    import tempfile
-    dest = Path(baseline_path)
-    dest.parent.mkdir(parents=True, exist_ok=True)
-    text = json.dumps(b, indent=2, ensure_ascii=False) + "\n"
-    fd, tmp = tempfile.mkstemp(prefix=".%s." % dest.name, suffix=".tmp", dir=str(dest.parent))
-    try:
-        with os.fdopen(fd, "w", encoding="utf-8", newline="\n") as fh:
-            fh.write(text)
-            fh.flush()
-            os.fsync(fh.fileno())
-        os.replace(tmp, dest)
-    except Exception:
-        try:
-            os.unlink(tmp)
-        except OSError:
-            pass
-        raise
+    save_json(baseline_path, b)
 
 def fleet_steward():
     f = load_json(fleet_path, {})
@@ -135,7 +111,7 @@ def fleet_steward():
             target = f"{sess}:1.1"
     # Hands: list tmux_target for soft-hold (never hardcode session==role)
     hand_targets = []
-    hands = f.get("hands") or f.get("hands") or {}
+    hands = f.get("hands") or f.get("hunters") or {}
     for name, h in hands.items():
         if not isinstance(h, dict):
             continue
