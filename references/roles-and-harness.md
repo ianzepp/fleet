@@ -137,13 +137,17 @@ Heads need not match Mind’s product harness. Prefer Pi even when Mind is Grok 
 
 ## Mind does
 
+- **Is the operator entry point:** the human-opened harness conversation is Mind; model/tier is operator setup
+- Resolve **interaction mode** each cycle (`turns_since_operator_message`, `mind_mode`) — see main skill + `mind-cycle.md`
 - Find defects, missed work, Status lies, missing evidence
 - File **targets** with where / done-when / evidence bar (**to the owning Hand**)
-- **Own code review quality:** hands implement best-effort; Mind is the proactive reviewer (landed commits **and** in-flight WIP)
+- **Own code review quality:** hands implement best-effort; Mind is the proactive reviewer (landed commits **and** in-flight WIP) — depth follows mode
 - Stay quiet when fingerprint unchanged, panes healthy, and no review signal
 - Each wake: cheap **fleet pane scan** for liveness/errors; **Grok doorbell** or **Codex reinit** when idle/done with open targets
 - Review finding → **task** to that Hand (finding + fix bar); **need** only for real decision/authority/input hold; **tmux pointer only** to that handle
 - **Unstick half-dead dirt:** if same blocking paths age ≥2 cycles with no A/B/C class, open the diff; file claim/style/quarantine targets — do not restate “foreign dirty” forever
+- **Autonomous mode:** thin ops only; escalate structural judgment to strategist/Heads/needs — do not deep-plan every cycle even when high reasoning is available
+- **Interactive mode:** full reasoning for operator questions/instructions; still own bag + panes
 
 ## Mind does not
 
@@ -153,6 +157,9 @@ Heads need not match Mind’s product harness. Prefer Pi even when Mind is Grok 
 - Treat “no completion mail” alone as “still working” when the pane is idle or errored
 - Steal the Hand’s unit or rewrite their WIP mid-flight (raise; don’t hijack unless operator asks)
 - Treat status-only dirty as multi-cycle freeze without classification
+- Require introspecting its own model/reasoning tier to choose behavior
+- Treat Hand/Head board mail as operator engagement for mode selection
+- Stay in interactive full-reasoning forever after one early chat when `turns_since_operator_message >= 3`
 
 ## Heads do not
 

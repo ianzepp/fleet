@@ -1,14 +1,89 @@
 # Mind cycle and fail-fast wake
 
-Load for Mind wake loops, sensors, review, absorb/accept, and merge tasking.
+Load for Mind interaction modes, wake loops, sensors, review, absorb/accept, and merge tasking.
+
+## Mind interaction modes (cognitive budget)
+
+Mind is the **operator-opened** harness conversation (desktop or terminal). Model/reasoning tier is operator setup; do **not** require self-detection of model id. Cognitive budget follows **interaction mode**.
+
+### Counters (write every cycle)
+
+| Field | Meaning |
+| --- | --- |
+| `quiet_streak` | Consecutive cycles with no actionable product signal (fingerprint quiet) |
+| `turns_since_operator_message` | Mind **cycles** since the last human operator message in this Mind conversation |
+| `mind_mode` | `autonomous` \| `interactive` (resolved this cycle) |
+| `mind_mode_override` | optional sticky operator force (`ops_only` / `deep` / clear) |
+
+**Operator message** = human prose in the Mind session (question, instruction, review request, design chat).
+
+**Not** operator messages: scheduler/cycle boilerplate (“Mind cycle N…”, fail-fast overlay text), Hand/Head board mail, pane captures, or other agents’ mail.
+
+### Resolve mode (before sensors expand)
+
+```text
+1. If mind_mode_override set → use it (ops_only→autonomous, deep→interactive)
+2. Else if this turn’s user content is an operator message:
+     turns_since_operator_message = 0
+     mind_mode = interactive
+3. Else:
+     turns_since_operator_message += 1
+     if turns_since_operator_message >= 3:
+       mind_mode = autonomous
+     else if prior mind_mode known:
+       keep prior
+     else:
+       mind_mode = autonomous   # default when ambiguous / first fires
+4. Write counters + mind_mode into baseline at end of cycle
+```
+
+**Threshold:** three or more Mind cycles without an operator message → **autonomous** until the next operator message (reset counter to 0).
+
+| Mode | Cognitive budget | Output shape |
+| --- | --- | --- |
+| **Autonomous** | Limited reasoning **even if** high reasoning is available. Ops only: sensors, classify, file/wake/reinit, short absorb/accept, sleep. | One-line quiet or short table. No campaign essays. |
+| **Interactive** | Full reasoning allowed for the operator exchange; still owns bag + panes. | Answer the human; may be longer. |
+
+### Autonomous duties and escalation
+
+In autonomous mode, Mind **still**:
+
+- Runs cheap sensors and pane scan
+- Refills starvation, doorbells/reinits by runtime
+- Absorbs moved HEADs; files implementable residuals as **tasks**
+- Uses **needs** for real decision holds (default + options), not monologue
+
+In autonomous mode, Mind **does not**:
+
+- Deep-plan strategy “because the model can”
+- Write multi-page residual reviews on a quiet or lightly moved fingerprint
+- Treat high reasoning availability as permission to expand context
+
+When autonomous Mind hits structural judgment it cannot cheaply resolve:
+
+| Class | Route |
+| --- | --- |
+| Sequencing / ownership / gate honesty / misprioritization | **Strategist** assign (or await outstanding report) |
+| Implementable defect / residual | **task** To owning Hand |
+| Human-only wall | **need** To operator (default + options); pivot other work |
+| Pane/capacity/runtime | Fleet ops (reinit / ladder) — not a Head report |
+
+### Interactive duties
+
+Full reasoning for operator questions and instructions. May run a cheap fleet scan in the same turn. When the human goes silent, keep counting cycles; after **≥ 3** silent cycles, drop back to autonomous on subsequent wakes.
+
+### Interaction with thorough cycles
+
+Thorough/superficial cadence still applies. In **autonomous**, thorough stays **bounded and residual-shaped** (diff in scope → file tasks/needs); do not spend a full interactive design pass. In **interactive**, operator questions may expand beyond the thorough template.
 
 ## Fail-fast wake (context budget)
 
-Long 5–10m loops only work if most wakes **exit in seconds**. Tokens/context are scarce — not wall clock. **Fail fast to sleep** when nothing moved.
+Long 5–10m loops only work if most wakes **exit in seconds**. Tokens/context are scarce — not wall clock. **Fail fast to sleep** when nothing moved. Resolve **mind_mode** first, then sensors.
 
 ### Cheap sensors (always first)
 
 ```text
+0. Resolve mind_mode + update turns_since_operator_message / quiet_streak inputs
 1. Board status counts (e.g. vivi mailspace status)
 2. Open task + need lists per Hand identity (not dumps)
 3. Optional light delta: git rev-parse HEAD, dirty count, map file mtime
@@ -25,13 +100,13 @@ Compare to baseline. **Sleep immediately** when:
 - not (empty tasking + map next = starvation unfilled)
 - `pending_reviews` / `pending_merges` empty or explicitly deferred this cycle
 
-On **true quiet** sleep: bump `quiet_streak`, write baseline, **one-line** report  
-(`quiet N; absorb/accept as accurate; panes ok; sleep`).  
+On **true quiet** sleep: bump `quiet_streak`, keep/update `turns_since_operator_message` and `mind_mode`, write baseline, **one-line** report  
+(`quiet N; mode=autonomous|interactive; operator_silence=K; absorb/accept as accurate; panes ok; sleep`).  
 No dump, no full campaign re-read, no harness matrix, no priority essay.
 
 When the cycle **acted**, emit a **scannable summary**:
 
-1. Headline: cycle N · superficial|thorough · absorb/accept verbs accurate
+1. Headline: cycle N · mode · superficial|thorough · absorb/accept verbs accurate
 2. Fleet snapshot: each Hand pane class + bag handles + one-clause status
 3. Board moves: filed / done / merged handles
 4. Head briefs when mail absorbed: 1 short ¶ problem + 1 short ¶ action
@@ -39,7 +114,7 @@ When the cycle **acted**, emit a **scannable summary**:
 
 Use **absorb** and **accept** accurately (never absorb when you mean accept).
 
-Optional: thorough review every N cycles (e.g. `cycle % 3 == 1`); superficial otherwise — §§REDMIND§§s + mail + starvation only.
+Optional: thorough review every N cycles (e.g. `cycle % 3 == 1`); superficial otherwise — §§REDMIND§§s + mail + starvation only. Autonomous thorough = residuals only, not interactive design.
 
 ### Expand only on signal (paid path)
 
@@ -85,9 +160,12 @@ Re-diff vs `last_thorough_fingerprint`. Unchanged → quiet thorough (still run 
 ### Sensors (always first — keep cheap)
 
 ```text
-1. Read baseline + fleet config (pending_reviews, pending_merges, active lanes)
+0. Resolve mind_mode (operator message? turns_since_operator_message? override?)
+1. Read baseline + fleet config (pending_reviews, pending_merges, active lanes,
+   quiet_streak, turns_since_operator_message, mind_mode)
 2. Board status counts (vivi mailspace status)
 3. Mind inbox top (advice / review / permission / advisor reports)
+   # board mail ≠ operator message for mode purposes
 4. Open tasks/needs for each hunter-N (legacy shared identity: list only if migrating;
    do not use legacy counts for quiet/wake/starvation)
 5. Main HEAD + dirty for focus repos (project names the list)
@@ -104,7 +182,7 @@ Do not parse board SQLite/blobs; use the CLI. Baseline may ignore handle prefixe
 
 When the cycle **acted**:
 
-1. **Headline** — `cycle N kind; absorb/accept accurate; sleep|acted`
+1. **Headline** — `cycle N kind; mode=…; operator_silence=K; absorb/accept accurate; sleep|acted`
 2. **Fleet snapshot** — each Hand + Heads: pane class, bag handles or empty, notable HEAD if moved, one-clause status
 3. **Board moves** — absorbed / accepted / filed / woke (handles + subjects)
 4. **Pending debt** — `pending_merges` / `pending_reviews` if non-empty
@@ -112,7 +190,7 @@ When the cycle **acted**:
 6. **Strategist report brief** (new report absorbed) — 1 short ¶ problem + 1 short ¶ recommended Mind actions; optional stale-premise correction; no full paste
 7. **Correctness / purity** status + brief when new report absorbed
 
-Quiet true sleep may stay one-line. Prefer tables for the fleet snapshot.
+Quiet true sleep may stay one-line (include `mode` + `operator_silence`). Prefer tables for the fleet snapshot.
 
 ## Proactive review (Mind)
 
@@ -122,6 +200,8 @@ Hands optimize for throughput; Mind optimizes for **invariant honesty**.
 
 - Thorough cycle (`cycle % N` / paid path), **or**
 - Superficial cycle if: new HEAD on focus repos, **or** dirty product paths in a hunter’s allowed scope, **or** Status flip without evidence
+
+In **autonomous** mode, keep the pass residual-shaped and short; escalate structural forks to strategist/needs rather than expanding into interactive design.
 
 **How:**
 
@@ -221,6 +301,8 @@ Fail-fast is required. Interval backoff is **optional** for multi-hour idle:
 | 11+ | ~1h or sleep until operator/hunter signal |
 
 Reset `quiet_streak` on real progress: new/changed tasking item, HEAD move, Status absorb, filed residual, completed unit, successful wake, or ops intervention.
+
+Reset `turns_since_operator_message` only on a **human operator** message (not on product progress, board mail, or successful ops).
 
 If the scheduler cannot change interval, still no-op cheaply each fire.
 

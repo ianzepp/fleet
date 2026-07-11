@@ -1,6 +1,6 @@
 ---
 name: fleet
-description: Multi-agent fleet management with Mind/Head/Hand roles (Abbot pattern) — Mind (ops) fills tasking, Hands (workers) clear work, Heads (advisors) research; Hands share Mind harness, Heads prefer alternate models/harnesses; dual-channel Vivi+tmux, multi-lane integration, runtime fallback, wind-down. Use for hunter-N fleets, codex reinit, keep-screen-moving, don't-get-stuck, long unattended Mind cycles.
+description: Multi-agent fleet management with Mind/Head/Hand roles (Abbot pattern) — Mind (ops) fills tasking, Hands (workers) clear work, Heads (advisors) research; Hands share Mind harness, Heads prefer alternate models/harnesses; dual-channel Vivi+tmux, multi-lane integration, runtime fallback, wind-down. Mind interaction modes (autonomous vs interactive via turns_since_operator_message). Use for hunter-N fleets, codex reinit, keep-screen-moving, don't-get-stuck, long unattended Mind cycles.
 ---
 
 # Fleet
@@ -24,6 +24,8 @@ Callsigns (`hunter-N`, `reviewer`) are **mail/tmux identities**. Skill vocabular
 **Don't get stuck:** freeze is the failure mode. Name why, get unstuck — never status-only “blocked” for cycles without evidence.
 
 **Harness alignment:** Hands run the **same agent harness as Mind**. Heads **prefer alternate harnesses/models**.
+
+**Mind is the operator entry point.** The harness conversation the human opens (desktop or terminal) **is** Mind. Model and reasoning tier are operator setup; Mind does not need to introspect them. Cognitive budget follows **interaction mode** (below), not guessed model id.
 
 ```text
 campaign / focus map
@@ -59,7 +61,7 @@ Load only what the current turn needs. Core law lives in this file; detail lives
 | [`roles-and-harness.md`](references/roles-and-harness.md) | Arming fleet, rebinding runtimes, Mind/Hand/Head duties, preferred models, Pi-as-Hand |
 | [`tasking.md`](references/tasking.md) | Filing targets, queue kind vs severity, multi-hand routing, starvation, Hand decision continuity |
 | [`dual-channel.md`](references/dual-channel.md) | Pane scan/classes, doorbell, Codex reinit, rehome, `/compact`, completion / ready-to-merge mail |
-| [`mind-cycle.md`](references/mind-cycle.md) | Fail-fast wake, cycle kinds, sensors, proactive review, absorb vs accept, review debt, merge tasks |
+| [`mind-cycle.md`](references/mind-cycle.md) | Mind interaction modes, fail-fast wake, cycle kinds, sensors, proactive review, absorb vs accept, review debt, merge tasks |
 | [`multi-lane.md`](references/multi-lane.md) | Side lanes, theme→main, base-update, pin-relative done, `pending_merges` |
 | [`heads.md`](references/heads.md) | Strategist / correctness / purity loops |
 | [`runtime-config.md`](references/runtime-config.md) | Capacity ladders, Codex reinit scripts, fleet/baseline schemas, wind-down / rearm |
@@ -128,6 +130,42 @@ Formatter law (global Agents.md): after inspect, formatter output is intentional
 
 Identity ≠ assignment ≠ runtime. Hand harness follows Mind; Heads prefer alternate runtimes. Detail: [`roles-and-harness.md`](references/roles-and-harness.md).
 
+## Mind interaction modes
+
+Mind’s **job** (bag, dual channel, integration clock) is constant. Its **cognitive budget** is not. Mode is auto-detected from operator engagement — not from model tier.
+
+Track both (write every cycle into the Mind baseline):
+
+| Counter | Meaning |
+| --- | --- |
+| `quiet_streak` | Consecutive cycles with no actionable product signal (existing fail-fast counter) |
+| `turns_since_operator_message` | Mind cycles since the last **human operator** message in this Mind conversation |
+
+**Operator message** = prose/instruction/question from the human in the Mind session. Not: scheduler cycle boilerplate, Hand/Head board mail, or tmux pane noise.
+
+### Mode selection
+
+```text
+if this turn includes an operator message:
+  → interactive (full reasoning allowed)
+  → turns_since_operator_message = 0
+else:
+  → turns_since_operator_message += 1
+  → if turns_since_operator_message >= 3:
+       autonomous (limited reasoning) until next operator message
+     else:
+       stay on prior mode; prefer autonomous when unset/ambiguous
+```
+
+Optional override from the operator (e.g. `Mind: deep` / `Mind: ops only`) beats auto-detect until cleared or a new operator mode line.
+
+| Mode | When | Cognitive budget |
+| --- | --- | --- |
+| **Autonomous** | `turns_since_operator_message >= 3`, labeled scheduled wake, or no operator ever this session | **Thin ops only** — even if high reasoning is available. Sensors, classify, file/wake/reinit, short absorb/accept, fail-fast sleep. No campaign essays. Structural judgment → **strategist / Heads / need**, not long private deliberation. |
+| **Interactive** | Operator engaged this turn, or fewer than 3 silent cycles after engagement | **Full reasoning** for the exchange: answer, design, trade off; still Mind (bag + panes). Next pure cycle wakes may re-enter autonomous after the silence threshold. |
+
+Autonomous output stays structurally short (one-line quiet or scannable table) so overthinking has nowhere to live. Detail: [`mind-cycle.md`](references/mind-cycle.md).
+
 ## The tasking bag (summary)
 
 | Kind | Use for |
@@ -168,7 +206,7 @@ tmux carries **pointers only**; full done-when lives in Vivi. Detail: [`dual-cha
 - Hand and Mind share project root and map (campaign/GOAL)
 - Record Mind’s harness; bind every Hand’s `agent` / `wake_mode` / reinit to it
 - Apply preferred models (see `roles-and-harness.md`)
-- Tiny role baselines: `last_cycle`, `quiet_streak`, fingerprints, pane classes
+- Tiny role baselines: `last_cycle`, `quiet_streak`, `turns_since_operator_message`, `mind_mode`, fingerprints, pane classes
 
 ### 2. Select focus
 
@@ -221,7 +259,7 @@ See [`mind-cycle.md`](references/mind-cycle.md). Most wakes should be no-ops.
 
 ## Fail-fast wake (summary)
 
-Most 5–10m wakes must **exit in seconds**. Cheap sensors first; sleep when fingerprint, HEADs/dirty, and panes are unchanged and no starvation/error/open-tasking wake is required.
+Most 5–10m wakes must **exit in seconds**. Resolve **Mind mode** first (operator engagement + `turns_since_operator_message`). Cheap sensors next; sleep when fingerprint, HEADs/dirty, and panes are unchanged and no starvation/error/open-tasking wake is required. In **autonomous** mode, stay thin even on paid signal — escalate judgment out of band rather than deep monologue.
 
 When the cycle **acted**: scannable headline + fleet snapshot + board moves + pending debt. Use **absorb** (bookkeeping) vs **accept** (post-review quality bar) accurately.
 
@@ -257,8 +295,8 @@ On unexpected dirt **outside** scope: do not erase — list, classify if blockin
 | Roles, bag rules, dual channel, fleet axes | Concrete Hand roster, cwds, model ids |
 | Harness alignment + preferred models | Live `mind.agent` / `agent_model` / `agent_launch`; Head Pi launches |
 | Theme vs unit, merge clock, base-update *policy* | Campaign maps, product Status, validation commands |
-| Head loops, cycle kinds, runtime fallback *structure* | Role-prompt paths, absolute tool binaries |
-| Baseline *field meanings* and `pending_merges` states | Fat historical ledger rows, wind-up snapshots |
+| Head loops, cycle kinds, Mind interaction modes, runtime fallback *structure* | Role-prompt paths, absolute tool binaries |
+| Baseline *field meanings* (`quiet_streak`, `turns_since_operator_message`, `mind_mode`, …) and `pending_merges` states | Fat historical ledger rows, wind-up snapshots |
 | Pane classes, reinit contract, wind-down procedure | Scheduler prompt path, durable 5m task id |
 
 Typical camp file kinds (names/layout camp-local):
@@ -311,6 +349,8 @@ Schema detail: [`runtime-config.md`](references/runtime-config.md).
 - Treating class A (fmt/layout) as permanent foreign WIP
 - Topic monogamy under blockage; silent wait for confirmation never filed
 - Dumping or deeply inspecting every wake while bag/trees/panes unchanged
+- Autonomous Mind deep-planning every cycle “because the model can”; treating board mail as operator engagement for mode purposes
+- Skipping `turns_since_operator_message` / staying interactive forever after one early chat
 
 ## Related skills
 

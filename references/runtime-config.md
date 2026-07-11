@@ -229,7 +229,11 @@ Maintain at least:
 
 ```text
 last_cycle, last_cycle_at, last_cycle_kind, last_cycle_summary
-quiet_streak
+quiet_streak                      # consecutive no-signal product cycles
+turns_since_operator_message      # Mind cycles since last human operator prose
+mind_mode                         # autonomous | interactive (resolved this cycle)
+mind_mode_override optional       # ops_only | deep | clear — operator sticky force
+last_operator_message_at optional # timestamp or cycle id of last operator prose
 last_actionable_fingerprint   # fleet bags + heads/dirty + panes
 pending_reviews[]
 pending_merges[]
@@ -242,6 +246,8 @@ correctness.last_report_*, purity.last_report_*
 gatherer_loop.{state, handoff, …}   # armed | running | stopping | wound_up
 half_dead[] optional                # path, class A/B/C, age_cycles, note
 ```
+
+**Mode counters vs quiet:** `quiet_streak` is product silence (nothing to do). `turns_since_operator_message` is **human** silence in the Mind chat. A busy fleet can have `quiet_streak = 0` and still be **autonomous** if the operator has not spoken for ≥ 3 cycles.
 
 Ignore-lists for tasking noise may live in baseline (`ignore_bag_handles`, `ignore_subjects_prefixes`) without deleting board history.
 
