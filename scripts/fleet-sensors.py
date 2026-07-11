@@ -297,6 +297,161 @@ def _git_tip_at(cwd: Path) -> Dict[str, Any]:
     }
 
 
+
+def resolve_tmux_bin(tooling: Optional[Dict[str, Any]] = None) -> str:
+    """Resolve tmux binary from tooling override, PATH, then common install paths."""
+    found = which("tmux", tooling, "tmux") if tooling else which("tmux")
+    if not found:
+        found = which("tmux")
+    if found:
+        return found
+    for cand in (
+        "/opt/homebrew/bin/tmux",
+        "/usr/local/bin/tmux",
+        "/usr/bin/tmux",
+        "/home/linuxbrew/.linuxbrew/bin/tmux",
+    ):
+        if Path(cand).is_file():
+            return cand
+    return "tmux"
+
+
+def resolve_posture(fleet: dict, baseline: dict) -> tuple:
+    """Return (mode, suppress_starvation, posture_out_dict)."""
+    posture_block = fleet.get("fleet_posture") if isinstance(fleet.get("fleet_posture"), dict) else {}
+    if not posture_block and isinstance(baseline.get("fleet_posture"), dict):
+        posture_block = baseline.get("fleet_posture") or {}
+    mode = str(posture_block.get("mode") or "growth").lower()
+    if mode in ("campaign", "active"):
+        mode = "growth"
+    if mode in ("on_call", "on-call"):
+        mode = "standby"
+    suppress = mode in ("standby", "dormant")
+    return mode, suppress, {"mode": mode, "reason": posture_block.get("reason")}
+
+
+def hand_is_paused(baseline: dict, name: str) -> bool:
+    pauses = baseline.get("operational_pauses") or []
+    if not isinstance(pauses, list):
+        return False
+    for pause in pauses:
+        if isinstance(pause, dict) and pause.get("hand") == name:
+            return True
+    return False
+
+
+def head_is_paused(baseline: dict, key: str) -> bool:
+    pauses = baseline.get("operational_pauses") or []
+    if not isinstance(pauses, list):
+        return False
+    for pause in pauses:
+        if isinstance(pause, dict) and (pause.get("hand") == key or pause.get("head") == key):
+            return True
+    return False
+
+
+
+def build_fingerprint(out: dict, fleet: dict) -> dict:
+    """Quiet-compare fingerprint (no durable head report fields)."""
+    hands = out.get("hands") or {}
+    h1 = hands.get(fleet.get("default_hand") or "hand-1") or next(iter(hands.values()), {})
+    h2 = hands.get("hand-2") or {}
+    git_main = (out.get("git") or {}).get("main") or {}
+    fp = {
+        "hand1_open": (h1 or {}).get("actionable") or (h1 or {}).get("tasks_open") or 0,
+        "hand2_open": (h2 or {}).get("actionable") or (h2 or {}).get("tasks_open") or 0,
+        "next_handle_h1": (h1 or {}).get("next_handle"),
+        "next_handle_h2": (h2 or {}).get("next_handle"),
+        "swarm_head": (git_main.get("sha") or "")[:12] or None,
+        "hand1_class": (h1 or {}).get("pane_class"),
+        "hand2_class": (h2 or {}).get("pane_class"),
+        "operator_open": (out.get("operator") or {}).get("open_count", 0),
+        "steward_armed": (out.get("steward") or {}).get("armed"),
+        "steward_tripped": (out.get("steward") or {}).get("tripped"),
+        "map_focus": (fleet.get("focus") or {}).get("chapter")
+        or (fleet.get("focus") or {}).get("primary_goal"),
+    }
+    for hkey, hdata in (out.get("heads") or {}).items():
+        sk = hkey.replace("-", "_")
+        fp["%s_due" % sk] = hdata.get("sweep_due")
+    for stale in list(fp.keys()):
+        if re.match(r"^head_(ceo|cto|cxo)_last_(handle|completed)$", stale):
+            del fp[stale]
+    return fp
+
+
+def quiet_hint_from(fp: dict, prev: dict, signals: list, steward: dict) -> bool:
+    keys = (
+        "hand1_open",
+        "hand2_open",
+        "next_handle_h1",
+        "next_handle_h2",
+        "swarm_head",
+        "hand1_class",
+        "hand2_class",
+        "operator_open",
+        "steward_tripped",
+        "head_ceo_due",
+        "head_cto_due",
+        "head_cxo_due",
+    )
+    hard = [s for s in signals if not s.startswith("starvation_candidate")]
+    fp_cmp = {k: fp.get(k) for k in keys}
+    prev_cmp = {k: prev.get(k) for k in keys}
+    return fp_cmp == prev_cmp and not hard and not steward.get("tripped")
+
+
+def format_text_summary(out: dict, fp: dict, git_main: dict) -> str:
+    lines = [
+        "fleet %s @ %s" % (out["fleet_id"], out["at"]),
+        "focus: %s" % fp.get("map_focus"),
+        "posture: %s" % ((out.get("fleet_posture") or {}).get("mode") or "growth"),
+        "git: %s dirty=%s" % (fp.get("swarm_head"), git_main.get("dirty")),
+        "operator_open=%s operator_to_mind=%s steward_armed=%s tripped=%s"
+        % (
+            (out.get("operator") or {}).get("open_count"),
+            (out.get("operator") or {}).get("to_mind_count", 0),
+            (out.get("steward") or {}).get("armed"),
+            (out.get("steward") or {}).get("tripped"),
+        ),
+        "quiet_hint=%s signals=%s" % (out.get("quiet_hint"), out.get("signals")),
+    ]
+    for om in (out.get("operator") or {}).get("to_mind") or []:
+        lines.append("  op→mind %s: %s" % (om.get("handle"), (om.get("subject") or "")[:80]))
+    for name, h in (out.get("hands") or {}).items():
+        lines.append(
+            "  %s: bag=%s next=%s class=%s target=%s"
+            % (
+                name,
+                h.get("actionable"),
+                h.get("next_handle"),
+                h.get("pane_class"),
+                h.get("tmux_target"),
+            )
+        )
+    for name, hd in (out.get("heads") or {}).items():
+        if not hd.get("sweep_enabled"):
+            continue
+        if hd.get("sweep_due"):
+            extra = " DUE"
+        elif hd.get("sweep_overdue_sec") is not None:
+            extra = " overdue=%ss" % hd.get("sweep_overdue_sec")
+        else:
+            extra = ""
+        lines.append(
+            "  %s: class=%s sweep=%s last=%s%s target=%s"
+            % (
+                name,
+                hd.get("pane_class"),
+                hd.get("sweep_interval"),
+                (hd.get("sweep_last_completed") or "never")[:19],
+                extra,
+                hd.get("tmux_target"),
+            )
+        )
+    return "\n".join(lines)
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description="Fleet cheap sensors snapshot (Python 3.9+; macOS/Linux)")
     ap.add_argument("--project", "-p", required=True, help="Fleet project root")
@@ -324,20 +479,7 @@ def main() -> int:
     tooling = fleet.get("tooling") or {}
 
     vivi = which("vivi", tooling, "vivi") or which("vivi")
-    tmux = which("tmux") or which("tmux")  # PATH only — no macOS-only default
-    if not tmux:
-        # last-ditch common locations (mac + linux)
-        for cand in (
-            "/opt/homebrew/bin/tmux",
-            "/usr/local/bin/tmux",
-            "/usr/bin/tmux",
-            "/home/linuxbrew/.linuxbrew/bin/tmux",
-        ):
-            if Path(cand).is_file():
-                tmux = cand
-                break
-    if not tmux:
-        tmux = "tmux"
+    tmux = resolve_tmux_bin(tooling if isinstance(tooling, dict) else None)
     mind_inbox = fleet.get("mind_inbox") or "mind"
     operator_inbox = fleet.get("operator_inbox") or "operator"
     head_report_inbox = fleet.get("head_report_inbox") or "reviewer"
@@ -439,24 +581,15 @@ def main() -> int:
     }
 
     # --- fleet posture (continuity vs sleep) ---
-    posture_block = fleet.get("fleet_posture") if isinstance(fleet.get("fleet_posture"), dict) else {}
-    if not posture_block and isinstance(baseline.get("fleet_posture"), dict):
-        posture_block = baseline.get("fleet_posture") or {}
-    posture_mode = str(posture_block.get("mode") or "growth").lower()
-    if posture_mode in ("campaign", "active"):
-        posture_mode = "growth"
-    if posture_mode in ("on_call", "on-call"):
-        posture_mode = "standby"
-    out["fleet_posture"] = {
-        "mode": posture_mode,
-        "reason": posture_block.get("reason"),
-    }
-    # standby/dormant: empty bags are expected — no starvation noise
-    posture_suppresses_starvation = posture_mode in ("standby", "dormant")
+    posture_mode, posture_suppresses_starvation, posture_out = resolve_posture(fleet, baseline)
+    out["fleet_posture"] = posture_out
 
     # --- hands panes + bag ---
     pane_classes = {}  # type: Dict[str, str]
-    tmux_bin = tmux if (tmux and (Path(tmux).exists() or shutil.which(tmux))) else (shutil.which("tmux") or "")
+    if tmux and (Path(tmux).is_file() or shutil.which(tmux)):
+        tmux_bin = tmux if Path(tmux).is_file() else (shutil.which(tmux) or tmux)
+    else:
+        tmux_bin = shutil.which("tmux") or ""
     if not tmux_bin:
         partial = True
         out["signals"].append("tmux_missing")
@@ -500,13 +633,7 @@ def main() -> int:
         packet = h.get("packet") if isinstance(h.get("packet"), dict) else {}
         pkt_state = str(packet.get("state") or "").lower()
         paused_pkt = pkt_state.startswith("paused") or pkt_state in ("hold", "operational_pause")
-        op_pauses = baseline.get("operational_pauses") or []
-        hand_paused = False
-        if isinstance(op_pauses, list):
-            for p in op_pauses:
-                if isinstance(p, dict) and p.get("hand") == name:
-                    hand_paused = True
-                    break
+        hand_paused = hand_is_paused(baseline, name)
         if (
             bag_open == 0
             and pclass in ("idle_prompt", "done_idle")
@@ -610,12 +737,7 @@ def main() -> int:
             last_handle = prev_last_handle
             last_completed = prev_last_completed
 
-        head_paused = False
-        if isinstance(op_pauses, list):
-            for p in op_pauses:
-                if isinstance(p, dict) and (p.get("hand") == key or p.get("head") == key):
-                    head_paused = True
-                    break
+        head_paused = head_is_paused(baseline, key)
 
         secs = _secs_since(last_completed, now_dt) if last_completed else None
         interval_elapsed = (secs is None) or (secs >= sweep_interval)
@@ -685,113 +807,19 @@ def main() -> int:
     if out["steward"]["tripped"]:
         out["signals"].append("steward_tripped")
 
-    # fingerprint for quiet detection
-    h1 = out["hands"].get(fleet.get("default_hand") or "hand-1") or next(iter(out["hands"].values()), {})
-    h2 = out["hands"].get("hand-2") or {}
+    # fingerprint + quiet (due flags only; durable head reports on baseline head-*)
     git_main = out.get("git", {}).get("main") or {}
-    fp = {
-        "hand1_open": (h1 or {}).get("actionable") or (h1 or {}).get("tasks_open") or 0,
-        "hand2_open": (h2 or {}).get("actionable") or (h2 or {}).get("tasks_open") or 0,
-        "next_handle_h1": (h1 or {}).get("next_handle"),
-        "next_handle_h2": (h2 or {}).get("next_handle"),
-        "swarm_head": (git_main.get("sha") or "")[:12] or None,
-        "hand1_class": (h1 or {}).get("pane_class"),
-        "hand2_class": (h2 or {}).get("pane_class"),
-        "operator_open": out["operator"].get("open_count", 0),
-        "steward_armed": out["steward"].get("armed"),
-        "steward_tripped": out["steward"].get("tripped"),
-        "map_focus": (fleet.get("focus") or {}).get("chapter") or (fleet.get("focus") or {}).get("primary_goal"),
-    }
-    # Quiet-compare due flags only — durable last_report_* lives on baseline head-*
-    # (fleet-baseline.py bump extracts from sensors.heads). Drop any legacy
-    # fingerprint last_handle/last_completed keys so they do not re-enter baseline.
-    for _hk, _hd in out["heads"].items():
-        _sk = _hk.replace("-", "_")
-        fp["%s_due" % _sk] = _hd.get("sweep_due")
-    for _stale in list(fp.keys()):
-        if re.match(r"^head_(ceo|cto|cxo)_last_(handle|completed)$", _stale):
-            del fp[_stale]
+    fp = build_fingerprint(out, fleet)
     out["fingerprint"] = fp
     out["pane_classes"] = pane_classes
-
-    # quiet if fingerprint equal and no hard signals (prev loaded near baseline)
-    hard = [s for s in out["signals"] if not s.startswith("starvation_candidate")]
-    # starvation when bag empty + idle + map still has chapter? Mind decides map; we only flag candidates
-    fp_cmp = {
-        k: fp.get(k)
-        for k in (
-            "hand1_open",
-            "hand2_open",
-            "next_handle_h1",
-            "next_handle_h2",
-            "swarm_head",
-            "hand1_class",
-            "hand2_class",
-            "operator_open",
-            "steward_tripped",
-            "head_ceo_due",
-            "head_cto_due",
-            "head_cxo_due",
-        )
-    }
-    prev_cmp = {k: prev.get(k) for k in fp_cmp}
-    out["quiet_hint"] = fp_cmp == prev_cmp and not hard and not out["steward"].get("tripped")
+    out["quiet_hint"] = quiet_hint_from(fp, prev, out["signals"], out["steward"])
     out["baseline_last_cycle"] = baseline.get("last_cycle")
     out["baseline_mind_mode"] = baseline.get("mind_mode")
     out["partial"] = partial
     out["ok"] = not partial or bool(out["hands"])
 
     if args.text:
-        lines = [
-            "fleet %s @ %s" % (out["fleet_id"], out["at"]),
-            "focus: %s" % fp.get("map_focus"),
-            "posture: %s" % ((out.get("fleet_posture") or {}).get("mode") or "growth"),
-            "git: %s dirty=%s" % (fp.get("swarm_head"), git_main.get("dirty")),
-            "operator_open=%s operator_to_mind=%s steward_armed=%s tripped=%s"
-            % (
-                out["operator"].get("open_count"),
-                out["operator"].get("to_mind_count", 0),
-                out["steward"].get("armed"),
-                out["steward"].get("tripped"),
-            ),
-            "quiet_hint=%s signals=%s" % (out["quiet_hint"], out["signals"]),
-        ]
-        for om in (out.get("operator") or {}).get("to_mind") or []:
-            lines.append(
-                "  op→mind %s: %s"
-                % (om.get("handle"), (om.get("subject") or "")[:80])
-            )
-        for name, h in out["hands"].items():
-            lines.append(
-                "  %s: bag=%s next=%s class=%s target=%s"
-                % (
-                    name,
-                    h.get("actionable"),
-                    h.get("next_handle"),
-                    h.get("pane_class"),
-                    h.get("tmux_target"),
-                )
-            )
-        for name, hd in out["heads"].items():
-            if not hd.get("sweep_enabled"):
-                continue
-            extra = (
-                " DUE"
-                if hd.get("sweep_due")
-                else (" overdue=%ss" % hd.get("sweep_overdue_sec") if hd.get("sweep_overdue_sec") is not None else "")
-            )
-            lines.append(
-                "  %s: class=%s sweep=%s last=%s%s target=%s"
-                % (
-                    name,
-                    hd.get("pane_class"),
-                    hd.get("sweep_interval"),
-                    (hd.get("sweep_last_completed") or "never")[:19],
-                    extra,
-                    hd.get("tmux_target"),
-                )
-            )
-        print("\n".join(lines))
+        print(format_text_summary(out, fp, git_main))
     else:
         print(json.dumps(out, indent=2, ensure_ascii=False))
 
