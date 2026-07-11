@@ -87,13 +87,25 @@ Multi-agent project loops, factory/campaign residual+implementer, fail-fast 5–
 
 **Decide now:** reversible default → take it. Human-only → `operator@` need/mail (default+options) + pivot.
 
+## Critical reads
+
+These are the references a Mind session should load before executing fleet commands:
+
+| Read first | Why |
+| --- | --- |
+| [`vivi.md`](references/vivi.md) | Command semantics for `status`, `list`, `show`, `watch`, `done`, and mailbox/task routing |
+| [`mind-cycle.md`](references/mind-cycle.md) | How Mind runs basic cycles, resolves mode, scans sensors, updates baselines, and reports status |
+| [`multi-fleet.md`](references/multi-fleet.md) | Required when supervising more than one fleet; attached-set cycles, per-fleet status, and cross-fleet recap |
+
+If you are only attaching to one fleet, `vivi.md` and `mind-cycle.md` are the mandatory pair. If the attached set contains more than one fleet, read `multi-fleet.md` before touching shared-cycle commands or trying to report the status of all assigned fleets.
+
 ## References
 
 Core process here; detail in `references/` + `scripts/`.
 
 | Context | Load |
 | --- | --- |
-| **Cold attach** (new session, empty context, post-`/compact` without recap) | **Order:** (1) this file (2) [`fleet-guide.md`](references/fleet-guide.md) once for vocab (3) [`getting-started.md`](references/getting-started.md) — **§0** if no fleet visible, else **§3** attach steps |
+| **Cold attach** (new session, empty context, post-`/compact` without recap) | **Order:** (1) this file (2) [`vivi.md`](references/vivi.md) (3) [`mind-cycle.md`](references/mind-cycle.md) (4) [`multi-fleet.md`](references/multi-fleet.md) if supervising >1 fleet (5) [`fleet-guide.md`](references/fleet-guide.md) once for vocab (6) [`getting-started.md`](references/getting-started.md) — **§0** if no fleet visible, else **§3** attach steps |
 | **Hot cycle** (mode/counters/state already in context) | This file alone if quiet; open a ref when that surface hits |
 | **Arm / first Mind turn on a live fleet** | This file + refs for surfaces you will touch this turn |
 
