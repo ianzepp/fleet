@@ -202,11 +202,13 @@ if engaged: interactive; silence=0; present operator@ if N>0; refresh recap
 else: silence += 1; silence≥3 → autonomous (else keep prior; turns 1–2 may still watch)
 ```
 
+**Hard never (mode counters):** Do **not** write `turns_since_operator_message += 1` / flip `mind_mode=autonomous` just because **this** turn’s payload is `FLEET_CYCLE…`. Scheduled fire is normal while the operator is still in the chat. Resolve **engagement first** (session history + `last_operator_message_at`); only if **no** human prose since that stamp may silence advance. Same Mind TUI that just took operator questions → **interactive** on the next loop fire.
+
 Override: `Mind: deep` / `Mind: ops only`.
 
 | Mode | Budget | Report |
 | --- | --- | --- |
-| **Autonomous** (silence≥3) | Thin ops; decide-now defaults | Compact one-liner / short headline |
+| **Autonomous** (silence≥3 **true** human gaps) | Thin ops; decide-now defaults | Compact one-liner / short headline |
 | **Interactive** | Full human reasoning; fail-fast ops | **Rich** every FLEET_CYCLE (even quiet) |
 
 Report tracks **mode**, not acted/sleep alone. Templates: [`mind-cycle.md`](references/mind-cycle.md).
@@ -316,7 +318,7 @@ Desktop Mind OK; Hands stay terminal/tmux. Schema: [`runtime-config.md`](referen
 **Bag:** GO warden; severity-as-kind; sleep while map has work; dual Mind; Heads own bags; hand-2 empty while side track exists; wait on head-ceo for obvious spine; buckets without cost ballparks.  
 **Process:** mail-only or pane-only truth; policy via tmux; mixed Hand harness; back-to-back wake stacks; wrong-host tmux; IMAP as bag sensor; unbounded watch.
 **Integrate:** packet-green≠consumer-green; “compiler residual” when integration lag; red theme merge; Mind merges packets; absorb-as-accept.  
-**Hygiene/workspace:** skip unit polish / polish foreign; Mind runs polish/HK; HK every land; score as merge gate; destructive dirt cleanup; status-only dirt; topic monogamy; deep-plan every autonomous cycle; interactive forever; FLEET_CYCLE as silence; compact report while interactive; novel autonomous reports; head-ceo permission freeze; missing FLEET_CYCLE prefix; status→operator@; skip operator present-on-return; arm steward without operator ask; leave steward armed after stop-loop; steward as Mind; inject-only heartbeat; global roster scan; hardcode session=role when `tmux_target` set.
+**Hygiene/workspace:** skip unit polish / polish foreign; Mind runs polish/HK; HK every land; score as merge gate; destructive dirt cleanup; status-only dirt; topic monogamy; deep-plan every autonomous cycle; interactive forever; **FLEET_CYCLE ⇒ auto-increment silence / force autonomous**; compact report while interactive; novel autonomous reports; head-ceo permission freeze; missing FLEET_CYCLE prefix; status→operator@; skip operator present-on-return; arm steward without operator ask; leave steward armed after stop-loop; steward as Mind; inject-only heartbeat; global roster scan; hardcode session=role when `tmux_target` set.
 
 ## Companions / first exposure
 

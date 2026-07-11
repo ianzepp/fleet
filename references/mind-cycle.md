@@ -50,6 +50,15 @@ First line `FLEET_CYCLE` ⇒ **not** operator message. Fix overlays that omit th
 
 **Anti-bug:** `FLEET_CYCLE` means “this injection is not operator prose.” It does **not** mean “ignore human chat since last fire.”
 
+**Hard never:** On a `FLEET_CYCLE`-only turn, do **not**:
+
+```text
+turns_since_operator_message += 1          # forbidden as first/only step
+if turns >= 3: mind_mode = autonomous      # forbidden without engagement check
+```
+
+That is the common fail-fast bug: scheduler fire looks like “silence,” so Mind bumps counters and flips mode while the operator is still in this TUI. **Resolve engagement (below) before any silence arithmetic.** If human prose exists since `last_operator_message_at` (or any prior human turn this session when stamp is null), set `engaged=true`, `turns=0`, `mind_mode=interactive` — even when the **current** payload is only `FLEET_CYCLE…`.
+
 ```text
 # Step 0 every cycle — substitute real session state; do not only inspect current payload
 
@@ -93,7 +102,8 @@ else:
 # End of cycle (after sensors/ops): write counters + mind_mode + operator_recap to baseline
 ```
 
-**Threshold:** ≥3 Mind cycles with **no human prose** → **autonomous** until next operator message.
+**Threshold:** ≥3 Mind cycles with **no human prose** → **autonomous** until next operator message.  
+“Mind cycle” here means a turn where engagement stayed false end-to-end — **not** “we ran a FLEET_CYCLE while the operator was mid-conversation.”
 
 | Mode | Cognitive budget | **Cycle report** |
 | --- | --- | --- |
