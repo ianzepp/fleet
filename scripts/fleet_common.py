@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -14,7 +15,6 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 
 MIN_PY: Tuple[int, int] = (3, 9)
-
 PathLike = Union[str, Path]
 
 
@@ -24,7 +24,8 @@ def require_python(min_version: Tuple[int, int] = MIN_PY) -> None:
         need = "%d.%d" % (min_version[0], min_version[1])
         have = "%d.%d.%d" % sys.version_info[:3]
         sys.stderr.write(
-            "fleet: python >= %s required (running %s via %s)\n" % (need, have, sys.executable)
+            "fleet: python >= %s required (running %s via %s)\n"
+            % (need, have, sys.executable)
         )
         sys.exit(2)
 
@@ -45,9 +46,7 @@ def parse_iso_to_epoch(value: Optional[str]) -> int:
     s = str(value).strip()
     if not s:
         return 0
-    if s.endswith("Z"):
-        s = s[:-1] + "+00:00"
-    elif s.endswith("z"):
+    if s.endswith(("Z", "z")):
         s = s[:-1] + "+00:00"
     try:
         dt = datetime.fromisoformat(s)
@@ -86,13 +85,15 @@ def write_text_atomic(path: PathLike, text: str) -> None:
 
 
 def load_json(path: PathLike, default: Optional[Any] = None) -> Any:
+    """Load JSON from path; missing/invalid file returns default (or {})."""
+    fallback = {} if default is None else default
     p = Path(path)
     if not p.is_file():
-        return {} if default is None else default
+        return fallback
     try:
         return json.loads(read_text(p))
-    except Exception:
-        return {} if default is None else default
+    except (OSError, UnicodeError, json.JSONDecodeError, ValueError):
+        return fallback
 
 
 def save_json(path: PathLike, data: Any) -> None:
@@ -108,11 +109,9 @@ def which(
     if tooling and key:
         block = tooling.get(key) or {}
         if isinstance(block, dict):
-            b = block.get("binary")
-            if b and Path(b).is_file() and os.access(b, os.X_OK):
-                return str(b)
-    import shutil
-
+            binary = block.get("binary")
+            if binary and Path(binary).is_file() and os.access(binary, os.X_OK):
+                return str(binary)
     return shutil.which(name)
 
 
@@ -124,7 +123,7 @@ def run_cmd(
 ) -> Tuple[int, str]:
     """Run a command; return (rc, combined utf-8 text). Never raises for rc != 0."""
     try:
-        p = subprocess.run(
+        proc = subprocess.run(
             list(cmd),
             capture_output=True,
             text=True,
@@ -135,18 +134,18 @@ def run_cmd(
             cwd=str(cwd) if cwd else None,
             env=env,
         )
-        out = p.stdout or ""
-        if p.stderr and p.returncode:
+        out = proc.stdout or ""
+        if proc.stderr and proc.returncode:
             if out and not out.endswith("\n"):
                 out += "\n"
-            out += p.stderr
-        return p.returncode, out
+            out += proc.stderr
+        return proc.returncode, out
     except subprocess.TimeoutExpired:
         return 124, "timeout: %s" % " ".join(cmd)
     except FileNotFoundError:
         return 127, "missing: %s" % (cmd[0] if cmd else "?")
-    except OSError as e:
-        return 126, "os error: %s" % e
+    except OSError as exc:
+        return 126, "os error: %s" % exc
 
 
 def ensure_dict(value: Any) -> Dict[str, Any]:
