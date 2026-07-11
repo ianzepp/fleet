@@ -15,7 +15,7 @@ path/to/skills/fleet/scripts/codex-reinit.sh reinit hand-1 --boot 'HAND WAKE …
 path/to/skills/fleet/scripts/codex-reinit.sh classify hand-2
 ```
 
-- Defaults: `PROJECT` from cwd or parent of `FLEET`; `FLEET` = `$PROJECT/.vivi/fleet.json` or `hunter-fleet.json`
+- Defaults: `PROJECT` from cwd or parent of `FLEET`; `FLEET` = `$PROJECT/.vivi/fleet.json` (legacy filename `hunter-fleet.json` still accepted)
 - Never `exec codex`; pane shell stays parent; short bootstrap only
 - Exit codes: reinit `0/1/2 stuck_idle/3`; doctor `0/1/2` as in script header
 - Camps may symlink into `.vivi/codex-reinit.sh` and wrap env
@@ -263,8 +263,8 @@ pending_reviews[]
 pending_merges[]
 active_packets{} or active_lanes{}   # slug → head, branch, worker
 last_thorough_cycle, last_thorough_fingerprint
-hunter_fleet mirror / pane_classes
-last_hunter_wake_*, last_codex_reinit_*, last_runtime_fallback
+fleet_mirror / pane_classes   # (legacy key: hunter_fleet)
+last_hand_wake_*, last_codex_reinit_*, last_runtime_fallback   # (legacy: last_hunter_wake_*)
 head-strategist.{awaiting_report, last_assign_handle, last_reinit_at}
 head-correctness.last_report_*, head-purity.last_report_*
 mind_loop.{state, handoff, mechanism, …}   # armed | running | stopping | wound_up; mechanism e.g. grok_/loop
@@ -310,5 +310,5 @@ Part of orderly camp shutdown (and lifecycle **Retire**).
 2. Read baseline handoff + open taskings
 3. Refill starvation if maps still have work
 4. Set `mind_loop.state = armed|running`; clear or archive wind-up block
-5. Optional strategist assign if structural debt remains (e.g. merge-order research)
+5. Optional head-strategist assign if structural debt remains (e.g. merge-order research)
 6. Mind remains the operator TUI — do not recreate a `reviewer` pane

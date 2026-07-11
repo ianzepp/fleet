@@ -52,7 +52,7 @@ Identity/session: `head-correctness` (mail + tmux). Typical subject prefix: `hea
 3. New report → Mind **absorbs**: triage into task/need **To owning Hand** when actionable; doorbell if idle; record baseline `head_correctness.last_report_*`; optional chat brief (problem ¶ + action ¶)
 4. **Do not** assign work every cycle. Soft-wake only if stuck idle long with no recent mail — pointer only to continue next pass + role path
 5. Never map-refill head-correctness as a product lane
-6. Do **not** act as merge GO/NO-GO or block hand-1 merges awaiting a correctness stamp
+6. Do **not** act as merge GO/NO-GO or block hand-1 merges awaiting a head-correctness stamp
 
 ## head-purity auditor loop (self-directed)
 

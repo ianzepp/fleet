@@ -11,14 +11,14 @@ Load when a Hand or Head runs on a **different host** than Mind (SSH + remote tm
 | **Failure isolation** | Mind (desktop or local CLI) survives local tmux/shell death; remote panes keep running |
 | **Token / machine budget** | Heavy Hands on a server; Mind stays light on the operator machine |
 | **Compute / auth locality** | Work where the checkout, GPU, or agent login already lives |
-| **Heads too** | Strategist / correctness / purity may sit on remote tmux the same way Hands do |
+| **Heads too** | head-strategist / head-correctness / head-purity may sit on remote tmux the same way Hands do |
 
 Mind may be local CLI, desktop app, or even another host. **Process truth** is still tmux on the **Hand/Head host**; **work truth** is still Vivi against the **mailspace project root** that owns the bag.
 
 ## Axes (same three, plus host)
 
 ```text
-hand-N / strategist / …  =  identity (mail + remote tmux session name)
+hand-N / head-*  =  identity (mail + remote tmux session name)
               ├── assignment   focus / packet / remote cwd / merge rights
               ├── runtime      harness + model + wake/reinit policy
               └── host         local | ssh target (where pane + cwd live)
@@ -95,7 +95,7 @@ Copy or symlink skill `scripts/codex-reinit.sh` onto the remote host; do not ass
 
 ### Remote Head
 
-Same pattern: identity = session name (`strategist`, `correctness`, `purity`), `agent=pi` (or camp preference), clean-slate/reinit policy unchanged — only the transport is SSH.
+Same pattern: identity = session name (`head-strategist`, `head-correctness`, `head-purity`), `agent=pi` (or camp preference), clean-slate/reinit policy unchanged — only the transport is SSH.
 
 ## Fleet config sketch
 

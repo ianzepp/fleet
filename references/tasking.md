@@ -60,8 +60,8 @@ Not a hard stop: missing Mind congratulations or “GO” mail.
 Rules:
 
 1. File campaign spine to hand-1. Assign hand-2+ to operator-created worktree packets for bounded work; never put unbounded spine work there. Packet↔hand bindings are **current assignment**, not permanent types.
-2. Hunter-1 should run while its map has packages or residuals. Idle + empty is starvation: refill targets, queue a merge, wake/reinit by **H1’s current runtime**. Quiet only when map and residual bag are both empty.
-3. Hunter-2+ never merge/rebase/delete packet worktrees or invent main work. After a **unit**: mark done + turn-end; Mind refills next map unit (or reassigns). After a **theme** boundary: ready-to-merge mail; Mind owns merge clock.
+2. **hand-1** should run while its map has packages or residuals. Idle + empty is starvation: refill targets, queue a merge, wake/reinit by **hand-1’s current runtime**. Quiet only when map and residual bag are both empty.
+3. **hand-2+** never merge/rebase/delete packet worktrees or invent main work. After a **unit**: mark done + turn-end; Mind refills next map unit (or reassigns). After a **theme** boundary: ready-to-merge mail; Mind owns merge clock.
 4. Mind absorbs unit lands without merging; at theme accept creates `pending_merges` + merge task for hand-1.
 5. At a clean breakpoint, wake/reinit hand-1 for merge; defer while main is mid-phase or dirty. Merge checks watch-scope drift and green-gate; absorb then accept as a separate step.
 6. **Runtime vs assignment:** assignment (main vs packet) is orthogonal to **model** within a harness. **Hand harness is not free** — it follows Mind. Rebind model/launch without renaming the Hand or moving assignment; rebind Hand harness only when Mind’s harness changes or operator records an exception.

@@ -34,7 +34,7 @@ Side-lane workers **never** merge to main. Mind owns the integration clock.
 1. Worker signals **theme ready-to-merge** (theme name + tip + evidence) **or** Mind judges theme done after review
 2. **Absorb** tip; light residual / evidence check since last main merge (not a GO stamp; not full code review)
 3. **Integration accept** → `pending_merges` (slug, tip, base, theme, state `queued_for_hand1`) **or** residual To worker  
-   (Deep code review is **correctness on main after** hand-1 merges)
+   (Deep code review is **head-correctness on main after** hand-1 merges)
 4. File **one merge task To: hand-1** (slug, branch, base, tip, theme, validation, **watch-scope drift**)
 5. Wake/reinit h1 only at **clean breakpoint** (by h1’s current runtime). Mid-spine → **queue**
 6. After h1 merges: **absorb** main; **accept** merge; clear/update `pending_merges`; file next unit/theme To worker still assigned that lane (or reassign)
@@ -63,7 +63,7 @@ A fix is **done relative to a pin**, not absolutely.
 
 **Misroute class:** filing a “compiler residual” To the origin Hand when the consumer is red because the fix is **not on their pin** — that is **integration lag**. Mind should queue merge/base-update/pin-refresh, not thrash re-verify.
 
-Do not doorbell “DONE re-verify NOW” until the fix is reachable from the consumer’s tree. Prefer a need To Mind/operator for pin refresh over stacked wakes on a correctly blocked product hunter.
+Do not doorbell “DONE re-verify NOW” until the fix is reachable from the consumer’s tree. Prefer a need To Mind/operator for pin refresh over stacked wakes on a correctly blocked product Hand.
 
 ## Main → side-lane base-update (Mind-owned timing)
 

@@ -75,10 +75,10 @@ Reserve **hard ban** language for actions that break the platform, tree, or mult
 | Kind | Examples |
 | --- | --- |
 | **Hard bans** | Destructive git on foreign/unknown dirt (`stash` / `reset` / `restore` / `clean` / force-push to “make room”); `rm -rf` of project/home trees; erasing another agent’s semantic WIP; `exec codex`/`exec grok` that destroys the tmux session |
-| **Strong guidance** | Interaction mode, thorough modulus, harness alignment, strategist use, absorb/accept vocabulary, theme vs unit merge cadence, preferred models |
+| **Strong guidance** | Interaction mode, thorough modulus, harness alignment, head-strategist use, absorb/accept vocabulary, theme vs unit merge cadence, preferred models |
 | **Not a ban** | “I might violate autonomous mode if I think hard” — if the operator is engaged or a safe default is clear, **act** |
 
-**Decide now:** waiting multiple cycles for strategist/correctness/operator permission when a reversible default exists is a rules-of-engagement failure. File a need with default when human input is truly required; otherwise pick the default, record it, continue.
+**Decide now:** waiting multiple cycles for head-strategist / head-correctness / operator permission when a reversible default exists is a rules-of-engagement failure. File a need with default when human input is truly required; otherwise pick the default, record it, continue.
 
 ## References
 
@@ -371,7 +371,7 @@ On unexpected dirt **outside** scope: do not erase — list, classify if blockin
 | Roles, bag rules, dual channel, fleet axes (+ host) | Concrete Hand roster, cwds, model ids, **ssh targets** |
 | Harness alignment + preferred models (updated over time) | Live `mind.agent` / `agent_model` / `agent_launch`; Head launches |
 | Theme vs unit, merge clock, base-update *policy* | Campaign maps, product Status, validation commands |
-| Head loops (correctness = post-main review), cycle kinds, modes | Role-prompt paths, absolute tool binaries **per host** |
+| Head loops (head-correctness = post-main review), cycle kinds, modes | Role-prompt paths, absolute tool binaries **per host** |
 | Baseline field meanings; watch cursor; `pending_merges` states | Fat historical ledger rows, wind-up snapshots |
 | Pane classes, reinit contract, wind-down; **`FLEET_CYCLE` prefix** | Scheduler prompt path, durable interval task id |
 | Remote Hand/Head *transport* (SSH + tmux) | Real hostnames, keys, remote PATH wrappers |
@@ -400,7 +400,7 @@ Schema detail: [`runtime-config.md`](references/runtime-config.md).
 - Encoding severity as queue kind (implementable merge blocker filed as `need`)
 - Sleeping with empty product tasking while the map has unblocked next work
 - Filing to retired identities (`hunter-N`, bare `correctness`, `reviewer`) when `hand-N` / `head-*` / `mind` are canonical; packet merges / unbounded spine on hand-2+
-- Heads owning product tasking or merge queues; thrashing strategist assign while a report is outstanding
+- Heads owning product tasking or merge queues; thrashing head-strategist assign while a report is outstanding
 
 ### Dual channel and process
 
@@ -433,9 +433,9 @@ Schema detail: [`runtime-config.md`](references/runtime-config.md).
 - Dumping or deeply inspecting every wake while bag/trees/panes unchanged
 - Autonomous Mind deep-planning every cycle “because the model can”; treating board mail as operator engagement for mode purposes
 - Skipping `turns_since_operator_message` / staying interactive forever after one early chat
-- Mind acting as peer code reviewer of every packet (correctness owns post-main review)
+- Mind acting as peer code reviewer of every packet (head-correctness owns post-main review)
 - Freezing on class A formatter dirt without opening the diff
-- Waiting on strategist for a reversible default instead of deciding now
+- Waiting on head-strategist for a reversible default instead of deciding now
 - Scheduled wakes without a leading `FLEET_CYCLE` prefix
 - Treating strong guidance as a hard ban that forbids progress
 - **Reviewer / gatherer identity** as Mind: dedicated `reviewer` mail+tmux slot, shell inject into a “Mind pane,” or dual Mind processes
@@ -444,8 +444,8 @@ Schema detail: [`runtime-config.md`](references/runtime-config.md).
 
 - `$mail` — Vivi project mailspace CLI (task/need/want/mail, watch, thread); not the fleet process
 - `$polish` — end-of-unit per-file improvement on **this unit’s** changed primary source
-- `$correctness` — behavioral bug / invariant audits (advisor or Hand tool)
-- `$cleanliness` — structure/complexity scans (pairs with purity-style work)
+- `$correctness` — behavioral bug / invariant audits (tool for Hand or head-correctness)
+- `$cleanliness` — structure/complexity scans (pairs with head-purity work)
 - `$factory` — multi-phase implementation when the Hand executes a large unit
 - `$campaign` / `$delivery` — map and delivery packages the Hand drains
 - `$executive-team` — broader role cast; fleet is the tasking bag-loop subset

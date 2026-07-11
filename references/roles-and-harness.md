@@ -8,9 +8,9 @@ Load when arming a fleet, rebinding runtimes, or clarifying Mind/Hand/Head dutie
 | --- | --- | --- | --- |
 | **Hand** | `hand-1`…`hand-N` (legacy: `hunter-N`, `codex`) | Take a **selected target** and finish it | Done tasks/needs + evidence; optional turn-end mail To `mind` |
 | **Mind** | Board **`mind@…` only** — **no tmux**; process = operator TUI | Survey product; fill tasking; integrate; fleet ops | Open tasks/needs; pane scan; wake/reinit; merge queue |
-| **Strategist** (Head) | `head-strategist` | Ownership, sequencing, seams, gate honesty — not bag drain | Mail `head-strategist report:` To `mind` |
-| **Correctness** (Head) | `head-correctness` | **Code review / bug hunt on main after merge** | Mail `head-correctness:` To `mind` |
-| **Purity** (Head) | `head-purity` | Self-directed unearned-complexity / excess-layer audit | Mail `head-purity:` To `mind` |
+| **head-strategist** (Head) | `head-strategist` | Ownership, sequencing, seams, gate honesty — not bag drain | Mail `head-strategist report:` To `mind` |
+| **head-correctness** (Head) | `head-correctness` | **Code review / bug hunt on main after merge** | Mail `head-correctness:` To `mind` |
+| **head-purity** (Head) | `head-purity` | Self-directed unearned-complexity / excess-layer audit | Mail `head-purity:` To `mind` |
 
 One Mind owns the tasking bag and integration clock. Heads never merge, never keep product tasking “full,” and never stamp GO/NO-GO. They report To: **mind** (board); Mind triages into hand-N tasks/needs.
 
@@ -138,7 +138,7 @@ Heads need not match Mind’s product harness. Prefer Pi even when Mind is Grok 
 
 ## Mind does
 
-- **Is the operator entry point:** the conversation the human is in **is** Mind (not a `reviewer` hunter, not a second ops pane)
+- **Is the operator entry point:** the conversation the human is in **is** Mind (not a `reviewer` Hand, not a second ops pane; board mail is `mind@…` only — no tmux)
 - Resolve **interaction mode** each cycle (`turns_since_operator_message`, `mind_mode`, `FLEET_CYCLE` /loop) — see main skill + `mind-cycle.md`
 - Find missed work, Status overclaims, missing evidence; file **targets** with where / done-when / evidence bar (**to the owning Hand**)
 - **Integration absorb/accept** — bookkeeping and “good enough to merge/queue,” not deep peer code review of every packet
@@ -146,7 +146,7 @@ Heads need not match Mind’s product harness. Prefer Pi even when Mind is Grok 
 - Each wake: cheap **fleet pane scan**; **Grok doorbell** or **Codex reinit** (prefer `scripts/codex-reinit.sh`) when idle/done with open targets
 - Residual finding → **task** to Hand; **need** only for real decision hold; **tmux pointer only**
 - **Unstick half-dead dirt:** open the diff; class A mechanical (fmt) → clear same turn; do not freeze for hours
-- **Autonomous:** thin ops; **decide now** on reversible defaults; strategist is optional structure help, not a permission gate
+- **Autonomous:** thin ops; **decide now** on reversible defaults; head-strategist is optional structure help, not a permission gate
 - **Interactive:** full reasoning for operator; maintain **operator_recap** for when they return
 - Keep operator recap buffer since `last_operator_message_at`
 
@@ -154,16 +154,17 @@ Heads need not match Mind’s product harness. Prefer Pi even when Mind is Grok 
 
 - Issue stage start/closeout GO/NO-GO as binding protocol
 - Require multi-round mail before the next map square
-- **Own fleet code-review quality** (that is **correctness on main after merge**)
+- **Own fleet code-review quality** (that is **head-correctness on main after merge**)
 - Steal the Hand’s unit or rewrite their WIP mid-flight (raise; don’t hijack unless operator asks)
 - Treat status-only dirty as multi-cycle freeze without classification
 - Require introspecting its own model/reasoning tier to choose behavior
 - Treat Hand/Head board mail or `FLEET_CYCLE` wakes as operator engagement
-- Wait multiple cycles on strategist for a decision it can make with a default
+- Wait multiple cycles on head-strategist for a decision it can make with a default
 - Treat strong guidance as a hard ban that freezes progress
 - Run as a dedicated **`reviewer` / gatherer** mail+tmux identity (retired)
+- Create tmux for **`mind`** (board inbox only)
 
-## Correctness does (Head)
+## head-correctness does (Head)
 
 - Prefer **main checkout** as the review surface after themes/units land on main
 - Self-directed bug / fail-closed / invariant audit; report `head-correctness:` To Mind
@@ -173,4 +174,4 @@ Heads need not match Mind’s product harness. Prefer Pi even when Mind is Grok 
 
 ## Heads do not
 
-Approve/disapprove work as a gate, race Mind on acceptance, merge to main, or own product tasking. Strategist proposes sequencing/ownership; correctness reviews main; purity reports shape debt. Mind triages into the bag.
+Approve/disapprove work as a gate, race Mind on acceptance, merge to main, or own product tasking. **head-strategist** proposes sequencing/ownership; **head-correctness** reviews main; **head-purity** reports shape debt. Mind triages into the bag.

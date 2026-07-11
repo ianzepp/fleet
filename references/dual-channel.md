@@ -81,7 +81,7 @@ vivi mail thread <handle> --project <root> [--json] [--infer] [--limit 50] [--ma
 | Who | When |
 | --- | --- |
 | **Hand** | After selecting a handle, if replies/notes obscure done-when — thread before re-asking Mind |
-| **Mind** | Before filing a residual that depends on prior mail; absorb strategist/RTM threads |
+| **Mind** | Before filing a residual that depends on prior mail; absorb head-strategist / RTM threads |
 | **Either** | `--infer` only for historical best-effort links (marked; never overrides captured links) |
 
 Reply lineage: `vivi mail reply <handle>`; sends support `--reply-to`; lifecycle `--note` becomes a captured reply (Vivi 4.6).
@@ -266,7 +266,7 @@ HAND WAKE hand-2. Read inbox/mail <handle> then bag. Identity hand-2. Continue.
 
 Bad: full multi-agent policy, stage graphs, long defaults lists, quoting forbidden git verbs as “don’t do X.”
 
-Ops interventions (model/retry) stay one-liners; detail goes to Vivi if needed. Record `last_hunter_wake_at`, reason, target in baseline.
+Ops interventions (model/retry) stay one-liners; detail goes to Vivi if needed. Record `last_hand_wake_at`, reason, target in baseline.
 
 ## tmux process ops (start / rehome / restart)
 

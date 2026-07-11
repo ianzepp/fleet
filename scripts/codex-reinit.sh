@@ -16,7 +16,7 @@
 #   .vivi/codex-reinit.sh doctor            # fleet health + bag join (no kill)
 #   .vivi/codex-reinit.sh doctor   hand-2 # one slot, verbose evidence
 #   .vivi/codex-reinit.sh probe    hand-1 # same as doctor one-slot
-#   .vivi/codex-reinit.sh snapshot [hunter] # forensic dump under /tmp/codex-debug-*
+#   .vivi/codex-reinit.sh snapshot [hand-N] # forensic dump under /tmp/codex-debug-*
 #   .vivi/codex-reinit.sh heal              # reinit idle/error + open bag (leave running)
 #   .vivi/codex-reinit.sh heal     hand-3 # one slot only
 #   .vivi/codex-reinit.sh reinit   hand-1 --boot 'short pointer…'
@@ -159,7 +159,7 @@ default_boot() {
   fi
 }
 
-# Resolve hunter fields from fleet JSON.
+# Resolve hand fields from fleet JSON (canonical: hands; legacy: hunters).
 # Prints: session\tcwd\ttarget\tmodel\tlaunch
 fleet_resolve() {
   local name=$1
@@ -168,16 +168,18 @@ import json, sys
 fleet_path, name = sys.argv[1], sys.argv[2]
 f = json.loads(open(fleet_path).read())
 h = (f.get("hands") or {}).get(name)
+if not h:
+    h = (f.get("hunters") or {}).get(name)  # legacy key during migration
 if not h and name == "lab-codex":
     h = (f.get("lab") or {}).get("lab-codex")
 if not h:
-    sys.stderr.write(f"unknown hunter in fleet: {name}\n")
+    sys.stderr.write(f"unknown hand in fleet: {name}\n")
     sys.exit(1)
 session = h.get("tmux_session") or name
 target = h.get("tmux_target") or f"{session}:1.1"
 cwd = h.get("cwd") or f.get("project") or ""
 if not cwd:
-    sys.stderr.write("fleet hunter missing cwd and fleet.project\n")
+    sys.stderr.write("fleet hand missing cwd and fleet.project\n")
     sys.exit(1)
 if h.get("packet") and isinstance(h["packet"], dict):
     cwd = h["packet"].get("worker_cwd") or h["packet"].get("root") or cwd
@@ -486,7 +488,7 @@ cmd_status() {
   local name=$1
   local session cwd target model launch
   IFS=$'\t' read -r session cwd target model launch < <(fleet_resolve "$name")
-  echo "hunter=$name session=$session target=$target cwd=$cwd model=$model"
+  echo "hand=$name session=$session target=$target cwd=$cwd model=$model"
   echo "launch=${launch:-"(template codex -m $model)"}"
   if ! "$TMUX_BIN" has-session -t "$session" 2>/dev/null; then
     echo "class=down"
@@ -601,11 +603,15 @@ PY
   return $rc
 }
 
-codex_hunter_names() {
+codex_hand_names() {
   "$PYTHON_BIN" - "$FLEET" <<'PY'
 import json, sys
 f = json.loads(open(sys.argv[1]).read())
-for name, h in sorted((f.get("hands") or {}).items()):
+hands = dict(f.get("hands") or {})
+# Legacy hunters key during migration (do not override hands)
+for name, h in (f.get("hunters") or {}).items():
+    hands.setdefault(name, h)
+for name, h in sorted(hands.items()):
     if (h.get("agent") or "") == "codex":
         print(name)
 PY
@@ -751,7 +757,7 @@ cmd_doctor() {
     verbose=1
     names="$only"
   else
-    names=$(codex_hunter_names)
+    names=$(codex_hand_names)
   fi
 
   echo "=== codex doctor  $($DATE_BIN -u +%Y-%m-%dT%H:%M:%SZ)  project=$PROJECT ==="
@@ -792,7 +798,7 @@ cmd_doctor() {
   return "$__doctor_rc"
 }
 
-# Forensic dump for one or all codex hunters — no kill.
+# Forensic dump for one or all codex hands — no kill.
 cmd_snapshot() {
   local only="${1:-}"
   local names name
@@ -804,7 +810,7 @@ cmd_snapshot() {
   if [[ -n "$only" ]]; then
     names="$only"
   else
-    names=$(codex_hunter_names)
+    names=$(codex_hand_names)
   fi
 
   {
@@ -816,7 +822,7 @@ cmd_snapshot() {
     echo "AUTO_TRUST=$AUTO_TRUST"
   } >"$dir/meta.txt"
 
-  cp "$FLEET" "$dir/hunter-fleet.json" 2>/dev/null || true
+  cp "$FLEET" "$dir/fleet.json" 2>/dev/null || true
   if [[ -x "${VIVI_BIN:-}" ]]; then
     "$VIVI_BIN" mailspace status --project "$PROJECT" >"$dir/mailspace-status.txt" 2>&1 || true
   fi
@@ -830,7 +836,7 @@ cmd_snapshot() {
     local session cwd target model launch pid path class
     IFS=$'\t' read -r session cwd target model launch < <(fleet_resolve "$name")
     {
-      echo "hunter=$name"
+      echo "hand=$name"
       echo "session=$session target=$target"
       echo "fleet_cwd=$cwd model=$model"
       echo "launch=${launch:-}"
@@ -887,7 +893,7 @@ cmd_heal() {
   if [[ -n "$only" ]]; then
     names="$only"
   else
-    names=$(codex_hunter_names)
+    names=$(codex_hand_names)
   fi
 
   log "======== HEAL start names=[$names] ========"
@@ -957,7 +963,7 @@ case "$cmd" in
     echo "$(classify "$target")"
     ;;
   doctor|probe|debug)
-    # doctor [hunter] · probe/debug alias
+    # doctor [hand-N] · probe/debug alias
     cmd_doctor "${1:-}"
     ;;
   snapshot|dump)
