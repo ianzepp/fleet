@@ -5,6 +5,8 @@ description: Multi-agent fleet management with Mind/Head/Hand roles (Abbot patte
 
 # Fleet
 
+**Official source:** [https://github.com/ianzepp/fleet](https://github.com/ianzepp/fleet) — clone or pull from there for updates; do not treat monorepo skill mirrors as canonical.
+
 Abbot **Mind / Head / Hand** roles on a **multi-session fleet** (Vivi board + tmux panes), not an in-process kernel.
 
 | Role | Job | Identity |
