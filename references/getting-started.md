@@ -217,12 +217,20 @@ Minimal **single-fleet host** shape (`tmux_session` == role):
       "min_seconds_between_wakes": 180
     }
   },
+  "fleet_posture": {
+    "mode": "growth",
+    "reason": "campaign — use standby for on-call fleets (quiet is OK)",
+    "wake_triggers": ["operator product task", "operator@ need"],
+    "ceo_continuity_min_hours": 6
+  },
   "steward": {
     "enabled": false,
     "note": "default OFF — operator must set enabled:true and ask to arm per fleet"
   }
 }
 ```
+
+**Posture:** `growth` ships the map; `standby` / `dormant` = on-call or paused (Vivi-shaped fleets). Detail: [`fleet-posture.md`](fleet-posture.md).
 
 Replace paths, `agent` / `agent_launch`, and `cwd`. Full schema / multi-fleet `tmux_layout`: [`runtime-config.md`](runtime-config.md), [`multi-fleet.md`](multi-fleet.md).
 

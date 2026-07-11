@@ -145,7 +145,8 @@ Rate-limit wakes (`min_seconds_between_wakes`) **only when that Hand already has
 | --- | --- |
 | `idle_prompt`/`done_idle` + open tasking | Pointer doorbell |
 | Codex pointer text remains in composer / no `Working` after submit | Reinit fallback after one retry/snapshot if useful |
-| `idle_prompt` + empty + map has next unblocked unit | **Starvation** — file next same cycle; then wake/reinit by runtime |
+| `idle_prompt` + empty + map has next **product** unit + posture allows | **Starvation** — file next same cycle; then wake/reinit by runtime |
+| `idle_prompt` + empty + posture standby/dormant | Quiet OK — on-call / paused ([`fleet-posture.md`](fleet-posture.md)) |
 | `idle_prompt` + empty + operational pause only | Quiet OK; note reason |
 | `idle_prompt` + empty after unit/theme accept | Not default quiet — absorb/accept → **refill** → wake/reinit |
 

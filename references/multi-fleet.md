@@ -72,20 +72,22 @@ Roots (slug → project path):
 | --- | --- |
 | Coverage | Every **slug** on the first line gets a full fail-fast mini-cycle |
 | Paths | Body map, attach memory, or each fleet’s `fleet.json` → `project` — **not** `also=` / `also2=` invent-keys |
+| Posture | **Per fleet** (`growth` / `standby` / `dormant`) — standby/dormant mini-cycles stay quiet; never invent work so every slug “looks busy” — [`fleet-posture.md`](fleet-posture.md) |
 | Durability | Each fleet writes its **own** `last_successful_cycle_at` (+ `steward.sh rearm` **only if** that fleet’s steward is armed) |
 | Isolation | Never file To fleet A while processing fleet B |
 | Topic line | **Attached set log** — attach/detach by changing the slug list |
-| Report | One line/block per fleet; mode-gated richness |
+| Report | One line/block per fleet including `posture=…`; mode-gated richness |
 
 Single-fleet: `FLEET_CYCLE fleets=mgs` or `FLEET_CYCLE project=/path/to/one/fleet …`
 
 ### Mini-cycle body (per fleet)
 
 ```text
-1. Sensors: vivi --project $ROOT status/watch; panes via that fleet's tmux_targets
-2. Act on signal: absorb, refill starvation, wake/reinit that fleet only
-3. Quiet if fingerprint unchanged
-4. Write baseline last_successful_cycle_at; steward rearm --project $ROOT
+1. Sensors: fleet-sensors.py --project $ROOT (includes posture)
+2. If posture standby|dormant: absorb/operator@ only; no invent; quiet OK
+3. Else act on signal: absorb, product starvation refill, wake/reinit that fleet only
+4. Quiet if fingerprint unchanged / no valuable work
+5. Write baseline last_successful_cycle_at; steward rearm only if armed
 ```
 
 ## Attach / detach

@@ -39,6 +39,21 @@ Advises ownership, sequencing, seams, gate honesty, misprioritization, **side-la
 
 Mind needs no head-ceo permission for obvious next spine unit. head-ceo does not file Hand tasks or own empty-bag refill.
 
+### Continuity consult (continue vs pause)
+
+When **posture is growth** (or missing) and bags are empty **and** the map is empty / only makework / Mind cannot name a **valuable product** next unit — **do not invent polish**. Assign **one** continuity question (respect `ceo_continuity_min_hours`; do not re-ask every FLEET_CYCLE).
+
+```text
+Continuity: keep shipping, standby/dormant, or wind-up?
+- posture today + reason
+- map state (empty / residuals / stage closed)
+- bag counts
+Answer: continue (≤N product units with effort/est_tokens) OR recommend standby|dormant|wind-up + wake triggers.
+No polish makework. Report To mind@.
+```
+
+Standby/dormant fleets: **no** continuity spam — quiet is success. Detail: [`fleet-posture.md`](fleet-posture.md).
+
 ### Side-lane / hand-2+ capacity bucket
 
 When hand-2+ exists, reports should routinely include:
@@ -70,7 +85,7 @@ Bands = **routing hints**. Prefer ranges; uncertain → estimate high. **Do not 
 
 | Good bucket items | Bad |
 | --- | --- |
-| Independent factory goals, long packets, bounded one-shots off hot files, post-theme base-update planning | “whatever is free,” unbounded main spine, merge-to-main, same P0 as hand-1, makework polish |
+| Independent factory goals, long packets, bounded one-shots off hot files, post-theme base-update planning | “whatever is free,” unbounded main spine, merge-to-main, same P0 as hand-1, **makework polish**, continuity theater |
 
 ### Mind: absorb bucket + cost calibration
 

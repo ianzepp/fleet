@@ -103,7 +103,7 @@ Hands share **Mind’s product harness**. Heads prefer different model/harness.
 7. **Integration** — hand-2+ never merges; Mind **accepts** themes (integration bar) → merge task To hand-1 at clean breakpoint  
 8. **Hygiene** — polish advisory after main lands; `$housekeeping` only at **major inflection**
 
-**Keep screen moving:** empty bag + map has unblocked work = **starvation** → file next + wake. Truly paused = say so.
+**Keep screen moving (product only):** empty bag + map has unblocked **product** work = **starvation** → file next + wake. **Posture** (`growth` / `standby` / `dormant`): standby/dormant fleets may stay quiet — do not invent polish. Continuity doubt → head-ceo once, not thrash — [`fleet-posture.md`](fleet-posture.md).
 
 **Don't get stuck:** name class (decision, dirt, pane, capacity); unstick or pivot same turn.
 

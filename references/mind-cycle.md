@@ -226,7 +226,7 @@ Choose from `mind_mode` after resolve. No autonomous one-liners while interactiv
 ### Autonomous — compact
 
 ```text
-cycle N superficial|thorough; mode=autonomous; operator_silence=K; sleep; panes ok
+cycle N superficial|thorough; mode=autonomous; posture=…; operator_silence=K; sleep; panes ok
 ```
 
 Acted (one short block max):
@@ -242,7 +242,7 @@ No narrative. Keep `operator_recap` in baseline.
 
 ### Interactive — rich
 
-1. **Headline** — cycle N · kind · mode=interactive · silence=K · sleep|acted · one-clause why
+1. **Headline** — cycle N · kind · mode=interactive · posture=growth|standby|dormant · silence=K · sleep|acted · one-clause why
 2. **Fleet snapshot (table)** — each Hand + Heads: pane class, bag handles/subjects or empty, one-clause status
 3. **Product / focus** — map focus, main HEAD (+ dirty), notable land/WIP
 4. **Board moves** — absorbed / filed / woke / none

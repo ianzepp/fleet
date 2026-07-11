@@ -194,6 +194,13 @@ Recommended keys (extend freely; skill cares about meanings):
     "main_cwd": "/path/to/primary/git/checkout",
     "note": "optional — workspace containers without .git at fleet root; sensors use this tip"
   },
+  "fleet_posture": {
+    "mode": "growth",
+    "reason": "campaign spine — or standby for on-call fleets",
+    "since": "2026-07-11T00:00:00Z",
+    "wake_triggers": ["operator product task", "operator@ need"],
+    "ceo_continuity_min_hours": 6
+  },
   "mind_inbox": "mind",
   "operator_inbox": "operator",
   "operator_inbox_note": "Human escalations only (problems/blockers/guidance). Not status. No tmux.",
@@ -322,6 +329,7 @@ steward                           # {armed, last_rearm_at, tripped, tripped_at, 
 mind_loop.last_successful_cycle_at
 mind_session optional             # advisory attach lock {label, host, pid, attached_at}
 mind_loop.state                    # running | detached | wound_up | dead_man_tripped | …
+fleet_posture optional            # mirror of fleet.json: mode growth|standby|dormant, reason, last_ceo_continuity_at
 mind_watch_cursor_path optional
 last_actionable_fingerprint
 pending_reviews[]

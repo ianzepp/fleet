@@ -54,11 +54,12 @@ Canon for absorb/accept: [`mind-cycle.md`](references/mind-cycle.md) § Absorb v
 | --- | --- |
 | Process | Mind fills bag; Hand empties. Progress = open tasking + map — not GO stamps |
 | Multi-hand | Mind files/wakes/merges clock; head-ceo side-lane bucket (`effort`+`est_tokens`); Mind calibrates est vs actual |
-| Starvation | Empty bag + unblocked map work → file+wake same cycle |
-| Stuck | Freeze fails — name, unstick, pivot. No status-only blocked cycles |
+| Starvation | Empty bag + **honest unblocked product unit on the map** → file+wake. Never invent polish/makework to fill bags |
+| Posture | Per-fleet `growth` \| `standby` \| `dormant` — willing to sleep when charter says so — [`fleet-posture.md`](references/fleet-posture.md) |
+| Stuck | Freeze fails — name, unstick, pivot. No status-only blocked cycles. Stuck ≠ “must invent work” |
 | Harness | **Default:** Hands = Mind harness; Heads prefer alternate. **Fleet config exceptions win** (desktop Mind, Pi Hand, operator-recorded mixed) — [`roles-and-harness.md`](references/roles-and-harness.md) |
 | Quality | Hand ships unit quality; **head-cto** reviews **main after merge** — not Mind peer-review of every packet |
-| Hygiene | Mind never runs `$polish`/`$housekeeping` itself |
+| Hygiene | Mind never runs `$polish`/`$housekeeping` itself; never thrash polish for continuity |
 
 | Mind hygiene | When | Action |
 | --- | --- | --- |
@@ -106,6 +107,7 @@ Core process here; detail in `references/` + `scripts/`.
 | operator@ | [`operator-mail.md`](references/operator-mail.md) |
 | Steward | [`dead-man.md`](references/dead-man.md), [`scripts/steward.sh`](scripts/steward.sh) |
 | Multi-fleet | [`multi-fleet.md`](references/multi-fleet.md) |
+| Posture / sleep vs continuity | [`fleet-posture.md`](references/fleet-posture.md) |
 | Side lanes / merge | [`multi-lane.md`](references/multi-lane.md) |
 | Heads | [`heads.md`](references/heads.md), [`heads/cast.md`](references/heads/cast.md) |
 | Remote | [`ssh-remote.md`](references/ssh-remote.md) |
@@ -131,7 +133,7 @@ Core process here; detail in `references/` + `scripts/`.
 | Integration lag | Queue **merge** or **base-update** (whichever unblocks); **then** pivot other product work | Thrash re-verify on blocked consumer |
 | Pane dead/idle+open | Wake / reinit / runtime ladder | Stack wakes |
 | Human wall | File `operator@` + pivot | Silent stall |
-Sleep only if bag empty **and** map has no next unblocked unit.
+Sleep when bag empty **and** no honest next product unit (or posture is standby/dormant). Sleep is allowed — do not invent work.
 
 ### Dirt (half-dead targets)
 
@@ -154,7 +156,7 @@ Hand: A same turn; B need+pivot; C own hunks. Mind: ≥2 cycles blocked unclassi
 | Mind | File/wake/integrate/starve-refill; operator mail | GO stamps; steal unit; deep code review; mind/operator tmux |
 | operator@ | Human escalations | Status; bag drain |
 | head-cto | Post-main review | Own product bag; GO stamp |
-| head-ceo | Vision; side-lane buckets | File Hand tasks; merge |
+| head-ceo | Vision; side-lane buckets; **continuity consult** (continue vs pause) | File Hand tasks; merge; invent polish |
 | head-cxo | Complexity/purity | Product bag; operator mail |
 
 Identity ≠ assignment ≠ runtime. Detail: [`roles-and-harness.md`](references/roles-and-harness.md).
@@ -219,7 +221,8 @@ Report tracks **mode**, not acted/sleep alone. Templates: [`mind-cycle.md`](refe
 
 | Topic | Rule |
 | --- | --- |
-| Multi-fleet | One Mind session may supervise many fleets; **one Mind per fleet** (advisory `mind_session`); fleets= on FLEET_CYCLE line; prefer session=`fleet_id` |
+| Multi-fleet | One Mind session may supervise many fleets; **one Mind per fleet** (advisory `mind_session`); fleets= on FLEET_CYCLE line; prefer session=`fleet_id`. **Per-fleet posture** — standby/dormant mini-cycles stay quiet |
+| Posture | `growth` ships map; `standby`/`dormant` = on-call / paused — quiet is success. Continuity doubt → head-ceo once, not polish thrash — [`fleet-posture.md`](references/fleet-posture.md) |
 | Steward | **Default OFF.** Per-fleet dead-man only when operator **explicitly** enables `steward.enabled` **and** asks to arm **that** fleet. Loop ≠ steward. When armed: rearm each successful mini-cycle; disarm same turn on detach. Not second Mind |
 | operator@ | Problems / blockers / bug-guidance / human walls only. On return: operator list **first**, then recap, then ops |
 
@@ -234,7 +237,7 @@ Report tracks **mode**, not acted/sleep alone. Templates: [`mind-cycle.md`](refe
 
 Kind ≠ severity. Hard stop = open tasks/needs. Not a stop = missing GO mail.  
 hand-1 = main + merges; hand-2+ = packets, never main merge; unit done → refill; theme done → RTM mail.  
-Starvation: empty product bag + map next → file+wake. [`tasking.md`](references/tasking.md)
+Starvation: empty product bag + **product** map unit → file+wake. Not polish theater. Posture: [`fleet-posture.md`](references/fleet-posture.md). [`tasking.md`](references/tasking.md)
 
 ## Dual channel (summary)
 
@@ -245,7 +248,7 @@ Vivi = work. tmux = process. Address = **`tmux_target`**.
 | `running` | No wake |
 | `idle_prompt` / `done_idle` + open | Pointer doorbell (Codex submit-settle). First wake per Hand never rate-limits |
 | `idle_prompt` / `done_idle` + open + Codex stuck after doorbell | Reinit fallback |
-| empty + map next | Starve-file then wake |
+| empty + product map next + posture allows | Starve-file then wake (never invent polish) |
 | `error_*` / `down` | Ops / recreate |
 
 Pointers only in tmux; done-when in Vivi. CLI: [`vivi.md`](references/vivi.md). Watch/thread: [`dual-channel.md`](references/dual-channel.md). Remote: [`ssh-remote.md`](references/ssh-remote.md).
@@ -315,10 +318,10 @@ Desktop Mind OK; Hands stay terminal/tmux. Schema: [`runtime-config.md`](referen
 
 ## Anti-patterns
 
-**Bag:** GO warden; severity-as-kind; sleep while map has work; dual Mind; Heads own bags; hand-2 empty while side track exists; wait on head-ceo for obvious spine; buckets without cost ballparks.  
-**Process:** mail-only or pane-only truth; policy via tmux; mixed Hand harness; back-to-back wake stacks; wrong-host tmux; IMAP as bag sensor; unbounded watch.
+**Bag:** GO warden; severity-as-kind; sleep while map has **product** work; invent work to avoid sleep; dual Mind; Heads own bags; hand-2 empty while side track exists; wait on head-ceo for obvious spine; buckets without cost ballparks.  
+**Process:** mail-only or pane-only truth; policy via tmux; mixed Hand harness; back-to-back wake stacks; wrong-host tmux; IMAP as bag sensor; unbounded watch; multi-fleet “fairness” busywork on standby fleets.
 **Integrate:** packet-green≠consumer-green; “compiler residual” when integration lag; red theme merge; Mind merges packets; absorb-as-accept.  
-**Hygiene/workspace:** skip unit polish / polish foreign; Mind runs polish/HK; HK every land; score as merge gate; destructive dirt cleanup; status-only dirt; topic monogamy; deep-plan every autonomous cycle; interactive forever; **FLEET_CYCLE ⇒ auto-increment silence / force autonomous**; compact report while interactive; novel autonomous reports; head-ceo permission freeze; missing FLEET_CYCLE prefix; status→operator@; skip operator present-on-return; arm steward without operator ask; leave steward armed after stop-loop; steward as Mind; inject-only heartbeat; global roster scan; hardcode session=role when `tmux_target` set.
+**Hygiene/workspace:** skip unit polish / polish foreign; Mind runs polish/HK; **polish thrash for continuity**; HK every land; score as merge gate; destructive dirt cleanup; status-only dirt; topic monogamy; deep-plan every autonomous cycle; interactive forever; **FLEET_CYCLE ⇒ auto-increment silence / force autonomous**; compact report while interactive; novel autonomous reports; head-ceo permission freeze; missing FLEET_CYCLE prefix; status→operator@; skip operator present-on-return; arm steward without operator ask; leave steward armed after stop-loop; steward as Mind; inject-only heartbeat; global roster scan; hardcode session=role when `tmux_target` set.
 
 ## Companions / first exposure
 

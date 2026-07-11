@@ -316,6 +316,22 @@ def main() -> int:
         "inbox_unread": mind_row.get("inbox_unread", 0),
     }
 
+    # --- fleet posture (continuity vs sleep) ---
+    posture_block = fleet.get("fleet_posture") if isinstance(fleet.get("fleet_posture"), dict) else {}
+    if not posture_block and isinstance(baseline.get("fleet_posture"), dict):
+        posture_block = baseline.get("fleet_posture") or {}
+    posture_mode = str(posture_block.get("mode") or "growth").lower()
+    if posture_mode in ("campaign", "active"):
+        posture_mode = "growth"
+    if posture_mode in ("on_call", "on-call"):
+        posture_mode = "standby"
+    out["fleet_posture"] = {
+        "mode": posture_mode,
+        "reason": posture_block.get("reason"),
+    }
+    # standby/dormant: empty bags are expected — no starvation noise
+    posture_suppresses_starvation = posture_mode in ("standby", "dormant")
+
     # --- hands panes + bag ---
     pane_classes = {}  # type: Dict[str, str]
     tmux_bin = tmux if (tmux and (Path(tmux).exists() or shutil.which(tmux))) else (shutil.which("tmux") or "")
@@ -374,6 +390,7 @@ def main() -> int:
             and pclass in ("idle_prompt", "done_idle")
             and not paused_pkt
             and not hand_paused
+            and not posture_suppresses_starvation
         ):
             out["signals"].append(f"starvation_candidate_{name}")
 
@@ -499,6 +516,7 @@ def main() -> int:
         lines = [
             "fleet %s @ %s" % (out["fleet_id"], out["at"]),
             "focus: %s" % fp.get("map_focus"),
+            "posture: %s" % ((out.get("fleet_posture") or {}).get("mode") or "growth"),
             "git: %s dirty=%s" % (fp.get("swarm_head"), git_main.get("dirty")),
             "operator_open=%s steward_armed=%s tripped=%s"
             % (

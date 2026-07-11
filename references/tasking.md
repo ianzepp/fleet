@@ -91,17 +91,23 @@ Empty hand-2 + no candidates and no map side track → operational pause (record
 
 ### Idle empty tasking
 
+Posture (`fleet_posture.mode`) gates whether empty bags are a problem — [`fleet-posture.md`](fleet-posture.md).
+
 | Situation | Meaning | Mind action |
 | --- | --- | --- |
-| **Any hand-N** idle + empty + map has **unblocked** next unit | **Starvation** | File next target **same cycle** + wake/reinit |
+| **Any hand-N** idle + empty + map has **unblocked product** unit + posture allows (`growth` or missing) | **Starvation** | File next target **same cycle** + wake/reinit |
+| **Posture `standby` or `dormant`** + empty bags | **On-call / paused** | **Sleep** — do not invent work; quiet is success |
 | **hand-N** idle + empty + packet `paused*` / baseline `operational_pauses` | **Operational pause** | Do **not** treat `starvation_candidate_*` alone as act — refill only when unpausing |
 | **hand-1** idle + empty + `pending_merges` or spine residuals | Starvation | Merge task and/or next spine targets |
-| **hand-2+** just finished a **unit** (not theme) | Not success-idle | Absorb/review; **refill** next packet unit |
-| **hand-2+** after **theme** RTM, empty, waiting merge | **Operational pause** | Review → accept → merge to h1; optional light pivot if map has unrelated work |
+| **hand-2+** just finished a **unit** (not theme) | Not success-idle | Absorb/review; **refill** next **product** map unit (or reassign) |
+| **hand-2+** after **theme** RTM, empty, waiting merge | **Operational pause** | Review → accept → merge to h1; optional light pivot if map has unrelated **product** work |
+| **growth** + empty bags + map empty / only makework / value unclear | **Continuity doubt** | **Do not invent polish**; sleep or one head-ceo continuity consult (continue vs pause) |
 | **Operational pause only** | Allowed empty/hold | base-update wait · mid-unit · operator pause · map empty · hard upstream with need filed (prefer pivot) |
 | Head “empty tasking” | N/A — no product tasking | Scan mail; soft-wake only if stuck; never map-refill |
 
-Do not sleep merely because all **product** bags are empty; check map, `pending_reviews`, and `pending_merges` first.
+**Ban:** invent work (including polish/HK loops) to keep Hands busy or to silence sensors.
+
+Do not sleep merely because bags are empty **if** map still has unblocked **product** work (and posture allows). Do sleep when bags empty **and** no honest product next — check map, `pending_reviews`, `pending_merges`, then posture.
 
 ## Hand decision continuity
 
@@ -119,11 +125,11 @@ Do not sleep merely because all **product** bags are empty; check map, `pending_
 
 1. Externalize if decision
 2. Immediately select another open task/need or next map package
-3. Sleep only when actionable tasking empty **and** no next map package
+3. Sleep when actionable tasking empty **and** no honest next **product** map unit (or posture standby/dormant)
 
-Second-best progress beats zero. Context switch is required.
+Second-best **product** progress beats zero. Context switch is required. Invented polish is not progress.
 
-**Forbidden:** silent stall; “only this one thing until someone answers”; parking while other tasking remains; treating private monologue as coordination.
+**Forbidden:** silent stall; “only this one thing until someone answers”; parking while other **product** tasking remains; treating private monologue as coordination; polish thrash for continuity.
 
 ## Board intake (list-first)
 
