@@ -6,6 +6,20 @@ Load for capacity recovery, Codex reinit scripts, fleet/baseline schemas, or fle
 
 All paths are under this skill’s `scripts/` (self-contained package).
 
+### Portability (macOS + Linux)
+
+| Requirement | Detail |
+| --- | --- |
+| **Shell scripts** | **bash 3.2+** (`#!/usr/bin/env bash`). Not `sh`, not zsh-as-script. macOS stock `/bin/bash` 3.2 is OK. |
+| **Python** | **3.9+** via `#!/usr/bin/env python3` (or `PYTHON_BIN`). No third-party deps. |
+| **PATH** | `scripts/lib/env.sh` fills common dirs (system, `~/.cargo`, `~/.local`, Homebrew, linuxbrew) without requiring a login shell. |
+| **Overrides** | `TMUX_BIN`, `PYTHON_BIN`, `VIVI_BIN`, `CODEX_BIN`, `PS_BIN`, … |
+| **Dates** | Prefer `date -u +%s` / `+%Y-%m-%dT%H:%M:%SZ` (BSD + GNU). ISO `Z` timestamps are normalized in Python (`…Z` → `…+00:00`) for 3.9–3.10. |
+| **JSON** | UTF-8 read/write; baseline updates use same-dir temp + `os.replace` (atomic on POSIX). |
+| **Smoke** | `scripts/smoke-portability.sh [--project <root>]` |
+
+Do **not** hardcode only `/opt/homebrew/...` in new scripts. Prefer `fleet_find_*` from `lib/env.sh` or PATH + multi-candidate lists.
+
 ### `fleet-sensors.py` — cheap snapshot
 
 ```bash

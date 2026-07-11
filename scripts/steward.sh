@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # Fleet steward (dead man): fleet-local completed-cycle watchdog.
 #
 # Mind rearms after every successful FLEET_CYCLE. If rearm stops while armed,
@@ -8,10 +8,14 @@
 #   PROJECT=/path/to/fleet path/to/steward.sh arm|rearm|disarm|status|check|clear|loop|trip
 #   steward.sh arm --project /path/to/fleet
 #
+# Requires: bash 3.2+, python3 >= 3.9. Portable macOS + Linux.
 # Exit: 0 ok · 1 tripped (check/loop) · 2 config/error · 3 inactive/disarmed
 set -euo pipefail
 
-export PATH="/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin:${PATH:-}:$HOME/.cargo/bin:$HOME/.local/bin"
+_FLEET_SCRIPT_DIR="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
+# shellcheck source=lib/env.sh
+. "$_FLEET_SCRIPT_DIR/lib/env.sh"
+fleet_bootstrap_env
 
 PROJECT="${PROJECT:-}"
 CMD="${1:-}"
@@ -19,7 +23,11 @@ shift || true
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --project) PROJECT="$2"; shift 2 ;;
+    --project|-p)
+      fleet_need_optarg "$1" "${2-}" || exit 2
+      PROJECT="$2"
+      shift 2
+      ;;
     --project=*) PROJECT="${1#*=}"; shift ;;
     -h|--help) CMD=help; shift ;;
     *) break ;;
@@ -34,28 +42,30 @@ if [[ -z "$PROJECT" ]]; then
     exit 2
   fi
 fi
-PROJECT="$(cd "$PROJECT" && pwd)"
+if ! PROJECT="$(fleet_abs_project "$PROJECT")"; then
+  echo "ERROR: project is not a directory: $PROJECT" >&2
+  exit 2
+fi
 FLEET="${FLEET:-$PROJECT/.vivi/fleet.json}"
 BASELINE="${BASELINE:-$PROJECT/.vivi/mind-baseline.json}"
 VIVI_DIR="$PROJECT/.vivi"
 REARM_TOUCH="$VIVI_DIR/steward.rearm"
 LOG="${STEWARD_LOG:-$VIVI_DIR/steward.log}"
-TMUX_BIN="${TMUX_BIN:-$(command -v tmux 2>/dev/null || echo /opt/homebrew/bin/tmux)}"
-VIVI_BIN="${VIVI_BIN:-$(command -v vivi 2>/dev/null || true)}"
-if [[ -z "${VIVI_BIN}" || ! -x "${VIVI_BIN}" ]]; then
-  for c in /opt/homebrew/bin/vivi "$HOME/.cargo/bin/vivi"; do
-    [[ -x "$c" ]] && VIVI_BIN="$c" && break
-  done
+TMUX_BIN="$(fleet_find_tmux 2>/dev/null || true)"
+TMUX_BIN="${TMUX_BIN:-tmux}"
+VIVI_BIN="$(fleet_find_vivi 2>/dev/null || true)"
+if ! PYTHON_BIN="$(fleet_find_python3)"; then
+  echo "ERROR: python3 >= 3.9 not found (set PYTHON_BIN)" >&2
+  exit 2
 fi
-PYTHON_BIN="${PYTHON_BIN:-$(command -v python3 2>/dev/null || echo /usr/bin/python3)}"
-SELF="$(cd "$(dirname "$0")" && pwd)/$(basename "$0")"
+SELF="$_FLEET_SCRIPT_DIR/$(basename "$0")"
 
-log() { printf '%s %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$*" | tee -a "$LOG" >&2; }
+log() { printf '%s %s\n' "$(fleet_date_iso)" "$*" | tee -a "$LOG" >&2; }
 
 die() { log "ERROR: $*"; exit 2; }
 
 usage() {
-  sed -n '2,20p' "$0" | sed 's/^# \{0,1\}//'
+  fleet_usage_from_header "$0" 2 20
   exit 3
 }
 
@@ -82,12 +92,28 @@ def load_json(path, default=None):
     if not p.is_file():
         return {} if default is None else default
     try:
-        return json.loads(p.read_text())
+        return json.loads(p.read_text(encoding="utf-8"))
     except Exception:
         return {} if default is None else default
 
 def save_baseline(b):
-    Path(baseline_path).write_text(json.dumps(b, indent=2) + "\n")
+    import tempfile
+    dest = Path(baseline_path)
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    text = json.dumps(b, indent=2, ensure_ascii=False) + "\n"
+    fd, tmp = tempfile.mkstemp(prefix=".%s." % dest.name, suffix=".tmp", dir=str(dest.parent))
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8", newline="\n") as fh:
+            fh.write(text)
+            fh.flush()
+            os.fsync(fh.fileno())
+        os.replace(tmp, dest)
+    except Exception:
+        try:
+            os.unlink(tmp)
+        except OSError:
+            pass
+        raise
 
 def fleet_steward():
     f = load_json(fleet_path, {})

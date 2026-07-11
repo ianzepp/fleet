@@ -1,14 +1,20 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # Pointer-only Hand/Head wake via fleet.json tmux_target.
 #
 # Usage:
 #   fleet-doorbell.sh --project <root> <hand-name> [--handle HEX] [--note '…'] [--force]
 #   fleet-doorbell.sh --project <root> --target mgs:hand-1.1 --message 'HAND WAKE …'
 #
+# Requires: bash 3.2+ (not sh/zsh-as-script), python3 >= 3.9, tmux
+# Portable: macOS + Linux. Override with TMUX_BIN / PYTHON_BIN.
+#
 # Exit: 0 sent · 1 refused (running / rate-limit / missing) · 2 usage/config error
 set -euo pipefail
 
-export PATH="/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin:${HOME}/.cargo/bin:${HOME}/.local/bin:${PATH:-}"
+_FLEET_SCRIPT_DIR="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
+# shellcheck source=lib/env.sh
+. "$_FLEET_SCRIPT_DIR/lib/env.sh"
+fleet_bootstrap_env
 
 PROJECT=""
 NAME=""
@@ -17,27 +23,62 @@ NOTE=""
 FORCE=0
 TARGET=""
 MESSAGE=""
-TMUX_BIN="${TMUX_BIN:-$(command -v tmux 2>/dev/null || echo /opt/homebrew/bin/tmux)}"
-PYTHON_BIN="${PYTHON_BIN:-$(command -v python3 2>/dev/null || echo /usr/bin/python3)}"
-SELF_DIR="$(cd "$(dirname "$0")" && pwd)"
+
+if ! TMUX_BIN="$(fleet_find_tmux)"; then
+  echo "ERROR: tmux not found (set TMUX_BIN)" >&2
+  exit 2
+fi
+if ! PYTHON_BIN="$(fleet_find_python3)"; then
+  echo "ERROR: python3 >= 3.9 not found (set PYTHON_BIN)" >&2
+  exit 2
+fi
 
 usage() {
-  sed -n '2,12p' "$0" | sed 's/^# \{0,1\}//'
+  fleet_usage_from_header "$0" 2 12
   exit 2
 }
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --project|-p) PROJECT="$2"; shift 2 ;;
-    --handle) HANDLE="$2"; shift 2 ;;
-    --note) NOTE="$2"; shift 2 ;;
+    --project|-p)
+      fleet_need_optarg "$1" "${2-}" || usage
+      PROJECT="$2"
+      shift 2
+      ;;
+    --handle)
+      fleet_need_optarg "$1" "${2-}" || usage
+      HANDLE="$2"
+      shift 2
+      ;;
+    --note)
+      fleet_need_optarg "$1" "${2-}" || usage
+      NOTE="$2"
+      shift 2
+      ;;
     --force) FORCE=1; shift ;;
-    --target) TARGET="$2"; shift 2 ;;
-    --message) MESSAGE="$2"; shift 2 ;;
+    --target)
+      fleet_need_optarg "$1" "${2-}" || usage
+      TARGET="$2"
+      shift 2
+      ;;
+    --message)
+      fleet_need_optarg "$1" "${2-}" || usage
+      MESSAGE="$2"
+      shift 2
+      ;;
     -h|--help) usage ;;
+    --)
+      shift
+      break
+      ;;
+    -*)
+      echo "unknown arg: $1" >&2
+      usage
+      ;;
     *)
-      if [[ -z "$NAME" && "$1" != --* ]]; then
-        NAME="$1"; shift
+      if [[ -z "$NAME" ]]; then
+        NAME="$1"
+        shift
       else
         echo "unknown arg: $1" >&2
         usage
@@ -47,26 +88,33 @@ while [[ $# -gt 0 ]]; do
 done
 
 [[ -n "$PROJECT" ]] || usage
-PROJECT="$(cd "$PROJECT" && pwd)"
+if ! PROJECT="$(fleet_abs_project "$PROJECT")"; then
+  echo "ERROR: project is not a directory: $PROJECT" >&2
+  exit 2
+fi
 FLEET="${FLEET:-$PROJECT/.vivi/fleet.json}"
 BASELINE="${BASELINE:-$PROJECT/.vivi/mind-baseline.json}"
 [[ -f "$FLEET" ]] || { echo "missing fleet.json: $FLEET" >&2; exit 2; }
 
-# Resolve hand slot from fleet.json
+# Resolve hand slot from fleet.json (embedded python — portable, no zsh)
 resolve() {
   "$PYTHON_BIN" - "$FLEET" "$BASELINE" "${NAME:-}" "${TARGET:-}" <<'PY'
-import json, sys, time
+import json, sys
 from pathlib import Path
-from datetime import datetime, timezone
 
 fleet_path, baseline_path, name, target_override = sys.argv[1:5]
-f = json.loads(Path(fleet_path).read_text())
-b = {}
-if Path(baseline_path).is_file():
+
+def load(path):
+    p = Path(path)
+    if not p.is_file():
+        return {}
     try:
-        b = json.loads(Path(baseline_path).read_text())
+        return json.loads(p.read_text(encoding="utf-8"))
     except Exception:
-        b = {}
+        return {}
+
+f = load(fleet_path)
+b = load(baseline_path)
 
 hands = f.get("hands") or f.get("hunters") or {}
 slot = None
@@ -86,20 +134,30 @@ if target_override:
     wake_enabled = True if not slot else bool(slot.get("wake_enabled", True))
     mail = (slot or {}).get("mail_identity") or name or "hand"
 elif slot:
-    target = slot.get("tmux_target") or f"{slot.get('tmux_session') or name}:1.1"
+    target = slot.get("tmux_target") or ("%s:1.1" % (slot.get("tmux_session") or name))
     session = target.split(":")[0]
     agent = slot.get("agent") or "unknown"
     min_gap = int(slot.get("min_seconds_between_wakes") or 180)
     wake_enabled = bool(slot.get("wake_enabled", True))
     mail = slot.get("mail_identity") or name
 else:
-    print("error\tunknown slot", file=sys.stderr)
+    sys.stderr.write("error\tunknown slot\n")
     sys.exit(2)
 
-# last wake for rate limit
-last_at = b.get("last_hand_wake_at") or b.get("last_hunter_wake_at")
-last_wake = b.get("last_hand_wake") or {}
-print(f"{target}\t{session}\t{agent}\t{min_gap}\t{int(wake_enabled)}\t{mail}\t{last_at or ''}\t{last_wake.get('target') or ''}")
+last_at = b.get("last_hand_wake_at") or b.get("last_hunter_wake_at") or ""
+last_wake = b.get("last_hand_wake") if isinstance(b.get("last_hand_wake"), dict) else {}
+# TSV — tabs only; values must not contain tabs
+fields = [
+    target,
+    session,
+    agent,
+    str(min_gap),
+    str(int(wake_enabled)),
+    mail or "",
+    last_at or "",
+    (last_wake.get("target") or ""),
+]
+sys.stdout.write("\t".join(fields) + "\n")
 PY
 }
 
@@ -109,33 +167,46 @@ classify() {
   local session=${target%%:*}
   if ! "$TMUX_BIN" has-session -t "$session" 2>/dev/null; then
     echo down
-    return
+    return 0
   fi
   local t
   t="$("$TMUX_BIN" capture-pane -t "$target" -p -S -20 2>/dev/null || true)"
-  if echo "$t" | grep -Eiq 'Working \(|esc to interrupt|Waiting for response|Responding'; then
+  # Use grep -E -i; works on BSD (macOS) and GNU (Linux). Prefer -q for quiet.
+  if printf '%s\n' "$t" | grep -Eiq 'Working \(|esc to interrupt|Waiting for response|Responding'; then
     echo running
-    return
+    return 0
   fi
-  if echo "$t" | grep -Eiq 'Yes, continue|Do you trust|trust this workspace'; then
+  if printf '%s\n' "$t" | grep -Eiq 'Yes, continue|Do you trust|trust this workspace'; then
     echo trust_prompt
-    return
+    return 0
   fi
-  if echo "$t" | grep -Eiq 'over capacity|rate limit|usage limit'; then
+  if printf '%s\n' "$t" | grep -Eiq 'over capacity|rate limit|usage limit'; then
     echo error_capacity
-    return
+    return 0
   fi
   echo idle
+  return 0
 }
+
+RESOLVED_TARGET=""
+SESSION=""
+AGENT="unknown"
+MIN_GAP=0
+WAKE_EN=1
+MAIL=""
+LAST_AT=""
+LAST_TARGET=""
 
 if [[ -n "$MESSAGE" && -n "$TARGET" ]]; then
   RESOLVED_TARGET="$TARGET"
-  AGENT="unknown"
-  MIN_GAP=0
-  WAKE_EN=1
-  MAIL=""
 elif [[ -n "$NAME" ]]; then
-  IFS=$'\t' read -r RESOLVED_TARGET SESSION AGENT MIN_GAP WAKE_EN MAIL LAST_AT LAST_TARGET < <(resolve)
+  # Process substitution is bash-only (required). Bash 3.2+ OK.
+  # Avoid pipeline so resolve failures trip set -e.
+  _resolve_out="$(resolve)" || exit $?
+  # shellcheck disable=SC2034
+  IFS="$(printf '\t')" read -r RESOLVED_TARGET SESSION AGENT MIN_GAP WAKE_EN MAIL LAST_AT LAST_TARGET <<EOF
+$_resolve_out
+EOF
 else
   usage
 fi
@@ -155,20 +226,25 @@ if [[ "$CLASS" == "down" ]]; then
   exit 1
 fi
 
-# rate limit
+# rate limit — parse ISO via python (handles Z on all 3.9+)
 if [[ "$FORCE" -ne 1 && -n "${LAST_AT:-}" && "${MIN_GAP:-0}" -gt 0 ]]; then
-  NOW_EPOCH=$(date -u +%s)
-  LAST_EPOCH=$("$PYTHON_BIN" -c "
-from datetime import datetime, timezone
+  NOW_EPOCH="$(fleet_date_epoch)"
+  LAST_EPOCH="$("$PYTHON_BIN" -c '
 import sys
-s=sys.argv[1].replace('Z','+00:00')
+from datetime import datetime, timezone
+s = sys.argv[1].strip()
+if not s:
+    print(0); raise SystemExit
+if s.endswith("Z") or s.endswith("z"):
+    s = s[:-1] + "+00:00"
 try:
-  dt=datetime.fromisoformat(s)
-  if dt.tzinfo is None: dt=dt.replace(tzinfo=timezone.utc)
-  print(int(dt.timestamp()))
+    dt = datetime.fromisoformat(s)
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    print(int(dt.timestamp()))
 except Exception:
-  print(0)
-" "${LAST_AT}")
+    print(0)
+' "${LAST_AT}")"
   if [[ "$LAST_EPOCH" -gt 0 ]]; then
     DELTA=$((NOW_EPOCH - LAST_EPOCH))
     if [[ "$DELTA" -lt "$MIN_GAP" && "${LAST_TARGET:-}" == "$NAME" ]]; then
@@ -189,23 +265,24 @@ if [[ -z "$MESSAGE" ]]; then
   fi
 fi
 
-# strip newlines from pointer
-MESSAGE="$(printf '%s' "$MESSAGE" | tr '\n' ' ')"
+# strip newlines / CRs from pointer (portable tr)
+MESSAGE="$(printf '%s' "$MESSAGE" | tr '\n\r' '  ')"
 
 "$TMUX_BIN" send-keys -t "$RESOLVED_TARGET" -l -- "$MESSAGE"
 "$TMUX_BIN" send-keys -t "$RESOLVED_TARGET" Enter
 
-# record last wake in baseline
+# record last wake in baseline (atomic write)
 "$PYTHON_BIN" - "$BASELINE" "$PROJECT" "$NAME" "$HANDLE" "$RESOLVED_TARGET" <<'PY'
-import json, sys
+import json, os, sys, tempfile
 from pathlib import Path
 from datetime import datetime, timezone
+
 path, project, name, handle, target = sys.argv[1:6]
 p = Path(path)
 b = {}
 if p.is_file():
     try:
-        b = json.loads(p.read_text())
+        b = json.loads(p.read_text(encoding="utf-8"))
     except Exception:
         b = {}
 now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
@@ -219,8 +296,21 @@ b["last_hand_wake"] = {
     "reason": "doorbell",
 }
 p.parent.mkdir(parents=True, exist_ok=True)
-p.write_text(json.dumps(b, indent=2) + "\n")
-print(f"sent\t{target}\t{name or ''}\t{handle or ''}\t{now}")
+text = json.dumps(b, indent=2, ensure_ascii=False) + "\n"
+fd, tmp = tempfile.mkstemp(prefix=".%s." % p.name, suffix=".tmp", dir=str(p.parent))
+try:
+    with os.fdopen(fd, "w", encoding="utf-8", newline="\n") as fh:
+        fh.write(text)
+        fh.flush()
+        os.fsync(fh.fileno())
+    os.replace(tmp, p)
+except Exception:
+    try:
+        os.unlink(tmp)
+    except OSError:
+        pass
+    raise
+sys.stdout.write("sent\t%s\t%s\t%s\t%s\n" % (target, name or "", handle or "", now))
 PY
 
 exit 0

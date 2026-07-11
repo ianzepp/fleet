@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # Generic Codex reinit for fleet hand-N (fleet-agnostic).
 # Set PROJECT and FLEET (or run from a fleet with fleet JSON).
 # Resolves tmux_target from fleet.json (legacy hand-1:1.1 or mgs:hand-1.1).
@@ -25,16 +25,22 @@
 #   .vivi/codex-reinit.sh reinit   hand-3 --no-boot
 #   .vivi/codex-reinit.sh reinit-all --boot-template 'HAND WAKE {name}. vivi --for {name}. Implement open bag now.'
 #
-# Env overrides: PROJECT, CODEX_BIN, TMUX_BIN, VIVI_BIN, MODEL, LOG, FORCE=1
+# Env overrides: PROJECT, CODEX_BIN, TMUX_BIN, VIVI_BIN, PYTHON_BIN, MODEL, LOG, FORCE=1
+# Requires: bash 3.2+, python3 >= 3.9. Portable macOS + Linux.
 # Exit: 0 ok · 1 hard fail · 2 stuck-idle (ready but never Working) · 3 bad args
 #       doctor: 0 healthy · 1 any slot unhealthy · 2 trust/stuck/starving needing action
 #       heal:   0 all ok · 1 any reinit fail · 2 any stuck_idle
 set -euo pipefail
 
+_FLEET_SCRIPT_DIR="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
+# shellcheck source=lib/env.sh
+. "$_FLEET_SCRIPT_DIR/lib/env.sh"
+fleet_bootstrap_env
+
 PROJECT="${PROJECT:-}"
 if [[ -z "$PROJECT" ]]; then
   if [[ -n "${FLEET:-}" && -f "$FLEET" ]]; then
-    PROJECT="$(cd "$(dirname "$FLEET")/.." && pwd)"
+    PROJECT="$(CDPATH= cd -- "$(dirname "$FLEET")/.." && pwd)"
   else
     PROJECT="$(pwd)"
   fi
@@ -43,24 +49,22 @@ FLEET="${FLEET:-$PROJECT/.vivi/fleet.json}"
 if [[ ! -f "$FLEET" && -f "$PROJECT/.vivi/fleet.json" ]]; then
   FLEET="$PROJECT/.vivi/fleet.json"
 fi
-TMUX_BIN="${TMUX_BIN:-$(command -v tmux 2>/dev/null || echo /opt/homebrew/bin/tmux)}"
-CODEX_BIN="${CODEX_BIN:-$(command -v codex 2>/dev/null || echo /opt/homebrew/bin/codex)}"
-VIVI_BIN="${VIVI_BIN:-$(command -v vivi 2>/dev/null || true)}"
-if [[ -z "${VIVI_BIN}" || ! -x "${VIVI_BIN}" ]]; then
-  for c in /opt/homebrew/bin/vivi "$HOME/.cargo/bin/vivi"; do
-    [[ -x "$c" ]] && VIVI_BIN="$c" && break
-  done
+TMUX_BIN="$(fleet_find_tmux 2>/dev/null || true)"
+TMUX_BIN="${TMUX_BIN:-tmux}"
+CODEX_BIN="$(fleet_find_bin codex /opt/homebrew/bin/codex /usr/local/bin/codex "${HOME}/.local/bin/codex" 2>/dev/null || true)"
+CODEX_BIN="${CODEX_BIN:-codex}"
+VIVI_BIN="$(fleet_find_vivi 2>/dev/null || true)"
+PS_BIN="${PS_BIN:-$(fleet_find_bin ps /bin/ps /usr/bin/ps || echo /bin/ps)}"
+PGREP_BIN="${PGREP_BIN:-$(fleet_find_bin pgrep /usr/bin/pgrep /bin/pgrep || echo /usr/bin/pgrep)}"
+if ! PYTHON_BIN="$(fleet_find_python3)"; then
+  echo "ERROR: python3 >= 3.9 not found (set PYTHON_BIN)" >&2
+  exit 3
 fi
-PS_BIN="${PS_BIN:-/bin/ps}"
-PGREP_BIN="${PGREP_BIN:-/usr/bin/pgrep}"
-PYTHON_BIN="${PYTHON_BIN:-/opt/homebrew/bin/python3}"
-# Bare Mind/ops shells often lack coreutils on PATH — pin them.
-export PATH="/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin:${HOME}/.cargo/bin:${HOME}/.local/bin:${PATH:-}"
-HEAD_BIN="${HEAD_BIN:-/usr/bin/head}"
-TAIL_BIN="${TAIL_BIN:-/usr/bin/tail}"
-GREP_BIN="${GREP_BIN:-/usr/bin/grep}"
-MKDIR_BIN="${MKDIR_BIN:-/bin/mkdir}"
-DATE_BIN="${DATE_BIN:-/bin/date}"
+HEAD_BIN="${HEAD_BIN:-$(fleet_find_bin head /usr/bin/head /bin/head || echo head)}"
+TAIL_BIN="${TAIL_BIN:-$(fleet_find_bin tail /usr/bin/tail /bin/tail || echo tail)}"
+GREP_BIN="${GREP_BIN:-$(fleet_find_bin grep /usr/bin/grep /bin/grep || echo grep)}"
+MKDIR_BIN="${MKDIR_BIN:-$(fleet_find_bin mkdir /bin/mkdir /usr/bin/mkdir || echo mkdir)}"
+DATE_BIN="${DATE_BIN:-$(fleet_find_bin date /bin/date /usr/bin/date || echo date)}"
 LOG="${LOG:-/tmp/fleet-codex-reinit.log}"
 MODEL="${MODEL:-}" # empty → fleet/agent default
 WAIT_READY_SEC="${WAIT_READY_SEC:-45}"
@@ -70,22 +74,22 @@ AUTO_TRUST="${AUTO_TRUST:-1}" # accept "Yes, continue" trust UI during launch
 # Cached vivi mailspace status text (bag join for doctor/heal).
 __BAG_STATUS_CACHE=""
 
-log() { printf '%s %s\n' "$(date -u +%H:%M:%S)" "$*" | tee -a "$LOG" >&2; }
+log() { printf '%s %s\n' "$($DATE_BIN -u +%H:%M:%S)" "$*" | tee -a "$LOG" >&2; }
 
 die() { log "ERROR: $*"; exit 1; }
 
 usage() {
-  sed -n '2,30p' "$0" | sed 's/^# \{0,1\}//'
+  fleet_usage_from_header "$0" 2 30
   exit 3
 }
 
 need_bins() {
-  [[ -x "$TMUX_BIN" ]] || die "tmux missing: $TMUX_BIN"
-  [[ -x "$CODEX_BIN" ]] || die "codex missing: $CODEX_BIN"
-  [[ -x "$PS_BIN" ]] || die "ps missing"
-  [[ -x "$PYTHON_BIN" ]] || PYTHON_BIN="$(command -v python3)" || die "python3 missing"
-  if [[ ! -x "$VIVI_BIN" ]]; then
-    VIVI_BIN="$(command -v vivi 2>/dev/null || true)"
+  [[ -x "$TMUX_BIN" ]] || TMUX_BIN="$(fleet_find_tmux)" || die "tmux missing"
+  [[ -x "$CODEX_BIN" ]] || CODEX_BIN="$(fleet_find_bin codex)" || die "codex missing"
+  [[ -x "$PS_BIN" ]] || die "ps missing: $PS_BIN"
+  [[ -x "$PYTHON_BIN" ]] || PYTHON_BIN="$(fleet_find_python3)" || die "python3 missing"
+  if [[ -z "${VIVI_BIN:-}" || ! -x "$VIVI_BIN" ]]; then
+    VIVI_BIN="$(fleet_find_vivi 2>/dev/null || true)"
   fi
 }
 

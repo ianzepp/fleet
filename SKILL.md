@@ -125,6 +125,8 @@ Reserve **hard ban** language for actions that break the platform, tree, or mult
 | [`scripts/fleet-sensors.py`](scripts/fleet-sensors.py) | Cheap FLEET_CYCLE snapshot (board + panes + fingerprint JSON) |
 | [`scripts/fleet-baseline.py`](scripts/fleet-baseline.py) | Read/bump mind-baseline.json cycle counters + fingerprints |
 | [`scripts/fleet-doorbell.sh`](scripts/fleet-doorbell.sh) | Pointer-only Hand/Head wake via fleet.json `tmux_target` |
+| [`scripts/lib/env.sh`](scripts/lib/env.sh) | Portable bash bootstrap (PATH, python/tmux/vivi discovery; macOS+Linux) |
+| [`scripts/smoke-portability.sh`](scripts/smoke-portability.sh) | Env + compile smoke for helpers |
 | [`multi-lane.md`](references/multi-lane.md) | Side lanes, theme→main, base-update, pin-relative, `pending_merges` |
 | [`heads.md`](references/heads.md) | head-ceo / **head-cto** / **head-cxo** loops |
 | [`heads/cast.md`](references/heads/cast.md) | Head org titles + persona index (was executive-team) |

@@ -172,7 +172,7 @@ This skill directory is self-contained when it includes:
 SKILL.md
 agents/
 references/   # including this file, fleet-guide, multi-fleet-design
-scripts/      # steward, codex-reinit, fleet-sensors, fleet-baseline, fleet-doorbell, suggest-polish-files
+scripts/      # cycle helpers + lib/env.sh + fleet_common.py + smoke-portability.sh
 ```
 
 No required reads outside this directory.

@@ -6,58 +6,33 @@ Emits JSON (default) or a short text summary for Mind fail-fast cycles.
   fleet-sensors.py --project /path/to/fleet [--json|--text]
   fleet-sensors.py --project /path --no-watch --tail 12
 
+Requires: Python 3.9+ (macOS / Linux).
 Exit: 0 ok · 1 hard error (missing project/fleet) · 2 sensors partial (still prints JSON)
 """
 from __future__ import annotations
 
 import argparse
 import json
-import os
 import re
 import shutil
-import subprocess
 import sys
-from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, Dict, List, Optional
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from fleet_common import load_json as _load_json  # noqa: E402
+from fleet_common import now_iso, require_python, run_cmd, which  # noqa: E402
+
+require_python()
 
 
-def now_iso() -> str:
-    return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-
-
-def which(name: str, tooling: dict | None = None, key: str | None = None) -> str | None:
-    if tooling and key:
-        b = (tooling.get(key) or {}).get("binary")
-        if b and Path(b).is_file() and os.access(b, os.X_OK):
-            return b
-    return shutil.which(name)
-
-
-def run(cmd: list[str], timeout: float = 30.0) -> tuple[int, str]:
-    try:
-        p = subprocess.run(
-            cmd,
-            capture_output=True,
-            text=True,
-            timeout=timeout,
-            check=False,
-        )
-        out = (p.stdout or "") + (("\n" + p.stderr) if p.stderr and p.returncode else "")
-        return p.returncode, out
-    except subprocess.TimeoutExpired:
-        return 124, f"timeout: {' '.join(cmd)}"
-    except FileNotFoundError:
-        return 127, f"missing: {cmd[0]}"
+def run(cmd: List[str], timeout: float = 30.0) -> tuple:
+    return run_cmd(cmd, timeout=timeout)
 
 
 def load_json(path: Path) -> dict:
-    if not path.is_file():
-        return {}
-    try:
-        return json.loads(path.read_text())
-    except Exception:
-        return {}
+    data = _load_json(path, default={})
+    return data if isinstance(data, dict) else {}
 
 
 def classify_pane(text: str, session_exists: bool) -> str:
@@ -93,9 +68,9 @@ def classify_pane(text: str, session_exists: bool) -> str:
     return "unknown"
 
 
-def parse_status_table(text: str) -> dict[str, dict[str, int]]:
+def parse_status_table(text: str) -> Dict[str, Dict[str, int]]:
     """Parse `vivi mailspace status` identity rows."""
-    rows: dict[str, dict[str, int]] = {}
+    rows = {}  # type: Dict[str, Dict[str, int]]
     for line in text.splitlines():
         # hand-1    0           0           0           0           0             13
         m = re.match(
@@ -118,12 +93,12 @@ def parse_status_table(text: str) -> dict[str, dict[str, int]]:
     return rows
 
 
-def list_open_handles(vivi: str, project: str, identity: str, kind: str = "task") -> list[dict[str, str]]:
+def list_open_handles(vivi: str, project: str, identity: str, kind: str = "task") -> List[Dict[str, str]]:
     cmd = [vivi, kind, "list", "--for", identity, "--project", project]
     rc, out = run(cmd, timeout=20)
     if rc != 0:
         return []
-    handles = []
+    handles = []  # type: List[Dict[str, str]]
     for line in out.splitlines():
         # handle  status  role  date  from  subject
         if "open" not in line or line.strip().startswith("handle"):
@@ -140,11 +115,9 @@ def list_open_handles(vivi: str, project: str, identity: str, kind: str = "task"
     return handles
 
 
-def git_tip(cwd: Path) -> dict[str, Any]:
-    if not cwd.is_dir() or not (cwd / ".git").exists() and not (cwd / ".git").is_file():
-        # may be worktree file gitdir
-        if not (cwd / ".git").exists():
-            return {"cwd": str(cwd), "error": "not a git dir"}
+def git_tip(cwd: Path) -> Dict[str, Any]:
+    if not cwd.is_dir() or not (cwd / ".git").exists():
+        return {"cwd": str(cwd), "error": "not a git dir"}
     rc, out = run(["git", "-C", str(cwd), "log", "-1", "--format=%H %s"], timeout=10)
     if rc != 0:
         return {"cwd": str(cwd), "error": out.strip()[:200]}
@@ -153,13 +126,9 @@ def git_tip(cwd: Path) -> dict[str, Any]:
     subj = parts[1] if len(parts) > 1 else ""
     rc2, st = run(["git", "-C", str(cwd), "status", "-sb"], timeout=10)
     dirty = False
-    ahead = None
+    ahead = None  # type: Optional[int]
     if rc2 == 0:
         first = st.splitlines()[0] if st.strip() else ""
-        dirty = len(st.strip().splitlines()) > 1 or " M " in st or "?? " in st or st.count("\n") > 0 and any(
-            line[:2].strip() for line in st.splitlines()[1:]
-        )
-        # simpler dirty: any line after first
         dirty = any(ln.strip() and not ln.startswith("##") for ln in st.splitlines())
         m = re.search(r"ahead (\d+)", first)
         if m:
@@ -175,7 +144,7 @@ def git_tip(cwd: Path) -> dict[str, Any]:
 
 
 def main() -> int:
-    ap = argparse.ArgumentParser(description="Fleet cheap sensors snapshot")
+    ap = argparse.ArgumentParser(description="Fleet cheap sensors snapshot (Python 3.9+; macOS/Linux)")
     ap.add_argument("--project", "-p", required=True, help="Fleet project root")
     ap.add_argument("--fleet", "-f", default=None, help="Path to fleet.json (default: PROJECT/.vivi/fleet.json)")
     ap.add_argument("--json", action="store_true", default=True, help="JSON output (default)")
@@ -185,25 +154,38 @@ def main() -> int:
     ap.add_argument("--cursor-file", default=None, help="watch cursor path (default: .vivi/mind-watch.cursor)")
     args = ap.parse_args()
 
-    project = Path(args.project).resolve()
+    project = Path(args.project).expanduser().resolve()
     if not project.is_dir():
-        print(json.dumps({"error": f"project not a directory: {project}"}), file=sys.stderr)
+        print(json.dumps({"error": "project not a directory: %s" % project}), file=sys.stderr)
         return 1
 
-    fleet_path = Path(args.fleet) if args.fleet else project / ".vivi" / "fleet.json"
+    fleet_path = Path(args.fleet).expanduser().resolve() if args.fleet else project / ".vivi" / "fleet.json"
     fleet = load_json(fleet_path)
     baseline_path = project / ".vivi" / "mind-baseline.json"
     baseline = load_json(baseline_path)
     tooling = fleet.get("tooling") or {}
 
     vivi = which("vivi", tooling, "vivi") or which("vivi")
-    tmux = which("tmux") or "/opt/homebrew/bin/tmux"
+    tmux = which("tmux") or which("tmux")  # PATH only — no macOS-only default
+    if not tmux:
+        # last-ditch common locations (mac + linux)
+        for cand in (
+            "/opt/homebrew/bin/tmux",
+            "/usr/local/bin/tmux",
+            "/usr/bin/tmux",
+            "/home/linuxbrew/.linuxbrew/bin/tmux",
+        ):
+            if Path(cand).is_file():
+                tmux = cand
+                break
+    if not tmux:
+        tmux = "tmux"
     mind_inbox = fleet.get("mind_inbox") or "mind"
     operator_inbox = fleet.get("operator_inbox") or "operator"
     hands = fleet.get("hands") or fleet.get("hunters") or {}
 
     partial = False
-    out: dict[str, Any] = {
+    out = {
         "ok": True,
         "at": now_iso(),
         "project": str(project),
@@ -221,7 +203,9 @@ def main() -> int:
         "fingerprint": {},
         "quiet_hint": False,
         "signals": [],
-    }
+        "python": "%d.%d.%d" % sys.version_info[:3],
+        "platform": sys.platform,
+    }  # type: Dict[str, Any]
 
     # --- board status ---
     status_text = ""
@@ -283,12 +267,17 @@ def main() -> int:
     }
 
     # --- hands panes + bag ---
-    pane_classes: dict[str, str] = {}
+    pane_classes = {}  # type: Dict[str, str]
+    tmux_bin = tmux if (tmux and (Path(tmux).exists() or shutil.which(tmux))) else (shutil.which("tmux") or "")
+    if not tmux_bin:
+        partial = True
+        out["signals"].append("tmux_missing")
+
     for name, h in hands.items():
         if not isinstance(h, dict):
             continue
         mid = h.get("mail_identity") or name
-        target = h.get("tmux_target") or f"{h.get('tmux_session') or name}:1.1"
+        target = h.get("tmux_target") or ("%s:1.1" % (h.get("tmux_session") or name))
         session = target.split(":")[0]
         cwd = h.get("cwd") or str(project)
         agent = h.get("agent") or "unknown"
@@ -298,22 +287,18 @@ def main() -> int:
         bag_open = (row.get("tasks_open") or len(open_tasks)) + (row.get("needs_open") or len(open_needs))
 
         sess_ok = False
-        if Path(tmux).exists() or shutil.which("tmux"):
-            tmux_bin = tmux if Path(tmux).exists() else "tmux"
+        tail = ""
+        if tmux_bin:
             rc, _ = run([tmux_bin, "has-session", "-t", session], timeout=5)
             sess_ok = rc == 0
-            tail = ""
             if sess_ok:
                 rc, tail = run(
-                    [tmux_bin, "capture-pane", "-t", target, "-p", "-S", f"-{args.tail}"],
+                    [tmux_bin, "capture-pane", "-t", target, "-p", "-S", "-%d" % args.tail],
                     timeout=5,
                 )
                 if rc != 0:
                     tail = ""
                     partial = True
-        else:
-            partial = True
-            tmux_bin = "tmux"
 
         pclass = classify_pane(tail, sess_ok)
         pane_classes[name] = pclass
@@ -358,13 +343,12 @@ def main() -> int:
         session = target.split(":")[0]
         sess_ok = False
         tail = ""
-        if shutil.which("tmux") or Path(tmux).exists():
-            tmux_bin = tmux if Path(tmux).exists() else "tmux"
+        if tmux_bin:
             rc, _ = run([tmux_bin, "has-session", "-t", session], timeout=5)
             sess_ok = rc == 0
             if sess_ok:
                 _, tail = run(
-                    [tmux_bin, "capture-pane", "-t", target, "-p", "-S", f"-{min(args.tail, 12)}"],
+                    [tmux_bin, "capture-pane", "-t", target, "-p", "-S", "-%d" % min(args.tail, 12)],
                     timeout=5,
                 )
         pclass = classify_pane(tail, sess_ok)
@@ -378,12 +362,11 @@ def main() -> int:
     # steward block from fleet + baseline + optional pane
     st_cfg = fleet.get("steward") or {}
     st_base = baseline.get("steward") or {}
-    st_target = st_cfg.get("tmux_target") or f"{st_cfg.get('tmux_session') or 'steward'}:1.1"
+    st_target = st_cfg.get("tmux_target") or ("%s:1.1" % (st_cfg.get("tmux_session") or "steward"))
     st_session = st_target.split(":")[0]
     st_sess_ok = False
     st_tail = ""
-    if shutil.which("tmux") or Path(tmux).exists():
-        tmux_bin = tmux if Path(tmux).exists() else "tmux"
+    if tmux_bin:
         rc, _ = run([tmux_bin, "has-session", "-t", st_session], timeout=5)
         st_sess_ok = rc == 0
         if st_sess_ok:
@@ -443,22 +426,43 @@ def main() -> int:
 
     if args.text:
         lines = [
-            f"fleet {out['fleet_id']} @ {out['at']}",
-            f"focus: {fp.get('map_focus')}",
-            f"git: {fp.get('swarm_head')} dirty={git_main.get('dirty')}",
-            f"operator_open={out['operator'].get('open_count')} steward_armed={out['steward'].get('armed')} tripped={out['steward'].get('tripped')}",
-            f"quiet_hint={out['quiet_hint']} signals={out['signals']}",
+            "fleet %s @ %s" % (out["fleet_id"], out["at"]),
+            "focus: %s" % fp.get("map_focus"),
+            "git: %s dirty=%s" % (fp.get("swarm_head"), git_main.get("dirty")),
+            "operator_open=%s steward_armed=%s tripped=%s"
+            % (
+                out["operator"].get("open_count"),
+                out["steward"].get("armed"),
+                out["steward"].get("tripped"),
+            ),
+            "quiet_hint=%s signals=%s" % (out["quiet_hint"], out["signals"]),
         ]
         for name, h in out["hands"].items():
             lines.append(
-                f"  {name}: bag={h.get('actionable')} next={h.get('next_handle')} class={h.get('pane_class')} target={h.get('tmux_target')}"
+                "  %s: bag=%s next=%s class=%s target=%s"
+                % (
+                    name,
+                    h.get("actionable"),
+                    h.get("next_handle"),
+                    h.get("pane_class"),
+                    h.get("tmux_target"),
+                )
             )
         print("\n".join(lines))
     else:
-        print(json.dumps(out, indent=2))
+        print(json.dumps(out, indent=2, ensure_ascii=False))
 
     return 2 if partial else 0
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    try:
+        sys.exit(main())
+    except BrokenPipeError:
+        try:
+            sys.stdout.close()
+        except Exception:
+            pass
+        sys.exit(0)
+    except KeyboardInterrupt:
+        sys.exit(130)

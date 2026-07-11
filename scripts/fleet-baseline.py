@@ -8,40 +8,47 @@
       [--fingerprint-file sensors.json] [--fingerprint-json '{…}'] \\
       [--pane-classes-json '{…}'] [--debt-json '[…]'] [--recap 'line'] \\
       [--operator-engaged] [--no-increment-silence]
-  fleet-baseline.py rearm-note -p <root>   # touch last_successful_cycle_at only
+  fleet-baseline.py rearm-note -p <root>
   fleet-baseline.py wound-up -p <root> --summary '…' [--dropped hand-1,hand-2]
 
 --project/-p may appear before or after the subcommand.
 
-Exit: 0 ok · 1 error
+Requires: Python 3.9+ (macOS / Linux). Exit: 0 ok · 1 error · 2 usage/env
 """
 from __future__ import annotations
 
 import argparse
 import json
 import sys
-from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, List, Optional, Tuple
+
+# Local shared helpers (same directory)
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from fleet_common import (  # noqa: E402
+    ensure_dict,
+    ensure_list,
+    load_json,
+    now_iso,
+    require_python,
+    save_json,
+)
+
+require_python()
 
 
-def now_iso() -> str:
-    return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-
-
-def load(path: Path) -> dict:
+def load_baseline(path: Path) -> dict:
     if not path.is_file():
         return {"version": 1, "project": str(path.parent.parent)}
     try:
-        return json.loads(path.read_text())
+        data = json.loads(path.read_text(encoding="utf-8"))
     except Exception as e:
-        print(f"error reading baseline: {e}", file=sys.stderr)
+        print("error reading baseline: %s" % e, file=sys.stderr)
         sys.exit(1)
-
-
-def save(path: Path, data: dict) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(data, indent=2) + "\n")
+    if not isinstance(data, dict):
+        print("error reading baseline: root must be a JSON object", file=sys.stderr)
+        sys.exit(1)
+    return data
 
 
 def ensure_ml(b: dict) -> dict:
@@ -53,28 +60,27 @@ def ensure_ml(b: dict) -> dict:
 
 
 def cmd_get(project: Path, baseline: Path) -> int:
-    b = load(baseline)
-    print(json.dumps(b, indent=2))
+    print(json.dumps(load_baseline(baseline), indent=2, ensure_ascii=False))
     return 0
 
 
 def cmd_rearm_note(project: Path, baseline: Path) -> int:
-    b = load(baseline)
+    b = load_baseline(baseline)
     now = now_iso()
     ml = ensure_ml(b)
     ml["last_successful_cycle_at"] = now
     ml["last_cycle_ok"] = True
-    st = b.get("steward") if isinstance(b.get("steward"), dict) else {}
+    st = ensure_dict(b.get("steward"))
     st["last_rearm_at"] = now
     b["steward"] = st
     b["project"] = b.get("project") or str(project)
-    save(baseline, b)
-    print(json.dumps({"ok": True, "last_successful_cycle_at": now}))
+    save_json(baseline, b)
+    print(json.dumps({"ok": True, "last_successful_cycle_at": now}, ensure_ascii=False))
     return 0
 
 
 def cmd_bump(args: argparse.Namespace, project: Path, baseline: Path) -> int:
-    b = load(baseline)
+    b = load_baseline(baseline)
     now = now_iso()
     acted = bool(args.acted) and not bool(args.quiet)
     if args.quiet:
@@ -88,7 +94,6 @@ def cmd_bump(args: argparse.Namespace, project: Path, baseline: Path) -> int:
     b["last_cycle_summary"] = args.summary or ("sleep" if not acted else "acted")
     b["quiet_streak"] = 0 if acted else int(b.get("quiet_streak") or 0) + 1
 
-    # mode / operator silence
     if args.operator_engaged:
         b["turns_since_operator_message"] = 0
         b["last_operator_message_at"] = now
@@ -97,45 +102,58 @@ def cmd_bump(args: argparse.Namespace, project: Path, baseline: Path) -> int:
         if args.mode:
             b["mind_mode"] = args.mode
     else:
-        # FLEET_CYCLE-only default: increment silence
         tso = int(b.get("turns_since_operator_message") or 0) + 1
         b["turns_since_operator_message"] = tso
         if args.mode:
             b["mind_mode"] = args.mode
         elif tso >= 3:
             b["mind_mode"] = "autonomous"
-        # else keep prior mind_mode
 
     if args.mode and args.operator_engaged is False and args.no_increment_silence:
         b["mind_mode"] = args.mode
 
     fp = None
     if args.fingerprint_file:
-        fp = json.loads(Path(args.fingerprint_file).read_text())
-        if "fingerprint" in fp and isinstance(fp["fingerprint"], dict):
-            # full sensors dump
+        try:
+            fp = json.loads(Path(args.fingerprint_file).read_text(encoding="utf-8"))
+        except Exception as e:
+            print("error reading fingerprint-file: %s" % e, file=sys.stderr)
+            return 1
+        if isinstance(fp, dict) and "fingerprint" in fp and isinstance(fp["fingerprint"], dict):
             sensors = fp
             fp = sensors["fingerprint"]
             if args.pane_classes_json is None and sensors.get("pane_classes"):
                 b["pane_classes"] = sensors["pane_classes"]
             if sensors.get("steward"):
-                st = b.get("steward") if isinstance(b.get("steward"), dict) else {}
+                st = ensure_dict(b.get("steward"))
                 st["armed"] = sensors["steward"].get("armed", st.get("armed"))
                 st["tripped"] = sensors["steward"].get("tripped", st.get("tripped"))
                 b["steward"] = st
     elif args.fingerprint_json:
-        fp = json.loads(args.fingerprint_json)
+        try:
+            fp = json.loads(args.fingerprint_json)
+        except Exception as e:
+            print("error parsing fingerprint-json: %s" % e, file=sys.stderr)
+            return 1
     if fp is not None:
         b["last_actionable_fingerprint"] = fp
 
     if args.pane_classes_json:
-        b["pane_classes"] = json.loads(args.pane_classes_json)
+        try:
+            b["pane_classes"] = json.loads(args.pane_classes_json)
+        except Exception as e:
+            print("error parsing pane-classes-json: %s" % e, file=sys.stderr)
+            return 1
 
     if args.debt_json:
-        b["pending_debt"] = json.loads(args.debt_json)
+        try:
+            b["pending_debt"] = json.loads(args.debt_json)
+        except Exception as e:
+            print("error parsing debt-json: %s" % e, file=sys.stderr)
+            return 1
 
     if args.recap:
-        recap = b.get("operator_recap") if isinstance(b.get("operator_recap"), list) else []
+        recap = ensure_list(b.get("operator_recap"))
         recap.append(args.recap)
         b["operator_recap"] = recap[-50:]
 
@@ -148,11 +166,11 @@ def cmd_bump(args: argparse.Namespace, project: Path, baseline: Path) -> int:
         ml["state"] = "running"
     b["mind_loop"] = ml
 
-    st = b.get("steward") if isinstance(b.get("steward"), dict) else {}
+    st = ensure_dict(b.get("steward"))
     st["last_rearm_at"] = now
     b["steward"] = st
 
-    save(baseline, b)
+    save_json(baseline, b)
     print(
         json.dumps(
             {
@@ -166,13 +184,14 @@ def cmd_bump(args: argparse.Namespace, project: Path, baseline: Path) -> int:
                 "summary": b.get("last_cycle_summary"),
             },
             indent=2,
+            ensure_ascii=False,
         )
     )
     return 0
 
 
 def cmd_wound_up(args: argparse.Namespace, project: Path, baseline: Path) -> int:
-    b = load(baseline)
+    b = load_baseline(baseline)
     now = now_iso()
     b["last_cycle"] = int(b.get("last_cycle") or 0) + 1
     b["last_cycle_at"] = now
@@ -180,7 +199,7 @@ def cmd_wound_up(args: argparse.Namespace, project: Path, baseline: Path) -> int
     b["last_cycle_summary"] = args.summary or "wound_up"
     b["project"] = str(project)
     dropped = [x.strip() for x in (args.dropped or "").split(",") if x.strip()]
-    pcs = b.get("pane_classes") if isinstance(b.get("pane_classes"), dict) else {}
+    pcs = ensure_dict(b.get("pane_classes"))
     for d in dropped:
         pcs[d] = "down"
     b["pane_classes"] = pcs
@@ -192,32 +211,34 @@ def cmd_wound_up(args: argparse.Namespace, project: Path, baseline: Path) -> int
     ml["last_cycle_acted"] = True
     ml["dropped_panes"] = dropped
     ml["handoff"] = args.handoff or (
-        f"Fleet wound up {now}. Steward should be disarmed. Rearm: steward.sh arm + recreate panes + FLEET_CYCLE."
+        "Fleet wound up %s. Steward should be disarmed. "
+        "Rearm: steward.sh arm + recreate panes + FLEET_CYCLE." % now
     )
     b["mind_loop"] = ml
-    st = b.get("steward") if isinstance(b.get("steward"), dict) else {}
+    st = ensure_dict(b.get("steward"))
     st["armed"] = False
     st["disarmed_at"] = now
     st["tripped"] = False
     b["steward"] = st
-    recap = b.get("operator_recap") if isinstance(b.get("operator_recap"), list) else []
-    recap.append(f"wind-down: {b['last_cycle_summary']}")
+    recap = ensure_list(b.get("operator_recap"))
+    recap.append("wind-down: %s" % b["last_cycle_summary"])
     b["operator_recap"] = recap[-50:]
     if args.fingerprint_json:
-        b["last_actionable_fingerprint"] = json.loads(args.fingerprint_json)
-    save(baseline, b)
-    print(json.dumps({"ok": True, "state": "wound_up", "at": now}, indent=2))
+        try:
+            b["last_actionable_fingerprint"] = json.loads(args.fingerprint_json)
+        except Exception as e:
+            print("error parsing fingerprint-json: %s" % e, file=sys.stderr)
+            return 1
+    save_json(baseline, b)
+    print(json.dumps({"ok": True, "state": "wound_up", "at": now}, indent=2, ensure_ascii=False))
     return 0
 
 
-def _extract_globals(argv: list[str]) -> tuple[list[str], str | None, str | None]:
-    """Allow --project / --baseline before *or* after the subcommand.
-
-    Returns (remaining_argv, project, baseline).
-    """
-    project: str | None = None
-    baseline: str | None = None
-    out: list[str] = []
+def _extract_globals(argv: List[str]) -> Tuple[List[str], Optional[str], Optional[str]]:
+    """Allow --project / --baseline before *or* after the subcommand."""
+    project = None  # type: Optional[str]
+    baseline = None  # type: Optional[str]
+    out = []  # type: List[str]
     i = 0
     while i < len(argv):
         a = argv[i]
@@ -246,17 +267,16 @@ def _extract_globals(argv: list[str]) -> tuple[list[str], str | None, str | None
     return out, project, baseline
 
 
-def main(argv: list[str] | None = None) -> int:
+def main(argv: Optional[List[str]] = None) -> int:
     raw = list(sys.argv[1:] if argv is None else argv)
     rest, project_arg, baseline_arg = _extract_globals(raw)
 
     parent = argparse.ArgumentParser(add_help=False)
-    # project may already be extracted; keep optional here so subcommands don't double-require
     parent.add_argument("--project", "-p", default=None)
     parent.add_argument("--baseline", default=None, help="default: PROJECT/.vivi/mind-baseline.json")
 
     ap = argparse.ArgumentParser(
-        description="Fleet mind-baseline.json helper",
+        description="Fleet mind-baseline.json helper (Python 3.9+; macOS/Linux)",
         epilog=(
             "Examples:\n"
             "  fleet-baseline.py --project $ROOT get\n"
@@ -265,7 +285,9 @@ def main(argv: list[str] | None = None) -> int:
         ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    sub = ap.add_subparsers(dest="cmd", required=True)
+    # subparsers(required=True) needs Python 3.7+
+    sub = ap.add_subparsers(dest="cmd")
+    sub.required = True  # type: ignore[attr-defined]
 
     sub.add_parser("get", parents=[parent], help="Print baseline JSON")
 
@@ -301,8 +323,15 @@ def main(argv: list[str] | None = None) -> int:
         ap.error("--project/-p is required (before or after the subcommand)")
     baseline_s = baseline_arg or args.baseline
 
-    project = Path(project_s).resolve()
-    baseline = Path(baseline_s) if baseline_s else project / ".vivi" / "mind-baseline.json"
+    project = Path(project_s).expanduser().resolve()
+    if not project.is_dir():
+        print("error: project is not a directory: %s" % project, file=sys.stderr)
+        return 1
+    baseline = (
+        Path(baseline_s).expanduser().resolve()
+        if baseline_s
+        else project / ".vivi" / "mind-baseline.json"
+    )
 
     if args.cmd == "get":
         return cmd_get(project, baseline)
@@ -316,4 +345,14 @@ def main(argv: list[str] | None = None) -> int:
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    try:
+        sys.exit(main())
+    except BrokenPipeError:
+        # e.g. piped to head
+        try:
+            sys.stdout.close()
+        except Exception:
+            pass
+        sys.exit(0)
+    except KeyboardInterrupt:
+        sys.exit(130)
