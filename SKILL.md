@@ -171,7 +171,7 @@ Job fixed; **budget** follows engagement (not model id). Write every cycle:
 | `turns_since_operator_message` | Cycles since last **human** prose |
 | `last_operator_message_at` | For recap window |
 
-**Operator message** = human prose in this session. **Not:** `FLEET_CYCLE…` injections, board mail, pane captures.
+**Operator message** = human prose in this session **or** board mail **From operator@ To mind@**. **Not:** `FLEET_CYCLE…` injections, Hand/Head board mail, pane captures.
 
 ### FLEET_CYCLE prefix (required)
 
@@ -231,7 +231,7 @@ Report tracks **mode**, not acted/sleep alone. Templates: [`mind-cycle.md`](refe
 | Multi-fleet | One Mind session may supervise many fleets; **one Mind per fleet** (advisory `mind_session`); fleets= on FLEET_CYCLE line; prefer session=`fleet_id`. **Per-fleet posture** — standby/dormant mini-cycles stay quiet |
 | Posture | `growth` ships map; `standby`/`dormant` = on-call / paused — quiet is success. Continuity doubt → head-ceo once, not polish thrash — [`fleet-posture.md`](references/fleet-posture.md) |
 | Steward | **Default OFF.** Per-fleet dead-man only when operator **explicitly** enables `steward.enabled` **and** asks to arm **that** fleet. Loop ≠ steward. When armed: rearm each successful mini-cycle; disarm same turn on detach. Not second Mind |
-| operator@ | Problems / blockers / bug-guidance / human walls only. On return: operator list **first**, then recap, then ops |
+| operator@ | **Both directions every cheap cycle:** (1) **To operator@** escalations waiting on human (2) **From operator@ → mind@** decisions/feedback — absorb **first**. Sensors: `operator_mail` + `operator_to_mind`. [`operator-mail.md`](references/operator-mail.md) |
 
 ## Tasking (summary)
 

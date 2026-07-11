@@ -115,6 +115,55 @@ def list_open_handles(vivi: str, project: str, identity: str, kind: str = "task"
     return handles
 
 
+def list_mail_from_operator(
+    vivi: str, project: str, mind_identity: str, operator_identity: str, limit: int = 20
+) -> List[Dict[str, str]]:
+    """Cheap scan of mind@ for mail FROM operator@ (operator feedback / decisions).
+
+    vivi mail list lines look like:
+      <handle>  <from@mailspace>  <subject…>
+    """
+    cmd = [vivi, "mail", "list", "--for", mind_identity, "--project", project]
+    rc, out = run(cmd, timeout=20)
+    if rc != 0 or not out.strip():
+        return []
+    op_token = (operator_identity or "operator").lower()
+    # match operator@… or bare operator as local-part
+    op_pat = re.compile(
+        r"^([a-f0-9]{6,})\s+(\S*operator\S*)\s+(.*)$",
+        re.I,
+    )
+    found = []  # type: List[Dict[str, str]]
+    for line in out.splitlines():
+        line = line.strip()
+        if not line or line.startswith("handle"):
+            continue
+        m = op_pat.match(line)
+        if not m:
+            # fallback: handle + from column contains operator
+            parts = line.split(None, 2)
+            if len(parts) < 3 or not re.match(r"^[a-f0-9]{6,}$", parts[0]):
+                continue
+            fr = parts[1].lower()
+            if "operator" not in fr and not fr.startswith(op_token + "@"):
+                continue
+            found.append({"handle": parts[0], "from": parts[1], "subject": parts[2].strip()})
+            continue
+        fr = m.group(2).lower()
+        if op_token not in fr and not fr.startswith("operator@"):
+            continue
+        found.append(
+            {
+                "handle": m.group(1),
+                "from": m.group(2),
+                "subject": m.group(3).strip(),
+            }
+        )
+        if len(found) >= limit:
+            break
+    return found
+
+
 def git_root(cwd: Path) -> Optional[Path]:
     """Walk parents for .git (file or dir) — workspace containers often lack root git."""
     cur = cwd.resolve() if cwd.is_dir() else cwd.parent
@@ -293,27 +342,42 @@ def main() -> int:
         if wout.strip() and "event=" in wout:
             out["signals"].append("board_event")
 
-    # --- operator ---
+    # --- operator (two directions) ---
+    # 1) To operator@ — escalations waiting on the human
+    # 2) From operator@ To mind@ — human decisions/feedback Mind must absorb first
     op_row = out["identities"].get(operator_inbox) or {}
     op_handles = []
+    op_to_mind = []  # type: List[Dict[str, str]]
     if vivi:
         op_handles = list_open_handles(vivi, str(project), operator_inbox, "need")
-        op_mail = list_open_handles(vivi, str(project), operator_inbox, "mail")
         # mail list may not mark open the same way — count inbox unread from status
+        op_to_mind = list_mail_from_operator(
+            vivi, str(project), mind_inbox, operator_inbox, limit=15
+        )
     out["operator"] = {
         "identity": operator_inbox,
         "needs_open": op_row.get("needs_open", 0),
         "inbox_unread": op_row.get("inbox_unread", 0),
         "needs": op_handles,
+        # To-operator bag (human backlog)
         "open_count": (op_row.get("needs_open") or 0) + (op_row.get("inbox_unread") or 0),
+        # From-operator → mind (feedback / decisions)
+        "to_mind": op_to_mind,
+        "to_mind_count": len(op_to_mind),
     }
     if out["operator"]["open_count"]:
-        out["signals"].append("operator_mail")
+        out["signals"].append("operator_mail")  # waiting on human
+    if op_to_mind:
+        out["signals"].append("operator_to_mind")  # human wrote Mind — absorb first
+        # not quiet if operator spoke to mind on the board
+        out["signals"].append("board_event")
 
     mind_row = out["identities"].get(mind_inbox) or {}
     out["mind"] = {
         "identity": mind_inbox,
         "inbox_unread": mind_row.get("inbox_unread", 0),
+        "from_operator": op_to_mind,
+        "from_operator_count": len(op_to_mind),
     }
 
     # --- fleet posture (continuity vs sleep) ---
@@ -518,14 +582,20 @@ def main() -> int:
             "focus: %s" % fp.get("map_focus"),
             "posture: %s" % ((out.get("fleet_posture") or {}).get("mode") or "growth"),
             "git: %s dirty=%s" % (fp.get("swarm_head"), git_main.get("dirty")),
-            "operator_open=%s steward_armed=%s tripped=%s"
+            "operator_open=%s operator_to_mind=%s steward_armed=%s tripped=%s"
             % (
                 out["operator"].get("open_count"),
+                out["operator"].get("to_mind_count", 0),
                 out["steward"].get("armed"),
                 out["steward"].get("tripped"),
             ),
             "quiet_hint=%s signals=%s" % (out["quiet_hint"], out["signals"]),
         ]
+        for om in (out.get("operator") or {}).get("to_mind") or []:
+            lines.append(
+                "  op→mind %s: %s"
+                % (om.get("handle"), (om.get("subject") or "")[:80])
+            )
         for name, h in out["hands"].items():
             lines.append(
                 "  %s: bag=%s next=%s class=%s target=%s"

@@ -336,11 +336,12 @@ Forced takeover overwrites the advisory lock — only when operator confirms the
 ### 3.4 Present operator mail and recap (if returning)
 
 ```bash
+vivi mail list --for mind --project "$ROOT"       # From operator@ → mind (feedback)
 vivi need list --for operator --project "$ROOT"
-vivi mail list --for operator --project "$ROOT"
+vivi mail list --for operator --project "$ROOT"   # To operator@ (human backlog)
 ```
 
-If open/unread **operator@** items → present **first**, then status recap from baseline `operator_recap` / last cycle summary. Rules: [`operator-mail.md`](operator-mail.md).
+If **operator→mind** mail or open/unread **To operator@** → present/absorb **first**, then status recap. Sensors flag `operator_to_mind` + `operator_mail`. Rules: [`operator-mail.md`](operator-mail.md).
 
 ### 3.5 Sense panes; rehome only if needed
 
@@ -421,7 +422,7 @@ Wind-down: [`runtime-config.md`](runtime-config.md). Multi-fleet attach set: [`m
 [ ] vivi mailspace status works
 [ ] Load $fleet; this chat is Mind
 [ ] mind_session advisory lock claimed (or takeover authorized)
-[ ] operator@ listed if N>0; then recap
+[ ] mind@ From operator@ + To operator@ listed; absorb op→mind first; then recap
 [ ] fleet-sensors.py once; act only on signal
 [ ] steward stays OFF unless operator enabled+asked for this fleet
 [ ] FLEET_CYCLE project=$ROOT … for scheduled wakes (loop ≠ steward)

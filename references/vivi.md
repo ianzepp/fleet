@@ -64,14 +64,18 @@ vivi mailspace watch --for mind --project "$ROOT" \
 vivi task list --for hand-1 --project "$ROOT" --status open
 vivi need list --for hand-1 --project "$ROOT" --status open
 
+# Human backlog (To operator@)
 vivi need list --for operator --project "$ROOT" --status open
 vivi mail list --for operator --project "$ROOT"
 
-vivi show <handle>                    # by id only — no --project on show
+# Operator feedback To mind (From operator@) — part of cheap cycle; absorb first
+vivi mail list --for mind --project "$ROOT"   # scan From: operator@
+
+vivi mail show <handle> --project "$ROOT"   # prefer over bare show when multi-project
 vivi mail thread <handle> --project "$ROOT"   # multi-hop lineage
 ```
 
-**`vivi show`** takes message handles only (not `--project`). Use list/`--project` to discover handles; then `vivi show <handle>`.
+Prefer **`fleet-sensors.py`**: emits `operator_mail` (To operator) and **`operator_to_mind`** (From operator).
 
 Paid path: list/show what changed; `mail thread` when lineage matters; residual **tasks** To owning Hand. **Do not** unbounded-block on `watch` during fail-fast cycles.
 

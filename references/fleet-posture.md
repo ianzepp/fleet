@@ -68,7 +68,7 @@ Hygiene remains: Hand end-of-unit polish; post-main polish advisory **once per t
 ## Mind decision tree (per fleet mini-cycle)
 
 ```text
-1. Drain real signal: operator@, absorb done/HEAD, open bags, pending_merges/reviews
+1. Drain real signal: **operator→mind** + To operator@, absorb done/HEAD, open bags, pending_merges/reviews
 2. Open product bag → wake (doorbell/reinit) as today — no invention
 3. posture in {standby, dormant}:
      → do not starvation-file; sleep/quiet report; optional absorb only

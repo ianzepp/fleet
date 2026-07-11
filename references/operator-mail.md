@@ -1,6 +1,13 @@
 # Operator mail
 
-Durable **human inbox** while Mind runs **autonomous** (or human not in loop). Distinct from fleet board (`mind@`) and `operator_recap` (chat memory).
+Two directions. Both are **cheap-cycle** surfaces for Mind — not optional deep reads.
+
+| Direction | Path | Meaning |
+| --- | --- | --- |
+| **To operator@** | mind/hands → human | Escalations waiting on the human (problems/blockers/needs) |
+| **From operator@ → mind@** | human → Mind | Decisions / feedback / charter notes Mind must **absorb first** |
+
+Distinct from `operator_recap` (chat memory of status while operator was away).
 
 ## Identity
 
@@ -9,7 +16,7 @@ Durable **human inbox** while Mind runs **autonomous** (or human not in loop). D
 | **Identity token** | `operator` |
 | **Mail** | `operator@<mailspace>.local` |
 | **tmux** | **none** (same class as `mind` — not a process slot) |
-| **Process** | Human operator, via Mind TUI on return |
+| **Process** | Human operator (chat **or** board mail To mind) |
 
 ```bash
 vivi mailspace identity add operator --project <root>
@@ -53,12 +60,37 @@ CLI list/send: [`vivi.md`](vivi.md).
 
 | Surface | Audience | Content |
 | --- | --- | --- |
-| **`mind@`** | Mind (ops) | Hand done/evidence, Head reports, RTM, bag bookkeeping |
-| **`operator@`** | Human | Problems, blockers, bugs needing guidance |
+| **`mind@`** | Mind (ops) | Hand done/evidence, Head reports, RTM, bag bookkeeping **+ operator→mind decisions** |
+| **`operator@`** | Human | Problems, blockers, bugs needing guidance (human backlog) |
+| **`operator@` → `mind@`** | Mind | Operator feedback from another session/TUI — **same priority as human chat** |
 | **`operator_recap`** | Mind → chat | Compact “what happened while gone” *status* |
 | **task** To Hand | Hand | Implementable work with done-when |
 | **need** To Hand/Mind | Agent | Decision for someone *on the board* |
 | **need** To **operator** | Human | Decision wall that *is* operator mail |
+
+### Cheap cycle (every FLEET_CYCLE mini-cycle — fail-fast)
+
+`fleet-sensors.py` already covers this when you use it. Manual equivalent:
+
+```bash
+# 1) Escalations waiting on human
+vivi need list --for operator --project "$ROOT"
+vivi mail list --for operator --project "$ROOT"
+
+# 2) Operator feedback To mind (do not skip — this is how operator mails Mind from another session)
+vivi mail list --for mind --project "$ROOT"   # scan From: operator@
+```
+
+Sensors emit:
+
+| Signal | Meaning |
+| --- | --- |
+| `operator_mail` | Open needs/unread **To operator@** (human backlog) |
+| `operator_to_mind` | Mail **From operator@ To mind@** — **absorb before** Hand thrash / map refill |
+
+**Order when either fires:** present/absorb **operator→mind** first (and open operator@ if N>0), then recap, then product ops.
+
+**Engagement:** operator→mind board mail **counts as operator engagement** for mode (same as human prose in the Mind TUI) — reset silence via `fleet-baseline.py bump --operator-engaged` when new op→mind appears this cycle.
 
 | Situation | Kind To `operator` |
 | --- | --- |
@@ -101,17 +133,19 @@ Same turn the wall is recognized — do not wait for operator return.
 **Dedup:** `vivi mail list --for operator` / open needs before filing. Same subject class + root cause → reply on thread or skip.  
 **Cap:** few new operator items per cycle; prefer one rich need over five status-shaped mails.
 
-## Present on operator return
+## Present on operator return **or** operator→mind mail
 
-On **engagement** (human prose, mode → interactive, “catch me up”, “what’s waiting”):
+On **engagement** (human prose, mode → interactive, “catch me up”, **or sensors `operator_to_mind`**):
 
-1. List **open/unread operator mail + open needs** **before** or **with** status recap
-2. Short table human can work through
-3. Per item: summarize → guidance → close/reply → file **task** To Hand if any
-4. Record `operator_mail.last_presented_at` + handles
+1. **First:** mail **From operator@ To mind@** — summarize + absorb into posture/map/recap (decisions already made)
+2. **Then:** open/unread **To operator@** needs/mail (still waiting on human)
+3. Short tables human can work through
+4. Per To-operator item: summarize → guidance → close/reply → file **task** To Hand if any
+5. Record `operator_mail.last_presented_at` + handles; note absorbed op→mind handles in baseline/recap
 
 ```bash
 vivi mailspace status --project <root>
+vivi mail list --for mind --project <root>      # From operator@ first
 vivi mail list --for operator --project <root>
 vivi need list --for operator --project <root>
 ```
