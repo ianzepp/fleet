@@ -56,11 +56,13 @@ Not a hard stop: missing Mind congratulations or “GO” mail.
 
 | Role | Duty |
 | --- | --- |
-| **head-strategist** | Maintain / report a **side-lane candidate bucket** — bounded packages safe to run off main while hand-1 holds spine |
-| **Mind** | Choose from that bucket (or map), bind packet, **file** tasks To hand-2+, wake/reinit, own merge clock when theme RTM |
+| **head-strategist** | Maintain / report a **side-lane candidate bucket** with **effort + est_tokens** per item — bounded packages safe off main |
+| **Mind** | Choose from that bucket (or map) using size + calibration deltas; bind packet; **file** tasks; wake/reinit; record actual vs est when done |
 | **hand-2+** | Execute only assigned targets in their packet cwd — never invent main spine |
 
-Empty hand-2 + no candidates and no map side track → operational pause (record why) **or** assign strategist “what should hand-2 run in parallel?” — not silent multi-cycle empty while the INDEX has a second unblocked goal.
+Empty hand-2 + no candidates and no map side track → operational pause (record why) **or** assign strategist “what should hand-2 run in parallel (with cost ballparks)?” — not silent multi-cycle empty while the INDEX has a second unblocked goal.
+
+**Estimates are strategist-owned; calibration is Mind-owned.** Do not require Hands to invent token math. Optional: Hand turn-end may note harness usage if the TUI surfaces it — Mind still writes the calibration row.
 
 ## Fleet priorities (main vs packet)
 

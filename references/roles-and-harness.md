@@ -7,8 +7,8 @@ Load when arming a fleet, rebinding runtimes, or clarifying Mind/Hand/Head dutie
 | Role | Typical identity | Job | Output |
 | --- | --- | --- | --- |
 | **Hand** | `hand-1`…`hand-N` (legacy: `hunter-N`, `codex`) | Take a **selected target** and finish it | Done tasks/needs + evidence; optional turn-end mail To `mind` |
-| **Mind** | Board **`mind@…` only** — **no tmux**; process = operator TUI | Survey product; **dole out** tasking; integrate; fleet ops; pick from strategist buckets | Open tasks/needs; pane scan; wake/reinit; merge queue |
-| **head-strategist** (Head) | `head-strategist` | Ownership, sequencing, seams, gate honesty; **hand-2+ side-lane candidate buckets** — not bag drain | Mail `head-strategist report:` To `mind` (includes parallel-work candidates when multi-hand) |
+| **Mind** | Board **`mind@…` only** — **no tmux**; process = operator TUI | Survey product; **dole out** tasking; integrate; fleet ops; pick from strategist buckets; **track est vs actual cost** | Open tasks/needs; pane scan; wake/reinit; merge queue; `cost_calibration` |
+| **head-strategist** (Head) | `head-strategist` | Ownership, sequencing, seams; **hand-2+ buckets with effort + est_tokens** — not bag drain | Mail `head-strategist report:` To `mind` (candidates include cost ballparks) |
 | **head-correctness** (Head) | `head-correctness` | **Code review / bug hunt on main after merge** | Mail `head-correctness:` To `mind` |
 | **head-purity** (Head) | `head-purity` | Self-directed unearned-complexity / excess-layer audit | Mail `head-purity:` To `mind` |
 
@@ -147,6 +147,8 @@ Heads need not match Mind’s product harness. Prefer Pi even when Mind is Grok 
 - Residual finding → **task** to Hand; **need** only for real decision hold; **tmux pointer only**
 - **Post-main polish advisory:** when main HEAD moves, run `$polish` `suggest-polish-files.py` (JSON, capped); if scores ≥ camp threshold, file a bounded polish **task** — Mind does not execute the polish loop
 - **Major-inflection housekeeping:** only at campaign end / large multi-theme merge / stage closeout / operator ask — file **one** `$housekeeping` **task** To hand-1; never after routine lands
+- **Capacity packing:** when picking from strategist side-lane buckets, use `effort` / `est_tokens` (and recent `cost_calibration` deltas) so free Hands take appropriate-sized work while spine Hands are long-running
+- **Cost calibration:** on Hand done for a bound candidate, record actual tokens (harness if available, else Mind ballpark) vs strategist estimate; keep a short delta history
 - **Unstick half-dead dirt:** open the diff; class A mechanical (fmt) → clear same turn; do not freeze for hours
 - **Autonomous:** thin ops; **decide now** on reversible defaults; head-strategist is optional structure help, not a permission gate
 - **Interactive:** full reasoning for operator; **rich FLEET_CYCLE reports** (not one-liners); maintain **operator_recap** and surface its delta in-cycle
@@ -178,4 +180,4 @@ Heads need not match Mind’s product harness. Prefer Pi even when Mind is Grok 
 
 ## Heads do not
 
-Approve/disapprove work as a gate, race Mind on acceptance, merge to main, or own product tasking. **head-strategist** proposes sequencing/ownership; **head-correctness** reviews main; **head-purity** reports shape debt. Mind triages into the bag.
+Approve/disapprove work as a gate, race Mind on acceptance, merge to main, or own product tasking. **head-strategist** proposes sequencing/ownership and **side-lane (hand-2+) candidate buckets**; **head-correctness** reviews main; **head-purity** reports shape debt. Mind triages into the bag and coordinates live Hands.

@@ -32,7 +32,7 @@ description: Multi-agent fleet management with Mind/Head/Hand roles (Abbot patte
 
 **Process core (strong guidance):** Mind fills the tasking bag; Hand empties it. Progress is **open tasking + campaign/map**, not approval stamps.
 
-**Multi-hand split:** **Mind** coordinates and **doles out** work (file, wake, merge clock). **head-strategist** advises sequencing and maintains a **side-lane bucket** — what **hand-2+** could run in parallel when free. Strategist does not own bag refill; Mind does not invent parallel work without map or strategist/map candidates when a second Hand sits empty.
+**Multi-hand split:** **Mind** coordinates and **doles out** work (file, wake, merge clock). **head-strategist** advises sequencing and maintains a **side-lane bucket** — what **hand-2+** could run in parallel when free, each with **effort + est_tokens** (ballpark; Token Budget). Mind packs capacity (e.g. larger side-lane while hand-1 is long-running) and **calibrates** strategist est vs actual after lands so future picks account for model-to-model cost bias. Strategist does not own bag refill or actuals tracking.
 
 **Keep the screen moving:** empty tasking while the map still has unblocked next work is **starvation**, not success. Operational pause is the exception.
 
@@ -456,6 +456,9 @@ Schema detail: [`runtime-config.md`](references/runtime-config.md).
 - Sleeping with empty product tasking while the map has unblocked next work
 - Filing to retired identities (`hunter-N`, bare `correctness`, `reviewer`) when `hand-N` / `head-*` / `mind` are canonical; packet merges / unbounded spine on hand-2+
 - Heads owning product tasking or merge queues; thrashing head-strategist assign while a report is outstanding
+- Leaving hand-2+ empty for many cycles while the map has a second track and no strategist side-lane bucket was ever requested
+- Mind waiting on strategist to refill an **obvious** hand-1 spine unit (strategist advises parallel buckets; Mind still files live work)
+- Side-lane buckets without effort/token ballparks; Mind never recording est vs actual after bound work closes
 
 ### Dual channel and process
 
