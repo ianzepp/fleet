@@ -149,7 +149,10 @@ else:
     sys.stderr.write("error\tunknown slot\n")
     sys.exit(2)
 
-# Per-hand last wake preferred; global stamp is fallback only when it matches this hand.
+# Rate-limit stamps are PER-HAND only (last_hand_wake.by_hand.<name>).
+# Never use top-level last_hand_wake_target / last_hand_wake_at alone — gatherer-era
+# baselines leave stale last_hand_wake_target=hand-N while last_hand_wake_at is
+# another Hand's timestamp, which falsely rate-limits the wrong slot every cycle.
 by = ((b.get("last_hand_wake") or {}).get("by_hand") or {})
 per = by.get(name) if name else None
 if isinstance(per, dict) and per.get("at"):
@@ -158,10 +161,11 @@ if isinstance(per, dict) and per.get("at"):
 else:
     last_at = ""
     wake_count = 0
-    # legacy global: only if last target was this hand
-    gl = b.get("last_hand_wake") or {}
-    if (gl.get("target") == name or b.get("last_hand_wake_target") == name):
-        last_at = b.get("last_hand_wake_at") or b.get("last_hunter_wake_at") or gl.get("at") or ""
+    # Legacy only: structured last_hand_wake.target must match this hand (not
+    # the separate top-level last_hand_wake_target field).
+    gl = b.get("last_hand_wake") if isinstance(b.get("last_hand_wake"), dict) else {}
+    if gl.get("target") == name and (gl.get("at") or b.get("last_hand_wake_at")):
+        last_at = gl.get("at") or b.get("last_hand_wake_at") or ""
         wake_count = 1 if last_at else 0
 # TSV — tabs only; values must not contain tabs
 # last field: per-hand wake count (0 = never woken this tracking era → no rate limit)
@@ -329,6 +333,9 @@ b["last_hand_wake"] = {
     "reason": "doorbell",
     "by_hand": by,
 }
+# Keep legacy fields consistent (prevent stale last_hand_wake_target pinning)
+b["last_hand_wake_target"] = key
+b["last_hand_wake_at"] = now
 p.parent.mkdir(parents=True, exist_ok=True)
 text = json.dumps(b, indent=2, ensure_ascii=False) + "\n"
 fd, tmp = tempfile.mkstemp(prefix=".%s." % p.name, suffix=".tmp", dir=str(p.parent))
