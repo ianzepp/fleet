@@ -55,6 +55,16 @@ def _secs_since(ts_iso, now_dt):
     return (now_dt - t).total_seconds()
 
 
+def head_state_block(baseline: dict, key: str) -> dict:
+    """Baseline per-head bookkeeping under documented hyphen keys (legacy underscore ok)."""
+    block = baseline.get(key)
+    if isinstance(block, dict):
+        return block
+    alt = key.replace("-", "_")
+    block = baseline.get(alt)
+    return block if isinstance(block, dict) else {}
+
+
 def classify_pane(text: str, session_exists: bool) -> str:
     """running|idle_prompt|done_idle|trust_prompt|error_capacity|error_connection|down|unknown"""
     if not session_exists:
@@ -307,8 +317,7 @@ def main() -> int:
     fleet = load_json(fleet_path)
     baseline_path = project / ".vivi" / "mind-baseline.json"
     baseline = load_json(baseline_path)
-    # previous fingerprint — loaded early so the head-cadence loop can read
-    # round-tripped last_completed/last_handle state; also used by quiet-sleep below
+    # previous fingerprint — quiet-sleep only (not head report bookkeeping)
     prev = baseline.get("last_actionable_fingerprint") or {}
     if not isinstance(prev, dict):
         prev = {}
@@ -535,11 +544,10 @@ def main() -> int:
     # heads (optional pane scan) + executive cadence (cron-equivalent scheduling).
     # A head is "due" when min_seconds_between_sweeps has elapsed since its last
     # observed completion mail AND its pane is not mid-pass. Completion is detected
-    # by a new mail from the head (identity or legacy alias) in the report inbox;
-    # the last-seen handle round-trips in the fingerprint so the loop is
-    # self-correcting with no separate state file. Opt-in: a fleet must set
-    # executive_cadence.enabled=true on a head entry; absent config leaves the
-    # head inert (no behavior change for fleets that do not opt in).
+    # by a new mail from the head (identity or legacy alias) in the report inbox.
+    # Durable last-report state lives on baseline head-* blocks (last_report_handle /
+    # last_report_at); fingerprint only carries due flags for quiet_hint. Opt-in:
+    # executive_cadence.enabled=true on a head entry; absent config is inert.
     HEAD_DEFAULT_INTERVALS = {"head-ceo": 86400, "head-cto": 1800, "head-cxo": 3000}
     now_dt = datetime.now(timezone.utc)
     for key in ("head-ceo", "head-cto", "head-cxo"):
@@ -579,9 +587,15 @@ def main() -> int:
         cur_top = recent[0]["handle"] if recent else None
         top_date = recent[0].get("date") if recent else None
 
+        # Prefer documented baseline head-* report keys; one-shot migrate from
+        # legacy fingerprint head_*_last_* if baseline block is empty.
+        prev_hb = head_state_block(baseline, key)
+        prev_last_handle = prev_hb.get("last_report_handle")
+        prev_last_completed = prev_hb.get("last_report_at")
         pk = key.replace("-", "_")  # head_ceo
-        prev_last_handle = prev.get("%s_last_handle" % pk) if isinstance(prev, dict) else None
-        prev_last_completed = prev.get("%s_last_completed" % pk) if isinstance(prev, dict) else None
+        if prev_last_handle is None and prev_last_completed is None:
+            prev_last_handle = prev.get("%s_last_handle" % pk)
+            prev_last_completed = prev.get("%s_last_completed" % pk)
 
         completed_this_cycle = False
         if prev_last_handle is None and prev_last_completed is None:
@@ -688,21 +702,38 @@ def main() -> int:
         "steward_tripped": out["steward"].get("tripped"),
         "map_focus": (fleet.get("focus") or {}).get("chapter") or (fleet.get("focus") or {}).get("primary_goal"),
     }
-    # Round-trip executive-cadence state inside the fingerprint itself.
-    # fleet-baseline.py persists `fingerprint` verbatim as last_actionable_fingerprint,
-    # so head last_completed/last_handle survive across cycles with no extra state file.
+    # Quiet-compare due flags only — durable last_report_* lives on baseline head-*
+    # (fleet-baseline.py bump extracts from sensors.heads). Drop any legacy
+    # fingerprint last_handle/last_completed keys so they do not re-enter baseline.
     for _hk, _hd in out["heads"].items():
         _sk = _hk.replace("-", "_")
         fp["%s_due" % _sk] = _hd.get("sweep_due")
-        fp["%s_last_completed" % _sk] = _hd.get("sweep_last_completed")
-        fp["%s_last_handle" % _sk] = _hd.get("sweep_last_handle")
+    for _stale in list(fp.keys()):
+        if re.match(r"^head_(ceo|cto|cxo)_last_(handle|completed)$", _stale):
+            del fp[_stale]
     out["fingerprint"] = fp
     out["pane_classes"] = pane_classes
 
     # quiet if fingerprint equal and no hard signals (prev loaded near baseline)
     hard = [s for s in out["signals"] if not s.startswith("starvation_candidate")]
     # starvation when bag empty + idle + map still has chapter? Mind decides map; we only flag candidates
-    fp_cmp = {k: fp.get(k) for k in ("hand1_open", "hand2_open", "next_handle_h1", "next_handle_h2", "swarm_head", "hand1_class", "hand2_class", "operator_open", "steward_tripped", "head_ceo_due", "head_cto_due", "head_cxo_due")}
+    fp_cmp = {
+        k: fp.get(k)
+        for k in (
+            "hand1_open",
+            "hand2_open",
+            "next_handle_h1",
+            "next_handle_h2",
+            "swarm_head",
+            "hand1_class",
+            "hand2_class",
+            "operator_open",
+            "steward_tripped",
+            "head_ceo_due",
+            "head_cto_due",
+            "head_cxo_due",
+        )
+    }
     prev_cmp = {k: prev.get(k) for k in fp_cmp}
     out["quiet_hint"] = fp_cmp == prev_cmp and not hard and not out["steward"].get("tripped")
     out["baseline_last_cycle"] = baseline.get("last_cycle")

@@ -12,6 +12,8 @@
   fleet-baseline.py wound-up -p <root> --summary '…' [--dropped hand-1,hand-2]
 
 --project/-p may appear before or after the subcommand.
+bump with full sensors JSON also merges sensors.heads → baseline head-*
+last_report_handle / last_report_at (executive cadence + report absorb).
 
 Requires: Python 3.9+ (macOS / Linux). Exit: 0 ok · 1 error · 2 usage/env
 """
@@ -57,6 +59,27 @@ def ensure_ml(b: dict) -> dict:
         ml = {}
         b["mind_loop"] = ml
     return ml
+
+
+def apply_head_report_state(b: dict, heads: Any) -> None:
+    """Write sensors.heads sweep_* into baseline head-* last_report_* keys."""
+    if not isinstance(heads, dict):
+        return
+    for hkey, hdata in heads.items():
+        if not isinstance(hkey, str) or not hkey.startswith("head-"):
+            continue
+        if not isinstance(hdata, dict):
+            continue
+        handle = hdata.get("sweep_last_handle")
+        completed = hdata.get("sweep_last_completed")
+        if handle is None and completed is None:
+            continue
+        hb = ensure_dict(b.get(hkey))
+        if handle is not None:
+            hb["last_report_handle"] = handle
+        if completed is not None:
+            hb["last_report_at"] = completed
+        b[hkey] = hb
 
 
 def cmd_get(project: Path, baseline: Path) -> int:
@@ -129,6 +152,9 @@ def cmd_bump(args: argparse.Namespace, project: Path, baseline: Path) -> int:
                 st["armed"] = sensors["steward"].get("armed", st.get("armed"))
                 st["tripped"] = sensors["steward"].get("tripped", st.get("tripped"))
                 b["steward"] = st
+            # Executive-cadence / head report state → documented baseline head-* keys
+            # (not last_actionable_fingerprint). Preserve sibling fields.
+            apply_head_report_state(b, sensors.get("heads"))
     elif args.fingerprint_json:
         try:
             fp = json.loads(args.fingerprint_json)
@@ -136,6 +162,13 @@ def cmd_bump(args: argparse.Namespace, project: Path, baseline: Path) -> int:
             print("error parsing fingerprint-json: %s" % e, file=sys.stderr)
             return 1
     if fp is not None:
+        if isinstance(fp, dict):
+            # Never re-home durable head report bookkeeping into the fingerprint
+            for stale in list(fp.keys()):
+                if isinstance(stale, str) and (
+                    stale.endswith("_last_handle") or stale.endswith("_last_completed")
+                ) and stale.startswith("head_"):
+                    del fp[stale]
         b["last_actionable_fingerprint"] = fp
 
     if args.pane_classes_json:

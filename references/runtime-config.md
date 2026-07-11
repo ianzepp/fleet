@@ -40,7 +40,7 @@ python3 scripts/fleet-baseline.py rearm-note -p <root>
 python3 scripts/fleet-baseline.py wound-up -p <root> -s 'wound_up' --dropped hand-1,hand-2
 ```
 
-`--project/-p` before or after subcommand. `bump` increments `last_cycle`, quiet/mode counters, stores fingerprint/pane_classes, touches `mind_loop.last_successful_cycle_at` (pair with `steward.sh rearm`).
+`--project/-p` before or after subcommand. `bump` increments `last_cycle`, quiet/mode counters, stores fingerprint/pane_classes, merges `sensors.heads` → `head-*`.`last_report_*`, touches `mind_loop.last_successful_cycle_at` (pair with `steward.sh rearm`).
 
 ### `verify-fleet-json.py`
 
@@ -336,14 +336,19 @@ Recommended keys (extend freely; skill cares about meanings):
 **Executive cadence (optional, per head).** Any head entry may carry an
 `executive_cadence` block: `{enabled, min_seconds_between_sweeps, sweep_mode}`.
 When `enabled`, `fleet-sensors.py` surfaces the head as `head_due_<role>` (a hard
-signal + a `head_<role>_due` fingerprint key) once the interval has elapsed
-since its last observed completion mail. Completion is detected by a new mail
-from the head's `mail_identity` or `legacy_aliases` in `head_report_inbox`
-(default `reviewer`). The last-seen handle and `last_completed` round-trip inside
-the fingerprint, so the loop is self-correcting with no extra state file.
-Per-role conventions: `head-ceo` trajectory / daily (86400), `head-cto` honesty /
-30min (1800), `head-cxo` coherence / 50min (3000). Inert by default; opt in per
-fleet. Validate with `verify-fleet-json.py`.
+signal + a `head_<role>_due` fingerprint key for quiet_hint only) once the
+interval has elapsed since its last observed completion mail. Completion is
+detected by a new mail from the head's `mail_identity` or `legacy_aliases` in
+`head_report_inbox` (default `reviewer`). Durable state lives on baseline
+`head-*` blocks: `last_report_handle` + `last_report_at` (same home as
+head-cto/head-cxo report bookkeeping and head-ceo assign/report fields).
+`fleet-baseline.py bump --fingerprint-file <sensors.json>` merges those fields
+from `sensors.heads` and does **not** store them in
+`last_actionable_fingerprint`. One-cycle migrate still reads legacy fingerprint
+`head_*_last_*` when the baseline block is empty. Per-role conventions:
+`head-ceo` trajectory / daily (86400), `head-cto` honesty / 30min (1800),
+`head-cxo` coherence / 50min (3000). Inert by default; opt in per fleet.
+Validate with `verify-fleet-json.py`.
 
 **Never hardcode model strings as Hand identity.** Read `agent_launch` from fleet. Hand `agent` should match `mind.agent` unless baseline records operator exception. Defaults from preferred_models; override for capacity/experiment, re-align when quiet.
 
@@ -373,7 +378,8 @@ active_packets{} or active_lanes{}
 last_thorough_cycle, last_thorough_fingerprint
 fleet_mirror / pane_classes
 last_hand_wake_*, last_codex_reinit_*, last_runtime_fallback
-head-ceo.{awaiting_report, last_assign_handle, last_reinit_at}
+head-ceo.{awaiting_report, last_assign_handle, last_reinit_at,
+          last_report_handle, last_report_at}   # assign loop + cadence completion
 side_lane_candidates[] optional
   # {id, title, why_off_main, seams, packet_scope,
   #  effort S|M|L|XL, est_tokens, est_basis,
@@ -383,7 +389,8 @@ cost_calibration[] optional
   # {id, title, head_ceo_effort, est_tokens, actual_tokens?, actual_source,
   #  delta_ratio?, head_ceo_model, hand_model, closed_at, notes}
   # Codex TUI: often actual_source=unavailable — never invent actual_tokens
-head-cto.last_report_*, head-cxo.last_report_*
+head-cto.{last_report_handle, last_report_at, …}   # cadence + auditor absorb
+head-cxo.{last_report_handle, last_report_at, …}
 mind_loop.{state, handoff, mechanism, …}
 half_dead[] optional              # path, class A/B/C, age_cycles, note
 polish_advisory optional:
