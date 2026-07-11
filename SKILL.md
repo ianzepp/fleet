@@ -204,7 +204,14 @@ if engaged: interactive; silence=0; present operator@ if N>0; refresh recap
 else: silence += 1; silence≥3 → autonomous (else keep prior; turns 1–2 may still watch)
 ```
 
-**Hard never (mode counters):** Do **not** write `turns_since_operator_message += 1` / flip `mind_mode=autonomous` just because **this** turn’s payload is `FLEET_CYCLE…`. Scheduled fire is normal while the operator is still in the chat. Resolve **engagement first** (session history + `last_operator_message_at`); only if **no** human prose since that stamp may silence advance. Same Mind TUI that just took operator questions → **interactive** on the next loop fire.
+**Hard never (mode counters) — both directions:**
+
+| Forbidden | Why |
+| --- | --- |
+| `turns += 1` / force `autonomous` only because payload is `FLEET_CYCLE…` | Ignores human chat **between** fires |
+| Force `turns = 0` / force `interactive` on **every** FLEET_CYCLE | Silence never advances; autonomous never arrives |
+
+**Do:** resolve engagement first. Human prose this turn **or** since `last_operator_message_at` → `--operator-engaged` (reset). Else let `fleet-baseline.py bump` **increment** silence (default). **Never** hand-edit counters after bump.
 
 Override: `Mind: deep` / `Mind: ops only`.
 
@@ -308,8 +315,11 @@ python3 <skill>/scripts/fleet-sensors.py --project <root> --text
 <skill>/scripts/fleet-doorbell.sh --project <root> hand-1 --handle <hex>
 # Codex recovery only if doorbell sticks/errors:
 PROJECT=<root> FLEET=<root>/.vivi/fleet.json <skill>/scripts/codex-reinit.sh doctor hand-1
+# silence: default bump increments turns_since_operator_message
 python3 <skill>/scripts/fleet-baseline.py bump -p <root> -s 'sleep' --quiet \
   --fingerprint-file /tmp/fleet-sensors.json
+# only if human prose this turn or since last_operator_message_at:
+# python3 …/fleet-baseline.py bump … --operator-engaged
 # only if operator enabled+armed steward for this fleet:
 # scripts/steward.sh rearm --project <root>
 ```
@@ -321,7 +331,7 @@ Desktop Mind OK; Hands stay terminal/tmux. Schema: [`runtime-config.md`](referen
 **Bag:** GO warden; severity-as-kind; sleep while map has **product** work; invent work to avoid sleep; dual Mind; Heads own bags; hand-2 empty while side track exists; wait on head-ceo for obvious spine; buckets without cost ballparks.  
 **Process:** mail-only or pane-only truth; policy via tmux; mixed Hand harness; back-to-back wake stacks; wrong-host tmux; IMAP as bag sensor; unbounded watch; multi-fleet “fairness” busywork on standby fleets.
 **Integrate:** packet-green≠consumer-green; “compiler residual” when integration lag; red theme merge; Mind merges packets; absorb-as-accept.  
-**Hygiene/workspace:** skip unit polish / polish foreign; Mind runs polish/HK; **polish thrash for continuity**; HK every land; score as merge gate; destructive dirt cleanup; status-only dirt; topic monogamy; deep-plan every autonomous cycle; interactive forever; **FLEET_CYCLE ⇒ auto-increment silence / force autonomous**; compact report while interactive; novel autonomous reports; head-ceo permission freeze; missing FLEET_CYCLE prefix; status→operator@; skip operator present-on-return; arm steward without operator ask; leave steward armed after stop-loop; steward as Mind; inject-only heartbeat; global roster scan; hardcode session=role when `tmux_target` set.
+**Hygiene/workspace:** skip unit polish / polish foreign; Mind runs polish/HK; **polish thrash for continuity**; HK every land; score as merge gate; destructive dirt cleanup; status-only dirt; topic monogamy; deep-plan every autonomous cycle; interactive forever; **FLEET_CYCLE ⇒ force autonomous**; **FLEET_CYCLE ⇒ force turns=0 every fire**; hand-edit silence after `baseline bump`; compact report while interactive; novel autonomous reports; head-ceo permission freeze; missing FLEET_CYCLE prefix; status→operator@; skip operator present-on-return; arm steward without operator ask; leave steward armed after stop-loop; steward as Mind; inject-only heartbeat; global roster scan; hardcode session=role when `tmux_target` set.
 
 ## Companions / first exposure
 

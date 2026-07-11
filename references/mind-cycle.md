@@ -50,14 +50,29 @@ First line `FLEET_CYCLE` ⇒ **not** operator message. Fix overlays that omit th
 
 **Anti-bug:** `FLEET_CYCLE` means “this injection is not operator prose.” It does **not** mean “ignore human chat since last fire.”
 
-**Hard never:** On a `FLEET_CYCLE`-only turn, do **not**:
+**Hard never (both directions):**
 
 ```text
-turns_since_operator_message += 1          # forbidden as first/only step
-if turns >= 3: mind_mode = autonomous      # forbidden without engagement check
+# A — force autonomous without engagement check
+turns_since_operator_message += 1
+if turns >= 3: mind_mode = autonomous
+
+# B — force interactive forever (over-correct of A)
+turns_since_operator_message = 0   # every FLEET_CYCLE, no human check
+mind_mode = interactive
 ```
 
-That is the common fail-fast bug: scheduler fire looks like “silence,” so Mind bumps counters and flips mode while the operator is still in this TUI. **Resolve engagement (below) before any silence arithmetic.** If human prose exists since `last_operator_message_at` (or any prior human turn this session when stamp is null), set `engaged=true`, `turns=0`, `mind_mode=interactive` — even when the **current** payload is only `FLEET_CYCLE…`.
+**A** ignores chat between fires. **B** (common over-fix) freezes silence at 0 so autonomous never arrives. **Resolve engagement first**, then either:
+
+```bash
+# engaged (human this turn or since last_operator_message_at)
+fleet-baseline.py bump -p "$ROOT" -s '…' --acted --operator-engaged …
+
+# not engaged (FLEET_CYCLE-only and no human since stamp)
+fleet-baseline.py bump -p "$ROOT" -s '…' --acted …   # default: silence += 1
+```
+
+**Never** hand-edit `turns_since_operator_message` / `mind_mode` after bump.
 
 ```text
 # Step 0 every cycle — substitute real session state; do not only inspect current payload
