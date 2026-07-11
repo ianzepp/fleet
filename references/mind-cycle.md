@@ -228,7 +228,7 @@ python3 $SK/fleet-baseline.py bump -p "$ROOT" -s 'sleep' --quiet \
 
 | Helper | Job |
 | --- | --- |
-| `fleet-sensors.py` | Board status, optional watch, handles, pane classes, git tip, fingerprint, `signals[]`, `quiet_hint` |
+| `fleet-sensors.py` | Board status, optional watch, handles, pane classes, git tip/divergence/dirty paths, pending RTM integration lag, fingerprint, `signals[]`, `quiet_hint` |
 | `fleet-doorbell.sh` | Resolve `tmux_target`; refuse running/down/rate-limit; pointer `send-keys` only; `last_hand_wake` |
 | `fleet-baseline.py` | `get` / `bump` / `rearm-note` / `wound-up` — counters, mode silence, fingerprints, recap |
 

@@ -30,7 +30,7 @@ python3 scripts/fleet-sensors.py -p <root> --fleet <path/to/fleet.json>
 python3 scripts/fleet-sensors.py -p <root> --tail 12 --cursor-file <path>
 ```
 
-Emits board status, open handles, pane classes, git tip, fingerprint, `signals[]`, `quiet_hint`, posture, Head cadence due flags. Exit `0` ok · `1` hard · `2` partial.
+Emits board status, open handles, pane classes, git tip, ahead/behind counts, bounded dirty paths, pending RTM/integration-lag evidence, fingerprint, `signals[]`, `quiet_hint`, posture, and Head cadence due flags. RTM reconciliation uses advertised commit ancestry when available and newer main-Hand merge-completion mail as the cheap fallback. Exit `0` ok · `1` hard · `2` partial.
 
 ### `fleet-baseline.py`
 

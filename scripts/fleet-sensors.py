@@ -219,6 +219,80 @@ def list_mail_from_identity(vivi, project, recipient, sender_tokens, limit=5):
     return found
 
 
+def list_ready_to_merge(vivi, project, recipient, limit=30):
+    """Newest RTM mail sent to Mind, cheap enough for every sensor cycle."""
+    if not vivi or not recipient:
+        return []
+    rc, out = run([vivi, "mail", "list", "--for", recipient, "--project", project], timeout=20)
+    if rc != 0 or not out.strip():
+        return []
+    found = []
+    for line in out.splitlines():
+        parsed = _parse_mail_line(line)
+        if parsed is None:
+            continue
+        handle, date, frm, subj = parsed
+        if not re.search(r"\bready[- ]to[- ]merge\b", subj, re.I):
+            continue
+        commits = re.findall(r"(?<![0-9a-f])[0-9a-f]{7,40}(?![0-9a-f])", subj, re.I)
+        found.append(
+            {
+                "handle": handle,
+                "from": frm,
+                "subject": subj,
+                "date": date,
+                "commit": commits[-1] if commits else None,
+            }
+        )
+        if len(found) >= limit:
+            break
+    return found
+
+
+def list_recent_mail(vivi, project, recipient, limit=100):
+    """Newest mail metadata for cheap subject-level reconciliation."""
+    if not vivi or not recipient:
+        return []
+    rc, out = run([vivi, "mail", "list", "--for", recipient, "--project", project], timeout=20)
+    if rc != 0 or not out.strip():
+        return []
+    found = []
+    for line in out.splitlines():
+        parsed = _parse_mail_line(line)
+        if parsed is None:
+            continue
+        handle, date, frm, subj = parsed
+        found.append({"handle": handle, "from": frm, "subject": subj, "date": date})
+        if len(found) >= limit:
+            break
+    return found
+
+
+def rtm_completion_mail(rtm: dict, recent_mail: list, main_identity: str) -> Optional[dict]:
+    """Find a newer main-Hand merge completion with strong subject overlap."""
+    stop = {"ready", "merge", "merged", "packet", "pass", "done", "first", "playability", "re"}
+    words = {
+        w
+        for w in re.findall(r"[a-z0-9]+", (rtm.get("subject") or "").lower())
+        if len(w) >= 3 and w not in stop and not re.fullmatch(r"[0-9a-f]{7,40}", w)
+    }
+    rtm_date = _parse_iso(rtm.get("date"))
+    main_token = (main_identity or "hand-1").lower()
+    for mail in recent_mail:
+        if main_token not in (mail.get("from") or "").lower():
+            continue
+        subject = (mail.get("subject") or "").lower()
+        if "merge" not in subject or "done" not in subject:
+            continue
+        mail_date = _parse_iso(mail.get("date"))
+        if rtm_date and mail_date and mail_date < rtm_date:
+            continue
+        overlap = words.intersection(re.findall(r"[a-z0-9]+", subject))
+        if len(overlap) >= 2 or any(len(word) >= 5 for word in overlap):
+            return mail
+    return None
+
+
 def git_root(cwd: Path) -> Optional[Path]:
     """Walk parents for .git (file or dir) — workspace containers often lack root git."""
     cur = cwd.resolve() if cwd.is_dir() else cwd.parent
@@ -281,12 +355,19 @@ def _git_tip_at(cwd: Path) -> Dict[str, Any]:
     rc2, st = run(["git", "-C", str(cwd), "status", "-sb"], timeout=10)
     dirty = False
     ahead = None  # type: Optional[int]
+    behind = None  # type: Optional[int]
+    dirty_paths = []  # type: List[str]
     if rc2 == 0:
         first = st.splitlines()[0] if st.strip() else ""
-        dirty = any(ln.strip() and not ln.startswith("##") for ln in st.splitlines())
+        status_lines = [ln for ln in st.splitlines() if ln.strip() and not ln.startswith("##")]
+        dirty = bool(status_lines)
+        dirty_paths = [ln[3:].strip() if len(ln) > 3 else ln.strip() for ln in status_lines[:8]]
         m = re.search(r"ahead (\d+)", first)
         if m:
             ahead = int(m.group(1))
+        m = re.search(r"behind (\d+)", first)
+        if m:
+            behind = int(m.group(1))
     return {
         "cwd": str(cwd),
         "sha": sha,
@@ -294,7 +375,20 @@ def _git_tip_at(cwd: Path) -> Dict[str, Any]:
         "dirty": dirty,
         "status_sb": st.strip().splitlines()[0] if st.strip() else "",
         "ahead": ahead,
+        "behind": behind,
+        "dirty_paths": dirty_paths,
     }
+
+
+def commit_is_on_main(main_cwd: Optional[str], commit: Optional[str]) -> Optional[bool]:
+    """Return whether commit is an ancestor of main; None when it cannot be checked."""
+    if not main_cwd or not commit:
+        return None
+    rc, _ = run(["git", "-C", main_cwd, "cat-file", "-e", "%s^{commit}" % commit], timeout=5)
+    if rc != 0:
+        return None
+    rc, _ = run(["git", "-C", main_cwd, "merge-base", "--is-ancestor", commit, "HEAD"], timeout=5)
+    return rc == 0
 
 
 
@@ -484,7 +578,8 @@ def format_text_summary(out: dict, fp: dict, git_main: dict) -> str:
         "fleet %s @ %s" % (out["fleet_id"], out["at"]),
         "focus: %s" % fp.get("map_focus"),
         "posture: %s" % ((out.get("fleet_posture") or {}).get("mode") or "growth"),
-        "git: %s dirty=%s" % (fp.get("swarm_head"), git_main.get("dirty")),
+        "git: %s dirty=%s ahead=%s behind=%s"
+        % (fp.get("swarm_head"), git_main.get("dirty"), git_main.get("ahead"), git_main.get("behind")),
         "operator_open=%s operator_to_mind=%s steward_armed=%s tripped=%s"
         % (
             (out.get("operator") or {}).get("open_count"),
@@ -496,6 +591,13 @@ def format_text_summary(out: dict, fp: dict, git_main: dict) -> str:
     ]
     for om in (out.get("operator") or {}).get("to_mind") or []:
         lines.append("  op→mind %s: %s" % (om.get("handle"), (om.get("subject") or "")[:80]))
+    if git_main.get("dirty_paths"):
+        lines.append("  dirty_paths: %s" % ", ".join(git_main.get("dirty_paths") or []))
+    for rtm in (out.get("integration") or {}).get("pending_rtm") or []:
+        lines.append(
+            "  pending_rtm %s from=%s commit=%s: %s"
+            % (rtm.get("handle"), rtm.get("from"), rtm.get("commit"), (rtm.get("subject") or "")[:90])
+        )
     for name, h in (out.get("hands") or {}).items():
         lines.append(
             "  %s: bag=%s next=%s class=%s target=%s"
@@ -582,6 +684,7 @@ def main() -> int:
         "steward": {},
         "operator": {},
         "mind": {},
+        "integration": {},
         "git": {},
         "watch": None,
         "fingerprint": {},
@@ -755,6 +858,34 @@ def main() -> int:
         # git for main hand (walk up from cwd; container fleets scan children / git.main_cwd)
         if h.get("merges_to_main") or name == fleet.get("default_hand"):
             out["git"]["main"] = git_tip(Path(cwd), fleet)
+
+    # RTM is mail rather than an open bag item. Surface unmerged RTM mail so
+    # empty Hand bags cannot masquerade as honest product starvation.
+    rtm_mail = list_ready_to_merge(vivi, str(project), mind_inbox) if vivi else []
+    recent_mail = list_recent_mail(vivi, str(project), mind_inbox) if vivi and rtm_mail else []
+    git_main = (out.get("git") or {}).get("main") or {}
+    main_cwd = git_main.get("cwd")
+    main_name = fleet.get("default_hand") or "hand-1"
+    main_cfg = hands.get(main_name) if isinstance(hands.get(main_name), dict) else {}
+    main_identity = main_cfg.get("mail_identity") or main_name
+    pending_rtm = []
+    merged_rtm = []
+    for item in rtm_mail:
+        ancestry = commit_is_on_main(main_cwd, item.get("commit"))
+        enriched = dict(item)
+        enriched["commit_on_main"] = ancestry
+        completion = rtm_completion_mail(item, recent_mail, main_identity)
+        enriched["completion_mail"] = completion
+        (merged_rtm if ancestry is True or completion else pending_rtm).append(enriched)
+    out["integration"] = {
+        "pending_rtm": pending_rtm,
+        "pending_rtm_count": len(pending_rtm),
+        "merged_rtm_count": len(merged_rtm),
+        "suggested_actions": (["queue_merge_to_main_hand"] if pending_rtm else []),
+    }
+    if pending_rtm:
+        out["signals"].append("pending_rtm")
+        out["signals"].append("integration_lag")
 
     # heads (optional pane scan) + executive cadence.
     # Interval = hardcoded posture×role multiplier × mind_loop.interval_sec (default 5m).
