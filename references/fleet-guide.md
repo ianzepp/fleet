@@ -2,6 +2,8 @@
 
 **Audience:** a human or LLM seeing multi-agent `$fleet` for the first time — including someone who received a copy of the skill outside this repo.
 
+**Installing for the first time?** Use **[`getting-started.md`](getting-started.md)** first (dependencies — **Vivi is required** — and a minimal arm). This guide is vocabulary and shape, not install.
+
 **Not the operating manual.** Full process law lives in `fleet/SKILL.md` and `fleet/references/`. Load those when *running* a fleet. This guide is for **orientation**: typical shape, vocabulary, and anti-patterns.
 
 **Do not** treat this file as something Mind must re-read every cycle.
@@ -174,11 +176,12 @@ Exact paths and product map (factory/campaign) are fleet-local.
 
 ## How to get operational
 
-1. Read this guide once.  
-2. Load **`$fleet`** (`fleet/SKILL.md`) when arming or acting as Mind.  
-3. Open **references/** only as the surface hits them (tasking, dual-channel, mind-cycle, heads, multi-lane, runtime-config, ssh-remote).  
-4. Bind a real project overlay (identities + fleet JSON + map).  
-5. Prefer fail-fast cycles: sensors first, act on signal, sleep when quiet.
+1. **[`getting-started.md`](getting-started.md)** — install **Vivi**, check host, arm a minimal fleet.  
+2. Read this guide once for vocabulary.  
+3. Load **`$fleet`** (`fleet/SKILL.md`) when arming or acting as Mind.  
+4. Open **references/** only as the surface hits them (tasking, dual-channel, mind-cycle, heads, multi-lane, runtime-config, ssh-remote).  
+5. Bind a real project overlay (identities + fleet JSON + map).  
+6. Prefer fail-fast cycles: sensors first, act on signal, sleep when quiet.
 
 ---
 

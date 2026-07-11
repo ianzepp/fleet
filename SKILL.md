@@ -120,6 +120,7 @@ Reserve **hard ban** language for actions that break the platform, tree, or mult
 | [`dead-man.md`](references/dead-man.md) | **Steward / dead man** — completed-cycle watchdog; rearm every cycle; trip → hold + operator@ + external email |
 | [`multi-fleet.md`](references/multi-fleet.md) | **Session-attach multi-fleet** — attach/detach, FLEET_CYCLE over fleets=, binding, advisory lock |
 | [`companion-fallbacks.md`](references/companion-fallbacks.md) | **When companion skills missing** — short process theses (polish, map, factory, …) |
+| [`getting-started.md`](references/getting-started.md) | **First install** — dependencies (Vivi required), host checks, minimal arm |
 | [`fleet-guide.md`](references/fleet-guide.md) | First-exposure vocabulary (not every cycle) |
 | [`scripts/steward.sh`](scripts/steward.sh) | `arm` / `rearm` / `disarm` / `check` / `clear` / `loop` (uses fleet.json `tmux_target`) |
 | [`scripts/fleet-sensors.py`](scripts/fleet-sensors.py) | Cheap FLEET_CYCLE snapshot (board + panes + fingerprint JSON) |
@@ -634,6 +635,8 @@ Org-title Heads and CEO/CTO/… persona bodies: [`references/heads/cast.md`](ref
 
 ## First exposure (not every cycle)
 
-Onboarding: [`references/fleet-guide.md`](references/fleet-guide.md) — patterns only. **Do not** load every FLEET_CYCLE.
+**Just installed the skill?** Start here: [`references/getting-started.md`](references/getting-started.md) — **Vivi is a hard dependency** (install via Homebrew or curl); then host checks and a minimal first fleet.
+
+Vocabulary / patterns: [`references/fleet-guide.md`](references/fleet-guide.md). **Do not** load every FLEET_CYCLE.
 
 Multi-fleet design: [`references/multi-fleet-design.md`](references/multi-fleet-design.md). Ops: [`references/multi-fleet.md`](references/multi-fleet.md).

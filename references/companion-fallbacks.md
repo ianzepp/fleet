@@ -11,6 +11,11 @@ and state in evidence which fallback you used.
 
 ## Mail / board CLI (`$mail` / Vivi)
 
+**Hard dependency:** `$fleet` requires the **`vivi` CLI**. There is no board
+fallback if Vivi is missing — install via Homebrew or curl first
+([`getting-started.md`](getting-started.md)). The optional `$mail` skill only
+documents richer Vivi workflows; it does not replace the binary.
+
 **Thesis:** Project mailspaces are the **board of record** for tasks/needs/wants/mail.
 Not IMAP personal email.
 
