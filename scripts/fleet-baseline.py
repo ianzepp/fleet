@@ -25,7 +25,6 @@ import sys
 from pathlib import Path
 from typing import Any, List, Optional, Tuple
 
-# Local shared helpers (same directory)
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from fleet_common import (  # noqa: E402
     ensure_dict,
@@ -38,14 +37,18 @@ from fleet_common import (  # noqa: E402
 
 require_python()
 
+# Fingerprint keys that used to smuggle durable head report state (retired).
+_LEGACY_HEAD_FP_PREFIX = "head_"
+_LEGACY_HEAD_FP_SUFFIXES = ("_last_handle", "_last_completed")
+
 
 def load_baseline(path: Path) -> dict:
     if not path.is_file():
         return {"version": 1, "project": str(path.parent.parent)}
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
-    except Exception as e:
-        print("error reading baseline: %s" % e, file=sys.stderr)
+    except (OSError, UnicodeError, json.JSONDecodeError, ValueError) as exc:
+        print("error reading baseline: %s" % exc, file=sys.stderr)
         sys.exit(1)
     if not isinstance(data, dict):
         print("error reading baseline: root must be a JSON object", file=sys.stderr)
@@ -80,6 +83,57 @@ def apply_head_report_state(b: dict, heads: Any) -> None:
         if completed is not None:
             hb["last_report_at"] = completed
         b[hkey] = hb
+
+
+def strip_legacy_head_fp_keys(fp: dict) -> None:
+    """Drop retired head_*_last_* keys from a fingerprint dict (in place)."""
+    for key in list(fp.keys()):
+        if not isinstance(key, str) or not key.startswith(_LEGACY_HEAD_FP_PREFIX):
+            continue
+        if key.endswith(_LEGACY_HEAD_FP_SUFFIXES):
+            del fp[key]
+
+
+def _parse_json_arg(raw: str, label: str) -> Tuple[Optional[Any], Optional[str]]:
+    try:
+        return json.loads(raw), None
+    except (json.JSONDecodeError, TypeError, ValueError) as exc:
+        return None, "error parsing %s: %s" % (label, exc)
+
+
+def apply_mind_mode(b: dict, args: argparse.Namespace, now: str) -> None:
+    """Update turns_since_operator_message and mind_mode from bump flags."""
+    if args.operator_engaged:
+        b["turns_since_operator_message"] = 0
+        b["last_operator_message_at"] = now
+        b["mind_mode"] = args.mode or "interactive"
+        return
+    if args.no_increment_silence:
+        if args.mode:
+            b["mind_mode"] = args.mode
+        return
+    tso = int(b.get("turns_since_operator_message") or 0) + 1
+    b["turns_since_operator_message"] = tso
+    if args.mode:
+        b["mind_mode"] = args.mode
+    elif tso >= 3:
+        b["mind_mode"] = "autonomous"
+
+
+def apply_sensors_blob(b: dict, sensors: dict, args: argparse.Namespace) -> dict:
+    """Extract fingerprint + side effects from a full fleet-sensors JSON blob."""
+    fp = sensors.get("fingerprint")
+    if not isinstance(fp, dict):
+        fp = {}
+    if args.pane_classes_json is None and sensors.get("pane_classes"):
+        b["pane_classes"] = sensors["pane_classes"]
+    if sensors.get("steward"):
+        st = ensure_dict(b.get("steward"))
+        st["armed"] = sensors["steward"].get("armed", st.get("armed"))
+        st["tripped"] = sensors["steward"].get("tripped", st.get("tripped"))
+        b["steward"] = st
+    apply_head_report_state(b, sensors.get("heads"))
+    return fp
 
 
 def cmd_get(project: Path, baseline: Path) -> int:
@@ -117,73 +171,43 @@ def cmd_bump(args: argparse.Namespace, project: Path, baseline: Path) -> int:
     b["last_cycle_summary"] = args.summary or ("sleep" if not acted else "acted")
     b["quiet_streak"] = 0 if acted else int(b.get("quiet_streak") or 0) + 1
 
-    if args.operator_engaged:
-        b["turns_since_operator_message"] = 0
-        b["last_operator_message_at"] = now
-        b["mind_mode"] = args.mode or "interactive"
-    elif args.no_increment_silence:
-        if args.mode:
-            b["mind_mode"] = args.mode
-    else:
-        tso = int(b.get("turns_since_operator_message") or 0) + 1
-        b["turns_since_operator_message"] = tso
-        if args.mode:
-            b["mind_mode"] = args.mode
-        elif tso >= 3:
-            b["mind_mode"] = "autonomous"
-
-    if args.mode and args.operator_engaged is False and args.no_increment_silence:
-        b["mind_mode"] = args.mode
+    apply_mind_mode(b, args, now)
 
     fp = None
     if args.fingerprint_file:
         try:
-            fp = json.loads(Path(args.fingerprint_file).read_text(encoding="utf-8"))
-        except Exception as e:
-            print("error reading fingerprint-file: %s" % e, file=sys.stderr)
+            raw = json.loads(Path(args.fingerprint_file).read_text(encoding="utf-8"))
+        except (OSError, UnicodeError, json.JSONDecodeError, ValueError) as exc:
+            print("error reading fingerprint-file: %s" % exc, file=sys.stderr)
             return 1
-        if isinstance(fp, dict) and "fingerprint" in fp and isinstance(fp["fingerprint"], dict):
-            sensors = fp
-            fp = sensors["fingerprint"]
-            if args.pane_classes_json is None and sensors.get("pane_classes"):
-                b["pane_classes"] = sensors["pane_classes"]
-            if sensors.get("steward"):
-                st = ensure_dict(b.get("steward"))
-                st["armed"] = sensors["steward"].get("armed", st.get("armed"))
-                st["tripped"] = sensors["steward"].get("tripped", st.get("tripped"))
-                b["steward"] = st
-            # Executive-cadence / head report state → documented baseline head-* keys
-            # (not last_actionable_fingerprint). Preserve sibling fields.
-            apply_head_report_state(b, sensors.get("heads"))
+        if isinstance(raw, dict) and isinstance(raw.get("fingerprint"), dict):
+            fp = apply_sensors_blob(b, raw, args)
+        else:
+            fp = raw if isinstance(raw, dict) else {}
     elif args.fingerprint_json:
-        try:
-            fp = json.loads(args.fingerprint_json)
-        except Exception as e:
-            print("error parsing fingerprint-json: %s" % e, file=sys.stderr)
+        fp, err = _parse_json_arg(args.fingerprint_json, "fingerprint-json")
+        if err:
+            print(err, file=sys.stderr)
             return 1
+
     if fp is not None:
         if isinstance(fp, dict):
-            # Never re-home durable head report bookkeeping into the fingerprint
-            for stale in list(fp.keys()):
-                if isinstance(stale, str) and (
-                    stale.endswith("_last_handle") or stale.endswith("_last_completed")
-                ) and stale.startswith("head_"):
-                    del fp[stale]
+            strip_legacy_head_fp_keys(fp)
         b["last_actionable_fingerprint"] = fp
 
     if args.pane_classes_json:
-        try:
-            b["pane_classes"] = json.loads(args.pane_classes_json)
-        except Exception as e:
-            print("error parsing pane-classes-json: %s" % e, file=sys.stderr)
+        data, err = _parse_json_arg(args.pane_classes_json, "pane-classes-json")
+        if err:
+            print(err, file=sys.stderr)
             return 1
+        b["pane_classes"] = data
 
     if args.debt_json:
-        try:
-            b["pending_debt"] = json.loads(args.debt_json)
-        except Exception as e:
-            print("error parsing debt-json: %s" % e, file=sys.stderr)
+        data, err = _parse_json_arg(args.debt_json, "debt-json")
+        if err:
+            print(err, file=sys.stderr)
             return 1
+        b["pending_debt"] = data
 
     if args.recap:
         recap = ensure_list(b.get("operator_recap"))
@@ -233,8 +257,8 @@ def cmd_wound_up(args: argparse.Namespace, project: Path, baseline: Path) -> int
     b["project"] = str(project)
     dropped = [x.strip() for x in (args.dropped or "").split(",") if x.strip()]
     pcs = ensure_dict(b.get("pane_classes"))
-    for d in dropped:
-        pcs[d] = "down"
+    for name in dropped:
+        pcs[name] = "down"
     b["pane_classes"] = pcs
     ml = ensure_ml(b)
     ml["state"] = "wound_up"
@@ -245,7 +269,8 @@ def cmd_wound_up(args: argparse.Namespace, project: Path, baseline: Path) -> int
     ml["dropped_panes"] = dropped
     ml["handoff"] = args.handoff or (
         "Fleet wound up %s. Steward should be disarmed. "
-        "Rearm: recreate panes + FLEET_CYCLE; steward only if operator enabled+asked." % now
+        "Rearm: recreate panes + FLEET_CYCLE; steward only if operator enabled+asked."
+        % now
     )
     b["mind_loop"] = ml
     st = ensure_dict(b.get("steward"))
@@ -257,11 +282,13 @@ def cmd_wound_up(args: argparse.Namespace, project: Path, baseline: Path) -> int
     recap.append("wind-down: %s" % b["last_cycle_summary"])
     b["operator_recap"] = recap[-50:]
     if args.fingerprint_json:
-        try:
-            b["last_actionable_fingerprint"] = json.loads(args.fingerprint_json)
-        except Exception as e:
-            print("error parsing fingerprint-json: %s" % e, file=sys.stderr)
+        data, err = _parse_json_arg(args.fingerprint_json, "fingerprint-json")
+        if err:
+            print(err, file=sys.stderr)
             return 1
+        if isinstance(data, dict):
+            strip_legacy_head_fp_keys(data)
+        b["last_actionable_fingerprint"] = data
     save_json(baseline, b)
     print(json.dumps({"ok": True, "state": "wound_up", "at": now}, indent=2, ensure_ascii=False))
     return 0
@@ -271,7 +298,7 @@ def _extract_globals(argv: List[str]) -> Tuple[List[str], Optional[str], Optiona
     """Allow --project / --baseline before *or* after the subcommand."""
     project = None  # type: Optional[str]
     baseline = None  # type: Optional[str]
-    out = []  # type: List[str]
+    out: List[str] = []
     i = 0
     while i < len(argv):
         a = argv[i]
@@ -318,7 +345,6 @@ def main(argv: Optional[List[str]] = None) -> int:
         ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    # subparsers(required=True) needs Python 3.7+
     sub = ap.add_subparsers(dest="cmd")
     sub.required = True  # type: ignore[attr-defined]
 
@@ -381,7 +407,6 @@ if __name__ == "__main__":
     try:
         sys.exit(main())
     except BrokenPipeError:
-        # e.g. piped to head
         try:
             sys.stdout.close()
         except Exception:
