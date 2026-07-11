@@ -232,6 +232,9 @@ not invent a permanent Hand identity from model strings.
 | **Grok** | **Hand** | Grok 4.5 | harness default |
 | **Codex** | **Mind** | `gpt-5.6-sol` | **medium** |
 | **Codex** | **Hand** | `gpt-5.6-luna` | **xhigh** |
+| **Claude Code (desktop)** | **Mind** | Sonnet 5 | app default |
+| **Grok** | **Hand** (under desktop Mind) | Grok 4.5 | harness default |
+| **Pi (`llama-router`)** | **Hand** (under desktop Mind, local/discrete units) | `ornith-35b-q8` | reasoning off |
 
 Notes:
 
@@ -240,8 +243,87 @@ Notes:
 - Under **Codex**, Mind and Hand may differ **within** the family: sol/medium for
   Mind’s control-loop work; luna/xhigh for Hands’ implementation throughput.
   Harness stays Codex for both (**Harness alignment**).
+- **Claude Code desktop as Mind is a declared exception to Harness alignment.**
+  The desktop app has no local CLI binary to put in a tmux pane, so the usual
+  "Hand runs Mind's harness family" rule cannot be satisfied literally — there
+  is no Mind tmux session for a Hand to match. Treat **Grok as the fleet's one
+  Hand harness** in this shape (not a per-Hand exception needing re-align):
+  Mind (desktop, manual ops) files tasking and reads panes by hand; Grok Hands
+  run the normal Grok wake protocol (pointer doorbell, `/compact` theme switch)
+  unsupervised by a tmux-resident Mind process.
+- Reserve **Codex** for this shape only if Grok capacity is exhausted — its
+  reinit-after-unit discipline (kill + fresh session per unit) assumes a
+  scriptable Mind loop driving it; a human running Mind from the desktop app
+  can still do it, but it's more manual toil per cycle than Grok's doorbell.
+- Heads still default to **Pi + GLM 5.2** regardless of Mind harness — this
+  exception only concerns the product plane (Mind + Hands).
+- **Pi against a local `llama-router` model (`ornith-35b-q8`) is a validated
+  alternate Hand** for this desktop-Mind shape, when the operator wants the
+  work kept fully local (no external API) and the unit is discrete/bounded.
+  Confirmed capable on real coding units (write + run + self-verify); not
+  reasoning-capable, so scope units narrowly — see **Pi-as-Hand (local models)**
+  below for the launch pattern and operational differences from Grok.
 - Ladders for capacity start at these primaries, then step to other same-harness
   models listed in fleet `runtime_fallback` (do not flip product harness first).
+
+#### Pi-as-Hand (local models) — operational notes
+
+Validated 2026-07-11 against `ornith-35b-q8` via the local `llama-router`
+provider (`~/.pi/agent/models.json`), both in one-shot `--print` calls and as a
+persistent tmux-resident TUI. Differs from Grok/Codex Hand duty in a few ways
+worth tracking in fleet config:
+
+- **Confirmed capable, bounded scope only.** `ornith-35b-q8` (`reasoning: false`,
+  no thinking levels) handled discrete, well-specified coding units correctly
+  (write a script, run it, report real output) both one-shot and in a live
+  session. It is **not** a substitute for Grok/Codex on ambiguous, multi-step,
+  or long-context implementation work — treat it as a Hand for **mechanical/
+  narrow packets**, not continuous spine work.
+- **Pi supports Grok's doorbell pattern directly — use it, don't route around it.**
+  Confirmed: `pi` launched plain (no `--print`) sits at an idle prompt in tmux
+  exactly like Grok, is wakeable with plain `tmux send-keys … Enter`, executes,
+  returns to idle, and **retains session context across wakes** (a second
+  send-keys task referencing "that same file" from the first turn worked
+  correctly with no restated context). `/compact` is also a real command
+  (confirmed working, only erroring on a too-small session) — same theme-switch
+  pattern as Grok applies.
+- **The real difference from Grok/Codex is autonomy, not TUI mechanics.** Pi's
+  TUI has no built-in agentic loop, plan/goal tracking, or reinit-after-unit
+  behavior of its own — it is exactly as passive between wakes as Grok is (both
+  wait for an external doorbell; neither self-continues). Codex is the only
+  harness in this table with its own after-unit reinit discipline. So: **treat
+  a Pi Hand with the same doorbell protocol already defined for Grok** — no new
+  wake mechanism needs inventing.
+- **`/help` is not a recognized command** (goes to the model as plain text
+  instead) — Pi's slash-command surface differs in the details from Grok's even
+  though doorbell/compact mechanics match. Don't assume command parity beyond
+  what's actually been tested.
+- **cwd must be pinned by true process cwd, not a preceding shell `cd`.**
+  `pi` correctly uses whatever directory the process actually starts in
+  (confirmed: subdirectory of the project, and a directory fully outside the
+  project tree, both honored correctly with no snap-back to a detected
+  project root). But a compound `cd X && pi …` in one shell call can fail to
+  propagate depending on the invoking harness — use a **subshell** or start
+  the process already rooted there:
+  ```bash
+  (cd /path/to/worktrees/<slug> && pi --provider llama-router --model ornith-35b-q8 …)
+  ```
+  or `tmux new-session -c <packet-cwd> …` for a persistent pane (the normal
+  case for continuous Hand duty). **Always verify** cwd landed correctly on
+  first use in a new packet (cheap: ask it to `pwd` and create one
+  relative-path marker file) — do not assume.
+- **Tested launch commands:**
+  ```bash
+  # persistent Hand pane (preferred — doorbell-wakeable, retains context)
+  pi --provider llama-router --model ornith-35b-q8
+
+  # one-shot per-unit (no session retained across calls)
+  pi --provider llama-router --model ornith-35b-q8 --print --no-session "<task>"
+  ```
+- **Cost/why:** fully local, zero marginal API cost, keeps work off external
+  providers entirely — the point of this option over Grok when the operator
+  wants that. Trade capability ceiling for that locality; step back to Grok
+  (or Codex) if a unit turns out to need real multi-step reasoning.
 
 #### Advisor plane (Heads — prefer Pi entirely)
 
