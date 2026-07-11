@@ -413,6 +413,9 @@ def main() -> int:
     out["pane_classes"] = pane_classes
 
     prev = baseline.get("last_actionable_fingerprint") or {}
+    if not isinstance(prev, dict):
+        # legacy gatherer baselines stored a string fingerprint
+        prev = {}
     # quiet if fingerprint equal and no hard signals
     hard = [s for s in out["signals"] if not s.startswith("starvation_candidate")]
     # starvation when bag empty + idle + map still has chapter? Mind decides map; we only flag candidates
