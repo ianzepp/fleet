@@ -90,7 +90,7 @@ Core process here; detail in `references/` + `scripts/`.
 
 | Context | Load |
 | --- | --- |
-| **Cold attach** (new session, empty context, post-`/compact` without recap) | **Order:** (1) this file (2) [`fleet-guide.md`](references/fleet-guide.md) once for vocab (3) [`getting-started.md`](references/getting-started.md) §3 for attach steps |
+| **Cold attach** (new session, empty context, post-`/compact` without recap) | **Order:** (1) this file (2) [`fleet-guide.md`](references/fleet-guide.md) once for vocab (3) [`getting-started.md`](references/getting-started.md) — **§0** if no fleet visible, else **§3** attach steps |
 | **Hot cycle** (mode/counters/state already in context) | This file alone if quiet; open a ref when that surface hits |
 | **Arm / first Mind turn on a live fleet** | This file + refs for surfaces you will touch this turn |
 
@@ -305,4 +305,5 @@ Desktop Mind OK; Hands stay terminal/tmux. Schema: [`runtime-config.md`](referen
 ## Companions / first exposure
 
 Missing skills → [`companion-fallbacks.md`](references/companion-fallbacks.md). Package is self-contained.  
+**No fleet visible on load** → brief the operator ([`getting-started.md`](references/getting-started.md) §0); do not invent attach.  
 First install/init/attach: [`getting-started.md`](references/getting-started.md). Vocab: [`fleet-guide.md`](references/fleet-guide.md). Design archive: [`multi-fleet-design.md`](references/multi-fleet-design.md). Personas: [`heads/cast.md`](references/heads/cast.md) — not every cycle.

@@ -1,7 +1,7 @@
 # Fleet guide (first exposure)
 
 **Audience:** human or LLM seeing multi-agent `$fleet` for the first time.  
-**Cold attach / post-`/compact` order (matches SKILL):** (1) `SKILL.md` (2) this guide once for vocab (3) `getting-started.md` §3 for attach steps. Not every FLEET_CYCLE.
+**Cold attach / post-`/compact` order (matches SKILL):** (1) `SKILL.md` (2) this guide once for vocab (3) `getting-started.md` — §0 if no fleet visible (operator briefing), else §3 attach steps. Not every FLEET_CYCLE.
 
 | Need | Go to |
 | --- | --- |

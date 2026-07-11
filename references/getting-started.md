@@ -8,11 +8,65 @@
 
 | Case | You have… | You need… | Jump to |
 | --- | --- | --- | --- |
+| **0 — First exposure** | Skill loaded; **no** attachable fleet visible | Operator briefing (what / how / next) | [§ First exposure](#0-first-exposure--no-fleet-to-attach) |
 | **1 — Install** | Skill only | Host tools (especially **Vivi**) | [§ Install dependencies](#1-install-dependencies) |
 | **2 — Initialize project** | Dependencies OK; project has no fleet yet | Vivi mailspace + fleet tracking files + first panes | [§ Initialize a project](#2-initialize-a-project) |
 | **3 — Attach Mind** | Fleet already exists (`.vivi/fleet.json`, board, maybe panes) | This session becomes Mind for that fleet | [§ Attach Mind to an existing fleet](#3-attach-mind-to-an-existing-fleet) |
 
-Brand-new machine: **1 → 2 → 3**. Returning operator, new chat: **3 only**.
+Brand-new machine: **0 → 1 → 2 → 3** (brief first if the human just loaded the skill). Returning operator, new chat with a known fleet: **3 only**.
+
+## 0. First exposure — no fleet to attach
+
+**When (Mind detects this):** skill just loaded (or cold-loaded) and **none** of these are true:
+
+- Operator named a project/`$ROOT` that has `$ROOT/.vivi/fleet.json`
+- Cwd (or an obvious active project) has a usable fleet overlay
+- Context already has a live attach set / `FLEET_CYCLE` fleet list
+- Operator said “attach to …” / “run the fleet” with a path
+
+**Do not** silently invent a fleet, re-init a random repo, or jump into dense cycle ops.  
+**Do** reply to the **operator** with a short first-use briefing (below), then wait for their choice (or proceed only if they already asked to install/init a named root).
+
+### What to tell the operator (template)
+
+Output something in this shape — keep it short; link deeper sections rather than pasting the whole skill:
+
+```text
+$fleet — multi-agent project loops (Abbot Mind / Head / Hand)
+
+What it is
+- Mind = this chat (ops): file work, wake Hands, integrate — not a tmux pane
+- Hands = worker panes (tmux) that clear the board bag
+- Heads = advisors (research/review), not bag drain
+- Dual channel: Vivi board = work truth; tmux = process truth
+- One fleet = one project root + its .vivi/ overlay
+
+How you use it
+1. Install host deps (Vivi is hard-required)     → case 1
+2. Initialize a project (mailspace + fleet.json + hand-1 pane) → case 2
+3. Attach this session as Mind and cycle         → case 3
+Day-to-day after attach: SKILL.md + surface refs; FLEET_CYCLE wakes the loop
+
+Suggested next steps
+- Pick the project root you want to fleet (path)
+- If `vivi` missing: install Vivi (case 1)
+- If no .vivi/fleet.json yet: initialize that root (case 2)
+- If fleet already exists: attach Mind (case 3)
+- Optional later: multi-hand, Heads, steward dead-man, multi-fleet attach
+
+I will not create a fleet or attach until you name a root / case.
+```
+
+### Mind rules for case 0
+
+| Do | Don't |
+| --- | --- |
+| Brief the human once when no fleet is visible | Pretend you are already Mid-cycle Mind for an unknown project |
+| Ask for `$ROOT` or which case (1 / 2 / 3) | Dump every reference file into chat |
+| After they pick a root, run the matching case | Run `mailspace init` without a chosen project |
+| If they only want orientation, stop after the brief | Start FLEET_CYCLE / steward without an attach |
+
+Once a real fleet is chosen and case 2 or 3 applies, leave this section — operate from `SKILL.md`.
 
 ## What a fleet is (30 seconds)
 
@@ -384,6 +438,7 @@ Wind-down: [`runtime-config.md`](runtime-config.md). Multi-fleet attach set: [`m
 
 | When | Load |
 | --- | --- |
+| No fleet / first skill load | This file **§0** — brief operator; do not invent attach |
 | Vocabulary / cold attach | [`fleet-guide.md`](fleet-guide.md) (+ SKILL tokens table) |
 | Day-to-day Mind | parent [`SKILL.md`](../SKILL.md) |
 | absorb vs accept (canon) | [`mind-cycle.md`](mind-cycle.md) |
@@ -395,4 +450,4 @@ Wind-down: [`runtime-config.md`](runtime-config.md). Multi-fleet attach set: [`m
 | Dead-man | [`dead-man.md`](dead-man.md) |
 | Schema | [`runtime-config.md`](runtime-config.md) |
 
-**Do not** load every reference every cycle. Case 2 once per project; case 3 at each new Mind session; then thin ops.
+**Do not** load every reference every cycle. Case **0** once when no fleet is visible; case 2 once per project; case 3 at each new Mind session; then thin ops.
