@@ -870,17 +870,24 @@ def main() -> int:
     main_identity = main_cfg.get("mail_identity") or main_name
     pending_rtm = []
     merged_rtm = []
+    unresolved_rtm = []
     for item in rtm_mail:
         ancestry = commit_is_on_main(main_cwd, item.get("commit"))
         enriched = dict(item)
         enriched["commit_on_main"] = ancestry
         completion = rtm_completion_mail(item, recent_mail, main_identity)
         enriched["completion_mail"] = completion
-        (merged_rtm if ancestry is True or completion else pending_rtm).append(enriched)
+        if ancestry is True or completion:
+            merged_rtm.append(enriched)
+        elif ancestry is False or git_main.get("dirty"):
+            pending_rtm.append(enriched)
+        else:
+            unresolved_rtm.append(enriched)
     out["integration"] = {
         "pending_rtm": pending_rtm,
         "pending_rtm_count": len(pending_rtm),
         "merged_rtm_count": len(merged_rtm),
+        "unresolved_rtm_count": len(unresolved_rtm),
         "suggested_actions": (["queue_merge_to_main_hand"] if pending_rtm else []),
     }
     if pending_rtm:
