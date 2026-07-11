@@ -152,18 +152,26 @@ Waiting several cycles for head-ceo “permission” is a rules-of-engagement fa
 
 **Operator recap:** short material **status** list since `last_operator_message_at` (HEADs/merges, handles, pane ops, mode, debt). Re-seed after `/compact`. Interactive reports **surface** the delta.
 
-### Operator mail (present on return)
+### Operator mail (cheap cycle + present on return)
 
-**`operator@`** = human action items. [`operator-mail.md`](operator-mail.md).
+**Both directions every mini-cycle** — part of cheap sensors, not optional. [`operator-mail.md`](operator-mail.md).
 
-On engagement / “catch me up” / “what’s waiting”: (1) **operator mail list** first, (2) **operator_recap**, (3) live bag / panes / HEAD.
+| Signal | Meaning |
+| --- | --- |
+| `operator_to_mind` | **From operator@ → mind@** — absorb **first** (decisions/feedback from any session) |
+| `operator_mail` | Open needs/unread **To operator@** — human backlog |
+
+Prefer `fleet-sensors.py` (emits both + `op→mind` lines in `--text`).
 
 ```bash
+vivi mail list --for mind --project <root>       # scan From: operator@
 vivi mail list --for operator --project <root>
-vivi need list --for operator --project <root>   # if used
+vivi need list --for operator --project <root>
 ```
 
-CLI: [`vivi.md`](vivi.md). N>0 → work-through table (not buried count). N=0 → say empty once. Autonomous hint: `+op-mail:N` on one-liner — never status spam.
+On engagement / “catch me up” / sensors `operator_to_mind`: (1) **op→mind** absorb, (2) **To operator@** list, (3) **operator_recap**, (4) live bag / panes / HEAD. New op→mind this cycle → `--operator-engaged` on baseline bump.
+
+CLI: [`vivi.md`](vivi.md). N>0 → work-through table. N=0 → say empty once. Autonomous: `+op-mail:N` / `+op→mind:N` on one-liner — never status spam To operator@.
 
 ### Steward rearm (every successful mini-cycle)
 

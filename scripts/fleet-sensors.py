@@ -369,8 +369,6 @@ def main() -> int:
         out["signals"].append("operator_mail")  # waiting on human
     if op_to_mind:
         out["signals"].append("operator_to_mind")  # human wrote Mind — absorb first
-        # not quiet if operator spoke to mind on the board
-        out["signals"].append("board_event")
 
     mind_row = out["identities"].get(mind_inbox) or {}
     out["mind"] = {
