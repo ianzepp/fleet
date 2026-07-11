@@ -23,8 +23,14 @@ Others: mail identity + pane only when Mind assigns them.
 ### CXO = purity (not operator voice)
 
 In fleet, **CXO does not mean external/operator communications.** That is **Mind**
-(the human’s TUI + recap / interactive reports).  
-**head-cxo** is the shape/complexity auditor (classic purity loop).
+(the human’s TUI + recap / interactive reports).
+
+**Why purity sits on CXO:** the **XO executes**. Hands (and the camp’s delivery
+path) are the execution surface. Unearned complexity, excess layers, and muddy
+modules make execution slower, riskier, and less idiot-proof. head-cxo therefore
+has a **direct interest** in keeping the product shape simple enough that work
+stays executable — not in speaking for the operator. Classic purity loop, org
+title that owns the pain of complexity.
 
 ## Legacy aliases (migration)
 

@@ -120,7 +120,7 @@ Identity/session: `head-cto` (legacy: `head-correctness`) (mail + tmux). Typical
 
 Identity/session: `head-cxo` (legacy: `head-purity`). Typical subject prefix: `head-cxo:` / `head-purity:`. Persona: [`heads/personas/cxo.md`](heads/personas/cxo.md). Same harness class as other Heads. **Not** clean-slate every report. Prefer **compact between passes**.
 
-**CXO in fleet ≠ operator voice.** Mind owns operator-facing recap and human email. head-cxo only audits **shape debt**.
+**CXO in fleet ≠ operator voice.** Mind owns operator-facing recap and human email. head-cxo only audits **shape debt**. Rationale: **XO executes** — complexity makes execution harder, so CXO pushes idiot-proof structure (see `heads/cast.md`).
 
 1. Sensors: has-session; pane class; head-cxo / head-purity report mail
 2. Down → recreate per fleet + role bootstrap
