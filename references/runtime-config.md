@@ -269,11 +269,32 @@ head-strategist.{awaiting_report, last_assign_handle, last_reinit_at}
 head-correctness.last_report_*, head-purity.last_report_*
 mind_loop.{state, handoff, mechanism, …}   # armed | running | stopping | wound_up; mechanism e.g. grok_/loop
 half_dead[] optional                # path, class A/B/C, age_cycles, note
+polish_advisory optional:
+  score_threshold          # default 500 — file polish task only if score >= this
+  max_files_per_task       # default 3
+  max_tasks_per_cycle      # default 1
+  script optional          # override path to suggest-polish-files.py
+  last_scan_head           # main tip last scanned (skip re-scan until HEAD moves)
+  last_scan_at
+  last_top[]               # {path, score} sample from last run
+  open_polish_paths[]      # paths already covered by open polish tasks
+  last_filed_handle optional
 ```
 
 **Mode counters vs quiet:** `quiet_streak` is product silence (nothing to do). `turns_since_operator_message` is **human** silence in the Mind chat. A busy fleet can have `quiet_streak = 0` and still be **autonomous** if the operator has not spoken for ≥ 3 cycles. Scheduled wakes must use the **`FLEET_CYCLE`** prefix (see main skill / mind-cycle).
 
 Ignore-lists for tasking noise may live in baseline (`ignore_bag_handles`, `ignore_subjects_prefixes`) without deleting board history.
+
+**Polish advisory:** after main lands, Mind runs `$polish`’s `suggest-polish-files.py` (read-only). Score ≥ threshold → one bounded polish **task** to a Hand. Defaults and procedure: `mind-cycle.md`. Optional fleet JSON mirror:
+
+```json
+"polish_advisory": {
+  "score_threshold": 500,
+  "max_files_per_task": 3,
+  "max_tasks_per_cycle": 1,
+  "script": "/Users/ianzepp/work/ianzepp/skills/polish/scripts/suggest-polish-files.py"
+}
+```
 
 ## Fleet wind-down and rearm
 

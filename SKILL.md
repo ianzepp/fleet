@@ -40,7 +40,7 @@ description: Multi-agent fleet management with Mind/Head/Hand roles (Abbot patte
 
 **Mind is the operator entry point.** The harness conversation the human is in (this TUI, desktop app, or CLI) **is** Mind. There is no separate “reviewer” process. Model and reasoning tier are operator setup. Cognitive budget follows **interaction mode** (below), not guessed model id.
 
-**Code quality ownership:** each **Hand** ships the best code it can (implement, validate, polish). **head-correctness** owns **code review on main after merge** — not Mind peer-review of every WIP/packet. Build fast, fail fast; bugs on main are fixed on main.
+**Code quality ownership:** each **Hand** ships the best code it can (implement, validate, polish). **head-correctness** owns **code review on main after merge** — not Mind peer-review of every WIP/packet. Build fast, fail fast; bugs on main are fixed on main. **Mind post-main polish advisory:** after main lands, cheap-run `$polish`’s `suggest-polish-files.py`; if scores clear a camp threshold, file a bounded polish **task** to a Hand (backstop when end-of-unit polish slips — not Mind polishing itself).
 
 ```text
 campaign / focus map
@@ -91,7 +91,7 @@ Reserve **hard ban** language for actions that break the platform, tree, or mult
 | [`roles-and-harness.md`](references/roles-and-harness.md) | Arming, rebinding, duties, preferred models, Pi-as-Hand; Mind = operator session |
 | [`tasking.md`](references/tasking.md) | Filing targets, queue kind, multi-hand, starvation, Hand decision continuity |
 | [`dual-channel.md`](references/dual-channel.md) | Pane classes, doorbell, reinit, rehome, `/compact`, mail templates, **mailspace watch / thread** |
-| [`mind-cycle.md`](references/mind-cycle.md) | Modes, cycle prefix, fail-fast, absorb/accept (integration), operator recap |
+| [`mind-cycle.md`](references/mind-cycle.md) | Modes, cycle prefix, fail-fast, absorb/accept, **post-main polish advisory**, operator recap |
 | [`multi-lane.md`](references/multi-lane.md) | Side lanes, theme→main, base-update, pin-relative, `pending_merges` |
 | [`heads.md`](references/heads.md) | head-strategist / **head-correctness** / head-purity |
 | [`ssh-remote.md`](references/ssh-remote.md) | Hands/Heads on another host (SSH + remote tmux); host-scoped cwd; remote reinit |
@@ -323,7 +323,18 @@ implement + targeted validate
 | Include only **directly related** tests/docs as `$polish` allows | Polish foreign dirty / other agents’ WIP |
 | Prefer product source over pure Status/docs-only deltas | Force polish commits when inspect finds no useful change |
 
-Skip only when the unit was docs-only / Status-only / merge-only, or operator waives. Packet workers polish **inside the packet worktree** before ready-to-merge. Mind does **not** run polish for the Hand.
+Skip only when the unit was docs-only / Status-only / merge-only, or operator waives. Packet workers polish **inside the packet worktree** before ready-to-merge. Mind does **not** run `$polish` for the Hand.
+
+### Post-main polish advisory (Mind)
+
+After **main HEAD moves** (merge, theme land, spine unit on main) — not every quiet cycle — Mind may run the polish skill’s read-only ranker:
+
+```bash
+python3 ~/work/ianzepp/skills/polish/scripts/suggest-polish-files.py \
+  --repo <main_checkout> --json --limit 15
+```
+
+Scores are **churn-since-last-polish routing**, not a quality grade. If any path’s score is ≥ camp `polish_advisory.score_threshold` (default **500**), file **at most one** bounded **task** (default top **3** files) To hand-1 (or the owning Hand) to run `$polish` on those primaries only. Record `last_scan_head` so the same tip is not re-scanned every wake. Detail + caps: [`mind-cycle.md`](references/mind-cycle.md).
 
 ### 5. Sleep / wake / backoff
 
@@ -426,6 +437,8 @@ Schema detail: [`runtime-config.md`](references/runtime-config.md).
 
 - Combining `/compact` with assignment, or new Grok session for every theme when compact would suffice
 - Skipping end-of-unit polish, or polishing foreign dirty
+- Mind running full `$polish` itself, or filing unbounded polish tasks every quiet cycle
+- Treating polish-advisory **score** as a bug verdict or merge blocker
 - Destructive git cleanup of unexpected dirt
 - Status-only dirt freeze without A/B/C classification
 - Treating class A (fmt/layout) as permanent foreign WIP
@@ -443,7 +456,7 @@ Schema detail: [`runtime-config.md`](references/runtime-config.md).
 ## Related skills
 
 - `$mail` — Vivi project mailspace CLI (task/need/want/mail, watch, thread); not the fleet process
-- `$polish` — end-of-unit per-file improvement on **this unit’s** changed primary source
+- `$polish` — end-of-unit per-file improvement; Mind uses `scripts/suggest-polish-files.py` for post-main advisory routing
 - `$correctness` — behavioral bug / invariant audits (tool for Hand or head-correctness)
 - `$cleanliness` — structure/complexity scans (pairs with head-purity work)
 - `$factory` — multi-phase implementation when the Hand executes a large unit

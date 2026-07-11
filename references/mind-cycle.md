@@ -150,6 +150,7 @@ Optional: thorough review every N cycles when the counter is divisible by N (e.g
 | HEAD/dirty product moved | Mind | bounded residual / Status-honesty pass (not full code review) |
 | Hand mid-flight dirty (main or packet) | Mind | cheap red-flag scan; obvious residuals → Vivi + pointer (not deep peer review) |
 | Main moved after merge | Correctness | post-main code review / bug hunt (self-directed) |
+| Main moved (merge / feature land / spine unit on main) | Mind | **Post-main polish advisory** (cheap score scan → optional polish **task**) — below |
 | Same dirty paths block spine ≥2 cycles, no A/B/C note | Mind | **Open the diff** (half-dead); classify; file style/claim/quarantine; pivot targets for Hand |
 | Map Status mtime changed | Either | skim Status lines; then bag |
 | Tasking empty + next package selected | Hand / Mind | start package or **refill** + wake/reinit |
@@ -229,6 +230,68 @@ When the cycle **acted**:
 7. **head-correctness / head-purity** status + brief when new report absorbed
 
 Quiet true sleep may stay one-line (include `mode` + `operator_silence`). Prefer tables for the fleet snapshot.
+
+## Post-main polish advisory (Mind — cheap, strong guidance)
+
+Hands still own **end-of-unit polish** on their changed sources. That slips. After work **lands on main**, Mind runs a **read-only score scan** and files bounded polish work only when scores clear a camp threshold. This is **routing**, not a quality verdict and not Mind doing `$polish` itself.
+
+### When to run (paid, not every quiet cycle)
+
+Run once when **main HEAD moved** this cycle relative to baseline `polish_advisory.last_scan_head` (or missing), for a focus repo:
+
+- packet/theme **merged** to main
+- spine / feature unit **committed on main** and absorbed as complete
+- operator asked for a polish pass (then always allowed)
+
+**Do not** run on pure quiet cycles, packet-only HEADs that never hit main, or when hand-1 main is mid-flight dirty on product work you are about to interrupt. Prefer after absorb of a clean main tip.
+
+### How (cheap)
+
+```bash
+# path from $polish skill; camp may pin absolute path in fleet tooling
+python3 ~/work/ianzepp/skills/polish/scripts/suggest-polish-files.py \
+  --repo <main_checkout> \
+  --json --limit 15
+# optional: --path crates/foo for scoped landings
+```
+
+Script ranks tracked source by churn since last recognized polish commit (`polish(scope): …`, `Polish-Primary:` trailer, legacy forms). Output fields: `path`, `score`, `commits_since_polish`, line churn, `last_polish`.
+
+| Camp key (fleet or baseline `polish_advisory`) | Default | Meaning |
+| --- | --- | --- |
+| `score_threshold` | **500** | File polish work only for paths with `score >= threshold` |
+| `max_files_per_task` | **3** | Cap primary files in one task body |
+| `max_tasks_per_cycle` | **1** | Do not flood the bag after one land |
+| `script` | polish skill `scripts/suggest-polish-files.py` | Override path if needed |
+
+Camps with **no polish history** score very high (large “never polished” penalty). Raise `score_threshold`, scope `--path`, or treat the first scan as a one-time backlog triage — do not open 20 polish tasks in one cycle.
+
+### Act on scores
+
+```text
+1. Parse JSON; keep rows with score >= score_threshold; sort by score desc
+2. Drop paths already covered by an open polish task (baseline open_polish_paths / bag subject match)
+3. Take top max_files_per_task (at most max_tasks_per_cycle tasks)
+4. If none → record last_scan_head + top scores in baseline; no bag file
+5. If some → file a **task** (not want) To hand-1 (main checkout) — or owning Hand if path is clearly that lane’s package and still assigned
+6. Done-when: run $polish on the listed primary files only; polish(scope) commits; evidence To mind
+7. Doorbell/reinit only if that Hand is idle+empty or idle with this as next work — not if running product unit
+8. Write baseline: last_scan_head, last_scan_at, last_top[] {path, score}, last_filed_handle?
+```
+
+**Task subject shape:** `polish advisory: <crate-or-area> (score ≥ T)`  
+**Body:** explicit primary file list + scores + “`$polish` serial per file; no repo-wide cleanup; skip if inspect finds nothing useful.”
+
+### What this is not
+
+| Is | Is not |
+| --- | --- |
+| Cheap git-history metric + optional task | Mind peer-review or full `$polish` by Mind |
+| Backstop when Hand end-of-unit polish slipped | Replacement for Hand polish on unit lands |
+| One bounded list after main moves | Every-cycle repo-wide polish thrash |
+| Score = churn-since-polish routing | “High score means bug” |
+
+**head-correctness** still owns post-main **bug** review. **head-purity** still owns excess-layer audits. Polish advisory is ship-quality hygiene only.
 
 ## Residual scan (Mind) — not peer code review
 
