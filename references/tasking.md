@@ -110,13 +110,16 @@ When on the **paid path**, after sensors fire:
 
 ```text
 1. status counts
-2. open task list for each active hunter
-3. open need list for each active hunter
-4. want list only if hunting polish by design
-5. show only the selected handle
+2. optional: mailspace watch --once (new events since cursor)
+3. open task list for each active hunter
+4. open need list for each active hunter
+5. want list only if hunting polish by design
+6. show only the selected handle
+7. if exchange is multi-hop: vivi mail thread <handle> (or rely on show’s thread context)
 ```
 
-**Dump is audit**, not the heartbeat. Prefer open-only dumps when needed. For Vivi CLI shapes, use `$mail`.
+**Dump is audit**, not the heartbeat. Prefer open-only dumps when needed. For Vivi CLI shapes, use `$mail`. Watch/thread detail for fleet: `dual-channel.md` (Vivi ≥ 4.6).
 
 Product upgrades (board/brief/json):  
-`~/work/ianzepp/vivarium/docs/mailspace-agent-control-plane-goal.md`.
+`~/work/ianzepp/vivarium/docs/mailspace-agent-control-plane-goal.md` and  
+`~/work/ianzepp/vivarium/docs/release-v4.6.0.md`.

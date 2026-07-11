@@ -1,6 +1,6 @@
 ---
 name: fleet
-description: Multi-agent fleet management with Mind/Head/Hand roles (Abbot pattern) — Mind (ops) fills tasking, Hands (workers) clear work, Heads (advisors) research; Hands share Mind harness, Heads prefer alternate models/harnesses; dual-channel Vivi+tmux, multi-lane integration, runtime fallback, wind-down. Correctness owns post-main code review; Mind modes via FLEET_CYCLE + turns_since_operator_message; hard bans vs strong guidance. Use for hunter-N fleets, codex reinit, keep-screen-moving, don't-get-stuck, long unattended Mind cycles.
+description: Multi-agent fleet management with Mind/Head/Hand roles (Abbot pattern) — Mind (ops) fills tasking, Hands (workers) clear work, Heads (advisors) research; Hands share Mind harness, Heads prefer alternate models/harnesses; dual-channel Vivi+tmux, multi-lane integration, runtime fallback, wind-down. Correctness owns post-main code review; Mind modes via FLEET_CYCLE + turns_since_operator_message; Vivi mailspace watch/thread; SSH remote Hands/Heads; hard bans vs strong guidance. Use for hunter-N fleets, codex reinit, keep-screen-moving, don't-get-stuck, long unattended Mind cycles.
 ---
 
 # Fleet
@@ -51,6 +51,7 @@ campaign / focus map
 - Long recurring agent wakes (5–10m) that must **fail fast** when idle
 - Reframing “reviewer approval” into residual tasks instead of stage licenses
 - Fleet of Hand sessions bound to tmux panes (liveness + doorbell)
+- Hands/Heads on remote hosts via SSH + tmux (same process, different host)
 
 Do not use for ordinary personal IMAP email (`$mail`). Do not invent a second acceptance gate.
 
@@ -76,11 +77,12 @@ Reserve **hard ban** language for actions that break the platform, tree, or mult
 | --- | --- |
 | [`roles-and-harness.md`](references/roles-and-harness.md) | Arming, rebinding, duties, preferred models, Pi-as-Hand, desktop Mind |
 | [`tasking.md`](references/tasking.md) | Filing targets, queue kind, multi-hand, starvation, Hand decision continuity |
-| [`dual-channel.md`](references/dual-channel.md) | Pane classes, doorbell, reinit, rehome, `/compact`, mail templates |
+| [`dual-channel.md`](references/dual-channel.md) | Pane classes, doorbell, reinit, rehome, `/compact`, mail templates, **mailspace watch / thread** |
 | [`mind-cycle.md`](references/mind-cycle.md) | Modes, cycle prefix, fail-fast, absorb/accept (integration), operator recap |
 | [`multi-lane.md`](references/multi-lane.md) | Side lanes, theme→main, base-update, pin-relative, `pending_merges` |
 | [`heads.md`](references/heads.md) | Strategist / **correctness (post-main review)** / purity |
-| [`runtime-config.md`](references/runtime-config.md) | Capacity ladders, baseline schema, wind-down, script env |
+| [`ssh-remote.md`](references/ssh-remote.md) | Hands/Heads on another host (SSH + remote tmux); host-scoped cwd; remote reinit |
+| [`runtime-config.md`](references/runtime-config.md) | Capacity ladders, baseline schema, wind-down, script env, `host`/`ssh` fields |
 | [`scripts/codex-reinit.sh`](scripts/codex-reinit.sh) | Codex doctor / heal / reinit / classify (camp-agnostic; set `PROJECT`/`FLEET`) |
 
 ## Don't get stuck (strong guidance)
@@ -230,7 +232,7 @@ Empty product bags + map still has unblocked next work = **starvation** (file + 
 
 ## Dual channel (summary)
 
-Vivi = truth of work. tmux = truth of process. **Mail identity == tmux session name.**
+Vivi = truth of work. tmux = truth of process. **Mail identity == tmux session name** (on the host that owns the pane).
 
 | Pane class | Typical Mind action |
 | --- | --- |
@@ -240,7 +242,28 @@ Vivi = truth of work. tmux = truth of process. **Mail identity == tmux session n
 | empty + map next | Starvation — file then wake/reinit |
 | `error_*` / `down` | Ops intervene / recreate |
 
-tmux carries **pointers only**; full done-when lives in Vivi. Detail: [`dual-channel.md`](references/dual-channel.md).
+tmux carries **pointers only**; full done-when lives in Vivi.
+
+**Vivi ≥ 4.6 (board liveness / lineage):**
+
+| Command | Fleet use |
+| --- | --- |
+| `vivi mailspace watch --for <id> --once --write-cursor` | Cheap Mind sensor for new board events (not IMAP) |
+| `vivi mail\|task\|need watch …` | Kind-filtered wait / RTM / report filters |
+| `vivi mail thread <handle>` | Exchange history for Mind residuals or Hand multi-hop context |
+
+Detail: [`dual-channel.md`](references/dual-channel.md). Remote panes: [`ssh-remote.md`](references/ssh-remote.md).
+
+## Remote Hands / Heads (summary)
+
+Hands and Heads may run on a **different host** than Mind (SSH + remote tmux). Same roles and dual-channel rules; add a **host** axis:
+
+- Fleet fields: `host`, `ssh`, host-scoped `cwd` / `tmux_*` / `agent_launch`
+- Wake/capture/reinit run **on that host** (SSH-wrap or remote script)
+- One mailspace board of record — `vivi --project` must hit the DB the camp owns
+- Desktop or CLI Mind both work; remote slots improve failure isolation and machine split
+
+Generic recipes (no particular server name): [`ssh-remote.md`](references/ssh-remote.md).
 
 ## Lifecycle
 
@@ -260,9 +283,9 @@ tmux carries **pointers only**; full done-when lives in Vivi. Detail: [`dual-cha
 
 ### 3. Gather
 
-- Sensors: bag + HEADs/dirty + pane classes
-- Paid path: scan what **moved**; file residuals to owning Hand
-- Quiet when fingerprint and pane classes unchanged (or only `running`)
+- Sensors: bag + optional **mailspace watch --once** + HEADs/dirty + pane classes (local/SSH)
+- Paid path: scan what **moved**; `mail thread` when lineage matters; file residuals to owning Hand
+- Quiet when fingerprint, watch cursor, and pane classes unchanged (or only `running`)
 - Idle+open tasking or error class: wake or ops intervene
 
 ### 4. Work (Hand)
@@ -303,7 +326,7 @@ See [`mind-cycle.md`](references/mind-cycle.md). Most wakes should be no-ops.
 
 ## Fail-fast wake (summary)
 
-Most 5–10m wakes must **exit in seconds**. Resolve **Mind mode** first (operator engagement + `turns_since_operator_message`). Cheap sensors next; sleep when fingerprint, HEADs/dirty, and panes are unchanged and no starvation/error/open-tasking wake is required. In **autonomous** mode, stay thin even on paid signal — escalate judgment out of band rather than deep monologue.
+Most 5–10m wakes must **exit in seconds**. Resolve **Mind mode** first (operator engagement + `turns_since_operator_message`). Cheap sensors next (status, optional `mailspace watch --once`, HEADs/dirty, panes); sleep when fingerprint, watch cursor, and panes are unchanged and no starvation/error/open-tasking wake is required. In **autonomous** mode, stay thin even on paid signal — escalate judgment out of band rather than deep monologue. Do not unbounded-block on `mailspace watch` during fail-fast cycles.
 
 When the cycle **acted**: scannable headline + fleet snapshot + board moves + pending debt. Use **absorb** (bookkeeping) vs **accept** (integration bar: evidence good enough to queue merge / clear map square — **not** full code review). Correctness reviews **main after merge**.
 
@@ -334,13 +357,14 @@ On unexpected dirt **outside** scope: do not erase — list, classify if blockin
 
 | Lives in skill | Lives in project overlay |
 | --- | --- |
-| Roles, bag rules, dual channel, fleet axes | Concrete Hand roster, cwds, model ids |
+| Roles, bag rules, dual channel, fleet axes (+ host) | Concrete Hand roster, cwds, model ids, **ssh targets** |
 | Harness alignment + preferred models (updated over time) | Live `mind.agent` / `agent_model` / `agent_launch`; Head launches |
 | Theme vs unit, merge clock, base-update *policy* | Campaign maps, product Status, validation commands |
-| Head loops (correctness = post-main review), cycle kinds, modes | Role-prompt paths, absolute tool binaries |
-| Baseline field meanings; `pending_merges` states | Fat historical ledger rows, wind-up snapshots |
+| Head loops (correctness = post-main review), cycle kinds, modes | Role-prompt paths, absolute tool binaries **per host** |
+| Baseline field meanings; watch cursor; `pending_merges` states | Fat historical ledger rows, wind-up snapshots |
 | Pane classes, reinit contract, wind-down; **`FLEET_CYCLE` prefix** | Scheduler prompt path, durable interval task id |
-| Generic `scripts/codex-reinit.sh` | Camp `PROJECT`/`FLEET` paths; optional wrapper |
+| Remote Hand/Head *transport* (SSH + tmux) | Real hostnames, keys, remote PATH wrappers |
+| Generic `scripts/codex-reinit.sh` | Camp `PROJECT`/`FLEET` paths; copy/symlink **on Hand host** |
 
 Typical camp file kinds (names/layout camp-local):
 
@@ -353,7 +377,7 @@ scripts/codex-reinit   # skill copy or symlink; env PROJECT + FLEET
 project Agents.md      # product + multi-agent process
 ```
 
-**Desktop Mind (experimental):** Mind may run in a desktop app (e.g. Claude Code) while Hands stay in terminal/tmux. Reasons: token budget control, and **failure isolation** (tmux server death should not take Mind with it; terminal death should not take a desktop Mind). Hands still follow the product Hand harness policy for that shape (often Grok). Desktop Mind runs the same process duties by hand when there is no scriptable 5m loop — see `roles-and-harness.md`.
+**Desktop Mind (experimental):** Mind may run in a desktop app (e.g. Claude Code) while Hands stay in terminal/tmux **local or remote**. Reasons: token budget control, and **failure isolation** (local tmux/shell death should not take Mind; Mind death should not take remote Hands). Hands still follow product Hand harness policy for that shape. Pair with remote slots: [`ssh-remote.md`](references/ssh-remote.md).
 
 Schema detail: [`runtime-config.md`](references/runtime-config.md).
 
@@ -375,6 +399,8 @@ Schema detail: [`runtime-config.md`](references/runtime-config.md).
 - Forcing Heads onto Mind’s harness “for uniformity”
 - Stacking Codex `HAND WAKE` lines instead of reinit; `exec codex` / fragile `exec grok`
 - Packet Hand with cwd still on main; unquoted `--deny` globs in zsh
+- Treating local `tmux` as if it sees remote sessions; reinit on the wrong host
+- Unbounded `mailspace watch` on every fail-fast cycle; using IMAP watch as the board sensor
 
 ### Integration and honesty
 
@@ -404,7 +430,7 @@ Schema detail: [`runtime-config.md`](references/runtime-config.md).
 
 ## Related skills
 
-- `$mail` — Vivi project mailspace CLI (task/need/want/mail); not the process
+- `$mail` — Vivi project mailspace CLI (task/need/want/mail, watch, thread); not the fleet process
 - `$polish` — end-of-unit per-file improvement on **this unit’s** changed primary source
 - `$correctness` — behavioral bug / invariant audits (advisor or Hand tool)
 - `$cleanliness` — structure/complexity scans (pairs with purity-style work)

@@ -16,6 +16,74 @@ tmux is the **process layer** (whether the Hand process is alive, idle, or broke
 
 Do not rely on completion mail alone (overcapacity/disconnect/crash prevent send). Do not treat idle pane alone as done: idle + empty may be quiet; idle + open tasking is a wake; idle after HEAD move without done-handles still needs bag/Status honesty on thorough cycles.
 
+When Hands or Heads run on another machine, pane ops go over SSH — see `ssh-remote.md`. Vivi still needs one coherent mailspace project root.
+
+## Mailspace watch and thread (Vivi ≥ 4.6)
+
+Project-local board liveness and conversation lineage. **Not** IMAP / `vivi sync` / `sync-events` watch — these read the camp `.vivi/mail.sqlite` **event ledger** and reply graph.
+
+Full CLI detail: `$mail` and vivarium release notes. Fleet usage:
+
+### Watch — Mind sensors and paid waits
+
+```bash
+# Canonical
+vivi mailspace watch --for <identity> --project <root> [filters…]
+
+# Kind aliases (force that kind)
+vivi mail watch | vivi task watch | vivi need watch | vivi want watch
+```
+
+| Flag | Fleet use |
+| --- | --- |
+| `--for reviewer` (Mind) or `--for hunter-N` | Whose local events wake the watcher |
+| `--kinds mail,task,need` | Default; `want` opt-in via `--kinds` |
+| `--events delivered,moved` | Default lifecycle |
+| `--match-from hunter-2` | Only that Hand’s deliveries |
+| `--match-subject-prefix …` | e.g. ready-to-merge / `strategist report:` |
+| `--handle <h>` | Wait for one item |
+| `--once` | Non-blocking scan — **prefer on fail-fast cycles** |
+| `--until-count N` | Exit after N matches (default 1) |
+| `--timeout …` | Bound wait; nonzero if nothing matched |
+| `--cursor-file` / `--write-cursor` | Durable watermark across Mind cycles (baseline path OK) |
+| `--watermark-file` / `--write-watermark` | Aliases for cursor |
+| `--json` | Machine-readable |
+| `--poll-interval` | Default 250ms |
+
+**Mind (cheap cycle):** `--once --write-cursor` against a camp cursor file; if no events, continue other sensors / sleep.  
+**Mind (paid path):** optional short `--timeout` wait for RTM or Head report instead of only status polling.  
+**Do not** block a whole autonomous cycle on an unbounded watch (`--until-count 0` without timeout) unless the operator explicitly wants a long wait.
+
+```bash
+# Example: Mind cheap — any new work To reviewer
+vivi mailspace watch --for reviewer --project "$ROOT" \
+  --once --write-cursor \
+  --cursor-file "$ROOT/.vivi/mind-watch.cursor" \
+  --json
+
+# Example: bounded wait for hunter-2 RTM mail
+vivi mail watch --for reviewer --project "$ROOT" \
+  --match-from hunter-2 \
+  --match-subject-prefix "ready-to-merge" \
+  --timeout 60s --until-count 1
+```
+
+### Thread — exchange history (Mind and Hand)
+
+```bash
+vivi mail thread <handle> --project <root> [--json] [--infer] [--limit 50] [--max-depth 50]
+```
+
+`mail|task|need|want show` also attach thread context. Prefer `show` first; use `thread` when the exchange is multi-hop or Mind is reconstructing residuals / RTM lineage.
+
+| Who | When |
+| --- | --- |
+| **Hand** | After selecting a handle, if replies/notes obscure done-when — thread before re-asking Mind |
+| **Mind** | Before filing a residual that depends on prior mail; absorb strategist/RTM threads |
+| **Either** | `--infer` only for historical best-effort links (marked; never overrides captured links) |
+
+Reply lineage: `vivi mail reply <handle>`; sends support `--reply-to`; lifecycle `--note` becomes a captured reply (Vivi 4.6).
+
 ## Binding rule
 
 **Mail identity token == tmux session name.**

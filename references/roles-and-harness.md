@@ -78,7 +78,7 @@ Notes:
 - Under **Grok**, Mind and Hand share the same model class (Grok 4.5) and harness.
 - Under **Codex**, Mind and Hand may differ within the family (sol/medium vs luna/xhigh); harness stays Codex.
 - **Claude Code desktop as Mind is a declared exception to Harness alignment** (and an **experimental** control-plane shape). The desktop app has no local CLI for a tmux pane, so Hands cannot match Mind’s harness literally. Treat **Grok as the fleet’s one Hand harness** in this shape: desktop Mind files tasking and reads panes by hand; Grok Hands use normal Grok wake without a tmux-resident Mind.
-- **Why desktop Mind exists (experiment):** (1) **token budget** — keep deep or interactive Mind work off the product Hand harness; (2) **failure isolation** — tmux server death should not take Mind; terminal/shell death should not take a desktop Mind. Expect learning and camp-specific tweaks.
+- **Why desktop Mind exists (experiment):** (1) **token budget** — keep deep or interactive Mind work off the product Hand harness; (2) **failure isolation** — local tmux/shell death should not take Mind; Mind death should not take Hands. Combine with **remote Hands/Heads** (`ssh-remote.md`) for further isolation. Expect learning and camp-specific tweaks.
 - Reserve **Codex** under desktop Mind only if Grok capacity is exhausted — reinit-after-unit assumes a scriptable Mind loop; a human Mind can do it but with more toil.
 - Heads still default to **Pi + GLM 5.2** regardless of Mind harness.
 - **Pi against local `llama-router` (`ornith-35b-q8`)** is a validated alternate Hand for desktop-Mind when work must stay fully local and units are discrete/bounded — see **Pi-as-Hand** below.

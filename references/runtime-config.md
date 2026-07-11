@@ -189,6 +189,7 @@ Recommended keys (extend freely; skill cares about meanings):
   "hunters": {
     "hunter-1": {
       "mail_identity": "hunter-1",
+      "host": "local",
       "tmux_session": "hunter-1",
       "tmux_target": "hunter-1:1.1",
       "cwd": "/path/to/main",
@@ -204,8 +205,11 @@ Recommended keys (extend freely; skill cares about meanings):
     },
     "hunter-2": {
       "mail_identity": "hunter-2",
-      "cwd": "/path/to/side-lane",
+      "host": "remote.example",
+      "ssh": "ssh -o BatchMode=yes remote.example",
+      "cwd": "/path/on/remote/side-lane",
       "agent": "grok",
+      "wake_mode": "tmux_send_keys_via_ssh",
       "merges_to_main": false,
       "assignment_sticky": false,
       "packet": { "slug": "…", "branch": "…", "state": "assigned" }
@@ -253,6 +257,7 @@ mind_mode                         # autonomous | interactive (resolved this cycl
 mind_mode_override optional       # ops_only | deep | clear — operator sticky force
 last_operator_message_at          # timestamp or cycle id of last operator prose
 operator_recap                    # short material-change list since last operator message
+mind_watch_cursor_path optional   # path to vivi mailspace watch --cursor-file
 last_actionable_fingerprint   # fleet bags + heads/dirty + panes
 pending_reviews[]
 pending_merges[]

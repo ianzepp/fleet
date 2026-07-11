@@ -109,15 +109,17 @@ Long 5–10m loops only work if most wakes **exit in seconds**. Tokens/context a
 ```text
 0. Resolve mind_mode + update turns_since_operator_message / quiet_streak inputs
 1. Board status counts (e.g. vivi mailspace status)
-2. Open task + need lists per Hand identity (not dumps)
-3. Optional light delta: git rev-parse HEAD, dirty count, map file mtime
-4. Fleet: tmux has-session + short capture classify (if fleet configured)
+2. Optional: vivi mailspace watch --for <Mind> --once --write-cursor (event ledger; not IMAP)
+3. Open task + need lists per Hand identity (not dumps)
+4. Optional light delta: git rev-parse HEAD, dirty count, map file mtime
+5. Fleet: tmux has-session + short capture classify (local and/or via SSH — ssh-remote.md)
 ```
 
 Compare to baseline. **Sleep immediately** when:
 
 - fleet actionable fingerprint unchanged (hunter-N only; ignore legacy codex for this)
 - no relevant main/packet HEAD/dirty move
+- no new mailspace watch hits (if using cursor)
 - pane classes unchanged and not `error_*`
 - not (hunter-1 idle + empty + map/merge debt)
 - not (idle + open tasking needing doorbell/**Codex reinit**)
@@ -187,16 +189,18 @@ Re-diff vs `last_thorough_fingerprint`. Unchanged → quiet thorough (still run 
 ```text
 0. Resolve mind_mode (operator message? turns_since_operator_message? override?)
 1. Read baseline + fleet config (pending_reviews, pending_merges, active lanes,
-   quiet_streak, turns_since_operator_message, mind_mode)
+   quiet_streak, turns_since_operator_message, mind_mode, watch cursor path)
 2. Board status counts (vivi mailspace status)
-3. Mind inbox top (advice / review / permission / advisor reports)
+3. Optional mailspace watch --once --write-cursor for Mind identity (Vivi ≥ 4.6)
+4. Mind inbox top (advice / review / permission / advisor reports)
    # board mail ≠ operator message for mode purposes
-4. Open tasks/needs for each hunter-N (legacy shared identity: list only if migrating;
+   # paid path: vivi mail thread <handle> when lineage matters
+5. Open tasks/needs for each hunter-N (legacy shared identity: list only if migrating;
    do not use legacy counts for quiet/wake/starvation)
-5. Main HEAD + dirty for focus repos (project names the list)
-6. Each active side lane: status -sb + HEAD + branch
-7. Fleet pane scan (all hands + Heads if configured)
-8. Optional: map Status line if HEAD moved
+6. Main HEAD + dirty for focus repos (project names the list)
+7. Each active side lane: status -sb + HEAD + branch (local or remote cwd)
+8. Fleet pane scan (all hands + Heads; SSH wrap when host ≠ local — ssh-remote.md)
+9. Optional: map Status line if HEAD moved
 ```
 
 **Fingerprint:** fleet bags only + main HEADs/dirty + side-lane HEADs/dirty + pane classes + non-empty pending debt.
