@@ -190,8 +190,9 @@ is a second ops surface the Mind must keep correct under load.
 
 **Why Heads diversify:** Heads exist to challenge the product plane, not to drain
 the bag. A different model (and preferably a different harness) reduces correlated
-blind spots. Prefer pi / alternate coding harness / different model family for
-strategist, correctness, and purity when available.
+blind spots. **Default: Pi + GLM 5.2 (high/xhigh)** for all Heads — see
+**Preferred models by role**. One-shot assign→report fits Pi; continuous bag drain
+stays on Mind’s product harness.
 
 **Arm / rebind rules:**
 
@@ -214,6 +215,54 @@ strategist, correctness, and purity when available.
 **Anti-pattern:** “H3 is always Codex” / “language spine is always Grok” as
 **product law**. Harness is ops binding derived from Mind, not a permanent
 Hand identity. Assignment (main vs packet) stays independent of harness.
+
+### Preferred models by role
+
+These are **default arm preferences** for this operator’s fleet. Live ids still
+belong in project `.vivi/hunter-fleet.json` (`agent_model`, `agent_launch`,
+effort/thinking flags). Capacity fallbacks step a same-harness ladder; they do
+not invent a permanent Hand identity from model strings.
+
+#### Product plane (Mind + Hands — one harness family)
+
+| Product harness | Role | Preferred model | Effort / thinking |
+| --- | --- | --- | --- |
+| **Grok** | **Mind** | Grok 4.5 | harness default |
+| **Grok** | **Hand** | Grok 4.5 | harness default |
+| **Codex** | **Mind** | `gpt-5.6-sol` | **medium** |
+| **Codex** | **Hand** | `gpt-5.6-luna` | **xhigh** |
+
+Notes:
+
+- Under **Grok**, Mind and Hand share the **same** model class (Grok 4.5) as well
+  as the same harness — simpler ops and consistent review/implement dialect.
+- Under **Codex**, Mind and Hand may differ **within** the family: sol/medium for
+  Mind’s control-loop work; luna/xhigh for Hands’ implementation throughput.
+  Harness stays Codex for both (**Harness alignment**).
+- Ladders for capacity start at these primaries, then step to other same-harness
+  models listed in fleet `runtime_fallback` (do not flip product harness first).
+
+#### Advisor plane (Heads — prefer Pi entirely)
+
+| Role | Harness | Preferred model | Effort / thinking |
+| --- | --- | --- | --- |
+| **Strategist** | **Pi** (preferred) | GLM 5.2 | **high** or **xhigh** |
+| **Correctness** | **Pi** (preferred) | GLM 5.2 | **high** or **xhigh** |
+| **Purity** | **Pi** (preferred) | GLM 5.2 | **high** or **xhigh** |
+
+**Why Pi for Heads:** advisors are largely **one-shot** — Mind assigns a question,
+the Head churns, returns a report, and is done (strategist: clean-slate reinit
+per assign). Pi fits that assign→answer loop better than a long product TUI
+session. Product Hands stay on Mind’s harness for continuous bag drain.
+
+Default Head launch shape (ids may move; read fleet when launching):
+
+```text
+pi --provider zai --model glm-5.2 --thinking high   # or xhigh
+```
+
+Heads are **not** required to match Mind’s product harness. Prefer Pi even when
+Mind is Grok or Codex.
 
 ### Hand does
 
@@ -404,8 +453,16 @@ Shape:
   "mind": { "agent": "grok", "note": "Hands inherit this harness family" },
   "agent_policy": {
     "hands_follow_mind_harness": true,
-    "heads_prefer_alternate_harness": true,
+    "heads_prefer_pi": true,
     "codex_reinit_after_kill": true
+  },
+  "preferred_models": {
+    "grok": { "mind": "grok-4.5", "hand": "grok-4.5" },
+    "codex": {
+      "mind": { "model": "gpt-5.6-sol", "effort": "medium" },
+      "hand": { "model": "gpt-5.6-luna", "effort": "xhigh" }
+    },
+    "head": { "agent": "pi", "model": "glm-5.2", "thinking": "high|xhigh" }
   },
   "hunters": {
     "hunter-1": {
@@ -747,8 +804,9 @@ wakes on a correctly blocked product hunter.
 - Ensure a bag exists (mailspace identities, or equivalent board)
 - Point Hand and Mind at the same project root and map (campaign/GOAL)
 - Record **Mind’s harness** in fleet (`mind.agent`); bind every Hand’s `agent` /
-  `wake_mode` / reinit policy to that harness (**Harness alignment**). Prefer
-  alternate harnesses for Heads.
+  `wake_mode` / reinit policy to that harness (**Harness alignment**). Apply
+  **Preferred models by role** (Grok 4.5 / Codex sol·medium Mind & luna·xhigh Hand;
+  Heads → Pi + GLM 5.2 high/xhigh).
 - Optional scout for approach-only advice
 - Create tiny role baselines under the project (e.g. `.vivi/gatherer-baseline.json`,
   optional `.vivi/hunter-fleet.json`): `last_cycle`, `quiet_streak`,
@@ -1155,7 +1213,7 @@ don't-get-stuck, or **Harness alignment** (Hands = Mind harness).
 | Lives in skill | Lives in project overlay |
 | --- | --- |
 | Roles, bag rules, dual channel, fleet axes | Concrete Hand roster, cwds, model ids |
-| **Harness alignment** (Hands = Mind; Heads diversify) | Live `mind.agent`, per-slot `agent_launch`, Head harness picks |
+| **Harness alignment** + **Preferred models by role** | Live `mind.agent` / `agent_model` / `agent_launch`; Head Pi launches |
 | Theme vs unit, merge clock, base-update *policy* | Campaign maps, product Status, validation commands |
 | Head loops, cycle kinds, runtime fallback *structure* | Role-prompt paths, absolute tool binaries |
 | Baseline *field meanings* and `pending_merges` states | Fat historical ledger rows, wind-up snapshots |
@@ -1245,9 +1303,9 @@ Use **absorb** and **accept** accurately.
 ## Head loops (advisors) (promoted detail)
 
 Heads are **not** product lanes. Do not keep-screen-moving refill them with map
-packages. They never merge and never own `pending_merges`. Prefer a **different
-harness and/or model** than Mind/Hands so reports are second-party opinion
-(**Harness alignment**).
+packages. They never merge and never own `pending_merges`. Prefer the **Pi**
+harness with **GLM 5.2 (high or xhigh)** for all advisors — one-shot
+assign→report, second-party opinion (**Preferred models by role**).
 
 ### Strategist research loop (mail; every Mind cycle, fail-fast)
 
@@ -1503,8 +1561,11 @@ names an ordered ladder **per harness** (example shape only — do not invent id
 not in fleet):
 
 ```text
-codex_model_ladder: [ primary, family-alt, older-1, older-2 ]
-grok_model_ladder:  [ primary, family-alt, … ]
+# defaults match Preferred models by role; fleet may extend
+codex_model_ladder_mind:  [ gpt-5.6-sol@medium, … ]
+codex_model_ladder_hand:  [ gpt-5.6-luna@xhigh, … ]
+grok_model_ladder:        [ grok-4.5, … ]
+head_pi_model:            [ glm-5.2@high, glm-5.2@xhigh, … ]
 ```
 
 **When `error_capacity` on a Hand (or similar):**
@@ -1643,11 +1704,20 @@ Recommended keys (extend freely; skill cares about meanings):
   "binding_rule": "mail_identity == tmux_session token",
   "mind": {
     "agent": "grok",
+    "agent_model": "grok-4.5",
     "note": "Product harness source of truth; Hands inherit agent family"
   },
   "agent_policy": {
     "hands_follow_mind_harness": true,
-    "heads_prefer_alternate_harness": true
+    "heads_prefer_pi": true
+  },
+  "preferred_models": {
+    "grok": { "mind": "grok-4.5", "hand": "grok-4.5" },
+    "codex": {
+      "mind": { "model": "gpt-5.6-sol", "effort": "medium" },
+      "hand": { "model": "gpt-5.6-luna", "effort": "xhigh" }
+    },
+    "head": { "agent": "pi", "model": "glm-5.2", "thinking": "high|xhigh" }
   },
   "tooling": {
     "pi": { "binary": "/abs/path/to/pi" },
@@ -1656,10 +1726,12 @@ Recommended keys (extend freely; skill cares about meanings):
     "vivi": { "binary": "/abs/path/to/vivi" }
   },
   "runtime_fallback": {
-    "grok_model_ladder": ["primary-model", "alt-1"],
-    "codex_model_ladder": ["primary-model", "alt-1", "alt-2"],
+    "grok_model_ladder": ["grok-4.5"],
+    "codex_model_ladder_mind": ["gpt-5.6-sol"],
+    "codex_model_ladder_hand": ["gpt-5.6-luna"],
+    "head_pi_model_ladder": ["glm-5.2"],
     "hand_harness_follows_mind": true,
-    "harness_order_heads_only": ["pi", "codex", "grok"]
+    "heads_prefer_pi": true
   },
   "hunters": {
     "hunter-1": {
@@ -1668,7 +1740,7 @@ Recommended keys (extend freely; skill cares about meanings):
       "tmux_target": "hunter-1:1.1",
       "cwd": "/path/to/main",
       "agent": "grok",
-      "agent_model": "…",
+      "agent_model": "grok-4.5",
       "agent_launch": "…",
       "merges_to_main": true,
       "assignment_sticky": true,
@@ -1689,18 +1761,24 @@ Recommended keys (extend freely; skill cares about meanings):
   "strategist": {
     "mail_identity": "strategist",
     "agent": "pi",
-    "agent_launch": "…",
+    "agent_model": "glm-5.2",
+    "thinking": "high",
+    "agent_launch": "pi --provider zai --model glm-5.2 --thinking high",
     "clean_slate_per_assignment": true,
     "role_prompt": ".vivi/strategist-role-prompt.txt"
   },
   "correctness": {
     "mail_identity": "correctness",
     "agent": "pi",
+    "agent_model": "glm-5.2",
+    "thinking": "high",
     "self_directed": true
   },
   "purity": {
     "mail_identity": "purity",
     "agent": "pi",
+    "agent_model": "glm-5.2",
+    "thinking": "high",
     "self_directed": true
   }
 }
@@ -1708,6 +1786,8 @@ Recommended keys (extend freely; skill cares about meanings):
 
 **Never hardcode model strings as Hand identity.** Read `agent_launch` from fleet.
 Hand `agent` should match `mind.agent` unless baseline records an operator exception.
+Default model picks come from **Preferred models by role**; fleet may override for
+capacity or experiment, then re-align when quiet.
 
 ---
 
