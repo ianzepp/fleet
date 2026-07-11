@@ -155,9 +155,9 @@ Hand: A same turn; B need+pivot; C own hunks. Mind: ≥2 cycles blocked unclassi
 | Hand | Drain bag; validate; polish unit; ship quality | Wait for GO; merge to main (hand-2+); erase foreign WIP |
 | Mind | File/wake/integrate/starve-refill; operator mail | GO stamps; steal unit; deep code review; mind/operator tmux |
 | operator@ | Human escalations | Status; bag drain |
-| head-cto | Post-main review | Own product bag; GO stamp |
-| head-ceo | Vision; side-lane buckets; **continuity consult** (continue vs pause) | File Hand tasks; merge; invent polish |
-| head-cxo | Complexity/purity | Product bag; operator mail |
+| head-cto | Post-main review + technical gate honesty | Own product bag; GO stamp |
+| head-ceo | **Strategist:** map health, misprioritization, gate honesty; side-lane buckets; continuity consult; posture-scaled proactivity | File Hand tasks; merge; invent polish |
+| head-cxo | Complexity/purity (gates invented by shape) | Product bag; operator mail |
 
 Identity ≠ assignment ≠ runtime. Detail: [`roles-and-harness.md`](references/roles-and-harness.md).
 
@@ -229,7 +229,7 @@ Report tracks **mode**, not acted/sleep alone. Templates: [`mind-cycle.md`](refe
 | Topic | Rule |
 | --- | --- |
 | Multi-fleet | One Mind session may supervise many fleets; **one Mind per fleet** (advisory `mind_session`); fleets= on FLEET_CYCLE line; prefer session=`fleet_id`. **Per-fleet posture** — standby/dormant mini-cycles stay quiet |
-| Posture | `growth` ships map; `standby`/`dormant` = on-call / paused — quiet is success. Continuity doubt → head-ceo once, not polish thrash — [`fleet-posture.md`](references/fleet-posture.md) |
+| Posture | `growth` ships map + aggressive Head research; `standby` = on-call Hands quiet, Heads **stewardship**; `dormant` = Heads rare. Continuity doubt → head-ceo once, not polish thrash — [`fleet-posture.md`](references/fleet-posture.md) |
 | Steward | **Default OFF.** Per-fleet dead-man only when operator **explicitly** enables `steward.enabled` **and** asks to arm **that** fleet. Loop ≠ steward. When armed: rearm each successful mini-cycle; disarm same turn on detach. Not second Mind |
 | operator@ | **Both directions every cheap cycle:** (1) **To operator@** escalations waiting on human (2) **From operator@ → mind@** decisions/feedback — absorb **first**. Sensors: `operator_mail` + `operator_to_mind`. [`operator-mail.md`](references/operator-mail.md) |
 

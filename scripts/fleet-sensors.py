@@ -317,7 +317,12 @@ def resolve_tmux_bin(tooling: Optional[Dict[str, Any]] = None) -> str:
 
 
 def resolve_posture(fleet: dict, baseline: dict) -> tuple:
-    """Return (mode, suppress_starvation, posture_out_dict)."""
+    """Return (mode, suppress_starvation, pause_executive_sweeps, posture_out_dict).
+
+    Hands: standby+dormant suppress starvation refill (quiet Hands is success).
+    Heads: only dormant pauses default executive cadence; standby allows
+    stewardship sweeps (not expansion). See fleet-posture.md.
+    """
     posture_block = fleet.get("fleet_posture") if isinstance(fleet.get("fleet_posture"), dict) else {}
     if not posture_block and isinstance(baseline.get("fleet_posture"), dict):
         posture_block = baseline.get("fleet_posture") or {}
@@ -326,8 +331,23 @@ def resolve_posture(fleet: dict, baseline: dict) -> tuple:
         mode = "growth"
     if mode in ("on_call", "on-call"):
         mode = "standby"
-    suppress = mode in ("standby", "dormant")
-    return mode, suppress, {"mode": mode, "reason": posture_block.get("reason")}
+    suppress_starvation = mode in ("standby", "dormant")
+    pause_executive_sweeps = mode == "dormant"
+    default_sweep = {
+        "growth": "expansion",
+        "standby": "stewardship",
+        "dormant": "paused",
+    }.get(mode, "expansion")
+    return (
+        mode,
+        suppress_starvation,
+        pause_executive_sweeps,
+        {
+            "mode": mode,
+            "reason": posture_block.get("reason"),
+            "default_head_sweep_mode": default_sweep,
+        },
+    )
 
 
 def hand_is_paused(baseline: dict, name: str) -> bool:
@@ -581,7 +601,12 @@ def main() -> int:
     }
 
     # --- fleet posture (continuity vs sleep) ---
-    posture_mode, posture_suppresses_starvation, posture_out = resolve_posture(fleet, baseline)
+    (
+        posture_mode,
+        posture_suppresses_starvation,
+        posture_pauses_executive_sweeps,
+        posture_out,
+    ) = resolve_posture(fleet, baseline)
     out["fleet_posture"] = posture_out
 
     # --- hands panes + bag ---
@@ -699,7 +724,8 @@ def main() -> int:
         cad = block.get("executive_cadence") if isinstance(block.get("executive_cadence"), dict) else {}
         sweep_enabled = bool(cad.get("enabled", False))
         sweep_interval = int(cad.get("min_seconds_between_sweeps") or HEAD_DEFAULT_INTERVALS.get(key, 3600))
-        sweep_mode = cad.get("sweep_mode")
+        # Explicit config wins; else posture default (growth→expansion, standby→stewardship).
+        sweep_mode = cad.get("sweep_mode") or posture_out.get("default_head_sweep_mode")
         sender_tokens = [block.get("mail_identity") or key]
         la = block.get("legacy_aliases")
         if isinstance(la, list):
@@ -741,15 +767,21 @@ def main() -> int:
 
         secs = _secs_since(last_completed, now_dt) if last_completed else None
         interval_elapsed = (secs is None) or (secs >= sweep_interval)
+        # dormant pauses Head cadence; standby still allows stewardship sweeps.
         sweep_due = (
             sweep_enabled
             and not head_paused
-            and not posture_suppresses_starvation
+            and not posture_pauses_executive_sweeps
             and pclass != "running"
             and interval_elapsed
         )
         overdue_sec = None
-        if sweep_enabled and secs is not None and secs > sweep_interval:
+        if (
+            sweep_enabled
+            and not posture_pauses_executive_sweeps
+            and secs is not None
+            and secs > sweep_interval
+        ):
             overdue_sec = int(secs - sweep_interval)
 
         short = pk.split("_", 1)[1]  # ceo | cto | cxo
@@ -771,7 +803,7 @@ def main() -> int:
             "sweep_last_completed": last_completed,
             "sweep_last_handle": last_handle,
             "sweep_top_handle": cur_top,
-            "sweep_paused": head_paused or posture_suppresses_starvation,
+            "sweep_paused": head_paused or posture_pauses_executive_sweeps,
         }
 
     # steward block from fleet + baseline + optional pane

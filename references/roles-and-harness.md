@@ -10,7 +10,7 @@ Arming a fleet, rebinding runtimes, Mind/Hand/Head duties.
 | **Mind** | Board **`mind@…`** — **no tmux**; process = operator TUI | Survey product; **dole out** tasking; integrate; fleet ops; pick from head-ceo buckets; **track est vs actual cost**; file/present **operator mail** | Open tasks/needs; pane scan; wake/reinit; merge queue; `cost_calibration` |
 | **Operator mail** | Board **`operator@…` only** — **no tmux** | Accrue human escalations while autonomous | Need/mail To human; presented on return — **not** status |
 | **Steward** | tmux **`steward`** (not Mind) | Dead-man: watch successful cycle ticks; trip → hold + page | `steward.sh`; operator@ + optional external email |
-| **head-ceo** (Head) | `head-ceo` | Vision, sequencing; **hand-2+ buckets with effort + est_tokens** | Mail `head-ceo report:` To `mind` |
+| **head-ceo** (Head) | `head-ceo` | **Strategist:** map health, misprioritization, gate honesty, sequencing; **hand-2+ buckets with effort + est_tokens** (growth expansion / standby stewardship) | Mail `head-ceo report:` To `mind` |
 | **head-cto** (Head) | `head-cto` | **Code review / bug hunt on main after merge** | Mail `head-cto:` To `mind` |
 | **head-cxo** (Head) | `head-cxo` | Self-directed complexity / purity audit (**not** operator voice) | Mail `head-cxo:` To `mind` |
 
@@ -178,4 +178,4 @@ pi --provider zai --model glm-5.2 --thinking high   # or xhigh
 
 ## Heads do not
 
-Approve/disapprove as a gate, race Mind on acceptance, merge to main, or own product tasking. **head-ceo** proposes sequencing/ownership and **side-lane (hand-2+) candidate buckets**; **head-cto** reviews main; **head-cxo** reports shape debt. Mind triages into the bag and coordinates live Hands.
+Approve/disapprove as a gate, race Mind on acceptance, merge to main, or own product tasking. **head-ceo** (strategist seat) proposes sequencing/ownership, map-health findings (inversions, false gates), and **side-lane (hand-2+) candidate buckets**; **head-cto** reviews main + technical gate honesty; **head-cxo** reports shape debt. Mind triages into the bag and coordinates live Hands. Proactivity scales with `fleet_posture` (see `fleet-posture.md`).

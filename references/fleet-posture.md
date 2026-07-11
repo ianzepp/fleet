@@ -10,13 +10,15 @@
 
 Stored on the fleet overlay (`fleet.json` → `fleet_posture`) and mirrored in baseline for recap.
 
-| Mode | Intent | Empty bags + no real map unit |
-| --- | --- | --- |
-| **`growth`** (alias: `campaign`) | Ship a map; keep spine moving | Starvation refill **if** unblocked product unit exists; else continuity consult or sleep |
-| **`standby`** (alias: `on_call`) | On-call until field/operator need | **Quiet is success** — do not invent work |
-| **`dormant`** | Explicit pause | Sensors/absorb only; no product filing; optional pane drop |
+| Mode | Intent | Empty bags + no real map unit | Head proactivity |
+| --- | --- | --- | --- |
+| **`growth`** (alias: `campaign`) | Ship a map; keep spine moving | Starvation refill **if** unblocked product unit exists; else continuity consult or sleep | **Aggressive:** map integrity + expansion, inversions, side-lanes |
+| **`standby`** (alias: `on_call`) | On-call until field/operator need | **Quiet Hands is success** — do not invent product work | **Stewardship:** priority/status/opt/correctness of **current** product — not new campaigns |
+| **`dormant`** | Explicit pause | Sensors/absorb only; no product filing; optional pane drop | **Rarely / never** — assign-only; cadence sweeps paused |
 
 Examples: active campaign fleets → `growth`. Vivi-shaped “feature when I need it” → `standby`. Stage complete waiting on humans → `dormant` or wind-up.
+
+**Hands vs Heads:** standby suppresses **Hand starvation refill** and polish theater. It does **not** mean “never run executives.” Dormant pauses **both** product filing and default executive cadence.
 
 **Orthogonal to:**
 
@@ -82,9 +84,22 @@ Hygiene remains: Hand end-of-unit polish; post-main polish advisory **once per t
 5. Never file polish/HK solely because starvation_candidate fired
 ```
 
+## Heads by posture (strategist / correctness / purity)
+
+`head-ceo` is the **strategist** seat (map research, misprioritization, gate honesty). Personas: [`heads/personas/`](heads/personas/). Loops: [`heads.md`](heads.md).
+
+| Mode | head-ceo | head-cto | head-cxo | Cadence sweeps |
+| --- | --- | --- | --- | --- |
+| **growth** | Map-health + **expansion**; priority inversions; side-lane buckets | Bugs + technical gate honesty | Shape debt that blocks expansion | Due when `executive_cadence` enabled |
+| **standby** | Stewardship only (priority/status/opt/correctness of current product) | Reliability / correctness of current product | Complexity that hurts on-call risk | Allowed (stewardship lens); not expansion |
+| **dormant** | Assign-only | Assign-only | Assign-only | **Paused** by sensors |
+
+**Ban:** expansion candidates or new campaign surface while posture is standby/dormant.  
+**Ban:** “paused pending facts” CEO reports with no named producer packet (unicorn ban — shared rules).
+
 ## head-ceo continuity consult
 
-Not every quiet cycle. Not side-lane bucket spam.
+Not every quiet cycle. Not side-lane bucket spam. Distinct from **map-health cadence** (which runs on interval when enabled).
 
 **When (growth only):** map looks empty, only hygiene left, or Mind cannot name a valuable next unit.
 
@@ -128,13 +143,23 @@ Report one line/block per fleet including `posture=…`.
 
 When `fleet_posture.mode` ∈ {`standby`, `dormant`}, do **not** emit `starvation_candidate_*` (empty idle Hands are expected). Wake candidates for **open bags** still fire.
 
+**Executive cadence:**
+
+| Mode | `starvation_candidate_*` | Head `sweep_due` / `head_due_*` |
+| --- | --- | --- |
+| growth | Normal | When cadence enabled + interval elapsed |
+| standby | Suppressed | **Still allowed** (stewardship); default `sweep_mode=stewardship` |
+| dormant | Suppressed | **Paused** (`sweep_paused`); assign-only |
+
 ## Anti-patterns
 
 - Polish/HK as continuity fuel  
 - Filing wants/tasks with no map unit or operator intent  
 - head-ceo continuity every quiet cycle on standby fleets  
+- head-ceo **expansion** assigns while posture is standby/dormant  
 - Treating `starvation_candidate` as mandatory act  
 - Multi-fleet “fairness” busywork on quiet fleets  
+- Pausing **all** Head sweeps on standby (stewardship Heads should still run when cadence is on)  
 - Confusing dormant with steward trip or wound_up (related but distinct)
 
 ## Related

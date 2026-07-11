@@ -77,7 +77,7 @@ On return: present operator mail list first.
 | **operator@** | Accrue human problems/blockers/guidance | Status; Hand bag drain |
 | **hand-1** | Main; spine; **only** merge → main | Wait for GO mail; erase foreign WIP |
 | **hand-2+** | Packet/worktree lanes; unit→refill; theme→ready-to-merge | Merge to main; invent unbounded spine |
-| **head-ceo** | Vision, sequencing, **side-lane buckets** (+ effort/token ballparks) | File Hand tasks; stamp GO/NO-GO |
+| **head-ceo** | **Strategist:** map health, misprioritization, gate honesty; **side-lane buckets** (+ effort/token ballparks); posture-scaled | File Hand tasks; stamp GO/NO-GO |
 | **head-cto** | **Code review / bugs on main after merge** | Own product tasking; block merges as license |
 | **head-cxo** | Complexity / purity (not operator-facing) | Own product tasking; operator email |
 | *optional* | `head-cpo` / `head-cso` / … (`heads/`) | Lazy Heads when needed |
@@ -103,7 +103,7 @@ Hands share **Mind’s product harness**. Heads prefer different model/harness.
 7. **Integration** — hand-2+ never merges; Mind **accepts** themes (integration bar) → merge task To hand-1 at clean breakpoint  
 8. **Hygiene** — polish advisory after main lands; `$housekeeping` only at **major inflection**
 
-**Keep screen moving (product only):** empty bag + map has unblocked **product** work = **starvation** → file next + wake. **Posture** (`growth` / `standby` / `dormant`): standby/dormant fleets may stay quiet — do not invent polish. Continuity doubt → head-ceo once, not thrash — [`fleet-posture.md`](fleet-posture.md).
+**Keep screen moving (product only):** empty bag + map has unblocked **product** work = **starvation** → file next + wake. **Posture** (`growth` / `standby` / `dormant`): growth = aggressive Head research + expansion; standby = quiet Hands, Head **stewardship** (not expansion); dormant = Heads rare. Continuity doubt → head-ceo once, not thrash — [`fleet-posture.md`](fleet-posture.md).
 
 **Don't get stuck:** name class (decision, dirt, pane, capacity); unstick or pivot same turn.
 
