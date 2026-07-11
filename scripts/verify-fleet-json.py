@@ -98,6 +98,56 @@ def _check_inbox_key(report: Report, where: str, val: Any) -> None:
         report.err(where, "inbox key must be a non-empty string, got %r" % (val,))
 
 
+def _register_mail_identity(
+    report: Report,
+    identities: Dict[str, str],
+    where: str,
+    mid: Any,
+) -> None:
+    """Require non-empty mail_identity; warn on duplicates across roles."""
+    if not isinstance(mid, str) or not mid.strip():
+        report.err(where, "missing mail_identity")
+        return
+    if mid in identities:
+        report.warn(where, "duplicate mail_identity %r (also at %s)" % (mid, identities[mid]))
+    else:
+        identities[mid] = where
+
+
+def _check_wake_fields(report: Report, where: str, entry: Dict[str, Any]) -> None:
+    we = entry.get("wake_enabled")
+    if we is not None and not isinstance(we, bool):
+        report.err(where, "wake_enabled must be boolean, got %r" % (we,))
+    if we is True:
+        ms = entry.get("min_seconds_between_wakes")
+        if not isinstance(ms, int) or isinstance(ms, bool):
+            report.warn(where, "wake_enabled=true but min_seconds_between_wakes missing or non-int")
+        elif ms < 0:
+            report.err(where, "min_seconds_between_wakes must be >= 0, got %d" % ms)
+
+
+def _check_executive_cadence(report: Report, where: str, block: Dict[str, Any]) -> None:
+    cad = block.get("executive_cadence")
+    if cad is None:
+        return
+    cwhere = "%s.executive_cadence" % where
+    if not isinstance(cad, dict):
+        report.err(cwhere, "must be an object")
+        return
+    en = cad.get("enabled")
+    if not isinstance(en, bool):
+        report.err("%s.enabled" % cwhere, "must be boolean, got %r" % (en,))
+    if en is True:
+        ms = cad.get("min_seconds_between_sweeps")
+        if not isinstance(ms, int) or isinstance(ms, bool) or ms <= 0:
+            report.err(
+                "%s.min_seconds_between_sweeps" % cwhere,
+                "enabled=true requires a positive integer interval, got %r" % (ms,),
+            )
+    if "sweep_mode" in cad and not isinstance(cad.get("sweep_mode"), str):
+        report.warn("%s.sweep_mode" % cwhere, "should be a string, got %r" % (cad.get("sweep_mode"),))
+
+
 def validate(fleet: Dict[str, Any], fleet_path: Path, path_checks: bool) -> Report:
     report = Report()
     if not isinstance(fleet, dict):
@@ -137,14 +187,7 @@ def validate(fleet: Dict[str, Any], fleet_path: Path, path_checks: bool) -> Repo
             report.err(where, "hand entry must be an object")
             continue
         report.counts["hands"] += 1
-        mid = h.get("mail_identity")
-        if not isinstance(mid, str) or not mid.strip():
-            report.err(where, "missing mail_identity")
-        else:
-            if mid in identities:
-                report.warn(where, "duplicate mail_identity %r (also at %s)" % (mid, identities[mid]))
-            else:
-                identities[mid] = where
+        _register_mail_identity(report, identities, where, h.get("mail_identity"))
         _check_tmux_target(report, where, h, required=True)
         if "agent" in h and not isinstance(h.get("agent"), str):
             report.warn(where, "agent must be a string, got %r" % (h.get("agent"),))
@@ -154,16 +197,7 @@ def validate(fleet: Dict[str, Any], fleet_path: Path, path_checks: bool) -> Repo
                 report.warn(where, "cwd does not exist locally: %s" % cwd)
         if "merges_to_main" in h and not isinstance(h.get("merges_to_main"), bool):
             report.err(where, "merges_to_main must be boolean, got %r" % (h.get("merges_to_main"),))
-        # wake fields
-        we = h.get("wake_enabled")
-        if we is not None and not isinstance(we, bool):
-            report.err(where, "wake_enabled must be boolean, got %r" % (we,))
-        if we is True:
-            ms = h.get("min_seconds_between_wakes")
-            if not isinstance(ms, int) or isinstance(ms, bool):
-                report.warn(where, "wake_enabled=true but min_seconds_between_wakes missing or non-int")
-            elif ms < 0:
-                report.err(where, "min_seconds_between_wakes must be >= 0, got %d" % ms)
+        _check_wake_fields(report, where, h)
         pkt = h.get("packet")
         if pkt is not None and not isinstance(pkt, dict):
             report.warn(where, "packet must be an object or null (unassigned)")
@@ -180,41 +214,15 @@ def validate(fleet: Dict[str, Any], fleet_path: Path, path_checks: bool) -> Repo
             report.err(where, "head entry must be an object")
             continue
         report.counts["heads"] += 1
-        mid = block.get("mail_identity")
-        if not isinstance(mid, str) or not mid.strip():
-            report.err(where, "missing mail_identity")
-        else:
-            if mid in identities:
-                report.warn(where, "duplicate mail_identity %r (also at %s)" % (mid, identities[mid]))
-            else:
-                identities[mid] = where
+        _register_mail_identity(report, identities, where, block.get("mail_identity"))
         if "agent" in block and not isinstance(block.get("agent"), str):
             report.warn(where, "agent must be a string, got %r" % (block.get("agent"),))
         if block.get("merges_to_main") is True:
             report.err(where, "merges_to_main=true on a head — only hands merge to main")
-        # legacy_aliases shape (used by sensors + completion scan)
         la = block.get("legacy_aliases")
         if la is not None and not isinstance(la, list):
             report.warn(where, "legacy_aliases should be a list, got %r" % (type(la).__name__,))
-        # executive cadence
-        cad = block.get("executive_cadence")
-        if cad is not None:
-            cwhere = "%s.executive_cadence" % where
-            if not isinstance(cad, dict):
-                report.err(cwhere, "must be an object")
-            else:
-                en = cad.get("enabled")
-                if not isinstance(en, bool):
-                    report.err("%s.enabled" % cwhere, "must be boolean, got %r" % (en,))
-                if en is True:
-                    ms = cad.get("min_seconds_between_sweeps")
-                    if not isinstance(ms, int) or isinstance(ms, bool) or ms <= 0:
-                        report.err(
-                            "%s.min_seconds_between_sweeps" % cwhere,
-                            "enabled=true requires a positive integer interval, got %r" % (ms,),
-                        )
-                if "sweep_mode" in cad and not isinstance(cad.get("sweep_mode"), str):
-                    report.warn("%s.sweep_mode" % cwhere, "should be a string, got %r" % (cad.get("sweep_mode"),))
+        _check_executive_cadence(report, where, block)
         _check_path(report, where, "role_prompt", block.get("role_prompt"), path_checks)
         _check_path(report, where, "persona", block.get("persona"), path_checks)
 
