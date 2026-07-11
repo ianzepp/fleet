@@ -2,7 +2,7 @@
 
 **Audience:** a human or LLM seeing multi-agent `$fleet` for the first time — including someone who received a copy of the skill outside this repo.
 
-**Installing for the first time?** Use **[`getting-started.md`](getting-started.md)** first (dependencies — **Vivi is required** — and a minimal arm). This guide is vocabulary and shape, not install.
+**Install, init, or re-attach?** Use **[`getting-started.md`](getting-started.md)** (deps → initialize project → attach Mind). This guide is vocabulary and shape, not those procedures.
 
 **Not the operating manual.** Full process law lives in `fleet/SKILL.md` and `fleet/references/`. Load those when *running* a fleet. This guide is for **orientation**: typical shape, vocabulary, and anti-patterns.
 

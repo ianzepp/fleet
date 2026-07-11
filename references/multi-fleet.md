@@ -90,6 +90,10 @@ FLEET_CYCLE project=/path/to/one/fleet …
 
 ## Attach / detach
 
+**First-time single-fleet attach (operator chat):** step-by-step in
+[`getting-started.md`](getting-started.md) § 3 — Attach Mind. Below is the
+compact multi-fleet protocol.
+
 ### Attach
 
 1. Read `<fleet>/.vivi/mind-baseline.json` → `mind_session` lock.
