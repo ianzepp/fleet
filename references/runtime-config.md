@@ -156,7 +156,23 @@ Recommended keys (extend freely; skill cares about meanings):
   "mind_inbox": "mind",
   "operator_inbox": "operator",
   "operator_inbox_note": "Human escalations only (problems/blockers/guidance). Not status. No tmux.",
-  "binding_rule": "mail_identity == tmux_session token (Hands/Heads only; mind+operator are board-only, no tmux)",
+  "steward": {
+    "enabled": true,
+    "tmux_session": "steward",
+    "tmux_target": "steward:1.1",
+    "grace_sec": 900,
+    "poll_sec": 60,
+    "mode": "hold",
+    "notify": {
+      "operator_board": true,
+      "external_email": false,
+      "account": "personal-proton",
+      "to": [],
+      "dedupe_hours": 6,
+      "preauthorized_exec_send": false
+    }
+  },
+  "binding_rule": "mail_identity == tmux_session token (Hands/Heads only; mind+operator board-only; steward is watchdog tmux, not Mind)",
   "mind": {
     "agent": "grok",
     "agent_model": "grok-4.5",
@@ -261,6 +277,8 @@ mind_mode_override optional       # ops_only | deep | clear — operator sticky 
 last_operator_message_at          # timestamp or cycle id of last operator prose
 operator_recap                    # short material status list since last operator message
 operator_mail                     # {identity, open_count, last_filed_at, last_presented_*} human inbox counters
+steward                           # {armed, last_rearm_at, tripped, tripped_at, last_external_*} dead-man state
+mind_loop.last_successful_cycle_at  # successful FLEET_CYCLE end tick (steward watches this)
 mind_watch_cursor_path optional   # path to vivi mailspace watch --cursor-file
 last_actionable_fingerprint   # fleet bags + heads/dirty + panes
 pending_reviews[]
@@ -344,6 +362,7 @@ Part of orderly camp shutdown (and lifecycle **Retire**).
 5. **Baseline** `mind_loop.state = wound_up` with: dropped/kept panes, tips, residual open handles, handoff for rearm
 6. Optional pointer to kept hands: fleet wound up; continue bag or idle
 7. Cancel Mind `/loop` or harness scheduler **in the operator session** if stopping the loop
+8. **`steward.sh disarm --project <root>`** same turn (or before stop) so dead man does not false-trip
 
 ### What wind-down is not
 

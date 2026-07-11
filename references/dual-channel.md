@@ -12,6 +12,7 @@ tmux is the **process layer** (whether the Hand process is alive, idle, or broke
 | “Codex done/idle at `›` with open tasking” | tmux → **reinit** (kill + fresh session + short bootstrap) — not stacked wakes |
 | “Over capacity / connection failed / hung Waiting” | tmux → ops intervene (model change, retry, restart) |
 | “Human must decide / recover / guide a fix” | Vivi **To `operator@`** (need/mail) — not status To mind; see `operator-mail.md` |
+| “Mind loop dead / cycle ticks stopped” | tmux **steward** dead man — see `dead-man.md`; rearm every successful cycle |
 | “No mail and no pane signal” | do not invent progress; sleep or escalate if bag stale |
 | “Fix landed upstream; consumer still red” | Check **pin-relative done** before re-verify doorbell |
 

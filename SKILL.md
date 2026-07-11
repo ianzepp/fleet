@@ -1,6 +1,6 @@
 ---
 name: fleet
-description: Multi-agent fleet management with Mind/Head/Hand roles (Abbot pattern) — Mind (operator TUI + mind@ board inbox + operator@ human escalations), Hands (hand-1…hand-N) clear work, Heads (head-ceo/head-cto/head-cxo + optional org personas) advise; Hands share Mind harness; dual-channel Vivi+tmux; multi-lane integration. Use for hand-N fleets, codex reinit, keep-screen-moving, don't-get-stuck, FLEET_CYCLE Mind loops.
+description: Multi-agent fleet management with Mind/Head/Hand roles (Abbot pattern) — Mind (operator TUI + mind@ board + operator@ escalations), steward dead-man watchdog, Hands (hand-1…hand-N), Heads (head-ceo/cto/cxo); dual-channel Vivi+tmux; multi-lane integration. Use for hand-N fleets, codex reinit, FLEET_CYCLE loops, steward arm/rearm/disarm.
 ---
 
 # Fleet
@@ -20,6 +20,7 @@ description: Multi-agent fleet management with Mind/Head/Hand roles (Abbot patte
 | --- | --- | --- | --- |
 | **mind** | `mind@<mailspace>.local` | **none** | Fleet **board** for To: Mind (Hand done, Head reports, bag bookkeeping). Process = operator TUI. |
 | **operator** | `operator@<mailspace>.local` | **none** | **Human** inbox for problems, critical blockers, bugs needing guidance. Not status. Detail: [`operator-mail.md`](references/operator-mail.md). |
+| **steward** | (optional board id) | **`steward`** | Dead-man watchdog pane — not Mind. Trip → hold + page. Detail: [`dead-man.md`](references/dead-man.md). |
 | **hand-N** | `hand-N@…` | `hand-N` | Workers. `hand-1` merges to main; `hand-2+` packets. |
 | **head-ceo** | `head-ceo@…` | `head-ceo` | Vision / sequencing / side-lane buckets (legacy: head-strategist) |
 | **head-cto** | `head-cto@…` | `head-cto` | Post-main code review / bugs (legacy: head-correctness) |
@@ -27,7 +28,8 @@ description: Multi-agent fleet management with Mind/Head/Hand roles (Abbot patte
 | *optional* | `head-cpo` / `head-cso` / … | same token | Lazy org Heads — see `references/heads/cast.md` |
 
 **Binding rule (Hands/Heads only):** mail identity token == tmux session name.  
-**Mind and operator are not fleet process slots.** Do not create `reviewer`, dual Mind panes, or tmux for `mind` / `operator`.
+**Mind and operator are not fleet process slots.** Do not create `reviewer`, dual Mind panes, or tmux for `mind` / `operator`.  
+**Steward is a process slot but not Mind** — it only watches completed-cycle ticks and holds/pages on miss.
 
 **Retired:** `reviewer`, `gatherer`, bare `strategist` / `correctness` / `purity` as mail ids, `hunter-N` as default, standalone **`$executive-team`** skill (personas live under `fleet/references/heads/personas/`). Legacy camps may still use `hunter-N`, `head-strategist`, `head-correctness`, `head-purity`; **new** fleets use `hand-N`, `head-ceo`, `head-cto`, `head-cxo`.
 
@@ -108,6 +110,8 @@ Reserve **hard ban** language for actions that break the platform, tree, or mult
 | [`dual-channel.md`](references/dual-channel.md) | Pane classes, doorbell, reinit, rehome, `/compact`, mail templates, **mailspace watch / thread** |
 | [`mind-cycle.md`](references/mind-cycle.md) | Modes, cycle prefix, fail-fast, absorb/accept, **polish advisory**, **housekeeping inflection**, operator recap, **operator mail present-on-return** |
 | [`operator-mail.md`](references/operator-mail.md) | **`operator@` human inbox** — problems / blockers / bug-guidance; not status; present when operator returns |
+| [`dead-man.md`](references/dead-man.md) | **Steward / dead man** — completed-cycle watchdog in tmux; rearm every cycle; trip → hold + operator@ + external email |
+| [`scripts/steward.sh`](scripts/steward.sh) | `arm` / `rearm` / `disarm` / `check` / `clear` / `loop` for steward |
 | [`multi-lane.md`](references/multi-lane.md) | Side lanes, theme→main, base-update, pin-relative, `pending_merges` |
 | [`heads.md`](references/heads.md) | head-ceo / **head-cto** / **head-cxo** loops |
 | [`heads/cast.md`](references/heads/cast.md) | Head org titles + persona index (was executive-team) |
@@ -266,6 +270,19 @@ Detail + templates: [`mind-cycle.md`](references/mind-cycle.md).
 
 After the last operator message, assume ~1–2 cycles of monitoring, then they may be gone. Keep a **compact recap** in context (and baseline if useful) of what changed since `last_operator_message_at`: merges, HEADs, filed/done handles, pane/ops events, mode flips, open debt. Survive `/compact` by re-stating the recap in the compact keep-list. When the operator returns (“catch me up”, “what happened”), answer from that buffer — reduced detail is fine; blank amnesia is not.
 
+### Steward / dead man (completed-cycle watchdog)
+
+If the Grok `/loop` timer dies, or every `FLEET_CYCLE` turn aborts before finishing (hook deadlock), Hands may still exist but **ops freezes**. Camp-local **tmux `steward`** watches **successful cycle ticks** (not process-up, not loop inject).
+
+| Mind duty | When |
+| --- | --- |
+| **`steward.sh rearm`** + write `last_successful_cycle_at` | End of every successful FLEET_CYCLE |
+| **`steward.sh arm`** | Camp loop armed / `mind_loop.state=running` |
+| **`steward.sh disarm`** | Stop loop, wind-down, intentional no-schedule — **same turn** |
+| **`steward.sh clear`** | After recovery from trip |
+
+On trip: baseline hold · **operator@** · optional **external email** (camp preauth) · soft-hold pointers to idle Hands. Steward is **not** a second Mind. Detail: [`dead-man.md`](references/dead-man.md), [`scripts/steward.sh`](scripts/steward.sh).
+
 ### Operator mail (human escalation inbox)
 
 **`operator@`** is a **dedicated board identity** for issues that accrue while the camp is autonomous (or the human is away). It is **not** status, not Hand done mail, and not Head reports.
@@ -340,7 +357,8 @@ Generic recipes (no particular server name): [`ssh-remote.md`](references/ssh-re
 - Hands/Heads share project map; Mind is operator TUI (no mind/operator tmux)
 - Record product harness for Hands; bind every Hand’s `agent` / `wake_mode` / reinit
 - Apply preferred models (see `roles-and-harness.md`)
-- Tiny baselines: `last_cycle`, `quiet_streak`, `turns_since_operator_message`, `mind_mode`, fingerprints, pane classes, optional `operator_mail`
+- Tiny baselines: `last_cycle`, `quiet_streak`, `turns_since_operator_message`, `mind_mode`, fingerprints, pane classes, optional `operator_mail` / `steward`
+- If scheduled Mind loop: **`steward.sh arm`** when `steward.enabled` (see [`dead-man.md`](references/dead-man.md))
 
 ### 2. Select focus
 
@@ -413,6 +431,7 @@ See [`mind-cycle.md`](references/mind-cycle.md). Most wakes should be no-ops.
 
 - Empty tasking + no next map package → stop loop or long backoff
 - Operator may stop schedulers when camp is idle for hours
+- **`steward.sh disarm` before or with loop stop** (false trip otherwise)
 - Wind-down procedure: [`runtime-config.md`](references/runtime-config.md)
 
 ## Fail-fast wake (summary)
@@ -530,6 +549,10 @@ Schema detail: [`runtime-config.md`](references/runtime-config.md).
 - Human escalations buried in **`mind@`** board noise with no **`operator@`** item
 - Returning interactive without presenting open **operator mail** when N>0
 - Spamming the same operator issue every cycle without new evidence
+- Stopping Mind `/loop` without **`steward.sh disarm`** (false dead-man trip)
+- Treating steward as permanent second Mind or product bag owner
+- Dead-man heartbeat only on turn start / loop inject (masks hook deadlock)
+- Steward external email without camp `to` + `preauthorized_exec_send`
 
 ## Related skills
 

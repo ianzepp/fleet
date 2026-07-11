@@ -9,6 +9,7 @@ Load when arming a fleet, rebinding runtimes, or clarifying Mind/Hand/Head dutie
 | **Hand** | `hand-1`…`hand-N` (legacy: `hunter-N`, `codex`) | Take a **selected target** and finish it | Done tasks/needs + evidence; optional turn-end mail To `mind` |
 | **Mind** | Board **`mind@…`** — **no tmux**; process = operator TUI | Survey product; **dole out** tasking; integrate; fleet ops; pick from strategist buckets; **track est vs actual cost**; file/present **operator mail** | Open tasks/needs; pane scan; wake/reinit; merge queue; `cost_calibration` |
 | **Operator mail** | Board **`operator@…` only** — **no tmux** | Accrue human escalations (problems / blockers / guidance) while autonomous | Need/mail To human; presented on return — **not** status |
+| **Steward** | tmux **`steward`** (not Mind) | Dead-man: watch successful cycle ticks; trip → hold + page | `steward.sh`; operator@ + optional external email |
 | **head-ceo** (Head) | `head-ceo` (legacy: head-strategist) | Vision, sequencing; **hand-2+ buckets with effort + est_tokens** | Mail `head-ceo report:` To `mind` |
 | **head-cto** (Head) | `head-cto` (legacy: head-correctness) | **Code review / bug hunt on main after merge** | Mail `head-cto:` To `mind` |
 | **head-cxo** (Head) | `head-cxo` (legacy: head-purity) | Self-directed complexity / purity audit (**not** operator voice) | Mail `head-cxo:` To `mind` |
@@ -155,6 +156,7 @@ Heads need not match Mind’s product harness. Prefer Pi even when Mind is Grok 
 - **Interactive:** full reasoning for operator; **rich FLEET_CYCLE reports** (not one-liners); maintain **operator_recap**; **present open operator@ list** on engagement
 - **Autonomous:** compact cycle reports (one-line quiet / short acted; optional `+op-mail:N`)
 - Keep operator recap buffer since `last_operator_message_at`
+- **Steward:** `rearm` at end of every successful cycle; `arm` with loop; **`disarm` when stopping loop / wind-down**; never treat steward as product Mind
 
 ## Mind does not
 

@@ -137,6 +137,23 @@ If N>0, present a work-through table; do not only bury a count in recap. If N=0,
 
 Optional autonomous compact hint when N>0: `+op-mail:N` on the one-liner — never expand into status spam.
 
+### Steward rearm (every successful cycle)
+
+At **cycle end** (after sensors/ops, whether acted or quiet sleep that completed):
+
+```bash
+# write last_successful_cycle_at in baseline (or let script do it)
+path/to/skills/fleet/scripts/steward.sh rearm --project <root>
+```
+
+| Also | When |
+| --- | --- |
+| `steward.sh arm` | Loop armed / camp `mind_loop.state=running` and steward enabled |
+| `steward.sh disarm` | Operator stops loop, wind-down, intentional no-schedule — **same turn** |
+| `steward.sh clear` | After dead-man trip recovery |
+
+Progress signal = **successful cycle completion**, not loop inject or turn start (hook deadlock). Full protocol: [`dead-man.md`](dead-man.md).
+
 ### Interaction with thorough cycles
 
 Thorough/superficial cadence still applies (`cycle % N == 0` for thorough). In **autonomous**, thorough is residual-shaped (diff in scope → file tasks/needs) — **not** peer code review of every packet. **head-cto** does deeper review on main after merge.

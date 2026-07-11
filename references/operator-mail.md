@@ -176,6 +176,12 @@ In interactive mode after silence, **always** surface the list if non-empty.
 - Treating operator mail as a second Mind process or tmux slot
 - Freezing the camp empty-handed because operator mail is open (pivot)
 
+## Related: steward trip
+
+When the **steward** dead man trips (Mind cycle ticks stopped), it files
+**operator@** and may send external email. That is a first-class human page —
+present it with other operator mail on return. See [`dead-man.md`](dead-man.md).
+
 ## Arm checklist
 
 - [ ] `vivi mailspace identity add operator --project <root>`
