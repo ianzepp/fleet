@@ -25,8 +25,8 @@ head-strategist advises ownership, sequencing, seams, gate honesty, misprioritiz
 
 | Who | Job |
 | --- | --- |
-| **Mind** | Dole out work: file/refill bags, bind packets, wake/reinit, merge clock, live coordination |
-| **head-strategist** | Name **what could** run in parallel — especially a **bucket of hand-2+ (side-lane) candidates** when capacity is free |
+| **Mind** | Dole out work; pack capacity; record est vs actual cost calibration |
+| **head-strategist** | Side-lane **bucket** with effort + est_tokens; sequencing — not bag drain |
 | **Hands** | Execute assigned targets only |
 
 Mind does not need strategist permission to file an obvious next spine unit. Strategist does not file Hand tasks or own empty-bag refill.
@@ -37,7 +37,13 @@ When hand-2+ exists in the fleet, strategist reports should routinely include (o
 
 ```text
 ## Side-lane candidates (hand-2+ if available)
-- [ ] <bounded package / theme> — why safe off main; seams vs hand-1 spine; suggested packet scope
+- [ ] <bounded package / theme>
+      why off-main: …
+      seams vs hand-1 spine: …
+      packet scope: …
+      effort: S|M|L|XL
+      est_tokens: ~N                 # rough total in/out for the Hand work
+      est_basis: one line            # what the estimate assumes
 - [ ] …
 ## Do not parallelize
 - <items that must stay on hand-1 / main>
@@ -45,10 +51,33 @@ When hand-2+ exists in the fleet, strategist reports should routinely include (o
 - hold / next priority after current spine
 ```
 
+**Effort + token estimates (strategist duty — ballpark only):**
+
+Aligned with global Agents **Token Budget**: scope by expected token cost as well as value; estimate large work by shape (context, implement, bulk output, validation failures, fix loops, review). When a task includes estimates, record actuals later and compare.
+
+| `effort` | Typical shape | Rough `est_tokens` band |
+| --- | --- | --- |
+| **S** | One crate/file family, clear done-when | ~50k–150k |
+| **M** | Multi-file feature, normal validate | ~150k–400k |
+| **L** | Multi-crate / multi-unit theme, fix loops likely | ~400k–1M |
+| **XL** | Campaign-scale packet | ~1M+ (prefer split; say why) |
+
+Bands are **routing hints**, not contracts. Prefer ranges (`~200k–350k`) over false precision. Uncertain → estimate high and note it. **Do not omit cost** on side-lane buckets — Mind packs hand-2 while hand-1 is long-running (one **L** vs a chain of **S**).
+
 **Good bucket items:** independent factory goals, long continuous packets, bounded one-shots that do not share hot files with the current main spine, post-theme base-update planning.  
 **Bad bucket items:** “whatever is free,” unbounded main spine, merge-to-main, same P0 family hand-1 is on, makework polish.
 
-Mind **absorbs** the bucket into baseline (`side_lane_candidates` / operator_recap), then **picks and files** when hand-2 is idle+empty (or binds a packet first). Stale candidates: re-ask strategist structurally, or drop when map supersedes — do not thrash assigns every quiet cycle.
+### Mind: absorb bucket + cost calibration
+
+1. Absorb into `side_lane_candidates[]` with `effort` / `est_tokens` / `est_basis`.
+2. Pick/file when hand-2 idle+empty; match size to free capacity using estimates + recent calibration.
+3. Bound candidate → `status: bound`, `filed_handle`, `filed_at`.
+4. On Hand done / theme absorb → record **actual** tokens (harness usage if exposed, else Mind ballpark labeled `actual_source`).
+5. Append `cost_calibration[]` row: `{est_tokens, actual_tokens, delta_ratio≈actual/est, strategist_model, hand_model, …}`.
+6. Bias later picks with recent deltas (e.g. “this pair runs ~1.5× strategist est”) — numbers inform; they do not hard-block.
+7. Stale candidates: re-ask or drop — do not thrash every quiet cycle.
+
+**Strategist** owns estimates. **Mind** owns actuals + calibration. Hands need not invent token math (optional turn-end harness usage if the TUI shows it).
 
 **Avoid:** questions that die if a tasking item lands while you read mail.
 
@@ -66,7 +95,7 @@ Mind **absorbs** the bucket into baseline (`side_lane_candidates` / operator_rec
 2. **Optional live snapshot** second, labeled ephemeral; tell head-strategist to re-verify
 3. Prefer **conditionals** over “do X now because bag is empty”
 4. Mind still acts on live bag reality; head-strategist informs *how to think* and **what parallel work is coherent**
-5. When multi-hand fleet: prefer periodic assign shape “given current spine focus, what is a durable hand-2+ bucket?” over pure sequencing trivia
+5. When multi-hand fleet: prefer “durable hand-2+ bucket **with effort + est_tokens per item**?” over pure sequencing trivia
 
 **head-strategist duty on stale assign:** re-read live evidence; one-line correction of stale premises; answer the structural question anyway.
 
