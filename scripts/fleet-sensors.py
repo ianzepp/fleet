@@ -818,13 +818,18 @@ def main() -> int:
 
         if pclass in ("error_capacity", "error_connection", "down", "trust_prompt"):
             out["signals"].append(f"pane_{name}_{pclass}")
-        if bag_open and pclass in ("idle_prompt", "done_idle", "unknown"):
-            out["signals"].append(f"wake_candidate_{name}")
-        # Starvation is a candidate only — suppress when fleet/baseline marks intentional pause
         packet = h.get("packet") if isinstance(h.get("packet"), dict) else {}
         pkt_state = str(packet.get("state") or "").lower()
         paused_pkt = pkt_state.startswith("paused") or pkt_state in ("hold", "operational_pause")
         hand_paused = hand_is_paused(baseline, name)
+        if (
+            bag_open
+            and pclass in ("idle_prompt", "done_idle", "unknown")
+            and not hand_paused
+            and not paused_pkt
+        ):
+            out["signals"].append(f"wake_candidate_{name}")
+        # Starvation is a candidate only — suppress when fleet/baseline marks intentional pause
         if (
             bag_open == 0
             and pclass in ("idle_prompt", "done_idle")
