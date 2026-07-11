@@ -19,7 +19,7 @@ account, or deployment URL unless the project explicitly defines it.
 Every work cycle:
 
 1. If Vivi is available, handle mail and tasks addressed to `cmo`.
-2. Review CEO direction, CPO product notes, CXO external signals, and COO
+2. Review CEO direction, CPO product notes, and COO
    deployment reality.
 3. Inspect the product or project from a market lens: audience, promise, proof,
    positioning, onboarding copy, launch readiness, and learning loops.

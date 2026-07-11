@@ -10,7 +10,7 @@ Load when arming a fleet, rebinding runtimes, or clarifying Mind/Hand/Head dutie
 | **Mind** | Board **`mind@…` only** — **no tmux**; process = operator TUI | Survey product; **dole out** tasking; integrate; fleet ops; pick from strategist buckets; **track est vs actual cost** | Open tasks/needs; pane scan; wake/reinit; merge queue; `cost_calibration` |
 | **head-ceo** (Head) | `head-ceo` (legacy: head-strategist) | Vision, sequencing; **hand-2+ buckets with effort + est_tokens** | Mail `head-ceo report:` To `mind` |
 | **head-cto** (Head) | `head-cto` (legacy: head-correctness) | **Code review / bug hunt on main after merge** | Mail `head-cto:` To `mind` |
-| **head-purity** (Head) | `head-purity` | Self-directed unearned-complexity / excess-layer audit | Mail `head-purity:` To `mind` |
+| **head-cxo** (Head) | `head-cxo` (legacy: head-purity) | Self-directed complexity / purity audit (**not** operator voice) | Mail `head-cxo:` To `mind` |
 
 One Mind owns the tasking bag and integration clock: **Mind files and wakes; Heads advise.** Heads never merge, never keep product tasking “full,” and never stamp GO/NO-GO. **head-strategist** proposes **what hand-2+ could work on** (side-lane bucket); Mind decides when to bind a packet and file. Reports To: **mind** (board); Mind triages into hand-N tasks/needs.
 
@@ -180,4 +180,4 @@ Heads need not match Mind’s product harness. Prefer Pi even when Mind is Grok 
 
 ## Heads do not
 
-Approve/disapprove work as a gate, race Mind on acceptance, merge to main, or own product tasking. **head-ceo** proposes sequencing/ownership and **side-lane (hand-2+) candidate buckets**; **head-cto** reviews main; **head-purity** reports shape debt. Mind triages into the bag and coordinates live Hands.
+Approve/disapprove work as a gate, race Mind on acceptance, merge to main, or own product tasking. **head-ceo** proposes sequencing/ownership and **side-lane (hand-2+) candidate buckets**; **head-cto** reviews main; **head-cxo** reports shape debt. Mind triages into the bag and coordinates live Hands.

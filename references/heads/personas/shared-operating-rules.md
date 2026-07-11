@@ -123,21 +123,19 @@ without reconstructing the whole discussion:
 
 ## Roles
 
-- `ceo`: strategy, priority, deliberation, final tie-breaking, and task
-  generation.
-- `cpo`: product direction, user workflows, requirements, and acceptance
-  criteria.
-- `cto`: technical design, implementation, tests, engineering discovery, and
-  technical task breakdown.
-- `coo`: operational truth, verification, runbooks, deployment readiness, and
-  health checks.
-- `cso`: security, privacy, abuse, credential, dependency, and operational
-  safety risk.
-- `cmo`: positioning, audience, launch narrative, market learning, and
-  communication strategy.
-- `cfo`: cost, effort, scope, usage, sustainability, and resource tradeoffs.
-- `cxo`: external coordination, operator-facing communication, stakeholder
-  intake, and response drafting.
+Fleet Head identities (mail tokens): `head-ceo`, `head-cto`, `head-cxo`, and
+optional `head-cpo` / `head-coo` / `head-cso` / `head-cmo` / `head-cfo`.
+
+- `head-ceo` / ceo persona: strategy, priority, deliberation, side-lane
+  buckets, tie-breaking advice To mind (Mind still files Hands).
+- `head-cpo` / cpo: product direction, workflows, requirements (lazy).
+- `head-cto` / cto: post-main engineering quality, bugs, fail-closed review.
+- `head-coo` / coo: operational readiness lens (lazy; not Mind’s FLEET_CYCLE).
+- `head-cso` / cso: security, privacy, abuse (lazy).
+- `head-cmo` / cmo: positioning / audience (lazy).
+- `head-cfo` / cfo: cost, effort, sustainability (lazy).
+- `head-cxo` / cxo: **complexity / purity** — unearned layers and shape debt.
+  **Not** operator-facing communication (that is **Mind**).
 
 ## Executive Rhythm
 

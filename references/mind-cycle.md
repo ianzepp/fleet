@@ -344,7 +344,7 @@ Camps with **no polish history** score very high (large “never polished” pen
 | One bounded list after main moves | Every-cycle repo-wide polish thrash |
 | Score = churn-since-polish routing | “High score means bug” |
 
-**head-cto** still owns post-main **bug** review. **head-purity** still owns excess-layer audits. Polish advisory is ship-quality hygiene only.
+**head-cto** still owns post-main **bug** review. **head-cxo** still owns excess-layer audits. Polish advisory is ship-quality hygiene only.
 
 ## Major-inflection housekeeping (Mind — expensive, rare)
 

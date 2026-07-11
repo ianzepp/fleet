@@ -135,7 +135,7 @@ Put the map in **project fleet config** (camp-local path). Example shape:
   },
   "head-ceo": { "mail_identity": "head-ceo", "tmux_session": "head-ceo", "agent": "pi" },
   "head-cto": { "mail_identity": "head-cto", "tmux_session": "head-cto", "agent": "pi", "self_directed": true },
-  "head-purity": { "mail_identity": "head-purity", "tmux_session": "head-purity", "agent": "pi", "self_directed": true },
+  "head-cxo": { "mail_identity": "head-cxo", "tmux_session": "head-cxo", "agent": "pi", "self_directed": true },
   "binding_rule": "mail_identity == tmux_session token (Hands/Heads only; mind has no tmux)"
 }
 ```

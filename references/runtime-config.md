@@ -231,8 +231,9 @@ Recommended keys (extend freely; skill cares about meanings):
     "thinking": "high",
     "self_directed": true
   },
-  "head-purity": {
-    "mail_identity": "head-purity",
+  "head-cxo": {
+    "mail_identity": "head-cxo",
+    "tmux_session": "head-cxo",
     "agent": "pi",
     "agent_model": "glm-5.2",
     "thinking": "high",
@@ -275,7 +276,7 @@ cost_calibration[] optional
   # {id, title, strategist_effort, est_tokens, actual_tokens, delta_ratio,
   #  strategist_model, hand_model, closed_at, notes}
   # Mind uses recent delta_ratio to bias pick order / capacity packing
-head-cto.last_report_*, head-purity.last_report_*
+head-cto.last_report_*, head-cxo.last_report_* (legacy: head-purity)
 mind_loop.{state, handoff, mechanism, …}   # armed | running | stopping | wound_up; mechanism e.g. grok_/loop
 half_dead[] optional                # path, class A/B/C, age_cycles, note
 polish_advisory optional:

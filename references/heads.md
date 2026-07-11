@@ -1,6 +1,6 @@
 # Head loops (advisors)
 
-Load when running **head-ceo** / **head-cto** / **head-purity** (or legacy **head-strategist** / **head-correctness**), or triaging Head mail as Mind.
+Load when running **head-ceo** / **head-cto** / **head-cxo** (or legacy **head-strategist** / **head-correctness** / **head-purity**), or triaging Head mail as Mind.
 
 **Cast + personas:** [`heads/cast.md`](heads/cast.md) and [`heads/personas/`](heads/personas/) (folded in from archived `$executive-team`). Load a persona file only when assigning that Head for depth — not every FLEET_CYCLE.
 
@@ -116,13 +116,16 @@ Identity/session: `head-cto` (legacy: `head-correctness`) (mail + tmux). Typical
 5. Never map-refill head-cto as a product lane
 6. Do **not** act as merge GO/NO-GO or block hand-1 merges awaiting a head-cto stamp
 
-## head-purity auditor loop (self-directed)
+## head-cxo auditor loop (self-directed) — **complexity / purity** (legacy: head-purity)
 
-Identity/session: `head-purity`. Typical subject prefix: `head-purity:`. Often same harness class as head-ceo. **Not** clean-slate every report. Prefer **compact between passes** so context stays small.
+Identity/session: `head-cxo` (legacy: `head-purity`). Typical subject prefix: `head-cxo:` / `head-purity:`. Persona: [`heads/personas/cxo.md`](heads/personas/cxo.md). Same harness class as other Heads. **Not** clean-slate every report. Prefer **compact between passes**.
 
-1. Sensors: has-session; pane class; head-purity report mail
+**CXO in fleet ≠ operator voice.** Mind owns operator-facing recap and human email. head-cxo only audits **shape debt**.
+
+1. Sensors: has-session; pane class; head-cxo / head-purity report mail
 2. Down → recreate per fleet + role bootstrap
 3. New report → absorb; triage simplify/design targets To owning Hand (prefer over drive-by rewrites mid-product unit); doorbell if idle and targets ready
-4. Optional soft focus mail (`head-purity assign: <area>`) — not required every cycle
+4. Optional soft focus mail (`head-cxo assign: <area>`) — not required every cycle
 5. Soft-wake hygiene: compact keep identity+role+lens, then next pass; clean-slate reinit only if compact fails, confused, or operator asks
-6. Never map-refill head-purity. Do not confuse with head-cto (bugs) or head-ceo (priority/ownership / clean-slate-per-assign)
+6. Never map-refill head-cxo. Do not confuse with head-cto (bugs) or head-ceo (priority / clean-slate-per-assign)
+7. Never draft operator email or act as a second Mind pane

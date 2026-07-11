@@ -1,6 +1,6 @@
 ---
 name: fleet
-description: Multi-agent fleet management with Mind/Head/Hand roles (Abbot pattern) — Mind (operator TUI + mind@ board inbox), Hands (hand-1…hand-N) clear work, Heads (head-ceo/head-cto/head-purity + optional org personas) advise; Hands share Mind harness; dual-channel Vivi+tmux; multi-lane integration. Use for hand-N fleets, codex reinit, keep-screen-moving, don't-get-stuck, FLEET_CYCLE Mind loops.
+description: Multi-agent fleet management with Mind/Head/Hand roles (Abbot pattern) — Mind (operator TUI + mind@ board inbox), Hands (hand-1…hand-N) clear work, Heads (head-ceo/head-cto/head-cxo + optional org personas) advise; Hands share Mind harness; dual-channel Vivi+tmux; multi-lane integration. Use for hand-N fleets, codex reinit, keep-screen-moving, don't-get-stuck, FLEET_CYCLE Mind loops.
 ---
 
 # Fleet
@@ -10,7 +10,7 @@ description: Multi-agent fleet management with Mind/Head/Hand roles (Abbot patte
 | Role | Job | Canonical identity |
 | --- | --- | --- |
 | **Mind** | Ops: tasking, integrate, pane ops, cycle cadence | **Operator’s current TUI** + board-only mail **`mind@…`** (no tmux) |
-| **Head** | Advisory research/reports, not bag drain | **`head-ceo`**, **`head-cto`**, **`head-purity`** (legacy: head-strategist / head-correctness) (mail + tmux) |
+| **Head** | Advisory research/reports, not bag drain | **`head-ceo`**, **`head-cto`**, **`head-cxo`** (legacy: head-strategist / head-correctness / head-purity) (mail + tmux) |
 | **Hand** | Execute one selected target | **`hand-1`…`hand-N`** (mail + tmux) |
 
 ## Identity contract (canonical)
@@ -21,13 +21,13 @@ description: Multi-agent fleet management with Mind/Head/Hand roles (Abbot patte
 | **hand-N** | `hand-N@…` | `hand-N` | Workers. `hand-1` merges to main; `hand-2+` packets. |
 | **head-ceo** | `head-ceo@…` | `head-ceo` | Vision / sequencing / side-lane buckets (legacy: head-strategist) |
 | **head-cto** | `head-cto@…` | `head-cto` | Post-main code review / bugs (legacy: head-correctness) |
-| **head-purity** | `head-purity@…` | `head-purity` | Complexity / excess-layer audit |
+| **head-cxo** | `head-cxo@…` | `head-cxo` | Complexity / purity (legacy: head-purity); **not** operator-facing |
 | *optional* | `head-cpo` / `head-cso` / … | same token | Lazy org Heads — see `references/heads/cast.md` |
 
 **Binding rule (Hands/Heads only):** mail identity token == tmux session name.  
 **Mind is not a fleet process slot.** Do not create `reviewer`, dual Mind panes, or tmux for `mind`.
 
-**Retired:** `reviewer`, `gatherer`, bare `strategist` / `correctness` / `purity` as mail ids, `hunter-N` as default, standalone **`$executive-team`** skill (personas live under `fleet/references/heads/personas/`). Legacy camps may still use `hunter-N`, `head-strategist`, `head-correctness`; **new** fleets use `hand-N`, `head-ceo`, `head-cto`.
+**Retired:** `reviewer`, `gatherer`, bare `strategist` / `correctness` / `purity` as mail ids, `hunter-N` as default, standalone **`$executive-team`** skill (personas live under `fleet/references/heads/personas/`). Legacy camps may still use `hunter-N`, `head-strategist`, `head-correctness`, `head-purity`; **new** fleets use `hand-N`, `head-ceo`, `head-cto`, `head-cxo`.
 
 **Evolution:** formerly `$hunter-gatherer`. Canonical skill is **`$fleet`**.
 
@@ -64,7 +64,7 @@ campaign / focus map
                  │ dual channel
         Vivi (truth of work) + tmux (truth of process)
 
-   Heads (head-ceo / head-cto / head-purity) ──mail To: mind──► triage into tasking
+   Heads (head-ceo / head-cto / head-cxo) ──mail To: mind──► triage into tasking
 ```
 
 ## When To Use
@@ -103,7 +103,7 @@ Reserve **hard ban** language for actions that break the platform, tree, or mult
 | [`dual-channel.md`](references/dual-channel.md) | Pane classes, doorbell, reinit, rehome, `/compact`, mail templates, **mailspace watch / thread** |
 | [`mind-cycle.md`](references/mind-cycle.md) | Modes, cycle prefix, fail-fast, absorb/accept, **polish advisory**, **housekeeping inflection**, operator recap |
 | [`multi-lane.md`](references/multi-lane.md) | Side lanes, theme→main, base-update, pin-relative, `pending_merges` |
-| [`heads.md`](references/heads.md) | head-ceo / **head-cto** / head-purity loops |
+| [`heads.md`](references/heads.md) | head-ceo / **head-cto** / **head-cxo** loops |
 | [`heads/cast.md`](references/heads/cast.md) | Head org titles + persona index (was executive-team) |
 | [`ssh-remote.md`](references/ssh-remote.md) | Hands/Heads on another host (SSH + remote tmux); host-scoped cwd; remote reinit |
 | [`runtime-config.md`](references/runtime-config.md) | Capacity ladders, baseline schema, wind-down, script env, `host`/`ssh` fields |
@@ -172,7 +172,7 @@ Formatter guidance (global Agents.md): after inspect, formatter output is intent
 | **Mind** (operator TUI + `mind@`) | File targets; integrate; pane ops; refill starvation; pick side-lane work from map/head-ceo bucket | Stage GO/NO-GO; steal Hand unit; freeze on status-only dirty; deep code review; **tmux slot named reviewer/mind** |
 | **head-cto** | **Code review / bug hunt on main after merge** | Own product tasking bag; block merges as GO/NO-GO stamp |
 | **head-ceo** | Vision; sequencing; **hand-2+ candidate buckets** | File Hand tasks; merge; stamp accept |
-| **head-purity** | Complexity / excess-layer audit | Own product tasking; merge; stamp accept |
+| **head-cxo** | Complexity / purity audit | Own product tasking; merge; stamp accept; operator-facing mail |
 
 Identity ≠ assignment ≠ runtime. Hand harness follows Mind; Heads prefer alternate runtimes. Detail: [`roles-and-harness.md`](references/roles-and-harness.md).
 
@@ -440,7 +440,7 @@ Typical camp file kinds (names/layout camp-local):
 fleet config           # roster + runtime + tooling + preferred models
 Mind cycle baseline    # sensors + debt + mode counters + operator_recap
 Mind scheduler overlay # must start wakes with FLEET_CYCLE …
-Head role prompts      # head-ceo / head-cto / head-purity (+ optional personas)
+Head role prompts      # head-ceo / head-cto / head-cxo (+ optional personas)
 scripts/codex-reinit   # skill copy or symlink; env PROJECT + FLEET
 project Agents.md      # product + multi-agent process
 ```
@@ -512,7 +512,7 @@ Schema detail: [`runtime-config.md`](references/runtime-config.md).
 - `$polish` — end-of-unit per-file improvement; Mind uses `scripts/suggest-polish-files.py` for post-main advisory routing
 - `$housekeeping` — full multi-phase repo maintenance; Mind files only at **major inflection** (campaign end / large merge / stage closeout)
 - `$correctness` — behavioral bug / invariant audits (tool for Hand or head-cto)
-- `$cleanliness` — structure/complexity scans (pairs with head-purity work)
+- `$cleanliness` — structure/complexity scans (pairs with head-cxo purity work)
 - `$factory` — multi-phase implementation when the Hand executes a large unit
 - `$campaign` / `$delivery` — map and delivery packages the Hand drains
 
