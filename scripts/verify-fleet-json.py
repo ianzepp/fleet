@@ -137,13 +137,13 @@ def _check_executive_cadence(report: Report, where: str, block: Dict[str, Any]) 
     en = cad.get("enabled")
     if not isinstance(en, bool):
         report.err("%s.enabled" % cwhere, "must be boolean, got %r" % (en,))
-    if en is True:
-        ms = cad.get("min_seconds_between_sweeps")
-        if not isinstance(ms, int) or isinstance(ms, bool) or ms <= 0:
-            report.err(
-                "%s.min_seconds_between_sweeps" % cwhere,
-                "enabled=true requires a positive integer interval, got %r" % (ms,),
-            )
+    # Intervals are skill law (posture × role × mind_loop.interval_sec).
+    # min_seconds_between_sweeps is legacy/ignored — warn if present.
+    if "min_seconds_between_sweeps" in cad:
+        report.warn(
+            "%s.min_seconds_between_sweeps" % cwhere,
+            "ignored: Head spacing is posture multipliers × mind_loop.interval_sec (see fleet-posture.md)",
+        )
     if "sweep_mode" in cad and not isinstance(cad.get("sweep_mode"), str):
         report.warn("%s.sweep_mode" % cwhere, "should be a string, got %r" % (cad.get("sweep_mode"),))
 

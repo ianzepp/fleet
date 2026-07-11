@@ -317,7 +317,6 @@ Recommended keys (extend freely; skill cares about meanings):
     "role_prompt": "<fleet-path>/head-ceo-role-prompt.txt",
     "executive_cadence": {
       "enabled": false,
-      "min_seconds_between_sweeps": 86400,
       "sweep_mode": "expansion"
     }
   },
@@ -339,23 +338,36 @@ Recommended keys (extend freely; skill cares about meanings):
 }
 ```
 
-**Executive cadence (optional, per head).** Any head entry may carry an
-`executive_cadence` block: `{enabled, min_seconds_between_sweeps, sweep_mode}`.
-When `enabled`, `fleet-sensors.py` surfaces the head as `head_due_<role>` once the
-interval has elapsed since its last observed completion mail (and the pane is not
-`running`). Completion is a new mail from the head's `mail_identity` or
-`legacy_aliases` in `head_report_inbox` (default **`mind`** — Heads report To mind@).
-Durable state lives on baseline `head-*` blocks: `last_report_handle` +
-`last_report_at`. `fleet-baseline.py bump --fingerprint-file <sensors.json>` merges
-those fields from `sensors.heads` and does **not** store them in
-`last_actionable_fingerprint`.
+**Mind loop tick (optional).** Base FLEET_CYCLE spacing for Head cadence math:
 
-`sweep_mode` is free-form for Mind assign flavor. When unset, sensors default from
-**posture**: growth → `expansion`, standby → `stewardship`, dormant → `paused`
-(and cadence sweeps are **paused only in dormant**). Default intervals when
-`min_seconds_between_sweeps` omitted: head-ceo **86400**, head-cto **1800**,
-head-cxo **3000**. Cadence is inert unless `enabled: true`. Validate with
-`verify-fleet-json.py`.
+```json
+"mind_loop": { "interval_sec": 300 }
+```
+
+Default **`300`** (5 minutes) when omitted. Alias: top-level `loop_interval_sec`.
+
+**Executive cadence (optional, per head).** Opt-in block: `{enabled, sweep_mode?}`.
+When `enabled`, `fleet-sensors.py` surfaces `head_due_<role>` after the **skill-law
+interval** since last completion mail (pane not `running`). Completion = new mail
+from the head's `mail_identity` or `legacy_aliases` in `head_report_inbox` (default
+**`mind`**). Durable state: baseline `head-*`.`last_report_handle` / `last_report_at`.
+
+**Interval law (hardcoded — not fleet-configurable multipliers):**
+
+```text
+sweep_interval_sec = every_n_loops[posture][head] × mind_loop.interval_sec
+```
+
+| Posture | head-cto | head-cxo | head-ceo | @ `interval_sec=300` |
+| --- | --- | --- | --- | --- |
+| **growth** | ×6 | ×12 | ×36 | 30m / 1h / 3h |
+| **standby** | ×18 | ×36 | ×72 | 1.5h / 3h / 6h |
+| **dormant** | — | — | — | sweeps **paused** |
+
+`min_seconds_between_sweeps` is **ignored** (legacy). `sweep_mode` is free-form for
+Mind assign flavor; when unset, sensors default from posture: growth → `expansion`,
+standby → `stewardship`, dormant → `paused`. Cadence inert unless `enabled: true`.
+Detail: [`fleet-posture.md`](fleet-posture.md). Validate with `verify-fleet-json.py`.
 
 **Never hardcode model strings as Hand identity.** Read `agent_launch` from fleet. Hand `agent` should match `mind.agent` unless baseline records operator exception. Defaults from preferred_models; override for capacity/experiment, re-align when quiet.
 

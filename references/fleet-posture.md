@@ -94,6 +94,29 @@ Hygiene remains: Hand end-of-unit polish; post-main polish advisory **once per t
 | **standby** | Stewardship only (priority/status/opt/correctness of current product) | Reliability / correctness of current product | Complexity that hurts on-call risk | Allowed (stewardship lens); not expansion |
 | **dormant** | Assign-only | Assign-only | Assign-only | **Paused** by sensors |
 
+### Executive cadence = Mind loop × posture multipliers
+
+One base tick: **`mind_loop.interval_sec`** (default **300** = 5m FLEET_CYCLE).  
+Head spacing is **hardcoded** by posture and role (not fleet-configurable):
+
+```text
+sweep_interval_sec = every_n_loops[posture][head] × mind_loop.interval_sec
+```
+
+| Posture \ Head | head-cto | head-cxo | head-ceo |
+| --- | --- | --- | --- |
+| **growth** | ×6 | ×12 | ×36 |
+| **standby** | ×18 | ×36 | ×72 |
+| **dormant** | off | off | off |
+
+At default L=5m: growth ≈ **30m / 1h / 3h**; standby ≈ **1.5h / 3h / 6h**.
+
+- Change **how often the camp ticks** → set `mind_loop.interval_sec` (all Heads scale).  
+- Change **intensity class** → change `fleet_posture.mode` (table switches).  
+- No separate “density” knob.  
+- Opt-in per head: `executive_cadence.enabled: true`. Legacy `min_seconds_between_sweeps` ignored.  
+- Sensors emit `sweep_every_n_loops`, `mind_loop_interval_sec`, `sweep_interval` on each head.
+
 **Ban:** expansion candidates or new campaign surface while posture is standby/dormant.  
 **Ban:** “paused pending facts” CEO reports with no named producer packet (unicorn ban — shared rules).
 
@@ -145,11 +168,13 @@ When `fleet_posture.mode` ∈ {`standby`, `dormant`}, do **not** emit `starvatio
 
 **Executive cadence:**
 
-| Mode | `starvation_candidate_*` | Head `sweep_due` / `head_due_*` |
-| --- | --- | --- |
-| growth | Normal | When cadence enabled + interval elapsed |
-| standby | Suppressed | **Still allowed** (stewardship); default `sweep_mode=stewardship` |
-| dormant | Suppressed | **Paused** (`sweep_paused`); assign-only |
+| Mode | `starvation_candidate_*` | Head `sweep_due` / `head_due_*` | Spacing |
+| --- | --- | --- | --- |
+| growth | Normal | When cadence enabled + interval elapsed | CTO×6 · CXO×12 · CEO×36 × L |
+| standby | Suppressed | **Still allowed** (stewardship); `sweep_mode=stewardship` | CTO×18 · CXO×36 · CEO×72 × L |
+| dormant | Suppressed | **Paused** (`sweep_paused`); assign-only | — |
+
+`L` = `mind_loop.interval_sec` (default 300).
 
 ## Anti-patterns
 

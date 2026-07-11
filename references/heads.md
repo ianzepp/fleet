@@ -25,7 +25,17 @@ See `roles-and-harness.md`. Shared finding schema: [`heads/personas/shared-opera
 | **standby** | Stewardship: priority/status/opt of **current** product | Correctness / reliability | Complexity that hurts on-call risk |
 | **dormant** | Rarely / assign-only | Rarely / assign-only | Rarely / assign-only |
 
-Sensors: executive sweeps **pause on dormant only** (not standby). Standby Hands stay quiet; Heads may still stewardship-sweep when cadence enabled.
+### Cadence spacing (skill law)
+
+`sweep_interval = every_n_loops × mind_loop.interval_sec` (default L=300s). Multipliers hardcoded:
+
+| Mode | CTO | CXO | CEO |
+| --- | --- | --- | --- |
+| growth | ×6 | ×12 | ×36 |
+| standby | ×18 | ×36 | ×72 |
+| dormant | off | off | off |
+
+Opt-in: `executive_cadence.enabled`. Sensors: executive sweeps **pause on dormant only**. Full table: [`fleet-posture.md`](fleet-posture.md).
 
 ---
 

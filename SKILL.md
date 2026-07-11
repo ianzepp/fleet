@@ -231,7 +231,7 @@ Report tracks **mode**, not acted/sleep alone. Templates: [`mind-cycle.md`](refe
 | Topic | Rule |
 | --- | --- |
 | Multi-fleet | One Mind session may supervise many fleets; **one Mind per fleet** (advisory `mind_session`); fleets= on FLEET_CYCLE line; prefer session=`fleet_id`. **Per-fleet posture** — standby/dormant mini-cycles stay quiet |
-| Posture | `growth` ships map + aggressive Head research; `standby` = on-call Hands quiet, Heads **stewardship**; `dormant` = Heads rare. Continuity doubt → head-ceo once, not polish thrash — [`fleet-posture.md`](references/fleet-posture.md) |
+| Posture | `growth` ships map + aggressive Head research; `standby` = on-call Hands quiet, Heads **stewardship**; `dormant` = Heads rare. Head cadence = posture multipliers × `mind_loop.interval_sec` (default 5m). Continuity doubt → head-ceo once, not polish thrash — [`fleet-posture.md`](references/fleet-posture.md) |
 | Steward | **Default OFF.** Per-fleet dead-man only when operator **explicitly** enables `steward.enabled` **and** asks to arm **that** fleet. Loop ≠ steward. When armed: rearm each successful mini-cycle; disarm same turn on detach. Not second Mind |
 | operator@ | **Both directions every cheap cycle:** (1) **To operator@** escalations waiting on human (2) **From operator@ → mind@** decisions/feedback — absorb **first**. Sensors: `operator_mail` + `operator_to_mind`. [`operator-mail.md`](references/operator-mail.md) |
 
