@@ -139,6 +139,8 @@ vivi mail list --for operator --project <root>
 vivi need list --for operator --project <root>   # if used
 ```
 
+Board CLI detail: [`vivi.md`](vivi.md).
+
 If N>0, present a work-through table; do not only bury a count in recap. If N=0, say empty once.
 
 Optional autonomous compact hint when N>0: `+op-mail:N` on the one-liner — never expand into status spam.

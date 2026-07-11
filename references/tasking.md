@@ -4,7 +4,7 @@ Load when filing targets, choosing queue kind, multi-hand routing, or Hand decis
 
 ## Board kinds
 
-Prefer a project coordination board (commonly Vivi project mailspace — see `companion-fallbacks.md`).
+Prefer a project coordination board (Vivi project mailspace — commands: [`vivi.md`](vivi.md); install: `getting-started.md`).
 
 | Kind | Meaning |
 | --- | --- |

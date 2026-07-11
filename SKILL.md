@@ -114,6 +114,7 @@ Reserve **hard ban** language for actions that break the platform, tree, or mult
 | --- | --- |
 | [`roles-and-harness.md`](references/roles-and-harness.md) | Arming, rebinding, duties, preferred models, Pi-as-Hand; Mind = operator session |
 | [`tasking.md`](references/tasking.md) | Filing targets, queue kind, multi-hand, starvation, Hand decision continuity |
+| [`vivi.md`](references/vivi.md) | **Board CLI** — common fleet `vivi` commands (status, list, send, done, watch, thread); help tree for edge cases |
 | [`dual-channel.md`](references/dual-channel.md) | Pane classes, doorbell, reinit, rehome, `/compact`, mail templates, **mailspace watch / thread** |
 | [`mind-cycle.md`](references/mind-cycle.md) | Modes, cycle prefix, fail-fast, absorb/accept, **polish advisory**, **housekeeping inflection**, operator recap, **operator mail present-on-return** |
 | [`operator-mail.md`](references/operator-mail.md) | **`operator@` human inbox** — problems / blockers / bug-guidance; not status; present when operator returns |

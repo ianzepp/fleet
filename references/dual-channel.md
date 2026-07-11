@@ -27,7 +27,7 @@ When Hands or Heads run on another machine, pane ops go over SSH — see `ssh-re
 
 Project-local board liveness and conversation lineage. **Not** IMAP / `vivi sync` / `sync-events` watch — these read the fleet `.vivi/mail.sqlite` **event ledger** and reply graph.
 
-Board CLI: Vivi project mailspace (see `companion-fallbacks.md`). Fleet usage:
+Board CLI: Vivi project mailspace — **common fleet commands in [`vivi.md`](vivi.md)**. Usage sketch:
 
 ### Watch — Mind sensors and paid waits
 

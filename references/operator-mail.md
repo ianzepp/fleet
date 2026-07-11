@@ -19,6 +19,8 @@ Arm once per fleet:
 vivi mailspace identity add operator --project <root>
 ```
 
+CLI patterns for list/send (and all fleet board commands): [`vivi.md`](vivi.md).
+
 Fleet overlay:
 
 ```json

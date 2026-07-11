@@ -440,6 +440,7 @@ Wind-down (panes down, long idle): [`runtime-config.md`](runtime-config.md). Mul
 | --- | --- |
 | Vocabulary | [`fleet-guide.md`](fleet-guide.md) |
 | Day-to-day Mind | parent [`SKILL.md`](../SKILL.md) |
+| Board CLI (`vivi` commands) | [`vivi.md`](vivi.md) |
 | Board + panes | [`dual-channel.md`](dual-channel.md) |
 | Cycles / modes | [`mind-cycle.md`](mind-cycle.md) |
 | Filing work | [`tasking.md`](tasking.md) |

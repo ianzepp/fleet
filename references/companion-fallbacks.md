@@ -14,18 +14,23 @@ and state in evidence which fallback you used.
 **Hard dependency:** `$fleet` requires the **`vivi` CLI**. There is no board
 fallback if Vivi is missing — install via Homebrew or curl first
 ([`getting-started.md`](getting-started.md)). The optional `$mail` skill only
-documents richer Vivi workflows; it does not replace the binary.
+documents richer Vivi/IMAP product workflows; it does not replace the binary.
+
+**Fleet board command card:** full normal-cycle set lives in **[`vivi.md`](vivi.md)**
+(status, list/show, send/done, watch, thread, operator@, help tree). Use that
+instead of re-scanning `vivi --help` every action.
 
 **Thesis:** Project mailspaces are the **board of record** for tasks/needs/wants/mail.
 Not IMAP personal email.
 
-**Fleet needs (commands):**
+**Minimal cheat sheet** (detail → `vivi.md`):
 
 ```bash
 vivi mailspace status --project <root>
 vivi task|need|want|mail list|show|send|done --project <root> --for <id>
 vivi mailspace watch --for <id> --once --write-cursor --cursor-file <path>
 vivi mailspace identity add|list --project <root>
+vivi mail thread <handle> --project <root>
 ```
 
 **Kinds:** task = implementable; need = decision (default + options); want = non-blocking; mail = deliberation/status.
