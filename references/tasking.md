@@ -4,7 +4,7 @@ Load when filing targets, choosing queue kind, multi-hand routing, or Hand decis
 
 ## Board kinds
 
-Prefer a project coordination board (commonly Vivi project mailspace — see `$mail`).
+Prefer a project coordination board (commonly Vivi project mailspace — see `companion-fallbacks.md`).
 
 | Kind | Meaning |
 | --- | --- |
@@ -146,8 +146,7 @@ When on the **paid path**, after sensors fire:
 7. if exchange is multi-hop: vivi mail thread <handle> (or rely on show’s thread context)
 ```
 
-**Dump is audit**, not the heartbeat. Prefer open-only dumps when needed. For Vivi CLI shapes, use `$mail`. Watch/thread detail for fleet: `dual-channel.md` (Vivi ≥ 4.6).
+**Dump is audit**, not the heartbeat. Prefer open-only dumps when needed. For Vivi CLI shapes, see `companion-fallbacks.md`. Watch/thread: `dual-channel.md` (Vivi ≥ 4.6).
 
 Product upgrades (board/brief/json):  
-`~/work/ianzepp/vivarium/docs/mailspace-agent-control-plane-goal.md` and  
-`~/work/ianzepp/vivarium/docs/release-v4.6.0.md`.
+Vivi ≥ 4.6 watch/thread — see board CLI notes in `companion-fallbacks.md` and your Vivi install docs if present.

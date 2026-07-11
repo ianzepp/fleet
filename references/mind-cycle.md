@@ -148,7 +148,7 @@ Optional autonomous compact hint when N>0: `+op-mail:N` on the one-liner — nev
 At **end of each fleet’s mini-cycle** (after sensors/ops, whether acted or quiet sleep that completed):
 
 ```bash
-path/to/skills/fleet/scripts/steward.sh rearm --project <that-fleet-root>
+scripts/steward.sh rearm --project <that-fleet-root>
 ```
 
 | Also | When |
@@ -347,8 +347,8 @@ Run once when **main HEAD moved** this cycle relative to baseline `polish_adviso
 ### How (cheap)
 
 ```bash
-# path from $polish skill; fleet may pin absolute path in fleet tooling
-python3 ~/work/ianzepp/skills/polish/scripts/suggest-polish-files.py \
+# vendored under this skill scripts/; fleet may override path in tooling
+python3 <this-skill>/scripts/suggest-polish-files.py \
   --repo <main_checkout> \
   --json --limit 15
 # optional: --path crates/foo for scoped landings

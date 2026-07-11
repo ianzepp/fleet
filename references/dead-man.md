@@ -67,7 +67,7 @@ steward.last_rearm_at = now
 Also run:
 
 ```bash
-path/to/skills/fleet/scripts/steward.sh rearm --project <root>
+scripts/steward.sh rearm --project <root>
 ```
 
 **Do not** rearm only on turn start (masks hook death). Optional: rearm at
@@ -139,7 +139,7 @@ vivi exec send --account <account> path/to/draft.eml
 **Policy exception (narrow):** fleet may set
 `steward.notify.preauthorized_exec_send: true` for **this template only** —
 trip page to configured `to` addresses. Not a general agent send license.
-See `$mail` for normal compose/exec rules.
+Compose/exec: `companion-fallbacks.md` (Mail section).
 
 If SMTP fails: still complete board + baseline; log error; do not block hold.
 
@@ -212,12 +212,12 @@ steward:
 
 ```bash
 # from fleet, or PROJECT=…
-path/to/skills/fleet/scripts/steward.sh arm    --project <root>
-path/to/skills/fleet/scripts/steward.sh rearm  --project <root>
-path/to/skills/fleet/scripts/steward.sh disarm --project <root>
-path/to/skills/fleet/scripts/steward.sh status --project <root>
-path/to/skills/fleet/scripts/steward.sh check  --project <root>   # one-shot; may trip
-path/to/skills/fleet/scripts/steward.sh clear  --project <root>   # clear trip after recovery
+scripts/steward.sh arm    --project <root>
+scripts/steward.sh rearm  --project <root>
+scripts/steward.sh disarm --project <root>
+scripts/steward.sh status --project <root>
+scripts/steward.sh check  --project <root>   # one-shot; may trip
+scripts/steward.sh clear  --project <root>   # clear trip after recovery
 ```
 
 Exit codes (`check` / loop trip path): `0` ok · `1` tripped this run · `2` config/error · `3` disarmed/inactive.
@@ -237,7 +237,7 @@ Exit codes (`check` / loop trip path): `0` ok · `1` tripped this run · `2` con
 
 - Heartbeat only on turn start or loop inject  
 - Steward as permanent second Mind / product bag owner  
-- Global multi-fleet system service scanning ~/work  
+- Global multi-fleet system service scanning home directories for fleets  
 - External email without fleet `to` + `preauthorized_exec_send`  
 - Spamming external mail every poll after trip  
 - Killing `running` Hands on trip  
@@ -249,4 +249,4 @@ Exit codes (`check` / loop trip path): `0` ok · `1` tripped this run · `2` con
 - [`operator-mail.md`](operator-mail.md) — human board inbox  
 - [`mind-cycle.md`](mind-cycle.md) — modes, cycle end  
 - [`runtime-config.md`](runtime-config.md) — wind-down disarm  
-- `$mail` — compose / exec send surfaces  
+- External/board mail: `companion-fallbacks.md`  

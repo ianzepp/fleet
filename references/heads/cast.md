@@ -1,7 +1,7 @@
 # Head cast (fleet executive layer)
 
 Load when arming Heads, writing role prompts, or renaming identities.  
-**Personas** (depth): [`personas/`](personas/) — former `$executive-team` role bodies (fleet-adapted).  
+**Personas** (depth): [`personas/`](personas/).  
 **Loops** (process): [`../heads.md`](../heads.md) — assign → report, side-lane buckets, post-main review, purity.
 
 ## Canonical Head identities
@@ -59,5 +59,5 @@ title that owns the pain of complexity.
 
 ## Archived skill
 
-`$executive-team` is **archived**. Persona content lives here. Do not re-arm a
+Persona content lives here. Do not re-arm a
 separate executive-team ops runtime; use fleet Heads.

@@ -5,7 +5,7 @@ description: Multi-agent fleet management with Mind/Head/Hand roles (Abbot patte
 
 # Fleet
 
-**Roles follow Abbot’s Mind / Head / Hand pattern** (see `~/work/ianzepp/abbot/README.md`: agent layer as roles under one control plane). This skill applies that pattern to a **multi-session fleet** (mail board + tmux panes), not Abbot’s in-process kernel.
+**Roles follow Abbot’s Mind / Head / Hand pattern** (agent-layer roles under one control plane). This skill applies that pattern to a **multi-session fleet** (mail board + tmux panes), not an in-process kernel.
 
 | Role | Job | Canonical identity |
 | --- | --- | --- |
@@ -119,6 +119,8 @@ Reserve **hard ban** language for actions that break the platform, tree, or mult
 | [`operator-mail.md`](references/operator-mail.md) | **`operator@` human inbox** — problems / blockers / bug-guidance; not status; present when operator returns |
 | [`dead-man.md`](references/dead-man.md) | **Steward / dead man** — completed-cycle watchdog; rearm every cycle; trip → hold + operator@ + external email |
 | [`multi-fleet.md`](references/multi-fleet.md) | **Session-attach multi-fleet** — attach/detach, FLEET_CYCLE over fleets=, binding, advisory lock |
+| [`companion-fallbacks.md`](references/companion-fallbacks.md) | **When companion skills missing** — short process theses (polish, map, factory, …) |
+| [`fleet-guide.md`](references/fleet-guide.md) | First-exposure vocabulary (not every cycle) |
 | [`scripts/steward.sh`](scripts/steward.sh) | `arm` / `rearm` / `disarm` / `check` / `clear` / `loop` (uses fleet.json `tmux_target`) |
 | [`multi-lane.md`](references/multi-lane.md) | Side lanes, theme→main, base-update, pin-relative, `pending_merges` |
 | [`heads.md`](references/heads.md) | head-ceo / **head-cto** / **head-cxo** loops |
@@ -432,7 +434,7 @@ Skip only when the unit was docs-only / Status-only / merge-only, or operator wa
 After **main HEAD moves** (merge, theme land, spine unit on main) — not every quiet cycle — Mind may run the polish skill’s read-only ranker:
 
 ```bash
-python3 ~/work/ianzepp/skills/polish/scripts/suggest-polish-files.py \
+python3 <this-skill>/scripts/suggest-polish-files.py \
   --repo <main_checkout> --json --limit 15
 ```
 
@@ -586,22 +588,29 @@ Schema detail: [`runtime-config.md`](references/runtime-config.md).
 - Hardcoding `hand-1` as tmux **session** name when fleet.json has `tmux_target`
 - Global roster/baseline as control plane; auto-scanning disk for fleets
 
-## Related skills
+## Companion skills (optional)
 
-- `$mail` — Vivi project mailspace CLI (task/need/want/mail, watch, thread); not the fleet process
-- `$polish` — end-of-unit per-file improvement; Mind uses `scripts/suggest-polish-files.py` for post-main advisory routing
-- `$housekeeping` — full multi-phase repo maintenance; Mind files only at **major inflection** (campaign end / large merge / stage closeout)
-- `$correctness` — behavioral bug / invariant audits (tool for Hand or head-cto)
-- `$cleanliness` — structure/complexity scans (pairs with head-cxo purity work)
-- `$factory` — multi-phase implementation when the Hand executes a large unit
-- `$campaign` / `$delivery` — map and delivery packages the Hand drains
+When installed, full skills may refine behavior. When **missing**, use
+[`references/companion-fallbacks.md`](references/companion-fallbacks.md):
+
+| Concern | Optional skill | Fallback |
+| --- | --- | --- |
+| Board CLI (Vivi) | `$mail` | companion-fallbacks → Mail |
+| End-of-unit polish | `$polish` | companion-fallbacks → Polish + `scripts/suggest-polish-files.py` |
+| Major-inflection maintenance | `$housekeeping` | companion-fallbacks → Housekeeping |
+| Bug hunt | `$correctness` | companion-fallbacks → Correctness |
+| Structure / complexity | `$cleanliness` | companion-fallbacks → Cleanliness |
+| Multi-phase implement | `$factory` | companion-fallbacks → Factory |
+| Map / routing | `$campaign` / `$delivery` | companion-fallbacks → Campaign / Delivery / Map |
+
+This skill directory is **self-contained** — no required reads outside it.
 
 ## Head personas (not every cycle)
 
-Org-title Heads and CEO/CTO/… persona bodies: [`references/heads/cast.md`](references/heads/cast.md). Former `$executive-team` is **archived** — do not load it as a separate skill.
+Org-title Heads and CEO/CTO/… persona bodies: [`references/heads/cast.md`](references/heads/cast.md).
 
 ## First exposure (not every cycle)
 
-Onboarding for a new human or foreign LLM: **[`../docs/fleet-guide.md`](../docs/fleet-guide.md)** — patterns and vocabulary only. **Do not** load that guide on every FLEET_CYCLE; use this skill + `references/` when operating.
+Onboarding: [`references/fleet-guide.md`](references/fleet-guide.md) — patterns only. **Do not** load every FLEET_CYCLE.
 
-Multi-fleet design background: [`../docs/multi-fleet-design.md`](../docs/multi-fleet-design.md) (session-attach model).
+Multi-fleet design: [`references/multi-fleet-design.md`](references/multi-fleet-design.md). Ops: [`references/multi-fleet.md`](references/multi-fleet.md).

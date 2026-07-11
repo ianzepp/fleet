@@ -9,10 +9,10 @@ Fleet-agnostic Codex doctor/heal/reinit (ported from faberlang production helper
 ```bash
 # from fleet root, or set PROJECT + FLEET
 PROJECT=/path/to/fleet FLEET=/path/to/fleet.json \
-  path/to/skills/fleet/scripts/codex-reinit.sh doctor
-path/to/skills/fleet/scripts/codex-reinit.sh heal hand-3
-path/to/skills/fleet/scripts/codex-reinit.sh reinit hand-1 --boot 'HAND WAKE …'
-path/to/skills/fleet/scripts/codex-reinit.sh classify hand-2
+  scripts/codex-reinit.sh doctor
+scripts/codex-reinit.sh heal hand-3
+scripts/codex-reinit.sh reinit hand-1 --boot 'HAND WAKE …'
+scripts/codex-reinit.sh classify hand-2
 ```
 
 - Defaults: `PROJECT` from cwd or parent of `FLEET`; `FLEET` = `$PROJECT/.vivi/fleet.json`
@@ -338,7 +338,7 @@ Optional fleet JSON mirror:
   "score_threshold": 500,
   "max_files_per_task": 3,
   "max_tasks_per_cycle": 1,
-  "script": "/Users/ianzepp/work/ianzepp/skills/polish/scripts/suggest-polish-files.py"
+  "script": null
 },
 "housekeeping_advisory": {
   "note": "file only at major inflection; one open task at a time"

@@ -40,8 +40,8 @@ if [[ -z "$PROJECT" ]]; then
   fi
 fi
 FLEET="${FLEET:-$PROJECT/.vivi/fleet.json}"
-if [[ ! -f "$FLEET" && -f "$PROJECT/.vivi/hand-fleet.json" ]]; then
-  FLEET="$PROJECT/.vivi/hand-fleet.json"
+if [[ ! -f "$FLEET" && -f "$PROJECT/.vivi/fleet.json" ]]; then
+  FLEET="$PROJECT/.vivi/fleet.json"
 fi
 TMUX_BIN="${TMUX_BIN:-$(command -v tmux 2>/dev/null || echo /opt/homebrew/bin/tmux)}"
 CODEX_BIN="${CODEX_BIN:-$(command -v codex 2>/dev/null || echo /opt/homebrew/bin/codex)}"
@@ -55,7 +55,7 @@ PS_BIN="${PS_BIN:-/bin/ps}"
 PGREP_BIN="${PGREP_BIN:-/usr/bin/pgrep}"
 PYTHON_BIN="${PYTHON_BIN:-/opt/homebrew/bin/python3}"
 # Bare Mind/ops shells often lack coreutils on PATH — pin them.
-export PATH="/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin:${PATH:-}:/Users/ianzepp/.cargo/bin"
+export PATH="/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin:${HOME}/.cargo/bin:${HOME}/.local/bin:${PATH:-}"
 HEAD_BIN="${HEAD_BIN:-/usr/bin/head}"
 TAIL_BIN="${TAIL_BIN:-/usr/bin/tail}"
 GREP_BIN="${GREP_BIN:-/usr/bin/grep}"

@@ -54,7 +54,7 @@ that work to a Hand.
 - **head-cto** — behavioral bugs / fail-closed (you are **not** the bug Head)  
 - **Mind** — files Hand work, wakes panes, speaks to the operator  
 
-Use `$cleanliness` / structure scans as tools when useful; you still only
+Use structure/cleanliness scans when available (else companion-fallbacks); you still only
 advise.
 
 ## Boundaries

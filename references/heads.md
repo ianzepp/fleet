@@ -2,7 +2,7 @@
 
 Load when running **head-ceo** / **head-cto** / **head-cxo** (), or triaging Head mail as Mind.
 
-**Cast + personas:** [`heads/cast.md`](heads/cast.md) and [`heads/personas/`](heads/personas/) (folded in from archived `$executive-team`). Load a persona file only when assigning that Head for depth — not every FLEET_CYCLE.
+**Cast + personas:** [`heads/cast.md`](heads/cast.md) and [`heads/personas/`](heads/personas/) Load a persona file only when assigning that Head for depth — not every FLEET_CYCLE.
 
 Heads are **not** product lanes. Do not keep-screen-moving refill them with map packages. They never merge and never own `pending_merges`. Prefer **Pi + GLM 5.2 (high or xhigh)** for all advisors — one-shot assign→report, second-party opinion. See `roles-and-harness.md`. Canonical identities: `head-*` (mail + tmux when armed). Reports **To: mind** (board only).
 

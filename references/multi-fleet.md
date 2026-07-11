@@ -4,7 +4,7 @@ A **Mind session** (operator TUI) may supervise **one or more fleets**. Each fle
 is the **durability boundary** (`.vivi/`, board, baseline, steward). Cross-fleet
 state lives only in the live Mind session and is rebuilt from per-fleet baselines.
 
-Design source: [`../../docs/multi-fleet-design.md`](../../docs/multi-fleet-design.md) (v2.1).
+Design source: [`multi-fleet-design.md`](multi-fleet-design.md) (v2.1).
 
 ## Vocabulary
 
@@ -151,7 +151,7 @@ Tripped stewards first; then operator@ union; then headlines.
 ## Anti-patterns
 
 - Global roster / global baseline as control plane
-- Auto-scan `~/work` for fleets
+- Auto-scan home directories for fleets
 - Shared board across fleets
 - Soft-hold Hands of fleet B when A trips
 - Dual Mind on one fleet without takeover

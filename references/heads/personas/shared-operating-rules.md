@@ -1,7 +1,6 @@
 # Head persona operating rules (fleet)
 
-**Home:** `$fleet` — these personas are **Heads**, not a separate skill.  
-Former home: `$executive-team` (archived). Load only when assigning or running a Head that needs this depth.
+**Home:** this fleet skill — these personas are **Heads**, not a separate skill. Load only when assigning or running a Head that needs this depth.
 
 Fleet law still wins over this file:
 
