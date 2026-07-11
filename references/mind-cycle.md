@@ -114,7 +114,7 @@ When the cycle **acted**, emit a **scannable summary**:
 
 Use **absorb** and **accept** accurately (never absorb when you mean accept).
 
-Optional: thorough review every N cycles (e.g. `cycle % 3 == 1`); superficial otherwise — §§REDMIND§§s + mail + starvation only. Autonomous thorough = residuals only, not interactive design.
+Optional: thorough review every N cycles when the counter is divisible by N (e.g. `cycle % 3 == 0`); superficial otherwise — §§REDMIND§§s + mail + starvation only. Autonomous thorough = residuals only, not interactive design.
 
 ### Expand only on signal (paid path)
 
@@ -146,7 +146,7 @@ After cheap sensors, set `cycle = last_cycle + 1` (write at end of cycle). Caden
 | Kind | When | Work |
 | --- | --- | --- |
 | **Mail interrupt** | Always first | Permission / review / Q from hands or operator → answer **same wake** |
-| **Thorough (paid)** | e.g. `cycle % 3 == 1` | Residual + code review of product changes since `last_thorough_fingerprint` |
+| **Thorough (paid)** | e.g. `cycle % 3 == 0` (remainder **0**, not 1) | Residual + code review of product changes since `last_thorough_fingerprint` |
 | **Superficial** | other cycles | Red-flag scan + pane classes; sleep unless §§REDMIND§§, mail, starvation, or wake/ops |
 
 ### Superficial
