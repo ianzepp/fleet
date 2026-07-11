@@ -50,11 +50,7 @@ if [[ -z "$PROJECT" ]]; then
   fi
 fi
 FLEET="${FLEET:-$PROJECT/.vivi/fleet.json}"
-if [[ ! -f "$FLEET" && -f "$PROJECT/.vivi/fleet.json" ]]; then
-  FLEET="$PROJECT/.vivi/fleet.json"
-fi
-TMUX_BIN="$(fleet_find_tmux 2>/dev/null || true)"
-TMUX_BIN="${TMUX_BIN:-tmux}"
+TMUX_BIN="$(fleet_find_tmux 2>/dev/null || true)"; TMUX_BIN="${TMUX_BIN:-tmux}"
 CODEX_BIN="$(fleet_find_bin codex /opt/homebrew/bin/codex /usr/local/bin/codex "${HOME}/.local/bin/codex" 2>/dev/null || true)"
 CODEX_BIN="${CODEX_BIN:-codex}"
 VIVI_BIN="$(fleet_find_vivi 2>/dev/null || true)"
@@ -64,20 +60,20 @@ if ! PYTHON_BIN="$(fleet_find_python3)"; then
   echo "ERROR: python3 >= 3.9 not found (set PYTHON_BIN)" >&2
   exit 3
 fi
+# Coreutils (BSD/GNU path variants)
 HEAD_BIN="${HEAD_BIN:-$(fleet_find_bin head /usr/bin/head /bin/head || echo head)}"
 TAIL_BIN="${TAIL_BIN:-$(fleet_find_bin tail /usr/bin/tail /bin/tail || echo tail)}"
 GREP_BIN="${GREP_BIN:-$(fleet_find_bin grep /usr/bin/grep /bin/grep || echo grep)}"
 MKDIR_BIN="${MKDIR_BIN:-$(fleet_find_bin mkdir /bin/mkdir /usr/bin/mkdir || echo mkdir)}"
 DATE_BIN="${DATE_BIN:-$(fleet_find_bin date /bin/date /usr/bin/date || echo date)}"
 LOG="${LOG:-/tmp/fleet-codex-reinit.log}"
-MODEL="${MODEL:-}" # empty → fleet agent_model (or --model on reinit)
-CODEX_EFFORT="${CODEX_EFFORT:-}" # empty → xhigh when synthesizing (Hand preferred)
+MODEL="${MODEL:-}"                 # empty → fleet agent_model (or --model on reinit)
+CODEX_EFFORT="${CODEX_EFFORT:-}"   # empty → xhigh when synthesizing (Hand preferred)
 WAIT_READY_SEC="${WAIT_READY_SEC:-45}"
 WAIT_WORKING_SEC="${WAIT_WORKING_SEC:-90}"
 WAIT_SETTLE_SEC="${WAIT_SETTLE_SEC:-8}"
-AUTO_TRUST="${AUTO_TRUST:-1}" # accept "Yes, continue" trust UI during launch
-# Cached vivi mailspace status text (bag join for doctor/heal).
-__BAG_STATUS_CACHE=""
+AUTO_TRUST="${AUTO_TRUST:-1}"      # accept trust UI during launch
+__BAG_STATUS_CACHE=""              # vivi mailspace status text (doctor/heal)
 
 log() { printf '%s %s\n' "$($DATE_BIN -u +%H:%M:%S)" "$*" | tee -a "$LOG" >&2; }
 
