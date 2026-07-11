@@ -2,6 +2,24 @@
 
 Load for capacity recovery, Codex reinit scripts, fleet/baseline schemas, or camp wind-up.
 
+## Skill script: `scripts/codex-reinit.sh`
+
+Camp-agnostic Codex doctor/heal/reinit (ported from faberlang production helper).
+
+```bash
+# from camp root, or set PROJECT + FLEET
+PROJECT=/path/to/camp FLEET=/path/to/fleet.json \
+  path/to/skills/fleet/scripts/codex-reinit.sh doctor
+path/to/skills/fleet/scripts/codex-reinit.sh heal hunter-3
+path/to/skills/fleet/scripts/codex-reinit.sh reinit hunter-1 --boot 'HAND WAKE …'
+path/to/skills/fleet/scripts/codex-reinit.sh classify hunter-2
+```
+
+- Defaults: `PROJECT` from cwd or parent of `FLEET`; `FLEET` = `$PROJECT/.vivi/fleet.json` or `hunter-fleet.json`
+- Never `exec codex`; pane shell stays parent; short bootstrap only
+- Exit codes: reinit `0/1/2 stuck_idle/3`; doctor `0/1/2` as in script header
+- Camps may symlink into `.vivi/codex-reinit.sh` and wrap env
+
 ## Runtime fallback (capacity / unavailability)
 
 **Invariant:** assignment (H-number, side lane, merge rights) does **not** change when a model is full. Only **runtime** rebinds (`agent_model`, `agent_launch`, and only carefully `agent` / `wake_mode`). Source of truth: fleet `runtime_fallback` + per-hunter fields + **Harness alignment**.
@@ -233,7 +251,8 @@ quiet_streak                      # consecutive no-signal product cycles
 turns_since_operator_message      # Mind cycles since last human operator prose
 mind_mode                         # autonomous | interactive (resolved this cycle)
 mind_mode_override optional       # ops_only | deep | clear — operator sticky force
-last_operator_message_at optional # timestamp or cycle id of last operator prose
+last_operator_message_at          # timestamp or cycle id of last operator prose
+operator_recap                    # short material-change list since last operator message
 last_actionable_fingerprint   # fleet bags + heads/dirty + panes
 pending_reviews[]
 pending_merges[]
@@ -247,7 +266,7 @@ gatherer_loop.{state, handoff, …}   # armed | running | stopping | wound_up
 half_dead[] optional                # path, class A/B/C, age_cycles, note
 ```
 
-**Mode counters vs quiet:** `quiet_streak` is product silence (nothing to do). `turns_since_operator_message` is **human** silence in the Mind chat. A busy fleet can have `quiet_streak = 0` and still be **autonomous** if the operator has not spoken for ≥ 3 cycles.
+**Mode counters vs quiet:** `quiet_streak` is product silence (nothing to do). `turns_since_operator_message` is **human** silence in the Mind chat. A busy fleet can have `quiet_streak = 0` and still be **autonomous** if the operator has not spoken for ≥ 3 cycles. Scheduled wakes must use the **`FLEET_CYCLE`** prefix (see main skill / mind-cycle).
 
 Ignore-lists for tasking noise may live in baseline (`ignore_bag_handles`, `ignore_subjects_prefixes`) without deleting board history.
 

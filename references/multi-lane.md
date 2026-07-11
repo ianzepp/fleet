@@ -32,8 +32,9 @@ Side-lane workers **never** merge to main. Mind owns the integration clock.
 ### Theme-complete path
 
 1. Worker signals **theme ready-to-merge** (theme name + tip + evidence) **or** Mind judges theme done after review
-2. **Absorb** tip; **code review** range since last main merge (not a GO stamp)
-3. **Accept** → `pending_merges` (slug, tip, base, theme, state `queued_for_h1`) **or** residual To worker
+2. **Absorb** tip; light residual / evidence check since last main merge (not a GO stamp; not full code review)
+3. **Integration accept** → `pending_merges` (slug, tip, base, theme, state `queued_for_h1`) **or** residual To worker  
+   (Deep code review is **correctness on main after** hunter-1 merges)
 4. File **one merge task To: hunter-1** (slug, branch, base, tip, theme, validation, **watch-scope drift**)
 5. Wake/reinit h1 only at **clean breakpoint** (by h1’s current runtime). Mid-spine → **queue**
 6. After h1 merges: **absorb** main; **accept** merge; clear/update `pending_merges`; file next unit/theme To worker still assigned that lane (or reassign)

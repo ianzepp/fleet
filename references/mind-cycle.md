@@ -2,22 +2,34 @@
 
 Load for Mind interaction modes, wake loops, sensors, review, absorb/accept, and merge tasking.
 
-## Mind interaction modes (cognitive budget)
+## Mind interaction modes (strong guidance — not a hard ban)
 
-Mind is the **operator-opened** harness conversation (desktop or terminal). Model/reasoning tier is operator setup; do **not** require self-detection of model id. Cognitive budget follows **interaction mode**.
+Mind is the **operator-opened** harness conversation (desktop, terminal, or other). Model/reasoning tier is operator setup; do **not** require self-detection of model id. Cognitive budget follows **interaction mode**. Do not freeze useful work because a counter is awkward.
+
+### Scheduled cycle prefix
+
+Every durable scheduler / loop injection **must** start with:
+
+```text
+FLEET_CYCLE cycle=<N> project=<root>
+```
+
+Anything whose first line starts with `FLEET_CYCLE` is **not** an operator message. Fix camp overlays that omit this.
 
 ### Counters (write every cycle)
 
 | Field | Meaning |
 | --- | --- |
 | `quiet_streak` | Consecutive cycles with no actionable product signal (fingerprint quiet) |
-| `turns_since_operator_message` | Mind **cycles** since the last human operator message in this Mind conversation |
+| `turns_since_operator_message` | Mind **cycles** since the last human operator message |
+| `last_operator_message_at` | Cycle id / time of last operator prose |
 | `mind_mode` | `autonomous` \| `interactive` (resolved this cycle) |
 | `mind_mode_override` | optional sticky operator force (`ops_only` / `deep` / clear) |
+| `operator_recap` | Compact bullet list of material changes since last operator message |
 
 **Operator message** = human prose in the Mind session (question, instruction, review request, design chat).
 
-**Not** operator messages: scheduler/cycle boilerplate (“Mind cycle N…”, fail-fast overlay text), Hand/Head board mail, pane captures, or other agents’ mail.
+**Not** operator messages: lines starting with `FLEET_CYCLE`, other scheduler boilerplate, Hand/Head board mail, pane captures.
 
 ### Resolve mode (before sensors expand)
 
@@ -25,24 +37,27 @@ Mind is the **operator-opened** harness conversation (desktop or terminal). Mode
 1. If mind_mode_override set → use it (ops_only→autonomous, deep→interactive)
 2. Else if this turn’s user content is an operator message:
      turns_since_operator_message = 0
+     last_operator_message_at = now/cycle
      mind_mode = interactive
+     refresh operator_recap (start new window or answer catch-up then continue)
 3. Else:
      turns_since_operator_message += 1
+     append material events to operator_recap (short)
      if turns_since_operator_message >= 3:
        mind_mode = autonomous
      else if prior mind_mode known:
-       keep prior
+       keep prior   # turns 1–2: operator may still be watching
      else:
-       mind_mode = autonomous   # default when ambiguous / first fires
-4. Write counters + mind_mode into baseline at end of cycle
+       mind_mode = autonomous
+4. Write counters + mind_mode + operator_recap into baseline at end of cycle
 ```
 
-**Threshold:** three or more Mind cycles without an operator message → **autonomous** until the next operator message (reset counter to 0).
+**Threshold (guidance):** three or more Mind cycles without operator prose → **autonomous** until the next operator message.
 
 | Mode | Cognitive budget | Output shape |
 | --- | --- | --- |
-| **Autonomous** | Limited reasoning **even if** high reasoning is available. Ops only: sensors, classify, file/wake/reinit, short absorb/accept, sleep. | One-line quiet or short table. No campaign essays. |
-| **Interactive** | Full reasoning allowed for the operator exchange; still owns bag + panes. | Answer the human; may be longer. |
+| **Autonomous** | Limited reasoning **even if** high reasoning is available. Ops: sensors, classify, file/wake/reinit, short absorb/integration-accept, sleep. **Decide now** on reversible defaults. | One-line quiet or short table. Keep `operator_recap` updated. |
+| **Interactive** | Full reasoning for the operator exchange; still owns bag + panes. | Answer the human; on “catch me up” lead with `operator_recap`. |
 
 ### Autonomous duties and escalation
 
@@ -52,29 +67,38 @@ In autonomous mode, Mind **still**:
 - Refills starvation, doorbells/reinits by runtime
 - Absorbs moved HEADs; files implementable residuals as **tasks**
 - Uses **needs** for real decision holds (default + options), not monologue
+- Updates **operator_recap** so a returning human is not amnesiac
 
 In autonomous mode, Mind **does not**:
 
 - Deep-plan strategy “because the model can”
-- Write multi-page residual reviews on a quiet or lightly moved fingerprint
-- Treat high reasoning availability as permission to expand context
+- Act as fleet **code reviewer** (that is **correctness on main**)
+- Wait multi-cycle on strategist when a safe default exists
+- Freeze on class A formatter dirt without opening the diff
 
-When autonomous Mind hits structural judgment it cannot cheaply resolve:
+**Escalation ladder (cheapest first):**
 
 | Class | Route |
 | --- | --- |
-| Sequencing / ownership / gate honesty / misprioritization | **Strategist** assign (or await outstanding report) |
-| Implementable defect / residual | **task** To owning Hand |
-| Human-only wall | **need** To operator (default + options); pivot other work |
-| Pane/capacity/runtime | Fleet ops (reinit / ladder) — not a Head report |
+| Pane/capacity/runtime | Fleet ops (reinit / ladder) **now** |
+| Class A dirt / obvious residual | Style-commit or **task** To Hand **now** |
+| Implementable defect | **task** To owning Hand |
+| Human-only wall | **need** To operator (default + options); **pivot** other work — do not idle |
+| Structural sequencing only (optional) | Strategist assign — **do not block** product cycles waiting; decide interim default |
+
+Waiting several cycles for strategist “permission” is a rules-of-engagement failure.
 
 ### Interactive duties
 
-Full reasoning for operator questions and instructions. May run a cheap fleet scan in the same turn. When the human goes silent, keep counting cycles; after **≥ 3** silent cycles, drop back to autonomous on subsequent wakes.
+Full reasoning for operator questions and instructions. May run a cheap fleet scan in the same turn. When the human goes silent, keep counting cycles; after **≥ 3** silent cycles, drop back to autonomous. Turns 1–2 of silence: they may still be monitoring.
+
+### Operator recap buffer
+
+Maintain a short list of **material** changes since `last_operator_message_at`: HEADs/merges, filed/done handles, pane ops, mode, open debt. Re-seed after `/compact`. On return phrases (“catch me up”, “what happened”, “summary”), answer from recap first.
 
 ### Interaction with thorough cycles
 
-Thorough/superficial cadence still applies. In **autonomous**, thorough stays **bounded and residual-shaped** (diff in scope → file tasks/needs); do not spend a full interactive design pass. In **interactive**, operator questions may expand beyond the thorough template.
+Thorough/superficial cadence still applies (`cycle % N == 0` for thorough). In **autonomous**, thorough is residual-shaped (diff in scope → file tasks/needs) — **not** peer code review of every packet. **Correctness** does deeper review on main after merge.
 
 ## Fail-fast wake (context budget)
 
@@ -121,8 +145,9 @@ Optional: thorough review every N cycles when the counter is divisible by N (e.g
 | Signal | Who | Action |
 | --- | --- | --- |
 | New/changed open task/need | Hand | show handle → work |
-| HEAD/dirty product moved | Mind | bounded residual pass **and/or code review** |
-| Hand mid-flight dirty (main or packet) | Mind | **proactive review** of WIP; §§REDMIND§§s → Vivi + short tmux pointer |
+| HEAD/dirty product moved | Mind | bounded residual / Status-honesty pass (not full code review) |
+| Hand mid-flight dirty (main or packet) | Mind | cheap red-flag scan; obvious residuals → Vivi + pointer (not deep peer review) |
+| Main moved after merge | Correctness | post-main code review / bug hunt (self-directed) |
 | Same dirty paths block spine ≥2 cycles, no A/B/C note | Mind | **Open the diff** (half-dead); classify; file style/claim/quarantine; pivot targets for Hand |
 | Map Status mtime changed | Either | skim Status lines; then bag |
 | Tasking empty + next package selected | Hand / Mind | start package or **refill** + wake/reinit |
@@ -146,7 +171,7 @@ After cheap sensors, set `cycle = last_cycle + 1` (write at end of cycle). Caden
 | Kind | When | Work |
 | --- | --- | --- |
 | **Mail interrupt** | Always first | Permission / review / Q from hands or operator → answer **same wake** |
-| **Thorough (paid)** | e.g. `cycle % 3 == 0` (remainder **0**, not 1) | Residual + code review of product changes since `last_thorough_fingerprint` |
+| **Thorough (paid)** | e.g. `cycle % 3 == 0` (remainder **0**, not 1) | Residual / Status-honesty scan of product changes since `last_thorough_fingerprint` (not peer code review) |
 | **Superficial** | other cycles | Red-flag scan + pane classes; sleep unless §§REDMIND§§, mail, starvation, or wake/ops |
 
 ### Superficial
@@ -192,46 +217,46 @@ When the cycle **acted**:
 
 Quiet true sleep may stay one-line (include `mode` + `operator_silence`). Prefer tables for the fleet snapshot.
 
-## Proactive review (Mind)
+## Residual scan (Mind) — not peer code review
 
-Hands optimize for throughput; Mind optimizes for **invariant honesty**.
+Hands optimize for throughput and **own ship quality**. Mind optimizes for **bag honesty, Status honesty, and integration**. Deep **code review** is **correctness on main after merge**.
 
-**When to open a review pass (bounded):**
+**When to open a residual pass (bounded):**
 
-- Thorough cycle (`cycle % N` / paid path), **or**
-- Superficial cycle if: new HEAD on focus repos, **or** dirty product paths in a hunter’s allowed scope, **or** Status flip without evidence
+- Thorough cycle (`cycle % N == 0` / paid path), **or**
+- Superficial cycle if: new HEAD on focus repos, **or** dirty product paths, **or** Status flip without evidence
 
-In **autonomous** mode, keep the pass residual-shaped and short; escalate structural forks to strategist/needs rather than expanding into interactive design.
+In **autonomous** mode, keep it residual-shaped and short; **decide now** on obvious residuals; do not wait on strategist for reversible defaults.
 
 **How:**
 
-1. Identify owner from fleet (main dirty → likely hunter-1; packet dirty → that packet’s worker; if ambiguous, say so in mail)
-2. Diff only in-scope paths (`git diff`, packet branch log, key tests/claims)
-3. Look for §§REDMIND§§s: fail-open, dual ABI/dialect, tests weaker than Status, scope bleed, silent env fakes, docs lying, **Status complete while evidence is only static/manual without saying so**
-4. **Accept** (green): clear matching `pending_reviews` / advance packet toward merge; optional baseline note
-5. **Red flag:** file a **task** **To: hunter-N** with where, why, done-when. Use a **need** only for real decision/authority/input hold; then tmux pointer e.g. `HAND WAKE hunter-2. Bag: show <handle>. vivi --for hunter-2. Continue.`
-6. Do **not** paste the full review into tmux. Do **not** `git` cleanup foreign WIP
+1. Identify owner from fleet (main dirty → likely hunter-1; packet dirty → that packet’s worker)
+2. Diff only in-scope paths; cheap scan for Status lies, missing done marks, scope bleed, empty bag starvation
+3. **Integration accept** (green enough): clear matching `pending_reviews` / advance packet toward merge when validation evidence and scope look honest — not a full audit
+4. **Red flag residual:** file a **task** **To: hunter-N**; **need** only for real decision hold; short tmux pointer
+5. Do **not** paste essays into tmux. Do **not** `git` cleanup foreign WIP
+6. Do **not** re-litigate style as multi-cycle freeze — class A dirt clears same turn
 
-Mid-flight review is **advisory + residual**, not a stop stamp. For safety-critical implementable findings (data loss, auth, destructive scope), file a high-priority **task** with a fail-closed default and wake immediately. Use a **need** only when the safe fix requires a decision, authority, or external input.
+Safety-critical implementable findings (data loss, auth, destructive scope): high-priority **task** with fail-closed default and wake immediately.
 
-**Status honesty (accept bar):** static checks, node contract tests, and “controlled manual browser/GPU inspection” are fine **if Status says so**. Reject **accept** when Status says complete/product-run but evidence is only static or env-faked.
+**Status honesty (integration accept bar):** static checks and controlled manual evidence are fine **if Status says so**. Reject integration accept when Status says complete/product-run but evidence is only static or env-faked without disclosure.
 
-## Absorb vs accept
+## Absorb vs accept (integration)
 
 | Term | Meaning | When | Quality bar |
 | --- | --- | --- | --- |
-| **Absorb** | Reconcile sensors into baseline/bag awareness: notice HEAD/done/Status, stop re-discovering, update fingerprints | Every cycle when something moved | Low — bookkeeping honesty |
-| **Accept** | After code review, treat the unit/packet as good enough: clear review debt, allow map square closeout, unblock dependents, or queue merge to hunter-1 | Thorough or opportunistic review with evidence | High — invariants, tests vs claims, scope |
+| **Absorb** | Reconcile sensors into baseline/bag awareness | Every cycle when something moved | Low — bookkeeping honesty |
+| **Accept** | Integration accept: unit/packet good enough to clear review debt, close map square, or queue merge to hunter-1 | Thorough or opportunistic residual pass with honest evidence | Medium — tests/claims/scope honesty, not full code review |
+| **Code review** | Correctness Head on **main after merge** | After land on main | High — bugs, fail-closed, multi-theme interactions |
 
 | Role | Says… |
 | --- | --- |
 | **Hand** | Delivered / task **done** (evidence) — never “absorb” or “accept” |
-| **Mind** | **Absorb** always when moved; **accept** only after review |
-| **Operator** | May force priority; day-to-day accept stays Mind |
+| **Mind** | **Absorb** when moved; **integration accept** when evidence is honest enough to proceed |
+| **Correctness** | Post-main review findings → Mind triages to tasks |
+| **Operator** | May force priority |
 
-**Anti-pattern:** writing “absorb” in a cycle line as if it meant **accept** (Status + subject only, then file next package as green).
-
-Routing next target after absorb is fine **if** unreviewed work stays on `pending_reviews` until **accept** (or residuals are filed).
+**Anti-pattern:** writing “absorb” as if it meant accept; or Mind doing multi-page code review of every packet while correctness idles.
 
 ## Review debt
 
@@ -265,7 +290,7 @@ Cheap fingerprint should include:
 3. **Each active packet:** `git -C worktrees/<slug>/<writable> status` + `rev-parse HEAD` + branch name
 4. Pane class per Hand
 
-Packet dirty counts as that worker’s mid-flight WIP (proactive review scope).
+Packet dirty counts as that worker’s mid-flight WIP (residual-scan scope for Mind; not correctness’s primary surface).
 
 ## Merge task body (to hunter-1)
 

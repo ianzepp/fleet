@@ -141,7 +141,7 @@ Under **Harness alignment**, product Hands share Mind’s harness, so the fleet 
 4. One short first message: identity, never merge main (if packet), `vivi --for hunter-N`, open handle(s), one verb, optional one-line unblock fact
 5. Enter once. Record `last_codex_reinit_at` in baseline
 
-For production script contract (doctor/heal/exit codes), see `runtime-config.md`.
+Production helper: skill `scripts/codex-reinit.sh` (doctor / heal / reinit / classify). Set `PROJECT` and `FLEET`. See `runtime-config.md`.
 
 ## Doorbell (wake) — primarily Grok
 

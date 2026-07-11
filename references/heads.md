@@ -39,15 +39,20 @@ Strategist advises ownership, sequencing, seams, gate honesty, misprioritization
 
 **Strategist duty on stale assign:** re-read live evidence; one-line correction of stale premises; answer the structural question anyway.
 
-## Correctness auditor loop (self-directed)
+## Correctness auditor loop (self-directed) — **owns code review**
 
 Identity/session separate from hunter-N. Typical subject prefix: `correctness:`.
 
-1. Sensors: has-session; pane class; Mind inbox for correctness reports
+**Ownership:** correctness is the fleet **code-review** Head. Mind does **not** peer-review every Hand WIP. Hands still own ship quality (implement, validate, polish).
+
+**Surface: main after merge.** Prefer reviewing **main** (or the integration line products land on) **after** theme/unit merges — not continuous multi-worktree juggling. Cross-theme bugs often appear only once multiple themes share main; that is expected under build-fast / fail-fast. Bugs on main → tasks To the Hand that owns the fix (often hunter-1 for spine, or the originating packet owner if still assigned).
+
+1. Sensors: has-session; pane class; Mind inbox for correctness reports; **main HEAD/dirty** for focus repos
 2. Session **down** → recreate per fleet + role-prompt bootstrap (unless operator paused)
-3. New report → **absorb**: triage into task/need **To owning Hand** when actionable; doorbell if idle; record `correctness.last_report_*`; optional chat brief (problem ¶ + action ¶)
+3. New report → Mind **absorbs**: triage into task/need **To owning Hand** when actionable; doorbell if idle; record `correctness.last_report_*`; optional chat brief (problem ¶ + action ¶)
 4. **Do not** assign work every cycle. Soft-wake only if stuck idle long with no recent mail — pointer only to continue next pass + role path
 5. Never map-refill correctness as a product lane
+6. Do **not** act as merge GO/NO-GO or block hunter-1 merges awaiting a correctness stamp
 
 ## Purity auditor loop (self-directed)
 

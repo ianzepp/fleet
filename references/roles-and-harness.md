@@ -9,7 +9,7 @@ Load when arming a fleet, rebinding runtimes, or clarifying Mind/Hand/Head dutie
 | **Hand** | `hunter-1`…`hunter-N` (legacy: `codex`) | Take a **selected target** and finish it | Done tasks/needs + evidence; optional turn-end mail |
 | **Mind** | `reviewer` | Survey product; fill tasking; review; integrate; fleet ops | Open tasks/needs; pane scan; wake/reinit; merge queue |
 | **Strategist** (Head) | `strategist` | Ownership, sequencing, seams, gate honesty — not bag drain | Mail `strategist report:` To Mind |
-| **Correctness** (Head) | `correctness` | Self-directed bug / fail-closed / invariant audit | Mail `correctness:` To Mind |
+| **Correctness** (Head) | `correctness` | **Code review / bug hunt on main after merge** (not packet-worktree thrash) | Mail `correctness:` To Mind |
 | **Purity** (Head) | `purity` | Self-directed unearned-complexity / excess-layer audit | Mail `purity:` To Mind |
 
 One Mind owns the tasking bag and integration clock. Heads never merge, never keep product tasking “full,” and never stamp GO/NO-GO. They report To: Mind; Mind triages into hunter-N tasks/needs.
@@ -77,7 +77,8 @@ Notes:
 
 - Under **Grok**, Mind and Hand share the same model class (Grok 4.5) and harness.
 - Under **Codex**, Mind and Hand may differ within the family (sol/medium vs luna/xhigh); harness stays Codex.
-- **Claude Code desktop as Mind is a declared exception to Harness alignment.** The desktop app has no local CLI for a tmux pane, so Hands cannot match Mind’s harness literally. Treat **Grok as the fleet’s one Hand harness** in this shape: desktop Mind files tasking and reads panes by hand; Grok Hands use normal Grok wake (`pointer doorbell`, `/compact`) without a tmux-resident Mind.
+- **Claude Code desktop as Mind is a declared exception to Harness alignment** (and an **experimental** control-plane shape). The desktop app has no local CLI for a tmux pane, so Hands cannot match Mind’s harness literally. Treat **Grok as the fleet’s one Hand harness** in this shape: desktop Mind files tasking and reads panes by hand; Grok Hands use normal Grok wake without a tmux-resident Mind.
+- **Why desktop Mind exists (experiment):** (1) **token budget** — keep deep or interactive Mind work off the product Hand harness; (2) **failure isolation** — tmux server death should not take Mind; terminal/shell death should not take a desktop Mind. Expect learning and camp-specific tweaks.
 - Reserve **Codex** under desktop Mind only if Grok capacity is exhausted — reinit-after-unit assumes a scriptable Mind loop; a human Mind can do it but with more toil.
 - Heads still default to **Pi + GLM 5.2** regardless of Mind harness.
 - **Pi against local `llama-router` (`ornith-35b-q8`)** is a validated alternate Hand for desktop-Mind when work must stay fully local and units are discrete/bounded — see **Pi-as-Hand** below.
@@ -138,29 +139,37 @@ Heads need not match Mind’s product harness. Prefer Pi even when Mind is Grok 
 ## Mind does
 
 - **Is the operator entry point:** the human-opened harness conversation is Mind; model/tier is operator setup
-- Resolve **interaction mode** each cycle (`turns_since_operator_message`, `mind_mode`) — see main skill + `mind-cycle.md`
-- Find defects, missed work, Status lies, missing evidence
-- File **targets** with where / done-when / evidence bar (**to the owning Hand**)
-- **Own code review quality:** hands implement best-effort; Mind is the proactive reviewer (landed commits **and** in-flight WIP) — depth follows mode
-- Stay quiet when fingerprint unchanged, panes healthy, and no review signal
-- Each wake: cheap **fleet pane scan** for liveness/errors; **Grok doorbell** or **Codex reinit** when idle/done with open targets
-- Review finding → **task** to that Hand (finding + fix bar); **need** only for real decision/authority/input hold; **tmux pointer only** to that handle
-- **Unstick half-dead dirt:** if same blocking paths age ≥2 cycles with no A/B/C class, open the diff; file claim/style/quarantine targets — do not restate “foreign dirty” forever
-- **Autonomous mode:** thin ops only; escalate structural judgment to strategist/Heads/needs — do not deep-plan every cycle even when high reasoning is available
-- **Interactive mode:** full reasoning for operator questions/instructions; still own bag + panes
+- Resolve **interaction mode** each cycle (`turns_since_operator_message`, `mind_mode`, `FLEET_CYCLE` prefix) — see main skill + `mind-cycle.md`
+- Find missed work, Status overclaims, missing evidence; file **targets** with where / done-when / evidence bar (**to the owning Hand**)
+- **Integration absorb/accept** — bookkeeping and “good enough to merge/queue,” not deep peer code review of every packet
+- Stay quiet when fingerprint unchanged, panes healthy, and no ops signal
+- Each wake: cheap **fleet pane scan**; **Grok doorbell** or **Codex reinit** (prefer `scripts/codex-reinit.sh`) when idle/done with open targets
+- Residual finding → **task** to Hand; **need** only for real decision hold; **tmux pointer only**
+- **Unstick half-dead dirt:** open the diff; class A mechanical (fmt) → clear same turn; do not freeze for hours
+- **Autonomous:** thin ops; **decide now** on reversible defaults; strategist is optional structure help, not a permission gate
+- **Interactive:** full reasoning for operator; maintain **operator_recap** for when they return
+- Keep operator recap buffer since `last_operator_message_at`
 
 ## Mind does not
 
 - Issue stage start/closeout GO/NO-GO as binding protocol
 - Require multi-round mail before the next map square
-- Re-litigate completed units unless new residual targets appear
-- Treat “no completion mail” alone as “still working” when the pane is idle or errored
+- **Own fleet code-review quality** (that is **correctness on main after merge**)
 - Steal the Hand’s unit or rewrite their WIP mid-flight (raise; don’t hijack unless operator asks)
 - Treat status-only dirty as multi-cycle freeze without classification
 - Require introspecting its own model/reasoning tier to choose behavior
-- Treat Hand/Head board mail as operator engagement for mode selection
-- Stay in interactive full-reasoning forever after one early chat when `turns_since_operator_message >= 3`
+- Treat Hand/Head board mail or `FLEET_CYCLE` wakes as operator engagement
+- Wait multiple cycles on strategist for a decision it can make with a default
+- Treat strong guidance as a hard ban that freezes progress
+
+## Correctness does (Head)
+
+- Prefer **main checkout** as the review surface after themes/units land on main
+- Self-directed bug / fail-closed / invariant audit; report `correctness:` To Mind
+- File or recommend **tasks** for implementable defects (Mind triages to owning Hand)
+- Do **not** try to juggle every packet worktree as the primary continuous review surface
+- Do **not** act as merge GO/NO-GO; build-fast means some bugs reach main and get fixed there
 
 ## Heads do not
 
-Approve/disapprove work, race Mind on acceptance, merge to main, or own product tasking. Strategist proposes sequencing/ownership; correctness and purity report defects/shape debt. Mind triages.
+Approve/disapprove work as a gate, race Mind on acceptance, merge to main, or own product tasking. Strategist proposes sequencing/ownership; correctness reviews main; purity reports shape debt. Mind triages into the bag.
