@@ -62,6 +62,16 @@ wake-field well-formedness, and that referenced absolute paths (`role_prompt`,
 skill cares about meanings") — unknown keys are NOT rejected. Exit `0` ok ·
 `1` validation errors (or any warning under `--strict`) · `2` usage.
 
+### `fleet-posture.py`
+
+```bash
+python3 scripts/fleet-posture.py get --project <root> [--json]
+python3 scripts/fleet-posture.py set --project <root> growth|standby|dormant \
+  --reason 'why' [--wake-trigger '...']... [--json]
+```
+
+Updates only `fleet.json.fleet_posture`, preserves unspecified posture fields, stamps `since`, strictly validates a same-directory temporary candidate, and atomically replaces the overlay. It does not wake roles, run sensors, bump the Mind baseline, or arm the steward; normal Mind-cycle processing applies the transition. Exit `0` ok · `1` data/validation error · `2` usage.
+
 ### `fleet-doorbell.sh`
 
 ```bash
