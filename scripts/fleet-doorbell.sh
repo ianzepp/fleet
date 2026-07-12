@@ -460,26 +460,30 @@ by = prev.get("by_hand") if isinstance(prev.get("by_hand"), dict) else {}
 key = name or target
 old = by.get(key) if isinstance(by.get(key), dict) else {}
 count = int(old.get("count") or 0) + 1
-entry = {"at": now, "count": count, "handle": handle or None, "tmux_target": target}
+entry = {"at": now, "count": count, "handle": handle or None, "runtime_target": target}
 if wake_mode == "vivi_pty":
-    entry["runtime_target"] = target
     entry["runtime_kind"] = "vivi_pty"
     if socket:
         entry["runtime_socket"] = socket
+else:
+    entry["runtime_kind"] = "tmux"
+    entry["tmux_target"] = target
 by[key] = entry
 b["last_hand_wake"] = {
     "target": key,
     "handle": handle or None,
-    "tmux_target": target,
+    "runtime_target": target,
     "at": now,
     "reason": "doorbell",
     "by_hand": by,
 }
 if wake_mode == "vivi_pty":
-    b["last_hand_wake"]["runtime_target"] = target
     b["last_hand_wake"]["runtime_kind"] = "vivi_pty"
     if socket:
         b["last_hand_wake"]["runtime_socket"] = socket
+else:
+    b["last_hand_wake"]["runtime_kind"] = "tmux"
+    b["last_hand_wake"]["tmux_target"] = target
 # Keep legacy fields consistent (prevent stale last_hand_wake_target pinning)
 b["last_hand_wake_target"] = key
 b["last_hand_wake_at"] = now

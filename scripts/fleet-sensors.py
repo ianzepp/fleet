@@ -74,37 +74,47 @@ def is_vivi_pty_role(slot: dict) -> bool:
 
 
 def capture_vivi_pty(project: Path, session_id: str, vivi_pty_bin: str) -> tuple:
-    """Return (session_exists, terminal_contents) for a vivi-pty session."""
+    """Return (session_exists, terminal_contents, normalized_state)."""
     if not vivi_pty_bin:
-        return (False, "")
+        return (False, "", "unknown")
     rc, out = run(
-        [vivi_pty_bin, "session", "inspect", session_id, "--project", str(project)],
+        [vivi_pty_bin, "session", "diagnostic", session_id, "--project", str(project)],
         timeout=5,
     )
     if rc != 0:
-        return (False, "")
+        return (False, "", "unknown")
     try:
-        info = json.loads(out)
+        diagnostic = json.loads(out)
     except Exception:
-        return (False, "")
-    state = info.get("state", "")
-    if state in ("exited", "stopped"):
-        return (False, "")
-    rc, out = run(
-        [vivi_pty_bin, "terminal", "snapshot", session_id, "--project", str(project)],
-        timeout=5,
-    )
-    if rc != 0:
-        return (True, "")
-    try:
-        snap = json.loads(out)
-    except Exception:
-        return (True, "")
-    return (True, snap.get("contents", "") or "")
+        return (False, "", "unknown")
+    session = diagnostic.get("session") or {}
+    process_state = session.get("state", "unknown")
+    if process_state in ("exited", "stopped"):
+        return (False, "", "stopped")
+    terminal = diagnostic.get("terminal") or {}
+    normalized_state = diagnostic.get("state", "unknown")
+    return (True, terminal.get("contents", "") or "", normalized_state)
+
+
+def classify_vivi_pty(state: str, text: str, session_exists: bool) -> str:
+    """Map normalized vivi-pty state, falling back to terminal evidence."""
+    if not session_exists or state == "stopped":
+        return "down"
+    if state in ("starting", "submitting", "running"):
+        return "running"
+    if state == "waiting_for_input":
+        return "idle_prompt"
+    if state == "approval_required":
+        return "trust_prompt"
+    if state == "completed":
+        return "done_idle"
+    if state == "failed":
+        return "error_runtime"
+    return classify_pane(text, session_exists)
 
 
 def classify_pane(text: str, session_exists: bool) -> str:
-    """running|idle_prompt|done_idle|trust_prompt|error_capacity|error_connection|down|unknown"""
+    """Classify terminal evidence when no normalized runtime state is available."""
     if not session_exists:
         return "down"
     t = text or ""
@@ -861,10 +871,6 @@ def main() -> int:
         tmux_bin = tmux if Path(tmux).is_file() else (shutil.which(tmux) or tmux)
     else:
         tmux_bin = shutil.which("tmux") or ""
-    if not tmux_bin:
-        partial = True
-        out["signals"].append("tmux_missing")
-
     vivi_pty_bin = shutil.which("vivi-pty") or ""
 
     for name, h in hands.items():
@@ -906,12 +912,13 @@ def main() -> int:
 
         sess_ok = False
         tail = ""
+        runtime_state = None
         if vivi_pty_role:
             if not vivi_pty_bin:
                 partial = True
                 out["signals"].append("vivi_pty_missing")
             else:
-                sess_ok, tail = capture_vivi_pty(project, target, vivi_pty_bin)
+                sess_ok, tail, runtime_state = capture_vivi_pty(project, target, vivi_pty_bin)
                 if not sess_ok and not tail:
                     partial = True
         elif tmux_bin:
@@ -926,11 +933,15 @@ def main() -> int:
                     tail = ""
                     partial = True
 
-        pclass = classify_pane(tail, sess_ok)
+        pclass = (
+            classify_vivi_pty(runtime_state or "unknown", tail, sess_ok)
+            if vivi_pty_role
+            else classify_pane(tail, sess_ok)
+        )
         pane_classes[name] = pclass
         next_handle = open_tasks[0]["handle"] if open_tasks else (open_needs[0]["handle"] if open_needs else None)
 
-        if pclass in ("error_capacity", "error_connection", "down", "trust_prompt"):
+        if pclass in ("error_capacity", "error_connection", "error_runtime", "down", "trust_prompt"):
             out["signals"].append(f"pane_{name}_{pclass}")
         packet = h.get("packet") if isinstance(h.get("packet"), dict) else {}
         pkt_state = str(packet.get("state") or "").lower()
@@ -991,8 +1002,6 @@ def main() -> int:
 
         hand_row = {
             "mail_identity": mid,
-            "tmux_target": target,
-            "tmux_session": session,
             "agent": agent,
             "cwd": cwd,
             "tasks_open": row.get("tasks_open", len(open_tasks)),
@@ -1017,6 +1026,12 @@ def main() -> int:
             hand_row["runtime_kind"] = "vivi_pty"
             hand_row["runtime_target"] = target
             hand_row["runtime_socket"] = session
+            hand_row["runtime_state"] = runtime_state or "unknown"
+        else:
+            hand_row["runtime_kind"] = "tmux"
+            hand_row["runtime_target"] = target
+            hand_row["tmux_target"] = target
+            hand_row["tmux_session"] = session
         out["hands"][name] = hand_row
 
         # git for main hand (walk up from cwd; container fleets scan children / git.main_cwd)
@@ -1077,12 +1092,34 @@ def main() -> int:
     for key, block in fleet.items():
         if str(key).startswith("head-") and isinstance(block, dict):
             head_blocks[str(key)] = block
+    tmux_required = any(
+        isinstance(slot, dict) and not is_vivi_pty_role(slot) for slot in hands.values()
+    ) or any(not is_vivi_pty_role(block) for block in head_blocks.values())
+    if bool((fleet.get("steward") or {}).get("enabled")):
+        tmux_required = True
+    if tmux_required and not tmux_bin:
+        partial = True
+        out["signals"].append("tmux_missing")
+
     for key, block in sorted(head_blocks.items()):
-        target = block.get("tmux_target") or f"{block.get('tmux_session') or key}:1.1"
-        session = target.split(":")[0]
+        runtime = block.get("runtime") or {}
+        vivi_pty_role = is_vivi_pty_role(block)
+        if vivi_pty_role:
+            target = (runtime.get("session_id") if isinstance(runtime, dict) else None) or block.get("mail_identity") or key
+            session = (runtime.get("socket") if isinstance(runtime, dict) else None) or str(project / ".vivi" / "vivi-pty.sock")
+        else:
+            target = block.get("tmux_target") or f"{block.get('tmux_session') or key}:1.1"
+            session = target.split(":")[0]
         sess_ok = False
         tail = ""
-        if tmux_bin:
+        runtime_state = None
+        if vivi_pty_role:
+            if not vivi_pty_bin:
+                partial = True
+                out["signals"].append("vivi_pty_missing")
+            else:
+                sess_ok, tail, runtime_state = capture_vivi_pty(project, target, vivi_pty_bin)
+        elif tmux_bin:
             rc, _ = run([tmux_bin, "has-session", "-t", session], timeout=5)
             sess_ok = rc == 0
             if sess_ok:
@@ -1090,7 +1127,11 @@ def main() -> int:
                     [tmux_bin, "capture-pane", "-t", target, "-p", "-S", "-%d" % min(args.tail, 12)],
                     timeout=5,
                 )
-        pclass = classify_pane(tail, sess_ok)
+        pclass = (
+            classify_vivi_pty(runtime_state or "unknown", tail, sess_ok)
+            if vivi_pty_role
+            else classify_pane(tail, sess_ok)
+        )
         pane_classes[key] = pclass
 
         addressed_mail = list_recent_mail(vivi, str(project), block.get("mail_identity") or key, limit=1) if vivi else []
@@ -1183,11 +1224,10 @@ def main() -> int:
             out["signals"].append("mail_for_%s" % key)
         if mail_pending_handle and pclass in ("idle_prompt", "done_idle", "unknown") and not head_paused:
             out["signals"].append("mail_wake_candidate_%s" % key)
-        if pclass in ("error_capacity", "error_connection", "down", "trust_prompt"):
+        if pclass in ("error_capacity", "error_connection", "error_runtime", "down", "trust_prompt"):
             out["signals"].append("pane_%s_%s" % (key, pclass))
 
-        out["heads"][key] = {
-            "tmux_target": target,
+        head_row = {
             "pane_class": pclass,
             "pane_tail": "\n".join((tail or "").splitlines()[-8:]),
             "mail_top_handle": mail_top_handle,
@@ -1206,6 +1246,16 @@ def main() -> int:
             "sweep_top_handle": cur_top,
             "sweep_paused": head_paused or posture_pauses_executive_sweeps,
         }
+        if vivi_pty_role:
+            head_row["runtime_kind"] = "vivi_pty"
+            head_row["runtime_target"] = target
+            head_row["runtime_socket"] = session
+            head_row["runtime_state"] = runtime_state or "unknown"
+        else:
+            head_row["runtime_kind"] = "tmux"
+            head_row["runtime_target"] = target
+            head_row["tmux_target"] = target
+        out["heads"][key] = head_row
 
     # steward block from fleet + baseline + optional pane
     st_cfg = fleet.get("steward") or {}
