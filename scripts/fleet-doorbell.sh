@@ -167,13 +167,15 @@ elif slot:
         target = session_id
         session = socket
         agent = slot.get("agent") or "unknown"
-        min_gap = int(slot.get("min_seconds_between_wakes") or 180)
+        min_gap_value = slot.get("min_seconds_between_wakes")
+        min_gap = int(180 if min_gap_value is None else min_gap_value)
         mail = slot.get("mail_identity") or name
     else:
         target = slot.get("tmux_target") or ("%s:1.1" % (slot.get("tmux_session") or name))
         session = target.split(":")[0]
         agent = slot.get("agent") or "unknown"
-        min_gap = int(slot.get("min_seconds_between_wakes") or 180)
+        min_gap_value = slot.get("min_seconds_between_wakes")
+        min_gap = int(180 if min_gap_value is None else min_gap_value)
         mail = slot.get("mail_identity") or name
         socket = ""
 else:
