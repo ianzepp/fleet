@@ -66,6 +66,43 @@ def head_state_block(baseline: dict, key: str) -> dict:
     return block if isinstance(block, dict) else {}
 
 
+def is_vivi_pty_role(slot: dict) -> bool:
+    runtime = slot.get("runtime") or {}
+    if isinstance(runtime, dict) and runtime.get("kind") == "vivi_pty":
+        return True
+    return slot.get("wake_mode") == "vivi_pty"
+
+
+def capture_vivi_pty(project: Path, session_id: str, vivi_pty_bin: str) -> tuple:
+    """Return (session_exists, terminal_contents) for a vivi-pty session."""
+    if not vivi_pty_bin:
+        return (False, "")
+    rc, out = run(
+        [vivi_pty_bin, "session", "inspect", session_id, "--project", str(project)],
+        timeout=5,
+    )
+    if rc != 0:
+        return (False, "")
+    try:
+        info = json.loads(out)
+    except Exception:
+        return (False, "")
+    state = info.get("state", "")
+    if state in ("exited", "stopped"):
+        return (False, "")
+    rc, out = run(
+        [vivi_pty_bin, "terminal", "snapshot", session_id, "--project", str(project)],
+        timeout=5,
+    )
+    if rc != 0:
+        return (True, "")
+    try:
+        snap = json.loads(out)
+    except Exception:
+        return (True, "")
+    return (True, snap.get("contents", "") or "")
+
+
 def classify_pane(text: str, session_exists: bool) -> str:
     """running|idle_prompt|done_idle|trust_prompt|error_capacity|error_connection|down|unknown"""
     if not session_exists:
@@ -828,12 +865,22 @@ def main() -> int:
         partial = True
         out["signals"].append("tmux_missing")
 
+    vivi_pty_bin = shutil.which("vivi-pty") or ""
+
     for name, h in hands.items():
         if not isinstance(h, dict):
             continue
         mid = h.get("mail_identity") or name
-        target = h.get("tmux_target") or ("%s:1.1" % (h.get("tmux_session") or name))
-        session = target.split(":")[0]
+        runtime = h.get("runtime") or {}
+        vivi_pty_role = is_vivi_pty_role(h)
+        if vivi_pty_role:
+            session_id = (runtime.get("session_id") if isinstance(runtime, dict) else None) or mid
+            socket = (runtime.get("socket") if isinstance(runtime, dict) else None) or str(project / ".vivi" / "vivi-pty.sock")
+            target = session_id
+            session = socket
+        else:
+            target = h.get("tmux_target") or ("%s:1.1" % (h.get("tmux_session") or name))
+            session = target.split(":")[0]
         cwd = h.get("cwd") or str(project)
         agent = h.get("agent") or "unknown"
         row = out["identities"].get(mid) or {}
@@ -859,7 +906,15 @@ def main() -> int:
 
         sess_ok = False
         tail = ""
-        if tmux_bin:
+        if vivi_pty_role:
+            if not vivi_pty_bin:
+                partial = True
+                out["signals"].append("vivi_pty_missing")
+            else:
+                sess_ok, tail = capture_vivi_pty(project, target, vivi_pty_bin)
+                if not sess_ok and not tail:
+                    partial = True
+        elif tmux_bin:
             rc, _ = run([tmux_bin, "has-session", "-t", session], timeout=5)
             sess_ok = rc == 0
             if sess_ok:
@@ -934,7 +989,7 @@ def main() -> int:
         ):
             out["signals"].append(f"stall_risk_{name}")
 
-        out["hands"][name] = {
+        hand_row = {
             "mail_identity": mid,
             "tmux_target": target,
             "tmux_session": session,
@@ -958,6 +1013,11 @@ def main() -> int:
             "packet_state": packet.get("state"),
             "operational_pause": hand_paused or paused_pkt,
         }
+        if vivi_pty_role:
+            hand_row["runtime_kind"] = "vivi_pty"
+            hand_row["runtime_target"] = target
+            hand_row["runtime_socket"] = session
+        out["hands"][name] = hand_row
 
         # git for main hand (walk up from cwd; container fleets scan children / git.main_cwd)
         if h.get("merges_to_main") or name == fleet.get("default_hand"):
