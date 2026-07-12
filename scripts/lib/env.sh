@@ -129,6 +129,18 @@ fleet_find_vivi() {
     "${HOME}/.local/bin/vivi" || return 1
 }
 
+fleet_find_vivi_pty() {
+  if [[ -n "${VIVI_PTY_BIN:-}" && -x "${VIVI_PTY_BIN}" ]]; then
+    printf '%s\n' "$VIVI_PTY_BIN"
+    return 0
+  fi
+  fleet_find_bin vivi-pty \
+    "${HOME}/.cargo/bin/vivi-pty" \
+    /opt/homebrew/bin/vivi-pty \
+    /usr/local/bin/vivi-pty \
+    "${HOME}/.local/bin/vivi-pty" || return 1
+}
+
 # Portable usage printer: strip leading "# " or "#" from header comment lines.
 fleet_usage_from_header() {
   local file="$1"

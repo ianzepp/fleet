@@ -5,8 +5,9 @@
 #   fleet-doorbell.sh --project <root> <hand-name> [--handle HEX] [--note '…'] [--force]
 #   fleet-doorbell.sh --project <root> --target mgs:hand-1.1 --message 'HAND WAKE …'
 #
-# Requires: bash 3.2+ (not sh/zsh-as-script), python3 >= 3.9, tmux
-# Portable: macOS + Linux. Override with TMUX_BIN / PYTHON_BIN /
+# Requires: bash 3.2+ (not sh/zsh-as-script), python3 >= 3.9
+# Backing runtime: tmux (default) or vivi-pty for roles with wake_mode=vivi_pty.
+# Portable: macOS + Linux. Override with TMUX_BIN / VIVI_PTY_BIN / PYTHON_BIN /
 # FLEET_DOORBELL_SUBMIT_DELAY_SEC.
 #
 # Rate limit (min_seconds_between_wakes): only if this Hand has prior wake
@@ -29,14 +30,26 @@ TARGET=""
 MESSAGE=""
 SUBMIT_DELAY="${FLEET_DOORBELL_SUBMIT_DELAY_SEC:-}"
 
-if ! TMUX_BIN="$(fleet_find_tmux)"; then
-  echo "ERROR: tmux not found (set TMUX_BIN)" >&2
-  exit 2
-fi
 if ! PYTHON_BIN="$(fleet_find_python3)"; then
   echo "ERROR: python3 >= 3.9 not found (set PYTHON_BIN)" >&2
   exit 2
 fi
+# tmux is only required for tmux-backed roles; vivi_pty roles use vivi-pty.
+TMUX_BIN=""
+VIVI_PTY_BIN=""
+find_backing_tools() {
+  if [[ "$WAKE_MODE" == "vivi_pty" ]]; then
+    if ! VIVI_PTY_BIN="$(fleet_find_vivi_pty)"; then
+      echo "ERROR: vivi-pty not found (set VIVI_PTY_BIN)" >&2
+      exit 2
+    fi
+  else
+    if ! TMUX_BIN="$(fleet_find_tmux)"; then
+      echo "ERROR: tmux not found (set TMUX_BIN)" >&2
+      exit 2
+    fi
+  fi
+}
 
 usage() {
   fleet_usage_from_header "$0" 2 12
@@ -101,13 +114,14 @@ FLEET="${FLEET:-$PROJECT/.vivi/fleet.json}"
 BASELINE="${BASELINE:-$PROJECT/.vivi/mind-baseline.json}"
 [[ -f "$FLEET" ]] || { echo "missing fleet.json: $FLEET" >&2; exit 2; }
 
-# Resolve hand slot from fleet.json (embedded python — portable, no zsh)
+# Resolve hand slot from fleet.json (embedded python — portable, no zsh).
+# Emits a single line of shell-evaluable key=value pairs, one per line, ending with __RESOLVE_END__.
 resolve() {
-  "$PYTHON_BIN" - "$FLEET" "$BASELINE" "${NAME:-}" "${TARGET:-}" <<'PY'
+  "$PYTHON_BIN" - "$FLEET" "$BASELINE" "${NAME:-}" "${TARGET:-}" "$PROJECT" <<'PY'
 import json, sys
 from pathlib import Path
 
-fleet_path, baseline_path, name, target_override = sys.argv[1:5]
+fleet_path, baseline_path, name, target_override, project = sys.argv[1:6]
 
 def load(path):
     p = Path(path)
@@ -120,6 +134,7 @@ def load(path):
 
 f = load(fleet_path)
 b = load(baseline_path)
+project = Path(project)
 
 hands = f.get("hands") or f.get("hunters") or {}
 slot = None
@@ -132,20 +147,37 @@ elif name:
     if isinstance(candidate, dict):
         slot = candidate
 
+runtime = (slot or {}).get("runtime") or {}
+runtime_kind = runtime.get("kind") if isinstance(runtime, dict) else None
+wake_mode = (slot or {}).get("wake_mode") or "tmux_send_keys"
+if runtime_kind == "vivi_pty" or wake_mode == "vivi_pty":
+    wake_mode = "vivi_pty"
+
 if target_override:
     target = target_override
     session = target.split(":")[0]
     agent = (slot or {}).get("agent") or "unknown"
     min_gap = int((slot or {}).get("min_seconds_between_wakes") or 0)
     mail = (slot or {}).get("mail_identity") or name or "hand"
+    socket = ""
 elif slot:
-    target = slot.get("tmux_target") or ("%s:1.1" % (slot.get("tmux_session") or name))
-    session = target.split(":")[0]
-    agent = slot.get("agent") or "unknown"
-    min_gap = int(slot.get("min_seconds_between_wakes") or 180)
-    mail = slot.get("mail_identity") or name
+    if wake_mode == "vivi_pty":
+        session_id = (runtime.get("session_id") if isinstance(runtime, dict) else None) or (slot.get("mail_identity") or name)
+        socket = (runtime.get("socket") if isinstance(runtime, dict) else None) or str(project / ".vivi" / "vivi-pty.sock")
+        target = session_id
+        session = socket
+        agent = slot.get("agent") or "unknown"
+        min_gap = int(slot.get("min_seconds_between_wakes") or 180)
+        mail = slot.get("mail_identity") or name
+    else:
+        target = slot.get("tmux_target") or ("%s:1.1" % (slot.get("tmux_session") or name))
+        session = target.split(":")[0]
+        agent = slot.get("agent") or "unknown"
+        min_gap = int(slot.get("min_seconds_between_wakes") or 180)
+        mail = slot.get("mail_identity") or name
+        socket = ""
 else:
-    sys.stderr.write("error\tunknown slot\n")
+    sys.stderr.write("error: unknown slot\n")
     sys.exit(2)
 
 # Rate-limit stamps are PER-HAND only (last_hand_wake.by_hand.<name>).
@@ -166,19 +198,21 @@ else:
     if gl.get("target") == name and (gl.get("at") or b.get("last_hand_wake_at")):
         last_at = gl.get("at") or b.get("last_hand_wake_at") or ""
         wake_count = 1 if last_at else 0
-# TSV — tabs only; values must not contain tabs
-# last field: per-hand wake count (0 = never woken this tracking era → no rate limit)
-fields = [
-    target,
-    session,
-    agent,
-    str(min_gap),
-    mail or "",
-    last_at or "",
-    name or "",
-    str(int(wake_count)),
-]
-sys.stdout.write("\t".join(fields) + "\n")
+
+out = {
+    "target": target,
+    "session": session,
+    "agent": agent,
+    "min_gap": min_gap,
+    "mail": mail or "",
+    "last_at": last_at or "",
+    "name": name or "",
+    "wake_count": int(wake_count),
+    "wake_mode": wake_mode,
+    "socket": socket or "",
+}
+for k, v in out.items():
+    sys.stdout.write("RESOLVE_%s=%s\n" % (k, json.dumps(v, ensure_ascii=False)))
 PY
 }
 
@@ -207,6 +241,85 @@ classify() {
   return 0
 }
 
+# Classify vivi-pty session by daemon state and terminal snapshot.
+classify_vivi_pty() {
+  local session_id=$1
+  local socket=$2
+  local diag state contents
+  if ! diag=$("$VIVI_PTY_BIN" session diagnostic "$session_id" --project "$PROJECT" 2>/dev/null); then
+    echo down
+    return 0
+  fi
+  state=$(printf '%s\n' "$diag" | "$PYTHON_BIN" -c '
+import json, sys
+try:
+    data = json.load(sys.stdin)
+    print(data.get("session", {}).get("state", "unknown"))
+except Exception:
+    print("unknown")
+' 2>/dev/null || echo "unknown")
+  case "$state" in
+    exited|stopped) echo down; return 0 ;;
+  esac
+  contents=$(printf '%s\n' "$diag" | "$PYTHON_BIN" -c '
+import json, sys
+try:
+    data = json.load(sys.stdin)
+    print(data.get("terminal", {}).get("contents", ""))
+except Exception:
+    print("")
+' 2>/dev/null || echo "")
+  # Agent-specific idle markers. The harness is considered running if it shows
+  # active work indicators; idle if the prompt is visible; down otherwise.
+  local lower
+  lower=$(printf '%s' "$contents" | tr '[:upper:]' '[:lower:]')
+  case "$AGENT" in
+    grok)
+      if printf '%s' "$lower" | grep -Eiq 'working|responding|thinking'; then
+        echo running
+        return 0
+      fi
+      if printf '%s' "$contents" | grep -Fq '❯'; then
+        echo idle
+        return 0
+      fi
+      ;;
+    codex)
+      if printf '%s' "$lower" | grep -Eiq 'working|esc to interrupt|waiting for response|responding'; then
+        echo running
+        return 0
+      fi
+      if printf '%s' "$contents" | grep -Eiq '(^|\n)([>$#] )'; then
+        echo idle
+        return 0
+      fi
+      ;;
+    pi)
+      if printf '%s' "$lower" | grep -Eiq 'turn completed|idle until|bag empty|ready-to-merge'; then
+        echo idle
+        return 0
+      fi
+      if printf '%s' "$lower" | grep -Eiq 'over capacity|rate limit|connection failed|request timed out'; then
+        echo error_capacity
+        return 0
+      fi
+      ;;
+    opencode)
+      if printf '%s' "$lower" | grep -Eiq 'yes, continue|do you trust|trust this workspace|always allow|allow always|allow once|until opencode is restarted'; then
+        echo trust_prompt
+        return 0
+      fi
+      ;;
+  esac
+  # Default: if the session process is alive, assume running unless an idle prompt was found.
+  if printf '%s' "$contents" | grep -Eiq '([>$#] )|❯'; then
+    echo idle
+  else
+    echo running
+  fi
+  return 0
+}
+
 RESOLVED_TARGET=""
 SESSION=""
 AGENT="unknown"
@@ -217,19 +330,43 @@ LAST_TARGET=""
 
 if [[ -n "$MESSAGE" && -n "$TARGET" ]]; then
   RESOLVED_TARGET="$TARGET"
+  WAKE_MODE="tmux_send_keys"
+  AGENT="unknown"
+  MAIL="${NAME:-}"
+  MIN_GAP=0
+  LAST_AT=""
+  WAKE_COUNT=0
+  SOCKET=""
+  SESSION="${TARGET%%:*}"
 elif [[ -n "$NAME" ]]; then
-  # Process substitution is bash-only (required). Bash 3.2+ OK.
-  # Avoid pipeline so resolve failures trip set -e.
+  # Resolve emits RESOLVE_key=value lines. Evaluate into the shell, then copy
+  # to the legacy variable names the rest of the script expects.
   _resolve_out="$(resolve)" || exit $?
   # shellcheck disable=SC2034
-  IFS="$(printf '\t')" read -r RESOLVED_TARGET SESSION AGENT MIN_GAP MAIL LAST_AT LAST_TARGET WAKE_COUNT <<EOF
-$_resolve_out
-EOF
+  eval "$({ printf '%s\n' "$_resolve_out"; })"
+  RESOLVED_TARGET="$RESOLVE_target"
+  SESSION="$RESOLVE_session"
+  AGENT="$RESOLVE_agent"
+  MIN_GAP="$RESOLVE_min_gap"
+  MAIL="$RESOLVE_mail"
+  LAST_AT="$RESOLVE_last_at"
+  LAST_TARGET="$RESOLVE_name"
+  WAKE_COUNT="$RESOLVE_wake_count"
+  WAKE_MODE="$RESOLVE_wake_mode"
+  SOCKET="$RESOLVE_socket"
 else
   usage
 fi
 
-CLASS="$(classify "$RESOLVED_TARGET")"
+WAKE_MODE="${WAKE_MODE:-tmux_send_keys}"
+find_backing_tools
+
+# Classify pane/session quickly before sending.
+if [[ "$WAKE_MODE" == "vivi_pty" ]]; then
+  CLASS="$(classify_vivi_pty "$RESOLVED_TARGET" "$SOCKET")"
+else
+  CLASS="$(classify "$RESOLVED_TARGET")"
+fi
 if [[ "$CLASS" == "running" && "$FORCE" -ne 1 ]]; then
   echo "refused: pane $RESOLVED_TARGET is running" >&2
   exit 1
@@ -282,24 +419,32 @@ fi
 # strip newlines / CRs from pointer (portable tr)
 MESSAGE="$(printf '%s' "$MESSAGE" | tr '\n\r' '  ')"
 
-"$TMUX_BIN" send-keys -t "$RESOLVED_TARGET" -l -- "$MESSAGE"
-if [[ -z "$SUBMIT_DELAY" ]]; then
-  case "$AGENT" in
-    codex) SUBMIT_DELAY="0.8" ;;
-    grok|pi|opencode) SUBMIT_DELAY="0.05" ;;
-    *) SUBMIT_DELAY="0.05" ;;
-  esac
+if [[ "$WAKE_MODE" == "vivi_pty" ]]; then
+  if [[ -z "$SUBMIT_DELAY" ]]; then
+    SUBMIT_DELAY="0.05"
+  fi
+  "$VIVI_PTY_BIN" terminal write "$RESOLVED_TARGET" "$MESSAGE" --enter --project "$PROJECT"
+  sleep "$SUBMIT_DELAY"
+else
+  "$TMUX_BIN" send-keys -t "$RESOLVED_TARGET" -l -- "$MESSAGE"
+  if [[ -z "$SUBMIT_DELAY" ]]; then
+    case "$AGENT" in
+      codex) SUBMIT_DELAY="0.8" ;;
+      grok|pi|opencode) SUBMIT_DELAY="0.05" ;;
+      *) SUBMIT_DELAY="0.05" ;;
+    esac
+  fi
+  sleep "$SUBMIT_DELAY"
+  "$TMUX_BIN" send-keys -t "$RESOLVED_TARGET" Enter
 fi
-sleep "$SUBMIT_DELAY"
-"$TMUX_BIN" send-keys -t "$RESOLVED_TARGET" Enter
 
 # record last wake in baseline (atomic write)
-"$PYTHON_BIN" - "$BASELINE" "$PROJECT" "$NAME" "$HANDLE" "$RESOLVED_TARGET" <<'PY'
+"$PYTHON_BIN" - "$BASELINE" "$PROJECT" "$NAME" "$HANDLE" "$RESOLVED_TARGET" "$WAKE_MODE" "$SOCKET" <<'PY'
 import json, os, sys, tempfile
 from pathlib import Path
 from datetime import datetime, timezone
 
-path, project, name, handle, target = sys.argv[1:6]
+path, project, name, handle, target, wake_mode, socket = sys.argv[1:8]
 p = Path(path)
 b = {}
 if p.is_file():
@@ -315,7 +460,13 @@ by = prev.get("by_hand") if isinstance(prev.get("by_hand"), dict) else {}
 key = name or target
 old = by.get(key) if isinstance(by.get(key), dict) else {}
 count = int(old.get("count") or 0) + 1
-by[key] = {"at": now, "count": count, "handle": handle or None, "tmux_target": target}
+entry = {"at": now, "count": count, "handle": handle or None, "tmux_target": target}
+if wake_mode == "vivi_pty":
+    entry["runtime_target"] = target
+    entry["runtime_kind"] = "vivi_pty"
+    if socket:
+        entry["runtime_socket"] = socket
+by[key] = entry
 b["last_hand_wake"] = {
     "target": key,
     "handle": handle or None,
@@ -324,6 +475,11 @@ b["last_hand_wake"] = {
     "reason": "doorbell",
     "by_hand": by,
 }
+if wake_mode == "vivi_pty":
+    b["last_hand_wake"]["runtime_target"] = target
+    b["last_hand_wake"]["runtime_kind"] = "vivi_pty"
+    if socket:
+        b["last_hand_wake"]["runtime_socket"] = socket
 # Keep legacy fields consistent (prevent stale last_hand_wake_target pinning)
 b["last_hand_wake_target"] = key
 b["last_hand_wake_at"] = now

@@ -74,6 +74,22 @@ def _is_remote(entry: Dict[str, Any]) -> bool:
 
 
 def _check_tmux_target(report: Report, where: str, entry: Dict[str, Any], required: bool) -> None:
+    runtime = entry.get("runtime") or {}
+    wake_mode = entry.get("wake_mode")
+    if isinstance(runtime, dict) and runtime.get("kind") == "vivi_pty" or wake_mode == "vivi_pty":
+        # vivi_pty runtime: no tmux target required; validate runtime command.
+        if not isinstance(runtime, dict):
+            report.err(where, "runtime must be an object for vivi_pty")
+            return
+        command = runtime.get("command")
+        if not isinstance(command, list) or not command:
+            report.err(where, "vivi_pty runtime requires a non-empty command array")
+        elif not all(isinstance(c, str) for c in command):
+            report.err(where, "vivi_pty runtime.command must be an array of strings")
+        for tmux_key in ("tmux_target", "tmux_session", "tmux_window"):
+            if tmux_key in entry:
+                report.err(where, "vivi_pty role cannot also define %s" % tmux_key)
+        return
     target = entry.get("tmux_target")
     sess = entry.get("tmux_session")
     win = entry.get("tmux_window")
