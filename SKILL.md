@@ -133,6 +133,7 @@ Core process here; detail in `references/` + `scripts/`.
 | Load when | Path |
 | --- | --- |
 | Install / init / attach | [`getting-started.md`](references/getting-started.md) |
+| Dormant → fully launched | [`launch.md`](references/launch.md) |
 | Vocab / shape (cold) | [`fleet-guide.md`](references/fleet-guide.md) |
 | Roles / harness / models | [`roles-and-harness.md`](references/roles-and-harness.md) |
 | Filing / starvation | [`tasking.md`](references/tasking.md) |
@@ -335,7 +336,7 @@ Host axis on slots: `host`, `ssh`, host-scoped cwd/tmux/launch. Wake/reinit **on
 
 ## Lifecycle
 
-1. **Arm/attach** — identities; harness; runtime binding; baseline counters; `mind_session`; **do not** arm steward unless operator asked for that fleet
+1. **Arm/attach** — identities; harness; runtime binding; baseline counters; `mind_session`; **do not** arm steward unless operator asked for that fleet. Dormant-to-live procedure: [`launch.md`](references/launch.md)
 2. **Focus** — map package; Hand picks open target (no GO wait)  
 3. **Gather** — `fleet-sensors.py`; process new addressed mail before cadence; quiet if fingerprint/panes unchanged; doorbell/reinit; end: `fleet-baseline.py bump` (+ `steward.sh rearm` **only if steward armed for that fleet**)
 4. **Hand work** — show → implement → validate → unit `$polish` → done → next/sleep  
