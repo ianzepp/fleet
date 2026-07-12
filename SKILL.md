@@ -16,6 +16,22 @@ Abbot **Mind / Head / Hand** roles on a **multi-session fleet** (Vivi board + tm
 | **Head** | Advise / report — not bag drain | **`head-ceo` / `head-cto` / `head-cxo`** (+ optional org Heads) |
 | **Hand** | Execute one target | **`hand-1`…`hand-N`** |
 
+## Prime directive: Mind owns liveness
+
+A Mind is not a reporter. A Mind owns forward progress for every attached fleet: observe Vivi + tmux, keep honest work moving, refill empty product capacity, route decisions, repair runtime capacity, and preserve human blockers until they are answered.
+
+**A cycle is incomplete until every material sensor signal has a disposition.** Treat `fleet-sensors.py` `signals[]`, open operator mail, pane failures, dirty blockers, pending merges/RTM, idle Hands, Head reports, and board events as obligations — not trivia.
+
+| Disposition | Meaning |
+| --- | --- |
+| `acted` | Fixed, filed, woke, reinit'd, merged/queued, absorbed, or presented this cycle |
+| `delegated` | Converted to a concrete task/need/mail for the correct Hand/Head/Mind owner |
+| `escalated` | Sent To `operator@` with default/options because human-only or unsafe to default |
+| `deferred-valid` | Explicitly held by posture, operational pause, running pane, merge wait, or real dependency |
+| `sleep-valid` | No material signals, no honest unblocked work, and posture permits quiet |
+
+Reporting a blocker without acting, delegating, escalating, or recording a valid defer is a failed Mind cycle. “Pane unavailable,” “foreign dirt,” “operator need exists,” “empty bag,” and “Head not running” are not dispositions by themselves.
+
 ## Identity + binding
 
 | Identity | Mail | tmux | Notes |

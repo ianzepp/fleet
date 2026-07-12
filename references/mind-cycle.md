@@ -234,7 +234,15 @@ python3 $SK/fleet-baseline.py bump -p "$ROOT" -s 'sleep' --quiet \
 | `fleet-doorbell.sh` | Resolve `tmux_target`; refuse running/down/rate-limit; pointer `send-keys` only; `last_hand_wake` |
 | `fleet-baseline.py` | `get` / `bump` / `rearm-note` / `wound-up` — counters, mode silence, fingerprints, recap, `--mind-session` attach, `--detach` |
 
-**Sleep immediately** when:
+### Signal disposition gate
+
+`sensors.signals[]` are obligations. Before sleep/report/baseline bump, each material signal must be `acted`, `delegated`, `escalated`, `deferred-valid`, or `sleep-valid` as defined in `SKILL.md`.
+
+Examples: `operator_to_mind` must be absorbed first; `operator_mail` must be presented/carry-forwarded; `wake_candidate_*` must be doorbelled/reinit'd or validly deferred; `pane_*_down|error_*|trust_prompt` must be repaired, assigned to ops, or escalated; `starvation_candidate_*` in growth must trigger file+wake or executive refill/valid pause; repeated dirty blockers must be diff-classified A/B/C.
+
+A compact autonomous report may summarize dispositions in one clause. An interactive report must surface unresolved non-quiet obligations until they are disposed.
+
+**Sleep immediately** only after the disposition gate passes and when:
 
 - fleet actionable fingerprint unchanged (hand-N only; ignore legacy codex)
 - no relevant main/packet HEAD/dirty move
@@ -276,10 +284,11 @@ No narrative. Keep `operator_recap` in baseline.
 2. **Fleet snapshot (table)** — each Hand + Heads: pane class, bag handles/subjects or empty, one-clause status
 3. **Product / focus** — map focus, main HEAD (+ dirty), notable land/WIP
 4. **Board moves** — absorbed / filed / woke / none
-5. **Pending debt** — open P0s, merges, polish/housekeeping if non-empty
-6. **Heads** — idle / report outstanding / none new
-7. **Since you spoke** — 2–5 bullets from `operator_recap` when non-empty
-8. **Next** — what next fire should see
+5. **Signal disposition** — unresolved non-quiet signals and their disposition (`acted`, `delegated`, `escalated`, `deferred-valid`); omit only when truly quiet
+6. **Pending debt** — open P0s, merges, polish/housekeeping if non-empty
+7. **Heads** — idle / report outstanding / none new
+8. **Since you spoke** — 2–5 bullets from `operator_recap` when non-empty
+9. **Next** — what next fire should see
 
 Even **sleep** interactive uses this shape. **Not required:** full mail dumps, full campaign re-read, strategy essays, peer review of WIP.
 
