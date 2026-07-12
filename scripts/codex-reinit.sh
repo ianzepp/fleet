@@ -240,7 +240,7 @@ capture_tail() {
 # True when pane shows Codex workspace-trust modal (blocks ready chrome).
 has_trust_ui() {
   local t=$1
-  echo "$t" | "$GREP_BIN" -Eiq 'Yes, continue|Do you trust|trust this workspace|No, quit|Press enter to continue'
+  echo "$t" | "$GREP_BIN" -Eiq 'Yes, continue|Do you trust|trust this workspace|No, quit|Press enter to continue|Always allow|Allow always|Allow once|until OpenCode is restarted'
 }
 
 # Accept trust modal: prefer "1" (Yes) then Enter; also bare Enter for "Press enter".
@@ -315,7 +315,7 @@ classify_evidence() {
       line=$(echo "$t" | "$GREP_BIN" -Ei 'Working \(|esc to interrupt|Waiting for response' | "$TAIL_BIN" -1)
       ;;
     trust_prompt)
-      line=$(echo "$t" | "$GREP_BIN" -Ei 'Yes, continue|Do you trust|trust this|No, quit|Press enter to continue' | "$HEAD_BIN" -1)
+      line=$(echo "$t" | "$GREP_BIN" -Ei 'Yes, continue|Do you trust|trust this|No, quit|Press enter to continue|Always allow|Allow always|Allow once|until OpenCode is restarted' | "$HEAD_BIN" -1)
       ;;
     error_capacity)
       line=$(echo "$t" | "$GREP_BIN" -Ei 'over capacity|rate limit|429|usage limit' | "$TAIL_BIN" -1)

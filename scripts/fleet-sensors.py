@@ -12,6 +12,7 @@ Exit: 0 ok · 1 hard error (missing project/fleet) · 2 sensors partial (still p
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import re
 import shutil
@@ -72,7 +73,12 @@ def classify_pane(text: str, session_exists: bool) -> str:
     t = text or ""
     if re.search(r"Working \(|esc to interrupt|Waiting for response|Responding…|Responding\.\.\.|Thinking…", t, re.I):
         return "running"
-    if re.search(r"Yes, continue|Do you trust|trust this workspace|No, quit|Press enter to continue", t, re.I):
+    if re.search(
+        r"Yes, continue|Do you trust|trust this workspace|No, quit|Press enter to continue"
+        r"|Always allow|Allow always|Allow once|until OpenCode is restarted",
+        t,
+        re.I,
+    ):
         return "trust_prompt"
     if re.search(r"over capacity|rate limit|[^0-9]429[^0-9]|usage limit hard|try again later", t, re.I):
         return "error_capacity"
@@ -619,13 +625,16 @@ def format_text_summary(out: dict, fp: dict, git_main: dict) -> str:
             % (rtm.get("handle"), rtm.get("from"), rtm.get("commit"), (rtm.get("subject") or "")[:90])
         )
     for name, h in (out.get("hands") or {}).items():
+        stall_n = int(h.get("cycles_unchanged") or 0)
+        stall_lab = " stall=%s" % stall_n if stall_n > 0 else ""
         lines.append(
-            "  %s: bag=%s next=%s class=%s target=%s"
+            "  %s: bag=%s next=%s class=%s%s target=%s"
             % (
                 name,
                 h.get("actionable"),
                 h.get("next_handle"),
                 h.get("pane_class"),
+                stall_lab,
                 h.get("tmux_target"),
             )
         )
@@ -797,6 +806,14 @@ def main() -> int:
 
     # --- hands panes + bag ---
     pane_classes = {}  # type: Dict[str, str]
+    # stall-risk: track per-hand pane-tail stability across cycles so a frozen
+    # pane with open assigned work surfaces as a signal even when the pane
+    # classifier (a brittle string matcher) mis-reads it as idle. State rides in
+    # baseline.hand_progress, persisted by fleet-baseline.py bump.
+    _php = baseline.get("hand_progress")
+    prev_hand_progress = _php if isinstance(_php, dict) else {}
+    stall_floor = int(fleet.get("stall_risk_cycles_floor") or 3)
+    hand_progress = {}  # type: Dict[str, Dict[str, Any]]
     if tmux and (Path(tmux).is_file() or shutil.which(tmux)):
         tmux_bin = tmux if Path(tmux).is_file() else (shutil.which(tmux) or tmux)
     else:
@@ -859,6 +876,38 @@ def main() -> int:
         ):
             out["signals"].append(f"starvation_candidate_{name}")
 
+        # stall-risk: hash the captured pane tail and compare to the previous
+        # cycle's hash. A byte-stable tail while open work is assigned is the
+        # harness-agnostic signature of a stuck pane (permission dialog, frozen
+        # spinner, silent error) that the pane classifier may mis-read as idle.
+        pane_tail_text = "\n".join((tail or "").splitlines()[-args.tail :])
+        pane_tail_hash = (
+            hashlib.sha1(pane_tail_text.encode("utf-8", "ignore")).hexdigest()[:16]
+            if pane_tail_text
+            else None
+        )
+        prev_hp = prev_hand_progress.get(name)
+        prev_hp = prev_hp if isinstance(prev_hp, dict) else {}
+        prev_hash = prev_hp.get("pane_tail_hash")
+        if pane_tail_hash and prev_hash and pane_tail_hash == prev_hash:
+            cycles_unchanged = int(prev_hp.get("cycles_unchanged") or 0) + 1
+        else:
+            cycles_unchanged = 0
+        hand_progress[name] = {
+            "pane_tail_hash": pane_tail_hash,
+            "cycles_unchanged": cycles_unchanged,
+            "has_open_work": bool(bag_open),
+            "pane_class": pclass,
+        }
+        if (
+            bag_open
+            and cycles_unchanged >= stall_floor
+            and pclass != "running"
+            and not hand_paused
+            and not paused_pkt
+        ):
+            out["signals"].append(f"stall_risk_{name}")
+
         out["hands"][name] = {
             "mail_identity": mid,
             "tmux_target": target,
@@ -872,7 +921,9 @@ def main() -> int:
             "open_needs": open_needs,
             "next_handle": next_handle,
             "pane_class": pclass,
-            "pane_tail": "\n".join((tail or "").splitlines()[-args.tail :]),
+            "pane_tail": pane_tail_text,
+            "pane_tail_hash": pane_tail_hash,
+            "cycles_unchanged": cycles_unchanged,
             "min_seconds_between_wakes": h.get("min_seconds_between_wakes", 180),
             "merges_to_main": h.get("merges_to_main", False),
             "packet_state": packet.get("state"),
@@ -882,6 +933,8 @@ def main() -> int:
         # git for main hand (walk up from cwd; container fleets scan children / git.main_cwd)
         if h.get("merges_to_main") or name == fleet.get("default_hand"):
             out["git"]["main"] = git_tip(Path(cwd), fleet)
+
+    out["hand_progress"] = hand_progress
 
     # RTM is mail rather than an open bag item. Surface unmerged RTM mail so
     # empty Hand bags cannot masquerade as honest product starvation.

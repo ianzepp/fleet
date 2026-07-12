@@ -195,7 +195,7 @@ classify() {
   # Order matters: first match wins.
   for class in \
     'running|Working \(|esc to interrupt|Waiting for response|Responding' \
-    'trust_prompt|Yes, continue|Do you trust|trust this workspace' \
+    'trust_prompt|Yes, continue|Do you trust|trust this workspace|Always allow|Allow always|Allow once|until OpenCode is restarted' \
     'error_capacity|over capacity|rate limit|usage limit'
   do
     if printf '%s\n' "$t" | grep -Eiq "${class#*|}"; then

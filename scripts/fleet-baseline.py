@@ -134,6 +134,8 @@ def apply_sensors_blob(b: dict, sensors: dict, args: argparse.Namespace) -> dict
         fp = {}
     if args.pane_classes_json is None and sensors.get("pane_classes"):
         b["pane_classes"] = sensors["pane_classes"]
+    if sensors.get("hand_progress"):
+        b["hand_progress"] = sensors["hand_progress"]
     if sensors.get("steward"):
         st = ensure_dict(b.get("steward"))
         st["armed"] = sensors["steward"].get("armed", st.get("armed"))
