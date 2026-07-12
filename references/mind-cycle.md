@@ -184,7 +184,9 @@ python3 scripts/fleet-baseline.py bump -p <ROOT> -s '<summary>' \
   --fingerprint-file /tmp/fleet-sensors.json
 # or: --acted when board/ops moved
 # or: --operator-engaged when human prose this turn / since last_operator_message_at
-# never hand-edit turns_since_operator_message after bump
+# Attach/detach: --mind-session <label> (sets mind_session lock + state=attached)
+#                --detach (clears mind_session + state=detached)
+# NEVER hand-edit mind-baseline.json. Use bump flags for all state transitions.
 # only if steward enabled+armed for this fleet (default: skip):
 # scripts/steward.sh rearm --project <ROOT>
 ```
@@ -230,7 +232,7 @@ python3 $SK/fleet-baseline.py bump -p "$ROOT" -s 'sleep' --quiet \
 | --- | --- |
 | `fleet-sensors.py` | Board status, optional watch, handles, pane classes, git tip/divergence/dirty paths, pending RTM integration lag, fingerprint, `signals[]`, `quiet_hint` |
 | `fleet-doorbell.sh` | Resolve `tmux_target`; refuse running/down/rate-limit; pointer `send-keys` only; `last_hand_wake` |
-| `fleet-baseline.py` | `get` / `bump` / `rearm-note` / `wound-up` — counters, mode silence, fingerprints, recap |
+| `fleet-baseline.py` | `get` / `bump` / `rearm-note` / `wound-up` — counters, mode silence, fingerprints, recap, `--mind-session` attach, `--detach` |
 
 **Sleep immediately** when:
 

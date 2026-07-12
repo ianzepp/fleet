@@ -317,19 +317,29 @@ Attaching Mind to fleet project=$ROOT
 
 At most **one Mind session per fleet** (advisory — not a hard OS lock). On attach:
 
-1. Read `$ROOT/.vivi/mind-baseline.json` → `mind_session`.
+1. Read `$ROOT/.vivi/mind-baseline.json` → `mind_session` (use `fleet-baseline.py get`).
 2. If locked by a **live foreign** session → refuse unless operator asks for **takeover**.
-3. Write / refresh:
+3. Write / refresh via the baseline script — never hand-edit:
 
-```json
-"mind_session": {
-  "label": "short-session-label",
-  "host": "hostname",
-  "attached_at": "2026-07-11T17:00:00Z"
-}
+```bash
+SK=<path-to-this-skill>/scripts
+python3 "$SK/fleet-baseline.py" bump -p "$ROOT" \
+  -s 'attach: <short-label>' \
+  --acted \
+  --mind-session '<short-session-label>' \
+  [--mind-host 'hostname'] \
+  --recap 'Attached Mind session <label>'
 ```
 
-4. Set `mind_loop.state` toward `running` when you will cycle (not if only inspecting).
+This sets `mind_session`, `mind_loop.state=attached`, resets silence counters
+(operator engaged), and writes a recap line — all in one safe call.
+
+4. Verify the lock was written:
+
+```bash
+python3 "$SK/fleet-baseline.py" get -p "$ROOT" \
+  | python3 -c "import json,sys; b=json.load(sys.stdin); print(b.get('mind_session')); print('state:', b.get('mind_loop',{}).get('state'))"
+```
 
 Forced takeover overwrites the advisory lock — only when operator confirms the other Mind is dead or yielded. Detail: [`multi-fleet.md`](multi-fleet.md) § Attach / detach.
 
@@ -404,11 +414,14 @@ Mode / reports: [`mind-cycle.md`](mind-cycle.md).
 
 ### 3.8 Detach (when you stop being Mind)
 
-Same turn as you stop supervising:
+Same turn as you stop supervising — use the baseline script, never hand-edit:
 
 ```bash
+# Clear mind_session and mark mind_loop.state=detached
+python3 "$SK/fleet-baseline.py" bump -p "$ROOT" \
+  -s 'detach' --acted --detach
+
 "$SK/steward.sh" disarm --project "$ROOT"   # if armed — avoid false trip
-# baseline: mind_loop.state = detached (or wound_up); clear or stamp mind_session
 ```
 
 Leaving without detach while steward armed → steward **trips after grace** (correct failsafe). Recovery: `steward.sh clear` + re-attach (this case again).
@@ -421,7 +434,7 @@ Wind-down: [`runtime-config.md`](runtime-config.md). Multi-fleet attach set: [`m
 [ ] ROOT has .vivi/fleet.json
 [ ] vivi mailspace status works
 [ ] Load $fleet; this chat is Mind
-[ ] mind_session advisory lock claimed (or takeover authorized)
+[ ] mind_session advisory lock claimed via `baseline.py bump --mind-session <label>` (or takeover authorized)
 [ ] mind@ From operator@ + To operator@ listed; absorb op→mind first; then recap
 [ ] fleet-sensors.py once; act only on signal
 [ ] steward stays OFF unless operator enabled+asked for this fleet

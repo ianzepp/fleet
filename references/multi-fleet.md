@@ -96,17 +96,33 @@ First-time single-fleet attach: [`getting-started.md`](getting-started.md) § 3.
 
 | Action | Steps |
 | --- | --- |
-| **Attach** | Read baseline `mind_session` lock → refuse if live foreign unless `--takeover` → write `mind_session={label,host,pid?,attached_at}`; `mind_loop.state=running` → sensor; fold operator@/headline into recap. **Do not** arm steward unless operator explicitly enabled+asked for **that** fleet |
-| **Detach** | Stop filing new work; honest in-flight in baseline → **`steward.sh disarm --project <fleet>` same turn** → `mind_loop.state=detached` (or wound_up); clear/stamp `mind_session` → optional leave Hands mid-unit; no kill foreign WIP |
+| **Attach** | Read baseline `mind_session` lock (`baseline.py get -p $ROOT`) → refuse if live foreign unless `--takeover` → `baseline.py bump -p $ROOT -s 'attach: …' --acted --mind-session <label> [--mind-host <host>]` (writes lock + state=attached). **Do not** arm steward unless operator explicitly enabled+asked for **that** fleet |
+| **Detach** | Stop filing new work; honest in-flight in baseline → **`baseline.py bump -p $ROOT -s 'detach' --acted --detach`** → `steward.sh disarm --project <fleet>` same turn → optional leave Hands mid-unit; no kill foreign WIP |
 | **Orphan** | Mind dies without detach → steward **trips after grace**. Recovery: `steward.sh clear` + reattach |
 
 ### Advisory lock (baseline)
+
+Use the baseline script on attach/detach — never hand-edit `mind_session`:
+
+```bash
+SK=<path-to-this-skill>/scripts
+
+# Attach
+python3 "$SK/fleet-baseline.py" bump -p "$ROOT" \
+  -s 'attach: <session-label>' --acted \
+  --mind-session '<session-label>' [--mind-host '<host>']
+
+# Detach
+python3 "$SK/fleet-baseline.py" bump -p "$ROOT" \
+  -s 'detach' --acted --detach
+```
+
+Result in baseline:
 
 ```json
 "mind_session": {
   "label": "term1",
   "host": "hostname",
-  "pid": 12345,
   "attached_at": "…"
 }
 ```

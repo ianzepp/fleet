@@ -7,7 +7,8 @@
       [--mode interactive|autonomous] [--kind superficial|thorough|wind_down] \\
       [--fingerprint-file sensors.json] [--fingerprint-json '{…}'] \\
       [--pane-classes-json '{…}'] [--debt-json '[…]'] [--recap 'line'] \\
-      [--operator-engaged] [--no-increment-silence]
+      [--operator-engaged] [--no-increment-silence] \\
+      [--mind-session label] [--mind-host hostname] [--detach]
   fleet-baseline.py rearm-note -p <root>
   fleet-baseline.py wound-up -p <root> --summary '…' [--dropped hand-1,hand-2]
 
@@ -15,12 +16,18 @@
 bump with full sensors JSON also merges sensors.heads → baseline head-*
 last_report_handle / last_report_at (executive cadence + report absorb).
 
+--mind-session sets the advisory mind_session lock on attach (also sets
+  mind_loop.state=attached). --detach clears mind_session and sets state
+  to detached. Always use --mind-session or --detach instead of hand-editing
+  the baseline JSON.
+
 Requires: Python 3.9+ (macOS / Linux). Exit: 0 ok · 1 error · 2 usage/env
 """
 from __future__ import annotations
 
 import argparse
 import json
+import platform
 import sys
 from pathlib import Path
 from typing import Any, List, Optional, Tuple
@@ -170,6 +177,8 @@ def cmd_bump(args: argparse.Namespace, project: Path, baseline: Path) -> int:
     b["last_cycle_summary"] = args.summary or ("sleep" if not acted else "acted")
     b["quiet_streak"] = 0 if acted else int(b.get("quiet_streak") or 0) + 1
 
+    if args.mind_session is not None:
+        args.operator_engaged = True
     apply_mind_mode(b, args, now)
 
     fp = None
@@ -218,7 +227,22 @@ def cmd_bump(args: argparse.Namespace, project: Path, baseline: Path) -> int:
     ml["last_cycle_ok"] = True
     ml["last_cycle_acted"] = acted
     ml["last_wake_at"] = now
-    if ml.get("state") in (None, "armed", "detached"):
+
+    if args.detach:
+        b["mind_session"] = None
+        ml["state"] = "detached"
+        ml["detached_at"] = now
+        ml["detach_reason"] = args.summary or "detach"
+    elif args.mind_session is not None:
+        b["mind_session"] = {
+            "label": args.mind_session,
+            "host": args.mind_host or platform.node(),
+            "attached_at": now,
+        }
+        ml["state"] = "attached"
+        ml["detached_at"] = None
+        ml["detach_reason"] = None
+    elif ml.get("state") in (None, "armed", "detached"):
         ml["state"] = "running"
     b["mind_loop"] = ml
     # Do not stamp steward.last_rearm_at here — that is steward.sh arm/rearm only.
@@ -364,6 +388,12 @@ def main(argv: Optional[List[str]] = None) -> int:
         action="store_true",
         help="Do not += turns_since_operator_message (caller already resolved mode)",
     )
+    p_bump.add_argument("--mind-session", default=None, metavar="LABEL",
+        help="Attach Mind: set mind_session label (implies --operator-engaged)")
+    p_bump.add_argument("--mind-host", default=None, metavar="HOST",
+        help="Hostname for mind_session (default: platform.node())")
+    p_bump.add_argument("--detach", action="store_true",
+        help="Detach Mind: clear mind_session, set state=detached")
 
     sub.add_parser("rearm-note", parents=[parent], help="Touch last_successful_cycle_at only")
 
