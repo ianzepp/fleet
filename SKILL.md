@@ -74,10 +74,12 @@ Canon for absorb/accept: [`mind-cycle.md`](references/mind-cycle.md) § Absorb v
 | Multi-hand | Mind files/wakes/merges clock; head-ceo side-lane bucket (`effort`+`est_tokens`); Mind calibrates est vs actual |
 | Starvation | Empty bag + **honest unblocked product unit on the map** → file+wake. Never invent polish/makework to fill bags |
 | Growth liveness | In `growth`, an idle product Hand with no queued unit is **not** a quiet cycle: trigger an executive refill sweep immediately; do not wait for the normal Head cadence. |
+| Wake on mail | Each Mind cycle is the debounce: new board mail addressed to a process role wakes that role when idle. Executive cadence governs unsolicited sweeps, never addressed work. Running panes are not interrupted; the next cycle retries after they become idle. |
 | Posture | Per-fleet `growth` \| `standby` \| `dormant` — willing to sleep when charter says so — [`fleet-posture.md`](references/fleet-posture.md) |
 | Stuck | Freeze fails — name, unstick, pivot. No status-only blocked cycles. Stuck ≠ “must invent work” |
 | Harness | **Default:** Hands = Mind harness; Heads prefer alternate. **Fleet config exceptions win** (desktop Mind, Pi Hand, operator-recorded mixed) — [`roles-and-harness.md`](references/roles-and-harness.md) |
 | Quality | Hand ships unit quality; **head-cto** reviews **main after merge** — not Mind peer-review of every packet |
+| Peer communication | Heads and Hands may send advisory **mail** to one another. They may not assign or reroute peer tasks, needs, or wants; transfer ownership; authorize merges; or create gates. Material peer mail must remain visible to Mind. |
 | Hygiene | Mind never runs `$polish`/`$housekeeping` itself; never thrash polish for continuity |
 
 | Mind hygiene | When | Action |
@@ -89,6 +91,8 @@ map → MIND ─files→ bag → HAND clears target → residuals → MIND
        Vivi = work truth · tmux = process truth
 Heads ─mail To mind→ triage · problems → operator@ · status → mind@ + recap
 ```
+
+Peer mail is allowed for findings, questions, early review feedback, and handoffs. It is advisory and may wake the recipient on the next Mind cycle. Queue ownership remains centralized: Mind alone files or reroutes tasks/needs/wants between process roles. Avoid automatic reply chains; one peer reply is not a new assignment.
 
 ## When to use
 
@@ -332,7 +336,7 @@ Host axis on slots: `host`, `ssh`, host-scoped cwd/tmux/launch. Wake/reinit **on
 
 1. **Arm/attach** — identities; harness; `tmux_target`; baseline counters; `mind_session`; **do not** arm steward unless operator asked for that fleet  
 2. **Focus** — map package; Hand picks open target (no GO wait)  
-3. **Gather** — `fleet-sensors.py`; quiet if fingerprint/panes unchanged; doorbell/reinit; end: `fleet-baseline.py bump` (+ `steward.sh rearm` **only if steward armed for that fleet**)  
+3. **Gather** — `fleet-sensors.py`; process new addressed mail before cadence; quiet if fingerprint/panes unchanged; doorbell/reinit; end: `fleet-baseline.py bump` (+ `steward.sh rearm` **only if steward armed for that fleet**)
 4. **Hand work** — show → implement → validate → unit `$polish` → done → next/sleep  
 5. **Sleep** — most wakes no-ops ([`mind-cycle.md`](references/mind-cycle.md))  
 6. **Detach/wind-down** — if steward was armed, `steward.sh disarm` same turn; drop idle panes  

@@ -240,6 +240,8 @@ python3 $SK/fleet-baseline.py bump -p "$ROOT" -s 'sleep' --quiet \
 
 Examples: `operator_to_mind` must be absorbed first; `operator_mail` must be presented/carry-forwarded; `wake_candidate_*` must be doorbelled/reinit'd or validly deferred; `pane_*_down|error_*|trust_prompt` must be repaired, assigned to ops, or escalated; `starvation_candidate_*` in growth must trigger file+wake or executive refill/valid pause; repeated dirty blockers must be diff-classified A/B/C.
 
+`mail_for_<role>` means new mail was addressed to a process role since the prior successful cycle. The cycle is the debounce boundary: if `mail_wake_candidate_<role>` is also present, doorbell that idle role immediately with the mail handle. Do not wait for an executive cadence interval. If the pane is running, leave it uninterrupted and carry the mail signal forward for the next idle cycle. Cadence controls unsolicited sweeps only; addressed work is demand-driven.
+
 A compact autonomous report may summarize dispositions in one clause. An interactive report must surface unresolved non-quiet obligations until they are disposed.
 
 **Sleep immediately** only after the disposition gate passes and when:

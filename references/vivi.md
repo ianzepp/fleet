@@ -47,6 +47,9 @@ vivi --version                  # prefer ≥ 4.6 (watch/thread); 4.7+ fine
 | `mind` | Done/evidence, Head reports, RTM, bag bookkeeping |
 | `operator` | Human escalations only — not status ([`operator-mail.md`](operator-mail.md)) |
 | `head-*` | Assigns / research; reports return **To mind** |
+| peer Hand / Head | Advisory mail only: findings, questions, review feedback, handoffs; material outcomes also To mind |
+
+Only Mind assigns or reroutes work between process roles. Peer roles do not send one another tasks, needs, or wants, and peer mail cannot transfer ownership, authorize merges, or create gates.
 
 ## FLEET_CYCLE cheat sheet (Mind)
 

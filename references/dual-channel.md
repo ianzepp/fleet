@@ -157,6 +157,8 @@ Rate-limit wakes (`min_seconds_between_wakes`) **only when that Hand already has
 | Situation | Action |
 | --- | --- |
 | `idle_prompt`/`done_idle` + open tasking | Pointer doorbell |
+| New addressed mail + `idle_prompt`/`done_idle`/`unknown` | Pointer doorbell in the same Mind cycle; the cycle is the debounce |
+| New addressed mail + `running` | Do not interrupt; retry when a later cycle observes the pane idle |
 | Codex pointer text remains in composer / no `Working` after submit | Reinit fallback after one retry/snapshot if useful |
 | `idle_prompt` + empty + map has next **product** unit + posture allows | **Starvation** — file next same cycle; then wake/reinit by runtime |
 | `idle_prompt` + empty + posture standby/dormant | Quiet OK — on-call / paused ([`fleet-posture.md`](fleet-posture.md)) |
@@ -164,6 +166,12 @@ Rate-limit wakes (`min_seconds_between_wakes`) **only when that Hand already has
 | `idle_prompt` + empty after unit/theme accept | Not default quiet — absorb/accept → **refill** → wake/reinit |
 
 Never wake on dirty-only mid-flight; never reinit `running` without FORCE policy.
+
+### Wake on addressed mail
+
+Board mail is demand, not cadence. Every Mind cycle compares the newest mail addressed to each configured Hand or Head with the prior successful-cycle fingerprint. A changed top handle emits `mail_for_<role>` and, when the pane is idle, `mail_wake_candidate_<role>`. Mind doorbells the recipient with that handle in the same cycle.
+
+This deliberately uses the Mind cycle as the debounce period: multiple messages between cycles collapse to one wake pointing at the newest inbox state. Do not stack wakes, interrupt a running pane, or wait for `head_due_*`. Executive cadence remains the timer for self-directed sweeps only.
 
 ## Agent harness (keyed on fleet `agent`, not H-number)
 

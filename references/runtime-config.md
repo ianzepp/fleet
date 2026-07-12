@@ -399,6 +399,8 @@ mind_loop.state                    # running | detached | wound_up | dead_man_tr
 fleet_posture optional            # mirror of fleet.json: mode growth|standby|dormant, reason, last_ceo_continuity_at
 mind_watch_cursor_path optional
 last_actionable_fingerprint
+  <role>_mail_top                 # newest addressed mail observed this cycle
+  <role>_mail_pending             # changed mail waiting for an idle-pane doorbell
 pending_reviews[]
 pending_merges[]
 active_packets{} or active_lanes{}

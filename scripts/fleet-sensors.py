@@ -572,6 +572,12 @@ def build_fingerprint(out: dict, fleet: dict) -> dict:
     for hkey, hdata in (out.get("heads") or {}).items():
         sk = hkey.replace("-", "_")
         fp["%s_due" % sk] = hdata.get("sweep_due")
+        fp["%s_mail_top" % sk] = hdata.get("mail_top_handle")
+        fp["%s_mail_pending" % sk] = hdata.get("mail_pending_handle")
+    for hkey, hdata in (out.get("hands") or {}).items():
+        sk = hkey.replace("-", "_")
+        fp["%s_mail_top" % sk] = hdata.get("mail_top_handle")
+        fp["%s_mail_pending" % sk] = hdata.get("mail_pending_handle")
     for stale in list(fp.keys()):
         if re.match(r"^head_(ceo|cto|cxo)_last_(handle|completed)$", stale):
             del fp[stale]
@@ -833,6 +839,22 @@ def main() -> int:
         row = out["identities"].get(mid) or {}
         open_tasks = list_open_handles(vivi, str(project), mid, "task") if vivi else []
         open_needs = list_open_handles(vivi, str(project), mid, "need") if vivi else []
+        addressed_mail = list_recent_mail(vivi, str(project), mid, limit=1) if vivi else []
+        mail_top_handle = addressed_mail[0]["handle"] if addressed_mail else None
+        previous_mail_top = prev.get("%s_mail_top" % name.replace("-", "_"))
+        new_addressed_mail = bool(
+            mail_top_handle and previous_mail_top and mail_top_handle != previous_mail_top
+        )
+        previous_mail_pending = prev.get("%s_mail_pending" % name.replace("-", "_"))
+        wake_by_hand = ((baseline.get("last_hand_wake") or {}).get("by_hand") or {}).get(name) or {}
+        last_wake_handle = wake_by_hand.get("handle")
+        mail_pending_handle = (
+            mail_top_handle
+            if new_addressed_mail
+            else previous_mail_pending
+            if previous_mail_pending and previous_mail_pending != last_wake_handle
+            else None
+        )
         bag_open = (row.get("tasks_open") or len(open_tasks)) + (row.get("needs_open") or len(open_needs))
 
         sess_ok = False
@@ -866,6 +888,10 @@ def main() -> int:
             and not paused_pkt
         ):
             out["signals"].append(f"wake_candidate_{name}")
+        if new_addressed_mail:
+            out["signals"].append(f"mail_for_{name}")
+        if mail_pending_handle and pclass in ("idle_prompt", "done_idle", "unknown") and not hand_paused and not paused_pkt:
+            out["signals"].append(f"mail_wake_candidate_{name}")
         # Starvation is a candidate only — suppress when fleet/baseline marks intentional pause
         if (
             bag_open == 0
@@ -920,6 +946,9 @@ def main() -> int:
             "open_tasks": open_tasks,
             "open_needs": open_needs,
             "next_handle": next_handle,
+            "mail_top_handle": mail_top_handle,
+            "mail_pending_handle": mail_pending_handle,
+            "new_addressed_mail": new_addressed_mail,
             "pane_class": pclass,
             "pane_tail": pane_tail_text,
             "pane_tail_hash": pane_tail_hash,
@@ -980,12 +1009,15 @@ def main() -> int:
     # interval_sec / min_seconds_between_sweeps are ignored (legacy) — set every_n_loops.
     now_dt = datetime.now(timezone.utc)
     loop_sec = int(posture_out.get("mind_loop_interval_sec") or mind_loop_interval_sec(fleet))
-    for key in ("head-ceo", "head-cto", "head-cxo"):
-        block = fleet.get(key)
-        if not isinstance(block, dict):
-            block = (fleet.get("heads") or {}).get(key)
-        if not isinstance(block, dict):
-            continue
+    head_blocks = {}
+    nested_heads = fleet.get("heads") if isinstance(fleet.get("heads"), dict) else {}
+    for key, block in nested_heads.items():
+        if str(key).startswith("head-") and isinstance(block, dict):
+            head_blocks[str(key)] = block
+    for key, block in fleet.items():
+        if str(key).startswith("head-") and isinstance(block, dict):
+            head_blocks[str(key)] = block
+    for key, block in sorted(head_blocks.items()):
         target = block.get("tmux_target") or f"{block.get('tmux_session') or key}:1.1"
         session = target.split(":")[0]
         sess_ok = False
@@ -1000,6 +1032,23 @@ def main() -> int:
                 )
         pclass = classify_pane(tail, sess_ok)
         pane_classes[key] = pclass
+
+        addressed_mail = list_recent_mail(vivi, str(project), block.get("mail_identity") or key, limit=1) if vivi else []
+        mail_top_handle = addressed_mail[0]["handle"] if addressed_mail else None
+        previous_mail_top = prev.get("%s_mail_top" % key.replace("-", "_"))
+        new_addressed_mail = bool(
+            mail_top_handle and previous_mail_top and mail_top_handle != previous_mail_top
+        )
+        previous_mail_pending = prev.get("%s_mail_pending" % key.replace("-", "_"))
+        wake_by_hand = ((baseline.get("last_hand_wake") or {}).get("by_hand") or {}).get(key) or {}
+        last_wake_handle = wake_by_hand.get("handle")
+        mail_pending_handle = (
+            mail_top_handle
+            if new_addressed_mail
+            else previous_mail_pending
+            if previous_mail_pending and previous_mail_pending != last_wake_handle
+            else None
+        )
 
         cad = block.get("executive_cadence") if isinstance(block.get("executive_cadence"), dict) else {}
         sweep_enabled = bool(cad.get("enabled", False))
@@ -1070,6 +1119,10 @@ def main() -> int:
         short = pk.split("_", 1)[1]  # ceo | cto | cxo
         if sweep_due:
             out["signals"].append("head_due_%s" % short)
+        if new_addressed_mail:
+            out["signals"].append("mail_for_%s" % key)
+        if mail_pending_handle and pclass in ("idle_prompt", "done_idle", "unknown") and not head_paused:
+            out["signals"].append("mail_wake_candidate_%s" % key)
         if pclass in ("error_capacity", "error_connection", "down", "trust_prompt"):
             out["signals"].append("pane_%s_%s" % (key, pclass))
 
@@ -1077,6 +1130,9 @@ def main() -> int:
             "tmux_target": target,
             "pane_class": pclass,
             "pane_tail": "\n".join((tail or "").splitlines()[-8:]),
+            "mail_top_handle": mail_top_handle,
+            "mail_pending_handle": mail_pending_handle,
+            "new_addressed_mail": new_addressed_mail,
             "sweep_enabled": sweep_enabled,
             "sweep_mode": sweep_mode,
             "sweep_interval": sweep_interval,
