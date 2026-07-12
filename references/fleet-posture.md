@@ -94,13 +94,15 @@ Hygiene remains: Hand end-of-unit polish; post-main polish advisory **once per t
 | **standby** | Stewardship only (priority/status/opt/correctness of current product) | Reliability / correctness of current product | Complexity that hurts on-call risk | Allowed (stewardship lens); not expansion |
 | **dormant** | Assign-only | Assign-only | Assign-only | **Paused** by sensors |
 
-### Executive cadence = Mind loop × posture multipliers
+### Executive cadence = every_n_loops × Mind loop tick
 
 One base tick: **`mind_loop.interval_sec`** (default **300** = 5m FLEET_CYCLE).  
-Head spacing is **hardcoded** by posture and role (not fleet-configurable):
+Head spacing = `every_n_loops × mind_loop.interval_sec`. `every_n_loops` is
+**configurable per head** via `executive_cadence.every_n_loops`; when unset it
+defaults from the posture × role table below (overridable default ladder):
 
 ```text
-sweep_interval_sec = every_n_loops[posture][head] × mind_loop.interval_sec
+sweep_interval_sec = every_n_loops × mind_loop.interval_sec
 ```
 
 | Posture \ Head | head-cto | head-cxo | head-ceo |
@@ -112,9 +114,9 @@ sweep_interval_sec = every_n_loops[posture][head] × mind_loop.interval_sec
 At default L=5m: growth ≈ **30m / 1h / 3h**; standby ≈ **1.5h / 3h / 6h**.
 
 - Change **how often the camp ticks** → set `mind_loop.interval_sec` (all Heads scale).  
-- Change **intensity class** → change `fleet_posture.mode` (table switches).  
-- No separate “density” knob.  
-- Opt-in per head: `executive_cadence.enabled: true`. Legacy `min_seconds_between_sweeps` ignored.  
+- Change **intensity class** → change `fleet_posture.mode` (default table switches).  
+- Pin **one head's cadence** regardless of posture → set `executive_cadence.every_n_loops` (overrides the posture default for that head only).  
+- Opt-in per head: `executive_cadence.enabled: true`. Legacy `interval_sec` / `min_seconds_between_sweeps` ignored — use `every_n_loops`.  
 - Sensors emit `sweep_every_n_loops`, `mind_loop_interval_sec`, `sweep_interval` on each head.
 
 **Ban:** expansion candidates or new campaign surface while posture is standby/dormant.  
@@ -174,7 +176,7 @@ When `fleet_posture.mode` ∈ {`standby`, `dormant`}, do **not** emit `starvatio
 | standby | Suppressed | **Still allowed** (stewardship); `sweep_mode=stewardship` | CTO×18 · CXO×36 · CEO×72 × L |
 | dormant | Suppressed | **Paused** (`sweep_paused`); assign-only | — |
 
-`L` = `mind_loop.interval_sec` (default 300).
+`L` = `mind_loop.interval_sec` (default 300). Spacing shown is the posture default; override per head via `executive_cadence.every_n_loops`.
 
 ## Anti-patterns
 

@@ -125,13 +125,20 @@ def _check_executive_cadence(report: Report, where: str, block: Dict[str, Any]) 
     en = cad.get("enabled")
     if not isinstance(en, bool):
         report.err("%s.enabled" % cwhere, "must be boolean, got %r" % (en,))
-    # Intervals come from executive_cadence.interval_sec per head.
-    # min_seconds_between_sweeps is legacy/ignored — warn if present.
-    if "min_seconds_between_sweeps" in cad:
-        report.warn(
-            "%s.min_seconds_between_sweeps" % cwhere,
-            "ignored: Head spacing is posture multipliers × mind_loop.interval_sec (see fleet-posture.md)",
-        )
+    # every_n_loops (sweep multiplier) is the configurable knob:
+    # sweep_interval = every_n_loops × mind_loop.interval_sec.
+    enl = cad.get("every_n_loops")
+    if enl is not None:
+        if not isinstance(enl, int) or isinstance(enl, bool) or enl < 1:
+            report.err("%s.every_n_loops" % cwhere, "must be a positive integer, got %r" % (enl,))
+    # interval_sec / min_seconds_between_sweeps are legacy/ignored — warn if present.
+    for legacy_key in ("interval_sec", "min_seconds_between_sweeps"):
+        if legacy_key in cad:
+            report.warn(
+                "%s.%s" % (cwhere, legacy_key),
+                "ignored: Head spacing is every_n_loops × mind_loop.interval_sec "
+                "(set every_n_loops; see fleet-posture.md)",
+            )
     if "sweep_mode" in cad and not isinstance(cad.get("sweep_mode"), str):
         report.warn("%s.sweep_mode" % cwhere, "should be a string, got %r" % (cad.get("sweep_mode"),))
 

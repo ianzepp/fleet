@@ -25,9 +25,11 @@ See `roles-and-harness.md`. Shared finding schema: [`heads/personas/shared-opera
 | **standby** | Stewardship: priority/status/opt of **current** product | Correctness / reliability | Complexity that hurts on-call risk |
 | **dormant** | Rarely / assign-only | Rarely / assign-only | Rarely / assign-only |
 
-### Cadence spacing (skill law)
+### Cadence spacing (configurable)
 
-`sweep_interval = every_n_loops × mind_loop.interval_sec` (default L=300s). Multipliers hardcoded:
+`sweep_interval = every_n_loops × mind_loop.interval_sec` (default L=300s). `every_n_loops`
+is **configurable per head** via `executive_cadence.every_n_loops`; when unset, the posture
+default table applies:
 
 | Mode | CTO | CXO | CEO |
 | --- | --- | --- | --- |
@@ -35,7 +37,7 @@ See `roles-and-harness.md`. Shared finding schema: [`heads/personas/shared-opera
 | standby | ×18 | ×36 | ×72 |
 | dormant | off | off | off |
 
-Opt-in: `executive_cadence.enabled`. Sensors: executive sweeps **pause on dormant only**. Full table: [`fleet-posture.md`](fleet-posture.md).
+Opt-in: `executive_cadence.enabled`. Sensors: executive sweeps **pause on dormant only**. Full table + override semantics: [`fleet-posture.md`](fleet-posture.md).
 
 ---
 

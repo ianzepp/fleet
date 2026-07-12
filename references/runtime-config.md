@@ -319,7 +319,8 @@ Recommended keys (extend freely; skill cares about meanings):
     "role_prompt": "<fleet-path>/head-ceo-role-prompt.txt",
     "executive_cadence": {
       "enabled": false,
-      "sweep_mode": "expansion"
+      "sweep_mode": "expansion",
+      "every_n_loops": 12
     }
   },
   "head-cto": {
@@ -346,17 +347,21 @@ Recommended keys (extend freely; skill cares about meanings):
 
 Default **`300`** (5 minutes) when omitted. Alias: top-level `loop_interval_sec`.
 
-**Executive cadence (optional, per head).** Opt-in block: `{enabled, sweep_mode?}`.
-When `enabled`, `fleet-sensors.py` surfaces `head_due_<role>` after the **skill-law
+**Executive cadence (optional, per head).** Opt-in block: `{enabled, every_n_loops?, sweep_mode?}`.
+When `enabled`, `fleet-sensors.py` surfaces `head_due_<role>` after the **cadence
 interval** since last completion mail (pane not `running`). Completion = new mail
 from the head's `mail_identity` or `legacy_aliases` in `head_report_inbox` (default
 **`mind`**). Durable state: baseline `head-*`.`last_report_handle` / `last_report_at`.
 
-**Interval law (hardcoded — not fleet-configurable multipliers):**
+**Interval law:**
 
 ```text
-sweep_interval_sec = every_n_loops[posture][head] × mind_loop.interval_sec
+sweep_interval_sec = every_n_loops × mind_loop.interval_sec
 ```
+
+`every_n_loops` is **configurable per head** via `executive_cadence.every_n_loops`.
+When unset, it defaults from the posture × role table below (overridable default
+ladder — not immutable law):
 
 | Posture | head-cto | head-cxo | head-ceo | @ `interval_sec=300` |
 | --- | --- | --- | --- | --- |
@@ -364,9 +369,12 @@ sweep_interval_sec = every_n_loops[posture][head] × mind_loop.interval_sec
 | **standby** | ×18 | ×36 | ×72 | 1.5h / 3h / 6h |
 | **dormant** | — | — | — | sweeps **paused** |
 
-`min_seconds_between_sweeps` is **ignored** (legacy). `sweep_mode` is free-form for
-Mind assign flavor; when unset, sensors default from posture: growth → `expansion`,
-standby → `stewardship`, dormant → `paused`. Cadence inert unless `enabled: true`.
+An explicit `every_n_loops` overrides the posture default for that head only (it
+is fixed across postures, so reserve it for heads that want a stable cadence).
+`interval_sec` and `min_seconds_between_sweeps` are **ignored** (legacy — set
+`every_n_loops`). `sweep_mode` is free-form for Mind assign flavor; when unset,
+sensors default from posture: growth → `expansion`, standby → `stewardship`,
+dormant → `paused`. Cadence inert unless `enabled: true`.
 Detail: [`fleet-posture.md`](fleet-posture.md). Validate with `verify-fleet-json.py`.
 
 **Never hardcode model strings as Hand identity.** Read `agent_launch` from fleet. Hand `agent` should match `mind.agent` unless baseline records operator exception. Defaults from preferred_models; override for capacity/experiment, re-align when quiet.
