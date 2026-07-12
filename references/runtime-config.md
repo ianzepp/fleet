@@ -262,18 +262,21 @@ Recommended keys (extend freely; skill cares about meanings):
       "mind": { "model": "gpt-5.6-sol", "effort": "medium" },
       "hand": { "model": "gpt-5.6-luna", "effort": "xhigh" }
     },
+    "opencode": { "mind": {}, "hand": {} },
     "head": { "agent": "pi", "model": "glm-5.2", "thinking": "high|xhigh" }
   },
   "tooling": {
     "pi": { "binary": "/abs/path/to/pi" },
     "codex": { "binary": "/abs/path/to/codex" },
     "grok": { "binary": "/abs/path/to/grok" },
+    "opencode": { "binary": "/abs/path/to/opencode" },
     "vivi": { "binary": "/abs/path/to/vivi" }
   },
   "runtime_fallback": {
     "grok_model_ladder": ["grok-4.5"],
     "codex_model_ladder_mind": ["gpt-5.6-sol"],
     "codex_model_ladder_hand": ["gpt-5.6-luna"],
+    "opencode_model_ladder": [],
     "head_pi_model_ladder": ["glm-5.2"],
     "hand_harness_follows_mind": true,
     "heads_prefer_pi": true

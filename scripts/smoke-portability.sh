@@ -62,7 +62,7 @@ for py in fleet_common.py fleet-sensors.py fleet-baseline.py verify-fleet-json.p
 done
 
 # Bash syntax
-for sh in fleet-doorbell.sh steward.sh codex-reinit.sh smoke-portability.sh lib/env.sh; do
+for sh in fleet-doorbell.sh steward.sh codex-reinit.sh opencode-hand-ctl.sh smoke-portability.sh lib/env.sh; do
   if bash -n "$_FLEET_SCRIPT_DIR/$sh"; then
     pass "bash -n $sh"
   else

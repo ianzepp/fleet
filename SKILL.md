@@ -1,6 +1,6 @@
 ---
 name: fleet
-description: Multi-agent fleet management with Mind/Head/Hand roles (Abbot pattern) — Mind session attaches to one or more fleets; Hands/Heads; steward dead-man; dual-channel Vivi+tmux; multi-fleet FLEET_CYCLE. Use for hand-N fleets, multi-fleet attach, codex reinit, steward arm/rearm/disarm.
+description: Multi-agent fleet management with Mind/Head/Hand roles (Abbot pattern) — Mind session attaches to one or more fleets; Hands/Heads; steward dead-man; dual-channel Vivi+tmux; multi-fleet FLEET_CYCLE. Use for hand-N fleets, multi-fleet attach, codex reinit, opencode hand-ctl, steward arm/rearm/disarm.
 ---
 
 # Fleet
@@ -130,6 +130,7 @@ Core process here; detail in `references/` + `scripts/`.
 | Missing companions | [`companion-fallbacks.md`](references/companion-fallbacks.md) |
 | Sensors / baseline / doorbell | [`scripts/fleet-sensors.py`](scripts/fleet-sensors.py), [`fleet-baseline.py`](scripts/fleet-baseline.py), [`fleet-doorbell.sh`](scripts/fleet-doorbell.sh). Sensors include pending RTM/integration lag, ahead/behind, and bounded dirty paths. |
 | Codex pane | [`scripts/codex-reinit.sh`](scripts/codex-reinit.sh) |
+| opencode pane | [`scripts/opencode-hand-ctl.sh`](scripts/opencode-hand-ctl.sh) |
 | Portability smoke | [`scripts/lib/env.sh`](scripts/lib/env.sh), [`smoke-portability.sh`](scripts/smoke-portability.sh) |
 
 ## Don't get stuck
@@ -294,8 +295,8 @@ Vivi = work. tmux = process. Address = **`tmux_target`**.
 | Pane class | Action |
 | --- | --- |
 | `running` | No wake |
-| `idle_prompt` / `done_idle` + open | Pointer doorbell (Codex submit-settle). First wake per Hand never rate-limits |
-| `idle_prompt` / `done_idle` + open + Codex stuck after doorbell | Reinit fallback |
+| `idle_prompt` / `done_idle` + open | Pointer doorbell (Codex submit-settle; opencode same as Grok). First wake per Hand never rate-limits |
+| `idle_prompt` / `done_idle` + open + Codex/opencode stuck after doorbell | Reinit fallback via `codex-reinit.sh` / `opencode-hand-ctl.sh` |
 | empty + product map next + posture allows | Starve-file then wake (never invent polish) |
 | `error_*` / `down` | Ops / recreate |
 
@@ -354,8 +355,9 @@ Skill = portable process. Overlay = roster, paths, models, ssh, maps, Status.
 # Placeholders: <skill> <root> <hex> — tokens without <> are literals
 python3 <skill>/scripts/fleet-sensors.py --project <root> --text
 <skill>/scripts/fleet-doorbell.sh --project <root> hand-1 --handle <hex>
-# Codex recovery only if doorbell sticks/errors:
-PROJECT=<root> FLEET=<root>/.vivi/fleet.json <skill>/scripts/codex-reinit.sh doctor hand-1
+# Agent recovery only if doorbell sticks/errors:
+PROJECT=<root> FLEET=<root>/.vivi/fleet.json <skill>/scripts/codex-reinit.sh doctor hand-1      # Codex
+PROJECT=<root> FLEET=<root>/.vivi/fleet.json <skill>/scripts/opencode-hand-ctl.sh doctor hand-1  # opencode
 # silence: default bump increments turns_since_operator_message
 python3 <skill>/scripts/fleet-baseline.py bump -p <root> -s 'sleep' --quiet \
   --fingerprint-file /tmp/fleet-sensors.json

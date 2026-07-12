@@ -295,6 +295,7 @@ MESSAGE="$(printf '%s' "$MESSAGE" | tr '\n\r' '  ')"
 if [[ -z "$SUBMIT_DELAY" ]]; then
   case "$AGENT" in
     codex) SUBMIT_DELAY="0.8" ;;
+    grok|pi|opencode) SUBMIT_DELAY="0.05" ;;
     *) SUBMIT_DELAY="0.05" ;;
   esac
 fi

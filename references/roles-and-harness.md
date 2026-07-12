@@ -76,6 +76,8 @@ Default arm preferences. Live ids in project fleet config (`agent_model`, `agent
 | **Grok** | **Hand** | Grok 4.5 | harness default |
 | **Codex** | **Mind** | `gpt-5.6-sol` | **medium** |
 | **Codex** | **Hand** | `gpt-5.6-luna` | **xhigh** |
+| **opencode** | **Mind** | (provider-defined; e.g. DeepSeek V4 Flash Free) | **medium** |
+| **opencode** | **Hand** | (same provider/model as Mind) | harness default |
 | **Claude Code (desktop)** | **Mind** | Sonnet 5 | app default |
 | **Grok** | **Hand** (under desktop Mind) | Grok 4.5 | harness default |
 | **Pi (`llama-router`)** | **Hand** (under desktop Mind, local/discrete units) | `ornith-35b-q8` | reasoning off |
@@ -84,6 +86,7 @@ Default arm preferences. Live ids in project fleet config (`agent_model`, `agent
 | --- | --- |
 | Grok | Mind and Hand share model class (Grok 4.5) and harness |
 | Codex | Mind/Hand may differ within family (sol/medium vs luna/xhigh); harness stays Codex |
+| opencode | Mind and Hand share the same binary and provider/model configuration. The fleet `mind.agent` should be `"opencode"`; Hands default to `"opencode"` unless overridden. No built-in `/goal` — uses same generic pointer as Grok. opencode has its own agentic loop and can infer lifecycle, read the bag, and call `vivi task done` autonomously. |
 | Claude desktop Mind | **Declared exception to Harness alignment** (experimental). No local CLI for tmux pane → Hands cannot match Mind harness. Treat **Grok as fleet Hand harness**: desktop Mind files tasking + reads panes; Grok Hands use normal Grok wake without tmux-resident Mind |
 | Why desktop Mind | (1) **token budget** — deep/interactive Mind off product Hand harness; (2) **failure isolation** — tmux/shell death ≠ Mind death. Combine with remote Hands/Heads (`ssh-remote.md`). Expect learning/tweaks |
 | Codex under desktop Mind | Only if Grok capacity exhausted — use doorbell-first Codex wake; reinit remains fallback |

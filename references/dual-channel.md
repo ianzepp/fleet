@@ -136,9 +136,9 @@ tmux new-session -d -s hand-1 -c <cwd>                     # Hands/Heads only
 | Class | Example pane cues | Mind action |
 | --- | --- | --- |
 | `down` | no session | recreate session + agent; Codex: reinit with bootstrap |
-| `running` | current `Waiting for response` / live spinner / Codex streaming | sleep (do not wake/reinit) |
-| `idle_prompt` | Grok `❯` ready; Codex `›` ready without finished-turn monologue | Doorbell if open tasking |
-| `done_idle` | Codex turn-end / “tasking empty” / “standing by” then `›` | Doorbell if open tasking or just filed targets; else refill or pause |
+| `running` | current `Waiting for response` / live spinner / Codex streaming / opencode progress bar `⬝` | sleep (do not wake/reinit) |
+| `idle_prompt` | Grok `❯` ready; Codex `›` ready without finished-turn monologue; opencode `Ask anything...` prompt | Doorbell if open tasking |
+| `done_idle` | Codex turn-end / “tasking empty” / “standing by” then `›`; opencode `▣` completed action + token count | Doorbell if open tasking or just filed targets; else refill or pause |
 | `trust_prompt` | Workspace trust UI (“Yes, continue”) | Reinit auto-accept or send accept once; not `running` |
 | `error_capacity` | over capacity, rate limit, 429 | ops: model change / retry / reinit |
 | `error_connection` | connection failed, timeout, ECONNRESET | ops: retry / restart resume |
@@ -147,6 +147,11 @@ tmux new-session -d -s hand-1 -c <cwd>                     # Hands/Heads only
 Grok: placeholder (“Build anything”) while idle ≠ in-flight. Prefer `Waiting for response` as only hard `running` unless live spinner in **tail**.
 
 Codex: `•` monologue then `›` is often an **answer that stopped**. Back-to-back `HAND WAKE` lines without submit-settle are the failure mode.
+
+**opencode:** pane classification keyed on opencode-specific markers (`OpenCode Zen`, `Build auto`, `Build ·`, `ctrl+p commands`). Bottom status bar determines state:
+- `idle_prompt`: `Ask anything...` in last ~6 lines
+- `running`: progress bar `⬝` or `esc interrupt` in last ~6 lines
+- Post-response done: `▣` completion marker visible, no progress, falls to idle_prompt
 
 Rate-limit wakes (`min_seconds_between_wakes`) **only when that Hand already has a prior doorbell** (`last_hand_wake.by_hand.<name>.count ≥ 1`). **No last wake / count 0 → never rate-limit** (cold attach, first wake after recreate). Never `send-keys` into `running` unless operator allows cancel+replace. Prefer project **classify script** over ad-hoc greps (avoids false `error_connection` from tool text like `timeout 1800 ./script`).
 
@@ -161,16 +166,16 @@ Rate-limit wakes (`min_seconds_between_wakes`) **only when that Hand already has
 
 Never wake on dirty-only mid-flight; never reinit `running` without FORCE policy.
 
-## Grok vs Codex (keyed on fleet `agent`, not H-number)
+## Agent harness (keyed on fleet `agent`, not H-number)
 
 Hands share Mind’s harness (usually one column). Heads may use the other on purpose.
 
-| | **Grok** (`agent=grok`) | **Codex** (`agent=codex`) |
-| --- | --- | --- |
-| After unit + open tasking | Pointer **doorbell** | Pointer **doorbell** with submit-settle delay |
-| Theme switch same cwd | `/compact` then pointer | Pointer doorbell; reinit only for stale/stuck sessions |
-| Launch | Prefer plain `grok …` | Plain `codex …` via `agent_launch` — **never `exec codex`** |
-| Bootstrap | Pointer: identity, handle, `vivi --for` | Same short bootstrap as first user message — no multi-paragraph novels in argv |
+| | **Grok** (`agent=grok`) | **Codex** (`agent=codex`) | **opencode** (`agent=opencode`) |
+| --- | --- | --- | --- |
+| After unit + open tasking | Pointer **doorbell** | Pointer **doorbell** with submit-settle delay | Pointer **doorbell** (explicit `vivi task done` in wake text) |
+| Theme switch same cwd | `/compact` then pointer | Pointer doorbell; reinit only for stale/stuck sessions | Pointer doorbell; version scrolls away — include context in pointer |
+| Launch | Prefer plain `grok …` | Plain `codex …` via `agent_launch` — **never `exec codex`** | Prefer plain `opencode`; use `opencode --auto` for unattended Hands |
+| Bootstrap | Pointer: identity, handle, `vivi --for` | Same short bootstrap as first user message — no multi-paragraph novels in argv | Pointer: include identity, handle, exact `vivi task` commands for lifecycle |
 
 ## Codex doorbell + reinit fallback
 
@@ -193,6 +198,7 @@ Hands share Mind’s harness (usually one column). Heads may use the other on pu
 | **Codex** | **Preferred.** Bootstrap may begin `/goal <bounded objective>`; include identity, handle, scope, done condition in same short message |
 | **Grok** | Supported; avoid by default — prefer pointer or scheduled-loop unless operator wants `/goal` |
 | **Pi** | Not supported. Plain task pointer/prompt |
+| **opencode** | Not supported (TUI-only). Plain pointer with explicit commands. |
 
 Do not stack `/goal` onto a running turn. File board target first; `/goal` only during clean Codex reinit for coherent bounded objective.
 
@@ -212,7 +218,9 @@ tmux send-keys -t '<tmux_target>' -l -- '<pointer only>'
 tmux send-keys -t '<tmux_target>' Enter
 ```
 
-Codex: use the same helper; it applies a small submit-settle delay before Enter. Pi local Hands: same doorbell as Grok (`roles-and-harness.md`).
+**Codex:** use the same helper; it applies a small submit-settle delay before Enter.  
+**Pi local Hands:** same doorbell as Grok (`roles-and-harness.md`).  
+**opencode:** same doorbell as Grok — plain `tmux send-keys` with no submit-settle delay. opencode has its own agentic loop and can handle the generic pointer, infer lifecycle, and call `vivi task done` autonomously.
 
 ### Channel split (mandatory)
 

@@ -95,6 +95,15 @@ def classify_pane(text: str, session_exists: bool) -> str:
         return "idle_prompt"
     if re.search(r"❯\s*$|╰─.*Grok|codex ›|^\s*›\s*$", t, re.M):
         return "idle_prompt"
+    # opencode TUI — status bar markers like "OpenCode Zen" / "Build ·" / "ctrl+p commands"
+    if re.search(r"OpenCode Zen|Build auto|Build ·|ctrl\+p commands", t):
+        last_lines = [x for x in (t.splitlines() or []) if x.strip()]
+        bottom = "\n".join(last_lines[-6:]) if last_lines else ""
+        if re.search(r"Ask anything\.\.\.", bottom):
+            return "idle_prompt"
+        if re.search(r"⬝|esc interrupt", bottom):
+            return "running"
+        return "idle_prompt"
     return "unknown"
 
 
