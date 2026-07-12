@@ -57,6 +57,7 @@ Canon for absorb/accept: [`mind-cycle.md`](references/mind-cycle.md) § Absorb v
 | Process | Mind fills bag; Hand empties. Progress = open tasking + map — not GO stamps |
 | Multi-hand | Mind files/wakes/merges clock; head-ceo side-lane bucket (`effort`+`est_tokens`); Mind calibrates est vs actual |
 | Starvation | Empty bag + **honest unblocked product unit on the map** → file+wake. Never invent polish/makework to fill bags |
+| Growth liveness | In `growth`, an idle product Hand with no queued unit is **not** a quiet cycle: trigger an executive refill sweep immediately; do not wait for the normal Head cadence. |
 | Posture | Per-fleet `growth` \| `standby` \| `dormant` — willing to sleep when charter says so — [`fleet-posture.md`](references/fleet-posture.md) |
 | Stuck | Freeze fails — name, unstick, pivot. No status-only blocked cycles. Stuck ≠ “must invent work” |
 | Harness | **Default:** Hands = Mind harness; Heads prefer alternate. **Fleet config exceptions win** (desktop Mind, Pi Hand, operator-recorded mixed) — [`roles-and-harness.md`](references/roles-and-harness.md) |
@@ -148,6 +149,32 @@ Core process here; detail in `references/` + `scripts/`.
 | Pane dead/idle+open | Wake / reinit / runtime ladder | Stack wakes |
 | Human wall | File `operator@` + pivot | Silent stall |
 Sleep when bag empty **and** no honest next product unit (or posture is standby/dormant). Sleep is allowed — do not invent work.
+
+### Growth-liveness refill
+
+Growth posture has a stronger continuity contract than standby or dormant:
+
+1. If any product Hand is idle with an empty actionable bag, and no honest
+   unblocked map unit is already available, trigger the configured executive
+   sweep **in this cycle**. Do not wait three to six hours for the scheduled
+   `head-ceo`/CTO/CXO cadence.
+2. Run `head-ceo` first for map health and bounded next-unit proposals; run the
+   configured technical, product, security, marketing, or purity Heads in
+   parallel when their domains are relevant. Heads return bounded buckets with
+   scope, done-when, dependencies, and effort/token estimates; they do not file
+   Hand tasks themselves.
+3. Mind converts honest, unblocked Head proposals into Hand tasks and
+   doorbells in the same cycle. A growth fleet may sleep only when the sweep
+   finds no honest product scope, or when a real human/environment gate is
+   recorded with a default and pivot.
+4. A configured executive pane that is missing, `unknown`, `down`, or in an
+   error state is a capacity failure, not a reason to wait: reinit/recreate it
+   in the same cycle. If the fleet has no configured executive topology, file
+   an operational need to repair the roster and pivot to any remaining
+   grounded work.
+5. Repeated growth cycles with idle Hands and no executive result are a
+   fleet-control defect. Report the defect and keep the refill path active;
+   never normalize it as `quiet`.
 
 ### Dirt (half-dead targets)
 
@@ -342,7 +369,7 @@ Desktop Mind OK; Hands stay terminal/tmux. Schema: [`runtime-config.md`](referen
 
 ## Anti-patterns
 
-**Bag:** GO warden; severity-as-kind; sleep while map has **product** work; invent work to avoid sleep; dual Mind; Heads own bags; hand-2 empty while side track exists; wait on head-ceo for obvious spine; buckets without cost ballparks.  
+**Bag:** GO warden; severity-as-kind; sleep while map has **product** work; sleep in growth without an executive refill sweep; invent work to avoid sleep; dual Mind; Heads own bags; hand-2 empty while side track exists; wait on scheduled Head cadence; wait on head-ceo for obvious spine; buckets without cost ballparks.
 **Process:** mail-only or pane-only truth; policy via tmux; mixed Hand harness; back-to-back wake stacks; wrong-host tmux; IMAP as bag sensor; unbounded watch; multi-fleet “fairness” busywork on standby fleets.
 **Integrate:** packet-green≠consumer-green; “compiler residual” when integration lag; red theme merge; Mind merges packets; absorb-as-accept.  
 **Hygiene/workspace:** skip unit polish / polish foreign; Mind runs polish/HK; **polish thrash for continuity**; HK every land; score as merge gate; destructive dirt cleanup; status-only dirt; topic monogamy; deep-plan every autonomous cycle; interactive forever; **FLEET_CYCLE ⇒ force autonomous**; **FLEET_CYCLE ⇒ force turns=0 every fire**; hand-edit silence after `baseline bump`; compact report while interactive; novel autonomous reports; head-ceo permission freeze; missing FLEET_CYCLE prefix; status→operator@; skip operator present-on-return; arm steward without operator ask; leave steward armed after stop-loop; steward as Mind; inject-only heartbeat; global roster scan; hardcode session=role when `tmux_target` set.
