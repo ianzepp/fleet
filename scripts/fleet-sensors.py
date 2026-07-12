@@ -68,55 +68,78 @@ def head_state_block(baseline: dict, key: str) -> dict:
 
 def is_vivi_pty_role(slot: dict) -> bool:
     runtime = slot.get("runtime") or {}
-    if isinstance(runtime, dict) and runtime.get("kind") == "vivi_pty":
-        return True
-    return slot.get("wake_mode") == "vivi_pty"
+    return isinstance(runtime, dict) and runtime.get("kind") == "vivi_pty"
 
 
-def capture_vivi_pty(project: Path, session_id: str, vivi_pty_bin: str) -> tuple:
-    """Return (session_exists, terminal_contents, normalized_state)."""
+def capture_vivi_pty(session_id: str, socket: str, vivi_pty_bin: str) -> dict:
+    """Capture one canonical runtime observation from vivi-pty diagnostics."""
+    unavailable = {
+        "exists": False,
+        "tail": "",
+        "state": "unknown",
+        "process_state": "unknown",
+        "confidence": "low",
+        "evidence": [],
+    }
     if not vivi_pty_bin:
-        return (False, "", "unknown")
+        return unavailable
     rc, out = run(
-        [vivi_pty_bin, "session", "diagnostic", session_id, "--project", str(project)],
+        [vivi_pty_bin, "session", "diagnostic", session_id, "--socket", socket],
         timeout=5,
     )
     if rc != 0:
-        return (False, "", "unknown")
+        return unavailable
     try:
         diagnostic = json.loads(out)
     except Exception:
-        return (False, "", "unknown")
-    session = diagnostic.get("session") or {}
-    process_state = session.get("state", "unknown")
-    if process_state in ("exited", "stopped"):
-        return (False, "", "stopped")
+        return unavailable
+    process_state = diagnostic.get("process_state") or (diagnostic.get("session") or {}).get("state", "unknown")
     terminal = diagnostic.get("terminal") or {}
-    normalized_state = diagnostic.get("harness_state", "unknown")
-    return (True, terminal.get("contents", "") or "", normalized_state)
+    stopped = process_state in ("exited", "stopped")
+    return {
+        "exists": not stopped,
+        "tail": terminal.get("contents", "") or "",
+        "state": "stopped" if stopped else diagnostic.get("harness_state", "unknown"),
+        "process_state": process_state,
+        "confidence": diagnostic.get("confidence", "low"),
+        "evidence": diagnostic.get("evidence") or [],
+    }
 
 
 def classify_vivi_pty(state: str, text: str, session_exists: bool) -> str:
     """Map normalized vivi-pty state, falling back to terminal evidence."""
     if not session_exists or state == "stopped":
-        return "down"
-    if state in ("starting", "submitting", "running"):
-        return "running"
-    if state == "waiting_for_input":
-        return "idle_prompt"
-    if state == "approval_required":
-        return "trust_prompt"
-    if state == "completed":
-        return "done_idle"
-    if state == "failed":
-        return "error_runtime"
-    return classify_pane(text, session_exists)
+        return "stopped"
+    if state in (
+        "starting",
+        "waiting_for_input",
+        "submitting",
+        "running",
+        "approval_required",
+        "completed",
+        "failed",
+    ):
+        return state
+    return classify_terminal(text, session_exists)
 
 
-def classify_pane(text: str, session_exists: bool) -> str:
+def failure_detail(text: str) -> Optional[str]:
+    if re.search(r"over capacity|rate limit|[^0-9]429[^0-9]|usage limit hard|try again later", text or "", re.I):
+        return "capacity"
+    if re.search(
+        r"ECONNRESET|connection failed|connection error|connect timed out|request timed out|"
+        r"stream timed out|network timeout|TLS handshake timeout|websocket.*timeout",
+        text or "",
+        re.I,
+    ):
+        return "connection"
+    return "runtime" if text else None
+
+
+def classify_terminal(text: str, session_exists: bool) -> str:
     """Classify terminal evidence when no normalized runtime state is available."""
     if not session_exists:
-        return "down"
+        return "stopped"
     t = text or ""
     if re.search(r"Working \(|esc to interrupt|Waiting for response|Responding…|Responding\.\.\.|Thinking…", t, re.I):
         return "running"
@@ -126,37 +149,37 @@ def classify_pane(text: str, session_exists: bool) -> str:
         t,
         re.I,
     ):
-        return "trust_prompt"
+        return "approval_required"
     if re.search(r"over capacity|rate limit|[^0-9]429[^0-9]|usage limit hard|try again later", t, re.I):
-        return "error_capacity"
+        return "failed"
     if re.search(
         r"ECONNRESET|connection failed|connection error|connect timed out|request timed out|"
         r"stream timed out|network timeout|TLS handshake timeout|websocket.*timeout",
         t,
         re.I,
     ):
-        return "error_connection"
+        return "failed"
     # Codex ready chrome
     if "›" in t:
         if re.search(r"bag empty|standing by|turn end|Turn completed|ready-to-merge", t, re.I):
-            return "done_idle"
-        return "idle_prompt"
+            return "completed"
+        return "waiting_for_input"
     # Grok-style prompt box
     if re.search(r"Grok|always-approve|Shift\+Tab", t) and re.search(r"Turn completed|Idle until|Board empty|bag empty|❯", t, re.I):
         if re.search(r"Turn completed|Idle until|Board empty|bag empty|actionable: 0", t, re.I):
-            return "done_idle"
-        return "idle_prompt"
+            return "completed"
+        return "waiting_for_input"
     if re.search(r"❯\s*$|╰─.*Grok|codex ›|^\s*›\s*$", t, re.M):
-        return "idle_prompt"
+        return "waiting_for_input"
     # opencode TUI — status bar markers like "OpenCode Zen" / "Build ·" / "ctrl+p commands"
     if re.search(r"OpenCode Zen|Build auto|Build ·|ctrl\+p commands", t):
         last_lines = [x for x in (t.splitlines() or []) if x.strip()]
         bottom = "\n".join(last_lines[-6:]) if last_lines else ""
         if re.search(r"Ask anything\.\.\.", bottom):
-            return "idle_prompt"
+            return "waiting_for_input"
         if re.search(r"⬝|esc interrupt", bottom):
             return "running"
-        return "idle_prompt"
+        return "waiting_for_input"
     return "unknown"
 
 
@@ -608,8 +631,8 @@ def build_fingerprint(out: dict, fleet: dict) -> dict:
         "next_handle_h1": (h1 or {}).get("next_handle"),
         "next_handle_h2": (h2 or {}).get("next_handle"),
         "swarm_head": (git_main.get("sha") or "")[:12] or None,
-        "hand1_class": (h1 or {}).get("pane_class"),
-        "hand2_class": (h2 or {}).get("pane_class"),
+        "hand1_state": ((h1 or {}).get("runtime") or {}).get("state"),
+        "hand2_state": ((h2 or {}).get("runtime") or {}).get("state"),
         "operator_open": (out.get("operator") or {}).get("open_count", 0),
         "steward_armed": (out.get("steward") or {}).get("armed"),
         "steward_tripped": (out.get("steward") or {}).get("tripped"),
@@ -638,8 +661,8 @@ def quiet_hint_from(fp: dict, prev: dict, signals: list, steward: dict) -> bool:
         "next_handle_h1",
         "next_handle_h2",
         "swarm_head",
-        "hand1_class",
-        "hand2_class",
+        "hand1_state",
+        "hand2_state",
         "operator_open",
         "steward_tripped",
         "head_ceo_due",
@@ -681,14 +704,14 @@ def format_text_summary(out: dict, fp: dict, git_main: dict) -> str:
         stall_n = int(h.get("cycles_unchanged") or 0)
         stall_lab = " stall=%s" % stall_n if stall_n > 0 else ""
         lines.append(
-            "  %s: bag=%s next=%s class=%s%s target=%s"
+            "  %s: bag=%s next=%s state=%s%s target=%s"
             % (
                 name,
                 h.get("actionable"),
                 h.get("next_handle"),
-                h.get("pane_class"),
+                (h.get("runtime") or {}).get("state"),
                 stall_lab,
-                h.get("tmux_target"),
+                (h.get("runtime") or {}).get("target"),
             )
         )
     for name, hd in (out.get("heads") or {}).items():
@@ -705,14 +728,14 @@ def format_text_summary(out: dict, fp: dict, git_main: dict) -> str:
         if n_loops is not None:
             sweep_lab = "×%s loops (%ss)" % (n_loops, hd.get("sweep_interval"))
         lines.append(
-            "  %s: class=%s sweep=%s last=%s%s target=%s"
+            "  %s: state=%s sweep=%s last=%s%s target=%s"
             % (
                 name,
-                hd.get("pane_class"),
+                (hd.get("runtime") or {}).get("state"),
                 sweep_lab,
                 (hd.get("sweep_last_completed") or "never")[:19],
                 extra,
-                hd.get("tmux_target"),
+                (hd.get("runtime") or {}).get("target"),
             )
         )
     return "\n".join(lines)
@@ -858,7 +881,7 @@ def main() -> int:
     out["fleet_posture"] = posture_out
 
     # --- hands panes + bag ---
-    pane_classes = {}  # type: Dict[str, str]
+    runtime_states = {}  # type: Dict[str, str]
     # stall-risk: track per-hand pane-tail stability across cycles so a frozen
     # pane with open assigned work surfaces as a signal even when the pane
     # classifier (a brittle string matcher) mis-reads it as idle. State rides in
@@ -913,12 +936,21 @@ def main() -> int:
         sess_ok = False
         tail = ""
         runtime_state = None
+        process_state = "unknown"
+        runtime_confidence = "medium"
+        runtime_evidence = []
         if vivi_pty_role:
             if not vivi_pty_bin:
                 partial = True
                 out["signals"].append("vivi_pty_missing")
             else:
-                sess_ok, tail, runtime_state = capture_vivi_pty(project, target, vivi_pty_bin)
+                captured = capture_vivi_pty(target, session, vivi_pty_bin)
+                sess_ok = captured["exists"]
+                tail = captured["tail"]
+                runtime_state = captured["state"]
+                process_state = captured["process_state"]
+                runtime_confidence = captured["confidence"]
+                runtime_evidence = captured["evidence"]
                 if not sess_ok and not tail:
                     partial = True
         elif tmux_bin:
@@ -936,32 +968,34 @@ def main() -> int:
         pclass = (
             classify_vivi_pty(runtime_state or "unknown", tail, sess_ok)
             if vivi_pty_role
-            else classify_pane(tail, sess_ok)
+            else classify_terminal(tail, sess_ok)
         )
-        pane_classes[name] = pclass
+        if not vivi_pty_role:
+            process_state = "running" if sess_ok else "stopped"
+        runtime_states[name] = pclass
         next_handle = open_tasks[0]["handle"] if open_tasks else (open_needs[0]["handle"] if open_needs else None)
 
-        if pclass in ("error_capacity", "error_connection", "error_runtime", "down", "trust_prompt"):
-            out["signals"].append(f"pane_{name}_{pclass}")
+        if pclass in ("failed", "stopped", "approval_required"):
+            out["signals"].append(f"runtime_{name}_{pclass}")
         packet = h.get("packet") if isinstance(h.get("packet"), dict) else {}
         pkt_state = str(packet.get("state") or "").lower()
         paused_pkt = pkt_state.startswith("paused") or pkt_state in ("hold", "operational_pause")
         hand_paused = hand_is_paused(baseline, name)
         if (
             bag_open
-            and pclass in ("idle_prompt", "done_idle", "unknown")
+            and pclass in ("waiting_for_input", "completed", "unknown")
             and not hand_paused
             and not paused_pkt
         ):
             out["signals"].append(f"wake_candidate_{name}")
         if new_addressed_mail:
             out["signals"].append(f"mail_for_{name}")
-        if mail_pending_handle and pclass in ("idle_prompt", "done_idle", "unknown") and not hand_paused and not paused_pkt:
+        if mail_pending_handle and pclass in ("waiting_for_input", "completed", "unknown") and not hand_paused and not paused_pkt:
             out["signals"].append(f"mail_wake_candidate_{name}")
         # Starvation is a candidate only — suppress when fleet/baseline marks intentional pause
         if (
             bag_open == 0
-            and pclass in ("idle_prompt", "done_idle")
+            and pclass in ("waiting_for_input", "completed")
             and not paused_pkt
             and not hand_paused
             and not posture_suppresses_starvation
@@ -980,21 +1014,21 @@ def main() -> int:
         )
         prev_hp = prev_hand_progress.get(name)
         prev_hp = prev_hp if isinstance(prev_hp, dict) else {}
-        prev_hash = prev_hp.get("pane_tail_hash")
+        prev_hash = prev_hp.get("tail_hash")
         if pane_tail_hash and prev_hash and pane_tail_hash == prev_hash:
             cycles_unchanged = int(prev_hp.get("cycles_unchanged") or 0) + 1
         else:
             cycles_unchanged = 0
         hand_progress[name] = {
-            "pane_tail_hash": pane_tail_hash,
+            "tail_hash": pane_tail_hash,
             "cycles_unchanged": cycles_unchanged,
             "has_open_work": bool(bag_open),
-            "pane_class": pclass,
+            "state": pclass,
         }
         if (
             bag_open
             and cycles_unchanged >= stall_floor
-            and pclass != "running"
+            and pclass not in ("starting", "submitting", "running")
             and not hand_paused
             and not paused_pkt
         ):
@@ -1013,25 +1047,27 @@ def main() -> int:
             "mail_top_handle": mail_top_handle,
             "mail_pending_handle": mail_pending_handle,
             "new_addressed_mail": new_addressed_mail,
-            "pane_class": pclass,
-            "pane_tail": pane_tail_text,
-            "pane_tail_hash": pane_tail_hash,
             "cycles_unchanged": cycles_unchanged,
             "min_seconds_between_wakes": h.get("min_seconds_between_wakes", 180),
             "merges_to_main": h.get("merges_to_main", False),
             "packet_state": packet.get("state"),
             "operational_pause": hand_paused or paused_pkt,
         }
+        runtime_observation = {
+            "kind": "vivi_pty" if vivi_pty_role else "tmux",
+            "target": target,
+            "state": pclass,
+            "process_state": process_state,
+            "confidence": runtime_confidence,
+            "evidence": runtime_evidence,
+            "tail": pane_tail_text,
+            "tail_hash": pane_tail_hash,
+        }
+        if pclass == "failed":
+            runtime_observation["detail"] = failure_detail(tail)
         if vivi_pty_role:
-            hand_row["runtime_kind"] = "vivi_pty"
-            hand_row["runtime_target"] = target
-            hand_row["runtime_socket"] = session
-            hand_row["runtime_state"] = runtime_state or "unknown"
-        else:
-            hand_row["runtime_kind"] = "tmux"
-            hand_row["runtime_target"] = target
-            hand_row["tmux_target"] = target
-            hand_row["tmux_session"] = session
+            runtime_observation["socket"] = session
+        hand_row["runtime"] = runtime_observation
         out["hands"][name] = hand_row
 
         # git for main hand (walk up from cwd; container fleets scan children / git.main_cwd)
@@ -1113,12 +1149,21 @@ def main() -> int:
         sess_ok = False
         tail = ""
         runtime_state = None
+        process_state = "unknown"
+        runtime_confidence = "medium"
+        runtime_evidence = []
         if vivi_pty_role:
             if not vivi_pty_bin:
                 partial = True
                 out["signals"].append("vivi_pty_missing")
             else:
-                sess_ok, tail, runtime_state = capture_vivi_pty(project, target, vivi_pty_bin)
+                captured = capture_vivi_pty(target, session, vivi_pty_bin)
+                sess_ok = captured["exists"]
+                tail = captured["tail"]
+                runtime_state = captured["state"]
+                process_state = captured["process_state"]
+                runtime_confidence = captured["confidence"]
+                runtime_evidence = captured["evidence"]
         elif tmux_bin:
             rc, _ = run([tmux_bin, "has-session", "-t", session], timeout=5)
             sess_ok = rc == 0
@@ -1130,9 +1175,11 @@ def main() -> int:
         pclass = (
             classify_vivi_pty(runtime_state or "unknown", tail, sess_ok)
             if vivi_pty_role
-            else classify_pane(tail, sess_ok)
+            else classify_terminal(tail, sess_ok)
         )
-        pane_classes[key] = pclass
+        if not vivi_pty_role:
+            process_state = "running" if sess_ok else "stopped"
+        runtime_states[key] = pclass
 
         addressed_mail = list_recent_mail(vivi, str(project), block.get("mail_identity") or key, limit=1) if vivi else []
         mail_top_handle = addressed_mail[0]["handle"] if addressed_mail else None
@@ -1205,7 +1252,7 @@ def main() -> int:
             sweep_enabled
             and not head_paused
             and not posture_pauses_executive_sweeps
-            and pclass != "running"
+            and pclass not in ("starting", "submitting", "running")
             and interval_elapsed
         )
         overdue_sec = None
@@ -1222,14 +1269,13 @@ def main() -> int:
             out["signals"].append("head_due_%s" % short)
         if new_addressed_mail:
             out["signals"].append("mail_for_%s" % key)
-        if mail_pending_handle and pclass in ("idle_prompt", "done_idle", "unknown") and not head_paused:
+        if mail_pending_handle and pclass in ("waiting_for_input", "completed", "unknown") and not head_paused:
             out["signals"].append("mail_wake_candidate_%s" % key)
-        if pclass in ("error_capacity", "error_connection", "error_runtime", "down", "trust_prompt"):
-            out["signals"].append("pane_%s_%s" % (key, pclass))
+        if pclass in ("failed", "stopped", "approval_required"):
+            out["signals"].append("runtime_%s_%s" % (key, pclass))
 
+        head_tail = "\n".join((tail or "").splitlines()[-8:])
         head_row = {
-            "pane_class": pclass,
-            "pane_tail": "\n".join((tail or "").splitlines()[-8:]),
             "mail_top_handle": mail_top_handle,
             "mail_pending_handle": mail_pending_handle,
             "new_addressed_mail": new_addressed_mail,
@@ -1246,15 +1292,21 @@ def main() -> int:
             "sweep_top_handle": cur_top,
             "sweep_paused": head_paused or posture_pauses_executive_sweeps,
         }
+        runtime_observation = {
+            "kind": "vivi_pty" if vivi_pty_role else "tmux",
+            "target": target,
+            "state": pclass,
+            "process_state": process_state,
+            "confidence": runtime_confidence,
+            "evidence": runtime_evidence,
+            "tail": head_tail,
+            "tail_hash": hashlib.sha1(head_tail.encode("utf-8", "ignore")).hexdigest()[:16] if head_tail else None,
+        }
+        if pclass == "failed":
+            runtime_observation["detail"] = failure_detail(tail)
         if vivi_pty_role:
-            head_row["runtime_kind"] = "vivi_pty"
-            head_row["runtime_target"] = target
-            head_row["runtime_socket"] = session
-            head_row["runtime_state"] = runtime_state or "unknown"
-        else:
-            head_row["runtime_kind"] = "tmux"
-            head_row["runtime_target"] = target
-            head_row["tmux_target"] = target
+            runtime_observation["socket"] = session
+        head_row["runtime"] = runtime_observation
         out["heads"][key] = head_row
 
     # steward block from fleet + baseline + optional pane
@@ -1272,8 +1324,8 @@ def main() -> int:
                 [tmux_bin, "capture-pane", "-t", st_target, "-p", "-S", "-8"],
                 timeout=5,
             )
-    st_class = classify_pane(st_tail, st_sess_ok)
-    pane_classes["steward"] = st_class
+    st_class = classify_terminal(st_tail, st_sess_ok)
+    runtime_states["steward"] = st_class
     last_ok = (baseline.get("mind_loop") or {}).get("last_successful_cycle_at") or st_base.get(
         "last_rearm_at"
     )
@@ -1282,8 +1334,15 @@ def main() -> int:
         "enabled": st_cfg.get("enabled", False),
         "armed": bool(st_base.get("armed")),
         "tripped": bool(st_base.get("tripped")),
-        "tmux_target": st_target,
-        "pane_class": st_class,
+        "runtime": {
+            "kind": "tmux",
+            "target": st_target,
+            "state": st_class,
+            "process_state": "running" if st_sess_ok else "stopped",
+            "confidence": "medium",
+            "evidence": [],
+            "tail": "\n".join((st_tail or "").splitlines()[-8:]),
+        },
         "last_successful_cycle_at": last_ok,
         "last_rearm_at": st_base.get("last_rearm_at"),
         "grace_sec": st_cfg.get("grace_sec", 900),
@@ -1295,7 +1354,7 @@ def main() -> int:
     git_main = out.get("git", {}).get("main") or {}
     fp = build_fingerprint(out, fleet)
     out["fingerprint"] = fp
-    out["pane_classes"] = pane_classes
+    out["runtime_states"] = runtime_states
     out["quiet_hint"] = quiet_hint_from(fp, prev, out["signals"], out["steward"])
     out["baseline_last_cycle"] = baseline.get("last_cycle")
     out["baseline_mind_mode"] = baseline.get("mind_mode")

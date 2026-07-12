@@ -238,7 +238,7 @@ python3 $SK/fleet-baseline.py bump -p "$ROOT" -s 'sleep' --quiet \
 
 `sensors.signals[]` are obligations. Before sleep/report/baseline bump, each material signal must be `acted`, `delegated`, `escalated`, `deferred-valid`, or `sleep-valid` as defined in `SKILL.md`.
 
-Examples: `operator_to_mind` must be absorbed first; `operator_mail` must be presented/carry-forwarded; `wake_candidate_*` must be doorbelled/reinit'd or validly deferred; `pane_*_down|error_*|trust_prompt` must be repaired, assigned to ops, or escalated; `starvation_candidate_*` in growth must trigger file+wake or executive refill/valid pause; repeated dirty blockers must be diff-classified A/B/C.
+Examples: `operator_to_mind` must be absorbed first; `operator_mail` must be presented/carry-forwarded; `wake_candidate_*` must be doorbelled/reinit'd or validly deferred; `runtime_*_stopped|failed|approval_required` must be repaired, assigned to ops, or escalated; `starvation_candidate_*` in growth must trigger file+wake or executive refill/valid pause; repeated dirty blockers must be diff-classified A/B/C.
 
 `mail_for_<role>` means new mail was addressed to a process role since the prior successful cycle. The cycle is the debounce boundary: if `mail_wake_candidate_<role>` is also present, doorbell that idle role immediately with the mail handle. Do not wait for an executive cadence interval. If the pane is running, leave it uninterrupted and carry the mail signal forward for the next idle cycle. Cadence controls unsolicited sweeps only; addressed work is demand-driven.
 
@@ -315,7 +315,7 @@ Even **sleep** interactive uses this shape. **Not required:** full mail dumps, f
 | Tasking empty + next package selected | Hand / Mind | start or **refill** + wake/reinit |
 | Head-role report mail | Mind | absorb; triage to hand-N when actionable |
 | Approach / sequencing fork | head-ceo (or Mind) | one advisory report / note |
-| Pane `idle_prompt` / `done_idle` + open tasking | Mind | doorbell |
+| Runtime `waiting_for_input` / `completed` + open tasking | Mind | doorbell |
 | Theme finished + next target (**Grok**) | Mind | **theme-switch compact** then doorbell |
 | Theme finished + next target (**Codex**) | Mind | doorbell; reinit only if stale/stuck |
 | Pane `error_*` | Mind | ops intervene (model/retry/reinit) |

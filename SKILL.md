@@ -38,16 +38,16 @@ Reporting a blocker without acting, delegating, escalating, or recording a valid
 | --- | --- | --- | --- |
 | **mind** | `mind@…` | none | Board To: Mind; process = this chat |
 | **operator** | `operator@…` | none | Human only — [`operator-mail.md`](references/operator-mail.md) |
-| **steward** | optional opt-in | `tmux_target` | Dead-man, not Mind — **off by default**; operator must enable+arm per fleet — [`dead-man.md`](references/dead-man.md) |
-| **hand-N** | `hand-N@…` | via `tmux_target` | `hand-1` merges to main |
-| **head-*** | `head-*@…` | via `tmux_target` | ceo=strategist (map health/buckets); cto post-main+gates; cxo purity (not operator-facing) |
+| **steward** | optional opt-in | tmux runtime | Dead-man, not Mind — **off by default**; operator must enable+arm per fleet — [`dead-man.md`](references/dead-man.md) |
+| **hand-N** | `hand-N@…` | configured runtime | `hand-1` merges to main |
+| **head-*** | `head-*@…` | configured runtime | ceo=strategist (map health/buckets); cto post-main+gates; cxo purity (not operator-facing) |
 
 | Layout | Binding |
 | --- | --- |
 | Single-fleet | `mail_identity == tmux_session`; target e.g. `hand-1:1.1` |
 | Session-per-fleet | role mail; session=`fleet_id`; window=role; target e.g. `mgs:hand-1.1` |
 
-**Ops always use fleet.json `tmux_target`.** No mind/operator tmux. No dual Mind process.  
+**Ops use the role's configured runtime binding and consume canonical `runtime` observations.** No mind/operator runtime. No dual Mind process.
 **Fleet** = project root + `.vivi/`.
 
 ### Tokens (disambiguation)
@@ -310,17 +310,18 @@ Starvation: empty product bag + **product** map unit → file+wake. Not polish t
 
 ## Dual channel (summary)
 
-Vivi = work. tmux = process. Address = **`tmux_target`**.
+Vivi = work truth. The configured tmux or `vivi_pty` runtime = process truth. Sensors normalize both into one nested `runtime` object.
 
-| Pane class | Action |
+| Runtime state | Action |
 | --- | --- |
-| `running` | No wake |
-| `idle_prompt` / `done_idle` + open | Pointer doorbell (Codex submit-settle; opencode same as Grok). First wake per Hand never rate-limits |
-| `idle_prompt` / `done_idle` + open + Codex/opencode stuck after doorbell | Reinit fallback via `codex-reinit.sh` / `opencode-hand-ctl.sh` |
-| empty + product map next + posture allows | Starve-file then wake (never invent polish) |
-| `error_*` / `down` | Ops / recreate |
+| `starting` / `submitting` / `running` | No wake |
+| `waiting_for_input` / `completed` + open | Pointer doorbell. First wake per Hand never rate-limits |
+| `waiting_for_input` / `completed` + open + stuck after doorbell | Harness-specific reinit fallback |
+| `approval_required` | Resolve the approval boundary; do not stack input |
+| `failed` / `stopped` | Diagnose, rebind, or recreate |
+| `unknown` | Use evidence and stability; never claim false certainty |
 
-Pointers only in tmux; done-when in Vivi. CLI: [`vivi.md`](references/vivi.md). Watch/thread: [`dual-channel.md`](references/dual-channel.md). Remote: [`ssh-remote.md`](references/ssh-remote.md).
+Pointers go through the configured runtime; done-when stays in Vivi. CLI: [`vivi.md`](references/vivi.md). Watch/thread: [`dual-channel.md`](references/dual-channel.md). Remote: [`ssh-remote.md`](references/ssh-remote.md).
 
 | Vivi ≥4.6 | Use |
 | --- | --- |
@@ -334,7 +335,7 @@ Host axis on slots: `host`, `ssh`, host-scoped cwd/tmux/launch. Wake/reinit **on
 
 ## Lifecycle
 
-1. **Arm/attach** — identities; harness; `tmux_target`; baseline counters; `mind_session`; **do not** arm steward unless operator asked for that fleet  
+1. **Arm/attach** — identities; harness; runtime binding; baseline counters; `mind_session`; **do not** arm steward unless operator asked for that fleet
 2. **Focus** — map package; Hand picks open target (no GO wait)  
 3. **Gather** — `fleet-sensors.py`; process new addressed mail before cadence; quiet if fingerprint/panes unchanged; doorbell/reinit; end: `fleet-baseline.py bump` (+ `steward.sh rearm` **only if steward armed for that fleet**)
 4. **Hand work** — show → implement → validate → unit `$polish` → done → next/sleep  

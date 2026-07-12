@@ -44,7 +44,7 @@ python3 scripts/fleet-baseline.py rearm-note -p <root>   # cycle clock only
 python3 scripts/fleet-baseline.py wound-up -p <root> -s 'wound_up' --dropped hand-1,hand-2
 ```
 
-`--project/-p` before or after subcommand. `bump` increments `last_cycle`, quiet/mode counters, stores fingerprint/pane_classes, merges `sensors.heads` → `head-*`.`last_report_*`, touches **`mind_loop.last_successful_cycle_at`** (dead-man cycle clock). It does **not** arm steward or stamp `steward.last_rearm_at` — that is `steward.sh arm|rearm` only (when steward is enabled+armed).
+`--project/-p` before or after subcommand. `bump` increments `last_cycle`, quiet/mode counters, stores fingerprint/runtime_states, merges `sensors.heads` → `head-*`.`last_report_*`, touches **`mind_loop.last_successful_cycle_at`** (dead-man cycle clock). It does **not** arm steward or stamp `steward.last_rearm_at` — that is `steward.sh arm|rearm` only (when steward is enabled+armed).
 
 ### `verify-fleet-json.py`
 
@@ -116,7 +116,7 @@ grok_model_ladder:        [ grok-4.5, … ]
 head_pi_model:            [ glm-5.2@high, glm-5.2@xhigh, … ]
 ```
 
-**On `error_capacity`:**
+**On `failed` with `runtime.detail=capacity`:**
 
 1. Not mid-successful `running` with real progress → wait
 2. Advance Hand `agent_model` one step **same harness**; rewrite `agent_launch`
@@ -175,7 +175,7 @@ Always write fallbacks into baseline + fleet per-hand runtime fields.
 | Doorbell first | Reinit fallback |
 | --- | --- |
 | Turn-end / ready-to-merge **and** bag has next target | Process down + open tasking or standby with current law |
-| `done_idle` or long `idle_prompt` + **open tasking** | Trust/error prompt; capacity/connection recovery |
+| `completed` or long `waiting_for_input` + **open tasking** | Approval/failure state; capacity/connection recovery |
 | Unblock (pin-refresh, merge) + open tasking — current one-line fact | Doorbell text remains stuck after retry; stale bootstrap repeats |
 | Theme switch in same cwd | Operator wants clean slate / cwd rehome |
 
@@ -193,13 +193,41 @@ Always write fallbacks into baseline + fleet per-hand runtime fields.
 Exit (reinit): `0` ok · `1` hard · `2` **stuck_idle** · `3` bad args. Doctor: `0` healthy · `1` unhealthy · `2` trust/stuck/starving.  
 Exit 2 → one more reinit same cycle OK; still stuck next cycle → model ladder or snapshot + operator.
 
-**Classify traps:** do not treat tool `timeout N cmd` or `error: test failed` as `error_connection` when pane is live Working. Prefer doctor evidence over raw greps.
+**Classify traps:** do not treat tool `timeout N cmd` or `error: test failed` as `failed` with connection detail when the runtime is live and working. Prefer doctor evidence over raw greps.
 
 **Manual fallback:** kill agent children of pane only; leave tmux+shell; launch without `exec` via fleet `agent_launch`; short bootstrap; record `last_codex_reinit_at`.
 
 **Forbidden:** multi-paragraph argv holds; repeated doorbells without submit-settle/inspection; reinit `running` without FORCE; `exec codex`.
 
 Mind under thrash: doorbell once, then **doctor/snapshot/reinit** over hand greps + stacked wakes.
+
+## Canonical runtime observation
+
+Fleet configuration retains backend-specific bindings, but sensor output and baseline wake records use one backend-neutral shape:
+
+```json
+{
+  "runtime": {
+    "kind": "tmux",
+    "target": "hand-1:1.1",
+    "state": "waiting_for_input",
+    "process_state": "running",
+    "confidence": "medium",
+    "evidence": [],
+    "tail": "…",
+    "tail_hash": "0123456789abcdef"
+  }
+}
+```
+
+A `vivi_pty` observation has the same keys plus optional `socket`. Canonical states are:
+
+```text
+starting | waiting_for_input | submitting | running | approval_required |
+completed | failed | stopped | unknown
+```
+
+No backend-specific state aliases (`idle_prompt`, `done_idle`, `trust_prompt`, `down`) or flat locator fields (`runtime_target`, `runtime_state`, `tmux_target`) appear in sensor rows. `runtime_states` is the role→state summary persisted in the baseline. Wake records store the same nested locator subset: `runtime.kind`, `runtime.target`, and optional `runtime.socket`.
 
 ## Fleet config schema
 
@@ -405,8 +433,9 @@ pending_reviews[]
 pending_merges[]
 active_packets{} or active_lanes{}
 last_thorough_cycle, last_thorough_fingerprint
-fleet_mirror / pane_classes
-last_hand_wake_*, last_codex_reinit_*, last_runtime_fallback
+fleet_mirror / runtime_states
+last_hand_wake                     # nested runtime locator + per-role by_hand records
+last_codex_reinit_*, last_runtime_fallback
 head-ceo.{awaiting_report, last_assign_handle, last_reinit_at,
           last_report_handle, last_report_at}   # assign loop + cadence completion
 side_lane_candidates[] optional

@@ -6,7 +6,7 @@
   fleet-baseline.py bump -p <root> --summary '…' [--acted|--quiet] \\
       [--mode interactive|autonomous] [--kind superficial|thorough|wind_down] \\
       [--fingerprint-file sensors.json] [--fingerprint-json '{…}'] \\
-      [--pane-classes-json '{…}'] [--debt-json '[…]'] [--recap 'line'] \\
+      [--runtime-states-json '{…}'] [--debt-json '[…]'] [--recap 'line'] \\
       [--operator-engaged] [--no-increment-silence] \\
       [--mind-session label] [--mind-host hostname] [--detach]
   fleet-baseline.py rearm-note -p <root>
@@ -127,13 +127,39 @@ def apply_mind_mode(b: dict, args: argparse.Namespace, now: str) -> None:
         b["mind_mode"] = "autonomous"
 
 
+def normalize_wake_runtime(record: dict) -> None:
+    if not isinstance(record, dict):
+        return
+    if not isinstance(record.get("runtime"), dict):
+        kind = record.get("runtime_kind") or ("tmux" if record.get("tmux_target") else None)
+        target = record.get("runtime_target") or record.get("tmux_target")
+        if kind and target:
+            record["runtime"] = {"kind": kind, "target": target}
+            if record.get("runtime_socket"):
+                record["runtime"]["socket"] = record["runtime_socket"]
+    for stale in ("runtime_kind", "runtime_target", "runtime_socket", "tmux_target"):
+        record.pop(stale, None)
+
+
+def normalize_wake_records(b: dict) -> None:
+    wake = b.get("last_hand_wake")
+    if not isinstance(wake, dict):
+        return
+    normalize_wake_runtime(wake)
+    for record in ensure_dict(wake.get("by_hand")).values():
+        normalize_wake_runtime(record)
+    b.pop("last_hand_wake_target", None)
+
+
 def apply_sensors_blob(b: dict, sensors: dict, args: argparse.Namespace) -> dict:
     """Extract fingerprint + side effects from a full fleet-sensors JSON blob."""
+    b.pop("pane_classes", None)
+    normalize_wake_records(b)
     fp = sensors.get("fingerprint")
     if not isinstance(fp, dict):
         fp = {}
-    if args.pane_classes_json is None and sensors.get("pane_classes"):
-        b["pane_classes"] = sensors["pane_classes"]
+    if args.runtime_states_json is None and sensors.get("runtime_states"):
+        b["runtime_states"] = sensors["runtime_states"]
     if sensors.get("hand_progress"):
         b["hand_progress"] = sensors["hand_progress"]
     if sensors.get("steward"):
@@ -166,6 +192,8 @@ def cmd_rearm_note(project: Path, baseline: Path) -> int:
 
 def cmd_bump(args: argparse.Namespace, project: Path, baseline: Path) -> int:
     b = load_baseline(baseline)
+    normalize_wake_records(b)
+    b.pop("pane_classes", None)
     now = now_iso()
     acted = bool(args.acted) and not bool(args.quiet)
     if args.quiet:
@@ -205,12 +233,12 @@ def cmd_bump(args: argparse.Namespace, project: Path, baseline: Path) -> int:
             strip_legacy_head_fp_keys(fp)
         b["last_actionable_fingerprint"] = fp
 
-    if args.pane_classes_json:
-        data, err = _parse_json_arg(args.pane_classes_json, "pane-classes-json")
+    if args.runtime_states_json:
+        data, err = _parse_json_arg(args.runtime_states_json, "runtime-states-json")
         if err:
             print(err, file=sys.stderr)
             return 1
-        b["pane_classes"] = data
+        b["runtime_states"] = data
 
     if args.debt_json:
         data, err = _parse_json_arg(args.debt_json, "debt-json")
@@ -279,10 +307,10 @@ def cmd_wound_up(args: argparse.Namespace, project: Path, baseline: Path) -> int
     b["last_cycle_summary"] = args.summary or "wound_up"
     b["project"] = str(project)
     dropped = [x.strip() for x in (args.dropped or "").split(",") if x.strip()]
-    pcs = ensure_dict(b.get("pane_classes"))
+    pcs = ensure_dict(b.get("runtime_states"))
     for name in dropped:
-        pcs[name] = "down"
-    b["pane_classes"] = pcs
+        pcs[name] = "stopped"
+    b["runtime_states"] = pcs
     ml = ensure_ml(b)
     ml["state"] = "wound_up"
     ml["wound_up_at"] = now
@@ -381,7 +409,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     p_bump.add_argument("--kind", default="superficial")
     p_bump.add_argument("--fingerprint-file", help="sensors JSON from fleet-sensors.py")
     p_bump.add_argument("--fingerprint-json")
-    p_bump.add_argument("--pane-classes-json")
+    p_bump.add_argument("--runtime-states-json")
     p_bump.add_argument("--debt-json")
     p_bump.add_argument("--recap", help="Append one operator_recap line")
     p_bump.add_argument("--operator-engaged", action="store_true", help="Reset silence counters")

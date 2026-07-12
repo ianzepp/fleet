@@ -76,7 +76,12 @@ def _is_remote(entry: Dict[str, Any]) -> bool:
 def _check_tmux_target(report: Report, where: str, entry: Dict[str, Any], required: bool) -> None:
     runtime = entry.get("runtime") or {}
     wake_mode = entry.get("wake_mode")
-    if isinstance(runtime, dict) and runtime.get("kind") == "vivi_pty" or wake_mode == "vivi_pty":
+    if wake_mode == "vivi_pty":
+        report.err(where, "wake_mode=vivi_pty is retired; set runtime.kind=vivi_pty")
+    runtime_kind = runtime.get("kind") if isinstance(runtime, dict) else None
+    if runtime_kind not in (None, "vivi_pty"):
+        report.err(where, "unsupported runtime.kind: %r" % runtime_kind)
+    if runtime_kind == "vivi_pty":
         # vivi_pty runtime: no tmux target required; validate runtime command.
         if not isinstance(runtime, dict):
             report.err(where, "runtime must be an object for vivi_pty")

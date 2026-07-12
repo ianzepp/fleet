@@ -88,7 +88,7 @@ On return: present operator mail list first.
 
 - **Board** holds full done-when, evidence, To: ownership.
 - **tmux** = **pointers only** (“show handle X; continue”).
-- Pane classes: `running` → no wake; `idle_prompt`+open bag → doorbell (Codex uses submit-settle); `error_*`/`down` → ops / reinit fallback.
+- Runtime states: `starting`/`submitting`/`running` → no wake; `waiting_for_input`/`completed` + open bag → doorbell; `failed`/`stopped` → ops or reinit fallback.
 - **opencode:** pane classification uses opencode's TUI markers (`Ask anything...` idle, `⬝` progress bar running, `▣` completed). Same doorbell as Grok — no submit-settle delay.
 
 Hands share **Mind’s product harness**. Heads prefer different model/harness.

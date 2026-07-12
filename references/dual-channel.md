@@ -123,47 +123,47 @@ tmux new-session -d -s hand-1 -c <cwd>                     # Hands/Heads only
 # no tmux for mind
 ```
 
-## Pane scan (Mind, every cycle — keep cheap)
+## Runtime scan (Mind, every cycle — keep cheap)
 
 ```text
-1. tmux has-session -t <tmux_session>   → down | up
-2. if up: tmux capture-pane -t <tmux_target> -p -S -80
-3. classify primarily on the last ~15–25 lines (avoid false running from earlier chrome)
-4. store last_pane_class + short fingerprint in baseline
+1. Resolve the configured tmux or vivi_pty binding.
+2. Observe process state and terminal evidence through that backend.
+3. Normalize into the canonical nested runtime object.
+4. Persist role→state in baseline.runtime_states.
 ```
 
-| Class | Example pane cues | Mind action |
+| Canonical state | Example evidence | Mind action |
 | --- | --- | --- |
-| `down` | no session | recreate session + agent; Codex: reinit with bootstrap |
-| `running` | current `Waiting for response` / live spinner / Codex streaming / opencode progress bar `⬝` | sleep (do not wake/reinit) |
-| `idle_prompt` | Grok `❯` ready; Codex `›` ready without finished-turn monologue; opencode `Ask anything...` prompt | Doorbell if open tasking |
-| `done_idle` | Codex turn-end / “tasking empty” / “standing by” then `›`; opencode `▣` completed action + token count | Doorbell if open tasking or just filed targets; else refill or pause |
-| `trust_prompt` | Workspace trust UI (“Yes, continue”) | Reinit auto-accept or send accept once; not `running` |
-| `error_capacity` | over capacity, rate limit, 429 | ops: model change / retry / reinit |
-| `error_connection` | connection failed, timeout, ECONNRESET | ops: retry / restart resume |
-| `unknown` | unreadable TUI noise | record sample; do not thrash |
+| `starting` / `submitting` | runtime transition in progress | wait; do not stack input |
+| `running` | current `Waiting for response` / live spinner / streaming / progress bar | sleep; do not wake/reinit |
+| `waiting_for_input` | Grok `❯`; Codex `›`; opencode `Ask anything...` | Doorbell if open tasking |
+| `completed` | finished turn with input prompt restored | Doorbell if work exists; otherwise refill or pause |
+| `approval_required` | workspace trust or permission UI | Resolve once; do not treat as running or ready |
+| `failed` | capacity, connection, or runtime evidence; inspect `runtime.detail` | model fallback, retry, or reinit by detail |
+| `stopped` | process/session absent or exited | recreate runtime + agent |
+| `unknown` | insufficient or contradictory evidence | record sample; do not claim certainty or thrash |
 
 Grok: placeholder (“Build anything”) while idle ≠ in-flight. Prefer `Waiting for response` as only hard `running` unless live spinner in **tail**.
 
 Codex: `•` monologue then `›` is often an **answer that stopped**. Back-to-back `HAND WAKE` lines without submit-settle are the failure mode.
 
 **opencode:** pane classification keyed on opencode-specific markers (`OpenCode Zen`, `Build auto`, `Build ·`, `ctrl+p commands`). Bottom status bar determines state:
-- `idle_prompt`: `Ask anything...` in last ~6 lines
+- `waiting_for_input`: `Ask anything...` in last ~6 lines
 - `running`: progress bar `⬝` or `esc interrupt` in last ~6 lines
-- Post-response done: `▣` completion marker visible, no progress, falls to idle_prompt
+- Post-response done: `▣` completion marker visible, no progress, normalizes to `completed` or `waiting_for_input`
 
-Rate-limit wakes (`min_seconds_between_wakes`) **only when that Hand already has a prior doorbell** (`last_hand_wake.by_hand.<name>.count ≥ 1`). **No last wake / count 0 → never rate-limit** (cold attach, first wake after recreate). Never `send-keys` into `running` unless operator allows cancel+replace. Prefer project **classify script** over ad-hoc greps (avoids false `error_connection` from tool text like `timeout 1800 ./script`).
+Rate-limit wakes (`min_seconds_between_wakes`) **only when that Hand already has a prior doorbell** (`last_hand_wake.by_hand.<name>.count ≥ 1`). **No last wake / count 0 → never rate-limit** (cold attach, first wake after recreate). Never `send-keys` into `running` unless operator allows cancel+replace. Prefer project **classify script** over ad-hoc greps (avoids false `failed` with connection detail from tool text like `timeout 1800 ./script`).
 
 | Situation | Action |
 | --- | --- |
-| `idle_prompt`/`done_idle` + open tasking | Pointer doorbell |
-| New addressed mail + `idle_prompt`/`done_idle`/`unknown` | Pointer doorbell in the same Mind cycle; the cycle is the debounce |
-| New addressed mail + `running` | Do not interrupt; retry when a later cycle observes the pane idle |
-| Codex pointer text remains in composer / no `Working` after submit | Reinit fallback after one retry/snapshot if useful |
-| `idle_prompt` + empty + map has next **product** unit + posture allows | **Starvation** — file next same cycle; then wake/reinit by runtime |
-| `idle_prompt` + empty + posture standby/dormant | Quiet OK — on-call / paused ([`fleet-posture.md`](fleet-posture.md)) |
-| `idle_prompt` + empty + operational pause only | Quiet OK; note reason |
-| `idle_prompt` + empty after unit/theme accept | Not default quiet — absorb/accept → **refill** → wake/reinit |
+| `waiting_for_input`/`completed` + open tasking | Pointer doorbell |
+| New addressed mail + `waiting_for_input`/`completed`/`unknown` | Pointer doorbell in the same Mind cycle; the cycle is the debounce |
+| New addressed mail + `starting`/`submitting`/`running` | Do not interrupt; retry when a later cycle observes readiness |
+| Codex pointer text remains in composer / no active transition after submit | Reinit fallback after one retry/snapshot if useful |
+| `waiting_for_input` + empty + map has next **product** unit + posture allows | **Starvation** — file next same cycle; then wake/reinit by runtime |
+| `waiting_for_input` + empty + posture standby/dormant | Quiet OK — on-call / paused ([`fleet-posture.md`](fleet-posture.md)) |
+| `waiting_for_input` + empty + operational pause only | Quiet OK; note reason |
+| `waiting_for_input` + empty after unit/theme accept | Not default quiet — absorb/accept → **refill** → wake/reinit |
 
 Never wake on dirty-only mid-flight; never reinit `running` without FORCE policy.
 
@@ -188,7 +188,7 @@ Hands share Mind’s harness (usually one column). Heads may use the other on pu
 
 **Policy:** Codex Hand **done** + next target → normal pointer **doorbell** first. The helper waits briefly before Enter so Codex submits the composer instead of accumulating stale wake text. Reinit is recovery, not the default wake.
 
-**Doorbell when:** turn-end + next target; `done_idle` / long idle + open tasking; unblock + open tasking with **current** one-line fact.
+**Doorbell when:** turn-end + next target; `completed` / long `waiting_for_input` + open tasking; unblock + open tasking with **current** one-line fact.
 
 **Reinit when:** process down; trust/error prompt that cannot be accepted inline; Codex text remains stuck after a doorbell retry; stale bootstrap repeats; operator wants a clean slate.
 
@@ -213,7 +213,7 @@ Helper: `scripts/codex-reinit.sh` (doctor / heal / reinit / classify). Set `PROJ
 
 ## Doorbell (wake)
 
-When `idle_prompt` and Hand has open tasks/needs (or Mind just filed / answered blocking need):
+When `waiting_for_input` and Hand has open tasks/needs (or Mind just filed / answered blocking need):
 
 ```bash
 scripts/fleet-doorbell.sh --project <root> hand-1 --handle <hex> --note '…'
@@ -262,7 +262,7 @@ Prefer pointer doorbell when cwd + identity already correct. Use `/compact` for 
 ### Packet rehome sequence (Grok TUI in tmux)
 
 ```text
-1. Pane must be idle_prompt (not Waiting) unless operator allows cancel
+1. Runtime must be `waiting_for_input` (not Waiting) unless operator allows cancel
 2. Exit Grok cleanly: send /quit  (alias /exit)  — own turn, then Enter
 3. Wait until pane_current_command is a shell (zsh/bash), not grok
 4. Confirm or create session with correct -c:
@@ -309,7 +309,7 @@ Grok theme → next in same session: `/compact` + pointer wake. New session only
 **Codex:** after unit with next target, doorbell first; reinit only if stale/stuck or changing to a clean slate.
 
 1. File next task/need first so handle exists
-2. Require `idle_prompt`, send `/compact` alone, wait for idle again
+2. Require `waiting_for_input`, send `/compact` alone, wait for idle again
 3. Keep identity, `vivi --for`, main/packet role, campaign in compact instruction; drop finished implementation detail
 4. Send: `HAND WAKE hand-N. Compact done. Show <handle>. Continue.`
 5. Record compact/wake in baseline when useful

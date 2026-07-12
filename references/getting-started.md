@@ -356,7 +356,7 @@ If **operator→mind** mail or open/unread **To operator@** → present/absorb *
 
 - Prefer **`fleet-sensors.py --project $ROOT`** over hand-rolled dumps.
 - `running` → do not wake.
-- `idle_prompt` / `done_idle` + open bag → doorbell. Codex uses the helper's submit-settle delay.
+- `waiting_for_input` / `completed` + open bag → doorbell. Codex uses the helper's submit-settle delay.
 - `down` / `error_*` → recreate pane or runtime ladder — do not assume init case 2.
 
 ```bash

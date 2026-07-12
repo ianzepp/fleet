@@ -102,7 +102,7 @@ if not isinstance(slot, dict):
     sys.exit(1)
 
 runtime = slot.get("runtime") or {}
-if not (isinstance(runtime, dict) and runtime.get("kind") == "vivi_pty") and slot.get("wake_mode") != "vivi_pty":
+if not (isinstance(runtime, dict) and runtime.get("kind") == "vivi_pty"):
     sys.stderr.write("role %s is not vivi_pty\n" % name)
     sys.exit(1)
 
@@ -251,7 +251,7 @@ for name, h in hands.items():
     if not isinstance(h, dict):
         continue
     runtime = h.get("runtime") or {}
-    if (isinstance(runtime, dict) and runtime.get("kind") == "vivi_pty") or h.get("wake_mode") == "vivi_pty":
+    if isinstance(runtime, dict) and runtime.get("kind") == "vivi_pty":
         print(name)
 PY
 ); do
@@ -279,7 +279,7 @@ for name, h in hands.items():
     if not isinstance(h, dict):
         continue
     runtime = h.get("runtime") or {}
-    if (isinstance(runtime, dict) and runtime.get("kind") == "vivi_pty") or h.get("wake_mode") == "vivi_pty":
+    if isinstance(runtime, dict) and runtime.get("kind") == "vivi_pty":
         print(name)
 PY
 ); do

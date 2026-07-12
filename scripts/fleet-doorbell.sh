@@ -6,7 +6,7 @@
 #   fleet-doorbell.sh --project <root> --target mgs:hand-1.1 --message 'HAND WAKE …'
 #
 # Requires: bash 3.2+ (not sh/zsh-as-script), python3 >= 3.9
-# Backing runtime: tmux (default) or vivi-pty for roles with wake_mode=vivi_pty.
+# Backing runtime: tmux (default) or vivi-pty for roles with runtime.kind=vivi_pty.
 # Portable: macOS + Linux. Override with TMUX_BIN / VIVI_PTY_BIN / PYTHON_BIN /
 # FLEET_DOORBELL_SUBMIT_DELAY_SEC.
 #
@@ -149,9 +149,7 @@ elif name:
 
 runtime = (slot or {}).get("runtime") or {}
 runtime_kind = runtime.get("kind") if isinstance(runtime, dict) else None
-wake_mode = (slot or {}).get("wake_mode") or "tmux_send_keys"
-if runtime_kind == "vivi_pty" or wake_mode == "vivi_pty":
-    wake_mode = "vivi_pty"
+wake_mode = "vivi_pty" if runtime_kind == "vivi_pty" else ((slot or {}).get("wake_mode") or "tmux_send_keys")
 
 if target_override:
     target = target_override
@@ -213,8 +211,8 @@ out = {
     "wake_mode": wake_mode,
     "socket": socket or "",
 }
-for k, v in out.items():
-    sys.stdout.write("RESOLVE_%s=%s\n" % (k, json.dumps(v, ensure_ascii=False)))
+for key in ("target", "session", "agent", "min_gap", "mail", "last_at", "name", "wake_count", "wake_mode", "socket"):
+    sys.stdout.buffer.write(str(out[key]).encode("utf-8") + b"\0")
 PY
 }
 
@@ -224,102 +222,43 @@ classify() {
   local session=${target%%:*}
   local t class
   if ! "$TMUX_BIN" has-session -t "$session" 2>/dev/null; then
-    echo down
+    echo stopped
     return 0
   fi
   t="$("$TMUX_BIN" capture-pane -t "$target" -p -S -20 2>/dev/null || true)"
   # Order matters: first match wins.
   for class in \
     'running|Working \(|esc to interrupt|Waiting for response|Responding' \
-    'trust_prompt|Yes, continue|Do you trust|trust this workspace|Always allow|Allow always|Allow once|until OpenCode is restarted' \
-    'error_capacity|over capacity|rate limit|usage limit'
+    'approval_required|Yes, continue|Do you trust|trust this workspace|Always allow|Allow always|Allow once|until OpenCode is restarted' \
+    'failed|over capacity|rate limit|usage limit'
   do
     if printf '%s\n' "$t" | grep -Eiq "${class#*|}"; then
       echo "${class%%|*}"
       return 0
     fi
   done
-  echo idle
+  echo waiting_for_input
   return 0
 }
 
-# Classify vivi-pty session by daemon state and terminal snapshot.
+# Read vivi-pty's canonical harness state; the driver owns PTY classification.
 classify_vivi_pty() {
   local session_id=$1
   local socket=$2
-  local diag state contents
-  if ! diag=$("$VIVI_PTY_BIN" session diagnostic "$session_id" --project "$PROJECT" 2>/dev/null); then
-    echo down
+  local diag
+  if ! diag=$("$VIVI_PTY_BIN" session diagnostic "$session_id" --socket "$socket" 2>/dev/null); then
+    echo stopped
     return 0
   fi
-  state=$(printf '%s\n' "$diag" | "$PYTHON_BIN" -c '
+  printf '%s\n' "$diag" | "$PYTHON_BIN" -c '
 import json, sys
 try:
     data = json.load(sys.stdin)
-    print(data.get("session", {}).get("state", "unknown"))
+    process = data.get("process_state") or data.get("session", {}).get("state")
+    print("stopped" if process in ("exited", "stopped") else data.get("harness_state", "unknown"))
 except Exception:
     print("unknown")
-' 2>/dev/null || echo "unknown")
-  case "$state" in
-    exited|stopped) echo down; return 0 ;;
-  esac
-  contents=$(printf '%s\n' "$diag" | "$PYTHON_BIN" -c '
-import json, sys
-try:
-    data = json.load(sys.stdin)
-    print(data.get("terminal", {}).get("contents", ""))
-except Exception:
-    print("")
-' 2>/dev/null || echo "")
-  # Agent-specific idle markers. The harness is considered running if it shows
-  # active work indicators; idle if the prompt is visible; down otherwise.
-  local lower
-  lower=$(printf '%s' "$contents" | tr '[:upper:]' '[:lower:]')
-  case "$AGENT" in
-    grok)
-      if printf '%s' "$lower" | grep -Eiq 'working|responding|thinking'; then
-        echo running
-        return 0
-      fi
-      if printf '%s' "$contents" | grep -Fq '❯'; then
-        echo idle
-        return 0
-      fi
-      ;;
-    codex)
-      if printf '%s' "$lower" | grep -Eiq 'working|esc to interrupt|waiting for response|responding'; then
-        echo running
-        return 0
-      fi
-      if printf '%s' "$contents" | grep -Eiq '(^|\n)([>$#] )'; then
-        echo idle
-        return 0
-      fi
-      ;;
-    pi)
-      if printf '%s' "$lower" | grep -Eiq 'turn completed|idle until|bag empty|ready-to-merge'; then
-        echo idle
-        return 0
-      fi
-      if printf '%s' "$lower" | grep -Eiq 'over capacity|rate limit|connection failed|request timed out'; then
-        echo error_capacity
-        return 0
-      fi
-      ;;
-    opencode)
-      if printf '%s' "$lower" | grep -Eiq 'yes, continue|do you trust|trust this workspace|always allow|allow always|allow once|until opencode is restarted'; then
-        echo trust_prompt
-        return 0
-      fi
-      ;;
-  esac
-  # Default: if the session process is alive, assume running unless an idle prompt was found.
-  if printf '%s' "$contents" | grep -Eiq '([>$#] )|❯'; then
-    echo idle
-  else
-    echo running
-  fi
-  return 0
+'
 }
 
 RESOLVED_TARGET=""
@@ -341,21 +280,22 @@ if [[ -n "$MESSAGE" && -n "$TARGET" ]]; then
   SOCKET=""
   SESSION="${TARGET%%:*}"
 elif [[ -n "$NAME" ]]; then
-  # Resolve emits RESOLVE_key=value lines. Evaluate into the shell, then copy
-  # to the legacy variable names the rest of the script expects.
-  _resolve_out="$(resolve)" || exit $?
-  # shellcheck disable=SC2034
-  eval "$({ printf '%s\n' "$_resolve_out"; })"
-  RESOLVED_TARGET="$RESOLVE_target"
-  SESSION="$RESOLVE_session"
-  AGENT="$RESOLVE_agent"
-  MIN_GAP="$RESOLVE_min_gap"
-  MAIL="$RESOLVE_mail"
-  LAST_AT="$RESOLVE_last_at"
-  LAST_TARGET="$RESOLVE_name"
-  WAKE_COUNT="$RESOLVE_wake_count"
-  WAKE_MODE="$RESOLVE_wake_mode"
-  SOCKET="$RESOLVE_socket"
+  # Read fixed-order NUL-delimited values; never eval editable fleet JSON.
+  _resolve_values=()
+  while IFS= read -r -d '' _resolve_value; do
+    _resolve_values+=("$_resolve_value")
+  done < <(resolve)
+  [[ ${#_resolve_values[@]} -eq 10 ]] || { echo "ERROR: failed to resolve runtime binding" >&2; exit 2; }
+  RESOLVED_TARGET="${_resolve_values[0]}"
+  SESSION="${_resolve_values[1]}"
+  AGENT="${_resolve_values[2]}"
+  MIN_GAP="${_resolve_values[3]}"
+  MAIL="${_resolve_values[4]}"
+  LAST_AT="${_resolve_values[5]}"
+  LAST_TARGET="${_resolve_values[6]}"
+  WAKE_COUNT="${_resolve_values[7]}"
+  WAKE_MODE="${_resolve_values[8]}"
+  SOCKET="${_resolve_values[9]}"
 else
   usage
 fi
@@ -369,12 +309,12 @@ if [[ "$WAKE_MODE" == "vivi_pty" ]]; then
 else
   CLASS="$(classify "$RESOLVED_TARGET")"
 fi
-if [[ "$CLASS" == "running" && "$FORCE" -ne 1 ]]; then
-  echo "refused: pane $RESOLVED_TARGET is running" >&2
+if [[ "$FORCE" -ne 1 && "$CLASS" =~ ^(starting|submitting|running|approval_required|failed)$ ]]; then
+  echo "refused: runtime $RESOLVED_TARGET state=$CLASS" >&2
   exit 1
 fi
-if [[ "$CLASS" == "down" ]]; then
-  echo "refused: no session for $RESOLVED_TARGET" >&2
+if [[ "$CLASS" == "stopped" ]]; then
+  echo "refused: no runtime session for $RESOLVED_TARGET" >&2
   exit 1
 fi
 
@@ -425,7 +365,7 @@ if [[ "$WAKE_MODE" == "vivi_pty" ]]; then
   if [[ -z "$SUBMIT_DELAY" ]]; then
     SUBMIT_DELAY="0.05"
   fi
-  "$VIVI_PTY_BIN" terminal write "$RESOLVED_TARGET" "$MESSAGE" --enter --project "$PROJECT"
+  "$VIVI_PTY_BIN" terminal write "$RESOLVED_TARGET" "$MESSAGE" --enter --socket "$SOCKET"
   sleep "$SUBMIT_DELAY"
 else
   "$TMUX_BIN" send-keys -t "$RESOLVED_TARGET" -l -- "$MESSAGE"
@@ -462,33 +402,33 @@ by = prev.get("by_hand") if isinstance(prev.get("by_hand"), dict) else {}
 key = name or target
 old = by.get(key) if isinstance(by.get(key), dict) else {}
 count = int(old.get("count") or 0) + 1
-entry = {"at": now, "count": count, "handle": handle or None, "runtime_target": target}
-if wake_mode == "vivi_pty":
-    entry["runtime_kind"] = "vivi_pty"
-    if socket:
-        entry["runtime_socket"] = socket
-else:
-    entry["runtime_kind"] = "tmux"
-    entry["tmux_target"] = target
+runtime = {"kind": "vivi_pty" if wake_mode == "vivi_pty" else "tmux", "target": target}
+if socket:
+    runtime["socket"] = socket
+entry = {"at": now, "count": count, "handle": handle or None, "runtime": runtime}
+for prior in by.values():
+    if not isinstance(prior, dict):
+        continue
+    if not isinstance(prior.get("runtime"), dict):
+        kind = prior.get("runtime_kind") or ("tmux" if prior.get("tmux_target") else None)
+        target_value = prior.get("runtime_target") or prior.get("tmux_target")
+        if kind and target_value:
+            prior["runtime"] = {"kind": kind, "target": target_value}
+            if prior.get("runtime_socket"):
+                prior["runtime"]["socket"] = prior["runtime_socket"]
+    for stale in ("runtime_kind", "runtime_target", "runtime_socket", "tmux_target"):
+        prior.pop(stale, None)
 by[key] = entry
 b["last_hand_wake"] = {
     "target": key,
     "handle": handle or None,
-    "runtime_target": target,
+    "runtime": runtime,
     "at": now,
     "reason": "doorbell",
     "by_hand": by,
 }
-if wake_mode == "vivi_pty":
-    b["last_hand_wake"]["runtime_kind"] = "vivi_pty"
-    if socket:
-        b["last_hand_wake"]["runtime_socket"] = socket
-else:
-    b["last_hand_wake"]["runtime_kind"] = "tmux"
-    b["last_hand_wake"]["tmux_target"] = target
-# Keep legacy fields consistent (prevent stale last_hand_wake_target pinning)
-b["last_hand_wake_target"] = key
 b["last_hand_wake_at"] = now
+b.pop("last_hand_wake_target", None)
 p.parent.mkdir(parents=True, exist_ok=True)
 text = json.dumps(b, indent=2, ensure_ascii=False) + "\n"
 fd, tmp = tempfile.mkstemp(prefix=".%s." % p.name, suffix=".tmp", dir=str(p.parent))
