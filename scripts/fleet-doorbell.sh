@@ -126,10 +126,11 @@ slot = None
 if name and name in hands:
     slot = hands[name]
 elif name:
-    for key in ("head-ceo", "head-cto", "head-cxo", "steward"):
-        if name == key and isinstance(f.get(key), dict):
-            slot = f[key]
-            break
+    candidate = f.get(name)
+    if not isinstance(candidate, dict):
+        candidate = (f.get("heads") or {}).get(name)
+    if isinstance(candidate, dict):
+        slot = candidate
 
 if target_override:
     target = target_override

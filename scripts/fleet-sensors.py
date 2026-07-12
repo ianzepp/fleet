@@ -910,6 +910,8 @@ def main() -> int:
     for key in ("head-ceo", "head-cto", "head-cxo"):
         block = fleet.get(key)
         if not isinstance(block, dict):
+            block = (fleet.get("heads") or {}).get(key)
+        if not isinstance(block, dict):
             continue
         target = block.get("tmux_target") or f"{block.get('tmux_session') or key}:1.1"
         session = target.split(":")[0]
