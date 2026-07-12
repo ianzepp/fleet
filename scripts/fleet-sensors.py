@@ -92,7 +92,7 @@ def capture_vivi_pty(project: Path, session_id: str, vivi_pty_bin: str) -> tuple
     if process_state in ("exited", "stopped"):
         return (False, "", "stopped")
     terminal = diagnostic.get("terminal") or {}
-    normalized_state = diagnostic.get("state", "unknown")
+    normalized_state = diagnostic.get("harness_state", "unknown")
     return (True, terminal.get("contents", "") or "", normalized_state)
 
 
