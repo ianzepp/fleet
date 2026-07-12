@@ -294,7 +294,6 @@ Recommended keys (extend freely; skill cares about meanings):
       "merges_to_main": true,
       "assignment_sticky": true,
       "runtime_sticky": false,
-      "wake_enabled": true,
       "wake_mode": "tmux_send_keys",
       "min_seconds_between_wakes": 180
     },
@@ -327,16 +326,14 @@ Recommended keys (extend freely; skill cares about meanings):
     "mail_identity": "head-cto",
     "agent": "pi",
     "agent_model": "glm-5.2",
-    "thinking": "high",
-    "self_directed": true
+    "thinking": "high"
   },
   "head-cxo": {
     "mail_identity": "head-cxo",
     "tmux_session": "head-cxo",
     "agent": "pi",
     "agent_model": "glm-5.2",
-    "thinking": "high",
-    "self_directed": true
+    "thinking": "high"
   }
 }
 ```

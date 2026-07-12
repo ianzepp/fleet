@@ -212,7 +212,6 @@ Minimal **single-fleet host** shape (`tmux_session` == role):
       "agent": "grok",
       "agent_launch": "grok --always-approve",
       "merges_to_main": true,
-      "wake_enabled": true,
       "wake_mode": "tmux_send_keys",
       "min_seconds_between_wakes": 180
     }

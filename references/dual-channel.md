@@ -102,14 +102,13 @@ Map lives in **project fleet config**:
       "cwd": "/path/to/project",
       "agent": "grok",
       "merges_to_main": true,
-      "wake_enabled": true,
       "wake_mode": "tmux_send_keys",
       "min_seconds_between_wakes": 180
     }
   },
   "head-ceo": { "mail_identity": "head-ceo", "tmux_session": "head-ceo", "agent": "pi" },
-  "head-cto": { "mail_identity": "head-cto", "tmux_session": "head-cto", "agent": "pi", "self_directed": true },
-  "head-cxo": { "mail_identity": "head-cxo", "tmux_session": "head-cxo", "agent": "pi", "self_directed": true },
+  "head-cto": { "mail_identity": "head-cto", "tmux_session": "head-cto", "agent": "pi" },
+  "head-cxo": { "mail_identity": "head-cxo", "tmux_session": "head-cxo", "agent": "pi" },
   "binding_rule": "legacy: mail_identity==tmux_session; session_per_fleet: mail_identity==role, session==fleet_id; always use tmux_target (Hands/Heads only; mind has no tmux)"
 }
 ```
@@ -206,7 +205,7 @@ Helper: `scripts/codex-reinit.sh` (doctor / heal / reinit / classify). Set `PROJ
 
 ## Doorbell (wake)
 
-When `wake_enabled` and `idle_prompt` and Hand has open tasks/needs (or Mind just filed / answered blocking need):
+When `idle_prompt` and Hand has open tasks/needs (or Mind just filed / answered blocking need):
 
 ```bash
 scripts/fleet-doorbell.sh --project <root> hand-1 --handle <hex> --note '…'

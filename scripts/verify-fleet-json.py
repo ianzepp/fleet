@@ -114,18 +114,6 @@ def _register_mail_identity(
         identities[mid] = where
 
 
-def _check_wake_fields(report: Report, where: str, entry: Dict[str, Any]) -> None:
-    we = entry.get("wake_enabled")
-    if we is not None and not isinstance(we, bool):
-        report.err(where, "wake_enabled must be boolean, got %r" % (we,))
-    if we is True:
-        ms = entry.get("min_seconds_between_wakes")
-        if not isinstance(ms, int) or isinstance(ms, bool):
-            report.warn(where, "wake_enabled=true but min_seconds_between_wakes missing or non-int")
-        elif ms < 0:
-            report.err(where, "min_seconds_between_wakes must be >= 0, got %d" % ms)
-
-
 def _check_executive_cadence(report: Report, where: str, block: Dict[str, Any]) -> None:
     cad = block.get("executive_cadence")
     if cad is None:
@@ -137,7 +125,7 @@ def _check_executive_cadence(report: Report, where: str, block: Dict[str, Any]) 
     en = cad.get("enabled")
     if not isinstance(en, bool):
         report.err("%s.enabled" % cwhere, "must be boolean, got %r" % (en,))
-    # Intervals are skill law (posture × role × mind_loop.interval_sec).
+    # Intervals come from executive_cadence.interval_sec per head.
     # min_seconds_between_sweeps is legacy/ignored — warn if present.
     if "min_seconds_between_sweeps" in cad:
         report.warn(
@@ -197,7 +185,6 @@ def validate(fleet: Dict[str, Any], fleet_path: Path, path_checks: bool) -> Repo
                 report.warn(where, "cwd does not exist locally: %s" % cwd)
         if "merges_to_main" in h and not isinstance(h.get("merges_to_main"), bool):
             report.err(where, "merges_to_main must be boolean, got %r" % (h.get("merges_to_main"),))
-        _check_wake_fields(report, where, h)
         pkt = h.get("packet")
         if pkt is not None and not isinstance(pkt, dict):
             report.warn(where, "packet must be an object or null (unassigned)")

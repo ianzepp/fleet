@@ -423,21 +423,8 @@ def resolve_tmux_bin(tooling: Optional[Dict[str, Any]] = None) -> str:
 # Override only via fleet.json mind_loop.interval_sec (or loop_interval_sec).
 MIND_LOOP_DEFAULT_SEC = 300
 
-# Hardcoded posture × Head multipliers (every_n_loops). Not fleet-configurable.
-# interval_sec = every_n_loops * mind_loop_interval_sec. Dormant = cadence off.
-HEAD_CADENCE_MULTIPLIERS = {
-    "growth": {
-        "head-ceo": 36,  # 3h @ 5m
-        "head-cto": 6,  # 30m
-        "head-cxo": 12,  # 1h
-    },
-    "standby": {
-        "head-ceo": 72,  # 6h @ 5m
-        "head-cto": 18,  # 1.5h
-        "head-cxo": 36,  # 3h
-    },
-    # dormant: no table — sweeps paused
-}
+# Head cadence comes from fleet.json executive_cadence.interval_sec per head.
+# Dormant posture pauses sweeps regardless of interval.
 
 
 def mind_loop_interval_sec(fleet: dict) -> int:
@@ -455,22 +442,15 @@ def mind_loop_interval_sec(fleet: dict) -> int:
     return sec
 
 
-def head_cadence_every_n_loops(posture_mode: str, head_key: str) -> int | None:
-    """Hardcoded multiplier for posture×head, or None if no periodic ladder."""
-    mode = posture_mode if posture_mode in HEAD_CADENCE_MULTIPLIERS else "growth"
-    table = HEAD_CADENCE_MULTIPLIERS.get(mode) or {}
-    n = table.get(head_key)
-    return int(n) if n is not None else None
-
-
-def head_sweep_interval_sec(fleet: dict, posture_mode: str, head_key: str) -> int:
-    """Seconds between Head sweeps: posture multiplier × mind loop tick."""
-    loop = mind_loop_interval_sec(fleet)
-    n = head_cadence_every_n_loops(posture_mode, head_key)
-    if n is None:
-        # Unknown head: conservative daily-ish at default L
-        return max(loop * 72, loop)
-    return max(int(n) * loop, loop)
+def head_sweep_interval_sec(block: dict, fleet: dict) -> int:
+    """Seconds between Head sweeps: from executive_cadence.interval_sec, default 3600."""
+    cad = block.get("executive_cadence") if isinstance(block.get("executive_cadence"), dict) else {}
+    raw = cad.get("interval_sec")
+    try:
+        sec = int(raw) if raw is not None else 3600
+    except (TypeError, ValueError):
+        sec = 3600
+    return max(sec, 60)
 
 
 def resolve_posture(fleet: dict, baseline: dict) -> tuple:
@@ -506,7 +486,6 @@ def resolve_posture(fleet: dict, baseline: dict) -> tuple:
             "reason": posture_block.get("reason"),
             "default_head_sweep_mode": default_sweep,
             "mind_loop_interval_sec": loop_sec,
-            "head_cadence_multipliers": dict(HEAD_CADENCE_MULTIPLIERS.get(mode) or {}),
         },
     )
 
@@ -862,7 +841,6 @@ def main() -> int:
             "next_handle": next_handle,
             "pane_class": pclass,
             "pane_tail": "\n".join((tail or "").splitlines()[-args.tail :]),
-            "wake_enabled": h.get("wake_enabled", True),
             "min_seconds_between_wakes": h.get("min_seconds_between_wakes", 180),
             "merges_to_main": h.get("merges_to_main", False),
             "packet_state": packet.get("state"),
@@ -913,7 +891,7 @@ def main() -> int:
     # Due when that interval elapsed since last completion mail AND pane not mid-pass.
     # Completion: new mail from head identity/legacy_aliases in head_report_inbox.
     # Durable last-report on baseline head-*; opt-in: executive_cadence.enabled=true.
-    # min_seconds_between_sweeps is ignored (legacy); multipliers are skill law.
+    # min_seconds_between_sweeps is ignored (legacy); intervals from executive_cadence.interval_sec.
     now_dt = datetime.now(timezone.utc)
     loop_sec = int(posture_out.get("mind_loop_interval_sec") or mind_loop_interval_sec(fleet))
     for key in ("head-ceo", "head-cto", "head-cxo"):
@@ -939,8 +917,8 @@ def main() -> int:
 
         cad = block.get("executive_cadence") if isinstance(block.get("executive_cadence"), dict) else {}
         sweep_enabled = bool(cad.get("enabled", False))
-        every_n = head_cadence_every_n_loops(posture_mode, key)
-        sweep_interval = head_sweep_interval_sec(fleet, posture_mode, key)
+        sweep_interval = head_sweep_interval_sec(block, fleet)
+        every_n = max(1, sweep_interval // loop_sec) if loop_sec else None
         # Explicit config wins for mode string; else posture default.
         sweep_mode = cad.get("sweep_mode") or posture_out.get("default_head_sweep_mode")
         sender_tokens = [block.get("mail_identity") or key]

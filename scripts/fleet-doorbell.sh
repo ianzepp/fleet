@@ -137,14 +137,12 @@ if target_override:
     session = target.split(":")[0]
     agent = (slot or {}).get("agent") or "unknown"
     min_gap = int((slot or {}).get("min_seconds_between_wakes") or 0)
-    wake_enabled = True if not slot else bool(slot.get("wake_enabled", True))
     mail = (slot or {}).get("mail_identity") or name or "hand"
 elif slot:
     target = slot.get("tmux_target") or ("%s:1.1" % (slot.get("tmux_session") or name))
     session = target.split(":")[0]
     agent = slot.get("agent") or "unknown"
     min_gap = int(slot.get("min_seconds_between_wakes") or 180)
-    wake_enabled = bool(slot.get("wake_enabled", True))
     mail = slot.get("mail_identity") or name
 else:
     sys.stderr.write("error\tunknown slot\n")
@@ -175,7 +173,6 @@ fields = [
     session,
     agent,
     str(min_gap),
-    str(int(wake_enabled)),
     mail or "",
     last_at or "",
     name or "",
@@ -214,7 +211,6 @@ RESOLVED_TARGET=""
 SESSION=""
 AGENT="unknown"
 MIN_GAP=0
-WAKE_EN=1
 MAIL=""
 LAST_AT=""
 LAST_TARGET=""
@@ -226,16 +222,11 @@ elif [[ -n "$NAME" ]]; then
   # Avoid pipeline so resolve failures trip set -e.
   _resolve_out="$(resolve)" || exit $?
   # shellcheck disable=SC2034
-  IFS="$(printf '\t')" read -r RESOLVED_TARGET SESSION AGENT MIN_GAP WAKE_EN MAIL LAST_AT LAST_TARGET WAKE_COUNT <<EOF
+  IFS="$(printf '\t')" read -r RESOLVED_TARGET SESSION AGENT MIN_GAP MAIL LAST_AT LAST_TARGET WAKE_COUNT <<EOF
 $_resolve_out
 EOF
 else
   usage
-fi
-
-if [[ "${WAKE_EN:-1}" -eq 0 && "$FORCE" -ne 1 ]]; then
-  echo "refused: wake_enabled=false for $NAME" >&2
-  exit 1
 fi
 
 CLASS="$(classify "$RESOLVED_TARGET")"
