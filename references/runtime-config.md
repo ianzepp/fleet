@@ -115,6 +115,7 @@ contains failed commands, connection messages, or test errors.
 ```bash
 python3 scripts/fleet-loop.py --project <root> start 5m --target operator:node.1
 python3 scripts/fleet-loop.py --project <root> start 10m --duration 2h
+python3 scripts/fleet-loop.py --project <root> start 5m --submit-delay 1.2
 python3 scripts/fleet-loop.py --project <root> status
 python3 scripts/fleet-loop.py --project <root> stop
 ```
@@ -132,11 +133,18 @@ pane via `tmux send-keys`; it does not run sensors or mutate the fleet baseline.
 | `--immediate` | Send one cycle immediately before sleeping |
 | `--fleets <slugs>` | Override generated `FLEET_CYCLE fleets=...` first line |
 | `--payload <text>` | Custom payload; must still start with `FLEET_CYCLE`; expands `{project}` and `{fleet}` |
+| `--submit-delay <sec>` | Wait after typing text before submit; default `0.8` or `FLEET_LOOP_SUBMIT_DELAY_SEC` |
+| `--submit-key <key>` | tmux key used to submit; default `C-m` |
 
 State: `$ROOT/.vivi/fleet-loop.json`. Log:
 `$ROOT/.vivi/fleet-loop.log`. `start` refuses a duplicate live PID. `stop`
 kills only the recorded process group and removes the state file. `status`
 reports whether the recorded PID is still live.
+
+The helper sends the payload as literal text, waits for the submit delay, then
+sends the submit key. If a Mind TUI leaves cycle text in the composer, stop and
+restart the loop with a longer `--submit-delay` rather than stacking manual
+Enter keys.
 
 Loop ≠ steward. Starting this helper does not enable or arm the dead-man; rearm
 still happens only after a successful Mind cycle and only when that fleet's

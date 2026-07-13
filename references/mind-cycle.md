@@ -583,6 +583,10 @@ python3 scripts/fleet-loop.py --project <root> start 5m
 python3 scripts/fleet-loop.py --project <root> start 5m \
   --target operator:node.1
 
+# If the TUI leaves FLEET_CYCLE text in the composer, lengthen submit settling.
+python3 scripts/fleet-loop.py --project <root> start 5m \
+  --target operator:node.1 --submit-delay 1.2
+
 python3 scripts/fleet-loop.py --project <root> status
 python3 scripts/fleet-loop.py --project <root> stop
 ```
@@ -592,7 +596,9 @@ the fleet. The helper records `$ROOT/.vivi/fleet-loop.json` and refuses
 duplicates. Stopping the loop removes that state and kills only the recorded
 background process group. Optional controls: `--duration 2h`, `--max-cycles N`,
 `--immediate`, and custom `--payload` values that still start with
-`FLEET_CYCLE`.
+`FLEET_CYCLE`. The default submit path waits `0.8s` after typing and sends
+`C-m`; tune with `--submit-delay` / `FLEET_LOOP_SUBMIT_DELAY_SEC` and
+`--submit-key` when a harness needs more settling.
 
 `fleet-loop.py` does not run sensors, close cycles, wake Hands, or rearm
 steward. It only creates the next Mind turn. The injected cycle must still

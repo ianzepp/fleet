@@ -47,6 +47,8 @@ require_python()
 DEFAULT_INTERVAL_SEC = 300
 MIN_INTERVAL_SEC = 60
 DEFAULT_TARGET = "current"
+DEFAULT_SUBMIT_DELAY_SEC = 0.8
+DEFAULT_SUBMIT_KEY = "C-m"
 
 
 def parse_duration(value: Optional[str], *, default: Optional[int] = None) -> Optional[int]:
@@ -144,13 +146,31 @@ def build_payload(project: Path, fleet: Dict[str, Any], args: argparse.Namespace
     return "%s\nRoots:\n  %s: %s" % (first, slug, project)
 
 
-def send_payload(tmux_bin: str, target: str, payload: str) -> None:
+def parse_float(value: Optional[str], *, default: float) -> float:
+    if value is None:
+        return default
+    text = str(value).strip()
+    if not text:
+        return default
+    return float(text)
+
+
+def send_payload(
+    tmux_bin: str,
+    target: str,
+    payload: str,
+    *,
+    submit_delay_sec: float = DEFAULT_SUBMIT_DELAY_SEC,
+    submit_key: str = DEFAULT_SUBMIT_KEY,
+) -> None:
     rc, out = run_cmd([tmux_bin, "send-keys", "-t", target, "-l", "--", payload], timeout=10)
     if rc != 0:
         raise RuntimeError("tmux send-keys text failed: %s" % out)
-    rc, out = run_cmd([tmux_bin, "send-keys", "-t", target, "Enter"], timeout=10)
+    if submit_delay_sec > 0:
+        time.sleep(submit_delay_sec)
+    rc, out = run_cmd([tmux_bin, "send-keys", "-t", target, submit_key], timeout=10)
     if rc != 0:
-        raise RuntimeError("tmux send-keys Enter failed: %s" % out)
+        raise RuntimeError("tmux send-keys %s failed: %s" % (submit_key, out))
 
 
 def append_log(project: Path, line: str) -> None:
@@ -168,6 +188,8 @@ def cmd_run(args: argparse.Namespace) -> int:
         return 1
 
     interval = int(args.interval_sec)
+    submit_delay_sec = float(args.submit_delay_sec)
+    submit_key = args.submit_key
     max_cycles = int(args.max_cycles) if args.max_cycles is not None else None
     stop_after = int(args.stop_after_sec) if args.stop_after_sec is not None else None
     deadline = time.time() + stop_after if stop_after else None
@@ -176,7 +198,13 @@ def cmd_run(args: argparse.Namespace) -> int:
 
     if args.immediate:
         try:
-            send_payload(tmux_bin, args.target, args.payload)
+            send_payload(
+                tmux_bin,
+                args.target,
+                args.payload,
+                submit_delay_sec=submit_delay_sec,
+                submit_key=submit_key,
+            )
             cycle += 1
             append_log(project, "sent cycle=%s immediate" % cycle)
         except Exception as exc:
@@ -197,7 +225,13 @@ def cmd_run(args: argparse.Namespace) -> int:
             append_log(project, "loop exit duration=%ss" % stop_after)
             return 0
         try:
-            send_payload(tmux_bin, args.target, args.payload)
+            send_payload(
+                tmux_bin,
+                args.target,
+                args.payload,
+                submit_delay_sec=submit_delay_sec,
+                submit_key=submit_key,
+            )
             cycle += 1
             append_log(project, "sent cycle=%s" % cycle)
         except Exception as exc:
@@ -224,6 +258,12 @@ def cmd_start(args: argparse.Namespace) -> int:
         target = resolve_target(tmux_bin, args.target)
         interval = parse_duration(args.interval, default=DEFAULT_INTERVAL_SEC) or DEFAULT_INTERVAL_SEC
         stop_after = parse_duration(args.duration, default=None)
+        submit_delay_sec = parse_float(
+            args.submit_delay,
+            default=float(os.environ.get("FLEET_LOOP_SUBMIT_DELAY_SEC", DEFAULT_SUBMIT_DELAY_SEC)),
+        )
+        if submit_delay_sec < 0:
+            raise RuntimeError("--submit-delay must be >= 0")
         if interval < MIN_INTERVAL_SEC and not args.allow_short_interval:
             print("error: interval must be >= %ss (use --allow-short-interval for tests)" % MIN_INTERVAL_SEC, file=sys.stderr)
             return 2
@@ -240,6 +280,8 @@ def cmd_start(args: argparse.Namespace) -> int:
         "--target", target,
         "--interval-sec", str(interval),
         "--payload", payload,
+        "--submit-delay-sec", str(submit_delay_sec),
+        "--submit-key", args.submit_key,
     ]
     if args.max_cycles is not None:
         cmd += ["--max-cycles", str(args.max_cycles)]
@@ -274,6 +316,8 @@ def cmd_start(args: argparse.Namespace) -> int:
         "interval_sec": interval,
         "started_at": now_iso(),
         "payload": payload,
+        "submit_delay_sec": submit_delay_sec,
+        "submit_key": args.submit_key,
         "max_cycles": args.max_cycles,
         "duration_sec": stop_after,
         "log": str(log_path(project)),
@@ -344,6 +388,8 @@ def parser() -> argparse.ArgumentParser:
     s.add_argument("--immediate", action="store_true", help="send one FLEET_CYCLE immediately")
     s.add_argument("--payload", default=None, help="custom FLEET_CYCLE payload; {project}/{fleet} expanded")
     s.add_argument("--fleets", default=None, help="override fleets= slug list on generated first line")
+    s.add_argument("--submit-delay", default=None, help="seconds to wait after text before submit (default 0.8 or FLEET_LOOP_SUBMIT_DELAY_SEC)")
+    s.add_argument("--submit-key", default=DEFAULT_SUBMIT_KEY, help="tmux key used to submit after text (default C-m)")
     s.add_argument("--tmux-bin", default=None, help="tmux binary override")
     s.add_argument("--allow-short-interval", action="store_true", help=argparse.SUPPRESS)
     s.set_defaults(func=cmd_start)
@@ -359,6 +405,8 @@ def parser() -> argparse.ArgumentParser:
     r.add_argument("--target", required=True)
     r.add_argument("--interval-sec", required=True, type=int)
     r.add_argument("--payload", required=True)
+    r.add_argument("--submit-delay-sec", type=float, default=DEFAULT_SUBMIT_DELAY_SEC)
+    r.add_argument("--submit-key", default=DEFAULT_SUBMIT_KEY)
     r.add_argument("--max-cycles", type=int, default=None)
     r.add_argument("--stop-after-sec", type=int, default=None)
     r.add_argument("--immediate", action="store_true")

@@ -249,6 +249,10 @@ python3 "$SK/fleet-loop.py" --project "$ROOT" start 5m
 python3 "$SK/fleet-loop.py" --project "$ROOT" start 5m \
   --target operator:node.1
 
+# If the target TUI leaves text in the composer, increase submit settling.
+python3 "$SK/fleet-loop.py" --project "$ROOT" start 5m \
+  --target operator:node.1 --submit-delay 1.2
+
 # Check or stop the loop.
 python3 "$SK/fleet-loop.py" --project "$ROOT" status
 python3 "$SK/fleet-loop.py" --project "$ROOT" stop
@@ -258,7 +262,9 @@ State lives in `$ROOT/.vivi/fleet-loop.json`; logs live in
 `$ROOT/.vivi/fleet-loop.log`. `start` refuses a duplicate live loop. `stop`
 kills only the recorded loop process group. Use `--duration 2h` or
 `--max-cycles N` for bounded supervision, and `--immediate` only when an
-immediate cycle injection is useful.
+immediate cycle injection is useful. The helper types the payload, waits
+`--submit-delay` seconds (default `0.8`), then sends `--submit-key` (default
+`C-m`) so Codex-like TUIs submit instead of leaving text in the composer.
 
 The loop only sends the scheduled prompt. The Mind cycle still has to run
 sensors, disposition signals, wake/reinit roles, bump the baseline, and rearm

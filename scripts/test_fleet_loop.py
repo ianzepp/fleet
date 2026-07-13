@@ -6,6 +6,7 @@ import importlib.util
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 SCRIPTS = Path(__file__).resolve().parent
 
@@ -56,6 +57,35 @@ class FleetLoopTests(unittest.TestCase):
             payload = self.mod.build_payload(root, {"fleet_id": "example"}, args)
             self.assertIn(str(root), payload)
             self.assertIn("Fleet: example", payload)
+
+    def test_send_payload_submits_after_delay_with_carriage_return(self) -> None:
+        calls = []
+
+        def fake_run_cmd(cmd, timeout=30.0, cwd=None, env=None):
+            calls.append(cmd)
+            return 0, ""
+
+        with mock.patch.object(self.mod, "run_cmd", side_effect=fake_run_cmd), \
+             mock.patch.object(self.mod.time, "sleep") as sleep:
+            self.mod.send_payload(
+                "tmux",
+                "operator:node.1",
+                "FLEET_CYCLE fleets=example",
+                submit_delay_sec=0.25,
+                submit_key="C-m",
+            )
+
+        self.assertEqual(
+            calls,
+            [
+                [
+                    "tmux", "send-keys", "-t", "operator:node.1",
+                    "-l", "--", "FLEET_CYCLE fleets=example",
+                ],
+                ["tmux", "send-keys", "-t", "operator:node.1", "C-m"],
+            ],
+        )
+        sleep.assert_called_once_with(0.25)
 
 
 if __name__ == "__main__":
