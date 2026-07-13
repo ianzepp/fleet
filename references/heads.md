@@ -11,7 +11,7 @@ Load persona only when assigning that Head for depth — not every FLEET_CYCLE.
 | Not product lanes | No keep-screen-moving refill with map packages |
 | No merge | Never own `pending_merges` |
 | Progress via priority picture | Advise To mind; Mind files Hands |
-| Harness | Prefer **Pi + GLM 5.2 (high/xhigh)** — one-shot assign→report |
+| Harness | Prefer **Pi** harness, model by role (CEO/CXO → GLM 5.2, CTO → Codex 5.5) — one-shot assign→report |
 | Identity | `head-*` (mail + tmux when armed) |
 | Reports | **To: mind** (board only) |
 
@@ -187,6 +187,10 @@ Bands = **routing hints**. Prefer ranges; uncertain → estimate high. **Do not 
 ---
 
 ## head-cto auditor loop (self-directed) — **code review + gate honesty**
+
+> **Model note:** head-cto works with code diffs, invariants, and bug reproduction.
+> Prefer a **Codex-class model** (e.g. Codex 5.5) over GLM for this role — code
+> reasoning is more important than architectural breadth here.
 
 Identity: `head-cto`. Subject: `head-cto:`. Persona: [`heads/personas/cto.md`](heads/personas/cto.md). Legacy: correctness.
 

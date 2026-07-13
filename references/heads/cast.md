@@ -35,10 +35,10 @@ In fleet, **CXO ≠ external/operator communications.** That is **Mind** (human 
 
 ## Harness
 
-| Slot | Harness |
-| --- | --- |
-| Mind + Hands | Product harness (Mind’s family) |
-| All Heads | Prefer **same alternate harness** as classic strategist (e.g. Pi + strong model) |
+| Slot | Harness | Preferred model |
+| --- | --- | --- |
+| Mind + Hands | Product harness (Mind’s family) | — |
+| All Heads | **Pi** (lightweight, advisory-only) | **CEO/CXO → GLM 5.2** · **CTO → Codex 5.5** |
 
 ## Load rules (token budget)
 

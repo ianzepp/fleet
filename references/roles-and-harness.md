@@ -38,13 +38,35 @@ Product law talks in H-numbers + current assignment. Ops read runtime from fleet
 
 **Rule (one line):** default product-plane alignment (Hands share Mind’s harness); **documented fleet config exceptions win** — do not “normalize” a deliberate heterogeneous fleet.
 
+### Why Hands follow Mind’s harness
+
+The Mind is the **control plane** for the fleet. It has internal access to its own
+systems instructions — the harness-level behavior, tooling surface, prompt
+conventions, and agentic loop semantics — that shape how it formulates tasks,
+describes done-when, and debugs Hand failures. When Hands share the same harness,
+instructions the Mind writes are natively understood by the Hand without
+translation or impedance mismatch.
+
+A Hand on a different harness (e.g. Codex Hand under a Grok Mind) must cope with
+instructions shaped by a different agentic loop, different tool-use conventions,
+and a different internal model of how work gets done. This adds translation
+friction, increases the risk of miscommunication, and forces the Mind to
+mentally double-encode every task. The product plane stays coherent when the
+control plane and execution plane speak the same harness language.
+
+**Exception:** This is a strong default, not a law. Documented fleet config
+exceptions (desktop Claude Mind + Grok Hands, Pi local Hands) are valid when
+the operator has good reason — token budget, failure isolation, or zero-cost
+local execution. The key is that the exception is *deliberate and recorded*,
+not a silent drift.
+
 | Role | Harness policy | Model policy |
 | --- | --- | --- |
 | **Mind** | Source of truth for product harness *unless* fleet records a Hand exception | May change for capacity; Hands follow when aligned |
 | **Hand** | **Same harness as Mind** by default | May differ within that harness (ladder) |
 | **Head** | **Prefer a different harness and/or model** | Independence is a feature |
 
-Same-harness Hands keep one wake/reinit/bootstrap surface. Heads diversify to challenge the product plane. Default Heads: **Pi + GLM 5.2 (high/xhigh)**.
+Same-harness Hands keep one wake/reinit/bootstrap surface. Heads diversify to challenge the product plane. Default Heads: **Pi harness** with role-dependent model selection (see Advisor plane table below).
 
 **Documented exceptions (do not override without operator):**
 
@@ -90,7 +112,7 @@ Default arm preferences. Live ids in project fleet config (`agent_model`, `agent
 | Claude desktop Mind | **Declared exception to Harness alignment** (experimental). No local CLI for tmux pane → Hands cannot match Mind harness. Treat **Grok as fleet Hand harness**: desktop Mind files tasking + reads panes; Grok Hands use normal Grok wake without tmux-resident Mind |
 | Why desktop Mind | (1) **token budget** — deep/interactive Mind off product Hand harness; (2) **failure isolation** — tmux/shell death ≠ Mind death. Combine with remote Hands/Heads (`ssh-remote.md`). Expect learning/tweaks |
 | Codex under desktop Mind | Only if Grok capacity exhausted — use doorbell-first Codex wake; reinit remains fallback |
-| Heads | Still **Pi + GLM 5.2** regardless of Mind harness |
+| Heads | Still **Pi harness** regardless of Mind harness; model varies by role |
 | Pi local Hand | Validated alternate for desktop-Mind when fully local + discrete/bounded units — see Pi-as-Hand |
 | Capacity | Start at primaries, step models in `runtime_fallback` (do not flip product harness first) |
 
@@ -113,17 +135,240 @@ pi --provider llama-router --model ornith-35b-q8 --print --no-session "<task>"
 (cd /path/to/worktrees/<slug> && pi --provider llama-router --model ornith-35b-q8 …)
 ```
 
-### Advisor plane (Heads — prefer Pi)
+### Advisor plane (Heads — Pi harness, role-dependent models)
 
 | Role | Harness | Preferred model | Effort / thinking |
 | --- | --- | --- | --- |
-| **head-ceo** / **head-cto** / **head-cxo** | **Pi** | GLM 5.2 | **high** or **xhigh** |
+| **head-ceo** (strategist) | **Pi** | GLM 5.2 | **high** or **xhigh** |
+| **head-cto** (code review, gate honesty) | **Pi** | Codex 5.5 | **high** or **xhigh** |
+| **head-cxo** (complexity, purity) | **Pi** | GLM 5.2 | **high** or **xhigh** |
+| Other Heads (CPO, COO, CSO, CFO, CMO) | **Pi** | GLM 5.2 | **high** or **xhigh** |
 
 Advisors are largely one-shot (assign → report). Prefer Pi even when Mind is Grok or Codex.
 
 ```text
 pi --provider zai --model glm-5.2 --thinking high   # or xhigh
 ```
+
+## Harness launch reference
+
+Each harness has a distinct CLI and configuration surface. The fleet `agent_launch`
+field in fleet.json is the source of truth per slot; the tables below help
+operators write that field. For model/effort changes at runtime, see
+[`runtime-config.md`](runtime-config.md) § Model ladder.
+
+### Principles
+
+1. `agent_launch` in fleet.json wins for every slot — never hardcode model strings as identity.
+2. Model changes within a harness step the **same-harness ladder** first; harness flips are fleet-wide Mind decisions.
+3. Heads use Pi harness regardless of Mind harness; model and thinking effort vary by role.
+
+### Grok CLI
+
+Binary: `grok` (found at typical install locations like `/opt/homebrew/bin/grok` or `~/.local/bin/grok`). Config: `~/.grok/config.toml` (TOML). List available models: `grok models`.
+
+| Flag | Purpose | Fleet use |
+| --- | --- | --- |
+| `-m` / `--model <MODEL>` | Model ID (e.g. `grok-4.5`, `deepseek-v4-flash-openrouter`) | Set `agent_model` |
+| `--reasoning-effort` / `--effort <EFFORT>` | Reasoning budget for reasoning models | When model supports it |
+| `--always-approve` | Auto-approve all tool executions | Standard for Hands |
+| `--sandbox <PROFILE>` | Sandbox profile | `--sandbox off` for full access |
+| `--deny 'Bash(<pattern>)'` | Deny tool-use patterns | Safety — deny destructive commands |
+| `--allow <RULE>` | Allow tool-use patterns | Complement to --deny |
+| `--no-subagents` | Disable subagent spawning | For simple / narrow-scope Hands |
+| `--resume [<ID>]` / `--continue` | Resume prior session | Theme continuation |
+| `--worktree [-w] [<NAME>]` | Start in new git worktree | Packet isolation |
+| `--single` / `-p <PROMPT>` | Single-turn (headless) | One-shot tasks |
+| `--system-prompt-override <PROMPT>` | Replace default system prompt | Custom role definitions |
+| `--cwd <DIR>` | Working directory | Override for specific cwd |
+| `--max-turns <N>` | Cap agent turns | Budget control |
+| `--no-memory` | Disable cross-session memory | Clean-slate Hand |
+| `--no-plan` | Disable plan mode | Headless automation |
+| `--permission-mode <MODE>` | Permission mode (`auto`, `dontAsk`, `plan`, …) | Alternative to `--always-approve` |
+
+**Typical Hand launch:**
+```bash
+grok --always-approve
+# or with sandbox and deny rules:
+grok --sandbox off --deny 'Bash(sudo *)' --deny 'Bash(rm -rf *)' --always-approve
+```
+
+**Headless / agent mode:**
+```bash
+grok agent headless --model grok-4.5 --always-approve
+grok agent stdio --model grok-4.5   # for programmatic integration
+```
+
+### Codex CLI
+
+Binary: `codex` (found at `/opt/homebrew/bin/codex` or `~/.local/bin/codex`).
+Config: `~/.codex/config.toml` (TOML). Model and effort are baked into the config
+by default; override per-invocation via `-c key=value` or `--model`.
+
+| Flag | Purpose | Fleet use |
+| --- | --- | --- |
+| `-m` / `--model <MODEL>` | Model ID (e.g. `gpt-5.6-luna`, `gpt-5.6-sol`) | Set `agent_model` |
+| `-c` / `--config <key=value>` | Override config dotted path | Toggle effort without editing file |
+| `-p` / `--profile <NAME>` | Layer a named profile on base config | Profile for different models |
+| `-s` / `--sandbox <MODE>` | Sandbox mode | `danger-full-access` for Hands |
+| `-C` / `--cd <DIR>` | Working directory | Packet cwd |
+| `--enable` / `--disable <FEATURE>` | Toggle features | Fine-grained control |
+| `--dangerously-bypass-approvals-and-sandbox` | Full trust mode | Automation only |
+| `--oss` / `--local-provider <NAME>` | Use open-source provider | Local LM Studio / Ollama |
+
+**Per-invocation model + effort:**
+```bash
+codex -m gpt-5.6-luna -c model_reasoning_effort=xhigh
+```
+
+**Non-interactive (headless):**
+```bash
+codex exec -m gpt-5.6-sol -c model_reasoning_effort=medium "<prompt>"
+```
+
+**Codex config for fleet Hands (typical):**
+```toml
+model = "gpt-5.6-luna"
+model_reasoning_effort = "xhigh"
+sandbox_mode = "danger-full-access"
+approval_policy = "never"
+```
+
+### Pi CLI
+
+Binary: `pi` (Node.js CLI, typically installed via npm). Config: `~/.pi/agent/settings.json`
+(JSON) for defaults; `~/.pi/agent/models.json` (JSON) for the provider/model registry.
+List available models: `pi --list-models [<search>]`.
+
+| Flag | Purpose | Fleet use |
+| --- | --- | --- |
+| `--provider <NAME>` | Provider name (`zai`, `openrouter`, `openai-codex`, `llama-router`, `google`) | Routes to model backend |
+| `--model <PATTERN>` | Model ID or glob pattern | Select model |
+| `--thinking <LEVEL>` | Thinking level: `off`, `minimal`, `low`, `medium`, `high`, `xhigh`, `max` | **Primary effort control** |
+| `--print` / `-p` | Non-interactive (one-shot) | Head assign → report |
+| `--continue` / `--resume` | Continue / resume session | Multi-turn Heads |
+| `--no-session` | Ephemeral (no session saved) | Stateless one-shot |
+| `--approve` / `-a` | Trust project-local files | First-run automation |
+| `--system-prompt <TEXT>` | Custom system prompt | Role definition |
+| `--append-system-prompt <TEXT>` | Append to default prompt | Layer role on base |
+| `--no-tools` / `-nt` | Disable all tools | Advisory Heads (read-only) |
+| `--no-builtin-tools` / `-nbt` | Disable built-in tools only | Keep extension/custom tools |
+| `--exclude-tools` / `-xt <TOOLS>` | Denylist specific tools | Restrict write access |
+| `--list-models [<search>]` | Query available models | Discovery |
+
+**Typical Head launch (zai provider, GLM 5.2):**
+```bash
+pi --provider zai --model glm-5.2 --thinking high
+pi --provider zai --model glm-5.2 --thinking xhigh --no-tools
+```
+
+**head-cto (Codex model via openai-codex provider):**
+```bash
+pi --provider openai-codex --model gpt-5.5 --thinking high
+# or via openrouter:
+pi --provider openrouter --model openai/gpt-5.5 --thinking high
+```
+
+**One-shot advisory:**
+```bash
+pi --provider zai --model glm-5.2 --thinking high --print --no-session "<task>"
+```
+
+**Model discovery:** `~/.pi/agent/models.json` lists every provider and their
+models with capabilities, context windows, and costs. The `~/.pi/agent/settings.json`
+`enabledModels` array controls which models appear in the TUI model switcher.
+
+### opencode CLI
+
+Binary: `opencode` (found at `/opt/homebrew/bin/opencode` or `~/.local/bin/opencode`).
+Config: `~/.config/opencode/opencode.jsonc` (JSON with comments) and project-local `AGENTS.md`.
+List available models: `opencode models [<provider>]`.
+
+| Flag | Purpose | Fleet use |
+| --- | --- | --- |
+| `--model` / `-m <provider/model>` | Model selector (e.g. `opencode/gpt-5.6-sol`) | Model selection |
+| `--variant <LEVEL>` | Reasoning effort (provider-specific: `high`, `max`, `minimal`) | Effort control |
+| `--auto` | Auto-approve all permissions (dangerous) | Unattended Hands |
+| `--continue` / `-c` | Continue last session | Multi-turn work |
+| `--dir <PATH>` | Working directory | Packet cwd |
+| `--agent <NAME>` | Agent profile name | Custom role config |
+| `--pure` | Run without plugins | Minimal mode |
+
+**Non-interactive:**
+```bash
+opencode run --model opencode/gpt-5.6-sol --variant high "do this task"
+```
+
+**Headless server:**
+```bash
+opencode serve --port 4096
+opencode run --model opencode/gpt-5.5 --attach http://localhost:4096 "task"
+```
+
+**Typical Hand startup (in tmux):**
+```bash
+opencode --model opencode/gpt-5.5 --auto
+```
+
+### Vivi (mailspace) CLI
+
+Binary: `vivi` (Rust CLI, typically at `~/.cargo/bin/vivi`). Config: defined by
+`--config <path>` or per-account file.
+
+| Subcommand | Fleet use |
+| --- | --- |
+| `mailspace` | Create/manage project mailspace (`status`, `watch`, `identity`, …) |
+| `mail` | Board mail (`send`, `list`, `show`, `thread`, `watch`, `reply`, …) |
+| `task` | File/complete tasking (`list`, `show`, `done`, …) |
+| `need` | Decision needs (`file`, `list`, `done`, …) |
+| `want` | Wants (`file`, `promote`, …) |
+
+### Config file discovery
+
+Each harness stores configuration in a well-known directory. The tables below
+list the default search paths (“`~`” resolves to the current user’s home directory).
+
+**Grok:**
+| File / Dir | Purpose |
+| --- | --- |
+| `~/.grok/config.toml` | Model defaults, UI settings, plugin config |
+| `~/.grok/agents/` | Agent profile definitions |
+| `~/.grok/AGENTS.md` | Project-level agent rules |
+
+**Codex:**
+| File / Dir | Purpose |
+| --- | --- |
+| `~/.codex/config.toml` | Model, sandbox, approval policy, profiles |
+| `~/.codex/rules/` | Custom rules loaded per session |
+| `~/.codex/skills/` | Skill file discovery |
+| `~/.codex/profiles/*.config.toml` | Named config profiles (referenced via `-p` / `--profile`) |
+
+**Pi:**
+| File / Dir | Purpose |
+| --- | --- |
+| `~/.pi/agent/settings.json` | Default provider, model, thinking level, enabled models |
+| `~/.pi/agent/models.json` | Provider registry: API keys, base URLs, model list with costs and capabilities |
+| `~/.pi/agent/sessions/` | Session storage (per-project) |
+
+**opencode:**
+| File / Dir | Purpose |
+| --- | --- |
+| `~/.config/opencode/opencode.jsonc` | Shell, basic preferences |
+| `<project>/AGENTS.md` | Project-level agent rules |
+
+**Vivi:**
+| File / Dir | Purpose |
+| --- | --- |
+| `<project>/.vivi/` | Project mailspace database and fleet overlay |
+
+### Model discovery by harness
+
+| Harness | Command | Output |
+| --- | --- | --- |
+| **Grok** | `grok models` | All configured models with default marker |
+| **Codex** | Config file (`~/.codex/config.toml` `model` key) | Single default; profiles for alternates |
+| **Pi** | `pi --list-models [<provider>]` | Provider-filtered table with context, max-out, thinking support, images |
+| **opencode** | `opencode models [<provider>]` | Provider-filtered model list |
 
 ## Hand does
 
