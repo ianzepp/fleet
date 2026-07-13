@@ -127,7 +127,9 @@ vivi need list --for <role>
 
 Subject lists are not enough. Classify body: finding, decision support, superseded, informational. Convert actionable mail into a reply or a report To mind before new proactive work.
 
-**No self-mail as memory.** No ceremonial self-tasks. Continuity for CEO/strategist seat is via Mind baseline + needs Mind files — not private monologue.
+**No self-mail as memory.** No ceremonial self-tasks. Use `vivi memo` for
+durable Head context; use Mind baseline and needs Mind files for fleet state and
+work routing, not private mail or monologue.
 
 ## Altitude (anti-fragile)
 

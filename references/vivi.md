@@ -1,6 +1,6 @@
 # Vivi board CLI (fleet)
 
-Filing work, listing bags, marking done, watching board events, threads, `operator@` escalations.
+Filing work, listing bags, managing role memory, marking done, watching board events, threads, `operator@` escalations.
 
 **Scope:** project-local **mailspace** only (`.vivi/` under fleet root). Not personal IMAP (`vivi sync` / Proton) unless steward external page.
 
@@ -40,6 +40,7 @@ vivi --version                  # prefer ≥ 4.6 (watch/thread); 4.7+ fine
 | **need** | `vivi need …` | Decision / authority / external input (default + options) | **Yes** |
 | **want** | `vivi want …` | Non-blocking later idea | No |
 | **mail** | `vivi mail …` | Deliberation, status, Head reports, RTM, handoff | No |
+| **memo** | `vivi memo …` | Private durable context for Mind/Head identities | No |
 
 | To | Content |
 | --- | --- |
@@ -81,6 +82,31 @@ vivi mail thread <handle> --project "$ROOT"   # multi-hop lineage
 Prefer **`fleet-sensors.py`**: emits `operator_mail` (To operator) and **`operator_to_mind`** (From operator).
 
 Paid path: list/show what changed; `mail thread` when lineage matters; residual **tasks** To owning Hand. **Do not** unbounded-block on `watch` during fail-fast cycles.
+
+## Role memory (Mind and Heads only)
+
+Memos are durable, project-local context for a role's own future sessions. They
+are not board traffic, routed work, communication, or a Hand work product.
+Only **Mind and Head identities** use this surface; Hands do not create, read,
+or maintain memos. A Hand's findings return through its assigned task or normal
+advisory mail, and Mind or a Head decides what should persist.
+
+At cold attach or resume, Mind and Heads may review their own memory. Save only
+stable decisions, recurring constraints, strategy, or findings worth carrying
+across a cycle or reinitialization:
+
+```bash
+vivi memo list --project "$ROOT" --for <mind-or-head-id>
+vivi memo show --project "$ROOT" <handle>
+vivi memo save --project "$ROOT" --for <mind-or-head-id> \\
+  --subject '…' --body '…'
+vivi memo dump --project "$ROOT" --for <mind-or-head-id>
+vivi memo delete --project "$ROOT" --for <mind-or-head-id> <handle>
+```
+
+`memo dump --for` is deliberately identity-scoped. Do not use memos to assign,
+delegate, or report work; use task, need, want, or mail. Memos are omitted from
+`vivi board`, task dumps, and normal mail dumps.
 
 ## Mailspace (setup + status + watch)
 
@@ -256,12 +282,12 @@ vivi exec send --account <account> path/to/draft.eml
 
 | Who | Typical vivi |
 | --- | --- |
-| **Mind (cheap cycle)** | `mailspace status`, `mailspace watch --once`, `task|need list` per Hand, operator list if engaged |
+| **Mind (cheap cycle)** | `mailspace status`, `mailspace watch --once`, `task|need list` per Hand, operator list if engaged; memo list at attach/resume |
 | **Mind (file work)** | `task send` / `need send` To `hand-N`; rare `want send` |
 | **Mind (integrate)** | `mail list/show` To mind; `mail thread`; residual **tasks** |
 | **Mind (operator return)** | `need|mail list --for operator` first |
 | **Hand** | `task|need list --for self`; `show` / `thread`; `task done` (+ optional mail To mind) |
-| **Head** | `mail send --to mind` reports; read assigns via `mail|task list --for head-*` |
+| **Head** | `mail send --to mind` reports; read assigns via `mail|task list --for head-*`; memo list/show/save for durable role context |
 | **Steward** | board notify To operator; optional `compose`+`exec send` |
 | **Sensors helper** | wraps status + watch + lists — `scripts/fleet-sensors.py` |
 
@@ -288,10 +314,10 @@ vivi help enqueue
 ## Discover more
 
 ```bash
-vivi --help                          # mailspace, board, task|need|want|mail, …
+vivi --help                          # mailspace, board, task|need|want|mail|memo, …
 vivi <family> --help                 # e.g. vivi task send --help
 vivi <family> <verb> --help          # e.g. vivi mailspace watch --help
-# fleet core: mailspace · board · task|need|want|mail
+# fleet core: mailspace · board · task|need|want|mail · memo (Mind/Heads only)
 # not fleet heartbeat: sync | search | index | enqueue | queue
 ```
 

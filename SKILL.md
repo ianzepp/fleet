@@ -313,6 +313,31 @@ Kind ≠ severity. Hard stop = open tasks/needs. Not a stop = missing GO mail.
 hand-1 = main + merges; hand-2+ = packets, never main merge; unit done → refill; theme done → RTM mail.  
 Starvation: empty product bag + **product** map unit → file+wake. Not polish theater. Posture: [`fleet-posture.md`](references/fleet-posture.md). [`tasking.md`](references/tasking.md)
 
+## Role memory (memos)
+
+Memos are durable, project-local context for a role's own future sessions. They
+are not routed work, communication, or part of the actionable bag. This surface
+is for **Mind and Head identities only**; Hands do not create, read, or maintain
+memos. Hands return findings through their assigned task and normal advisory
+mail, while Mind or a Head decides what deserves durable memory.
+
+Mind and Heads should review their own memos when attaching or resuming, and
+save stable decisions, recurring constraints, strategy, or findings that
+should survive a cycle or reinitialization:
+
+```sh
+vivi memo list   --project <root> --for <mind-or-head-id>
+vivi memo show   --project <root> <handle>
+vivi memo save   --project <root> --for <mind-or-head-id> --subject '...' --body '...'
+vivi memo dump   --project <root> --for <mind-or-head-id>
+vivi memo delete --project <root> --for <mind-or-head-id> <handle>
+```
+
+Use `memo dump --for` for an explicitly scoped memory review. Do not use memos
+to assign, delegate, or report work; use task, need, want, or mail for those
+purposes. Memos do not appear in `vivi board`, task dumps, or normal mail
+dumps, and Hands are not a fallback memory store.
+
 ## Dual channel (summary)
 
 Vivi = work truth. The configured tmux or `vivi_pty` runtime = process truth. Sensors normalize both into one nested `runtime` object.
