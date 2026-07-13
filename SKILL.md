@@ -39,8 +39,8 @@ Reporting a blocker without acting, delegating, escalating, or recording a valid
 | **mind** | `mind@…` | none | Board To: Mind; process = this chat |
 | **operator** | `operator@…` | none | Human only — [`operator-mail.md`](references/operator-mail.md) |
 | **steward** | optional opt-in | tmux runtime | Dead-man, not Mind — **off by default**; operator must enable+arm per fleet — [`dead-man.md`](references/dead-man.md) |
-| **hand-N** | `hand-N@…` | configured runtime | `hand-1` merges to main; `agent_launch` must include `--name mgs-<role>` so the agent knows its fleet identity and processes assigned work |
-| **head-*** | `head-*@…` | configured runtime | ceo=strategist (map health/buckets); cto post-main+gates; cxo purity (not operator-facing); `agent_launch` must include `--name mgs-<role>` for fleet identity |
+| **hand-N** | `hand-N@…` | configured runtime | `hand-1` merges to main; `agent_launch` must pass a `--name` flag matching the role identity so the agent knows its fleet role and processes assigned work |
+| **head-*** | `head-*@…` | configured runtime | ceo=strategist (map health/buckets); cto post-main+gates; cxo purity (not operator-facing); `agent_launch` must pass a `--name` flag matching the role identity |
 
 | Layout | Binding |
 | --- | --- |
@@ -174,7 +174,7 @@ Core process here; detail in `references/` + `scripts/`.
 | Integration lag | Queue **merge** or **base-update** (whichever unblocks); **then** pivot other product work | Thrash re-verify on blocked consumer |
 | Pane dead/idle+open | Wake / reinit / runtime ladder | Stack wakes |
 | Human wall | File `operator@` + pivot | Silent stall |
-| Hand idle, tasks unprocessed | Verify `agent_launch` includes `--name mgs-<role>`. Without it, the agent doesn't know its fleet role. Also: hands receive **direct prompts** with task content, not `vivi board` — the board is Mind's dashboard, not a wake command. Send the task instructions inline. | Re-file task; send board to claim it was filed |
+| Hand idle, tasks unprocessed | Verify `agent_launch` includes a `--name` flag matching the role identity. Without it, the agent doesn't know it's a fleet Hand. Also: hands receive **direct prompts** with task content, not `vivi board` — the board is Mind's dashboard, not a wake command. Send the task instructions inline. | Re-file task; send board to claim it was filed |
 Sleep when bag empty **and** no honest next product unit (or posture is standby/dormant). Sleep is allowed — do not invent work.
 
 ### Growth-liveness refill
