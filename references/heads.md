@@ -188,9 +188,9 @@ Bands = **routing hints**. Prefer ranges; uncertain → estimate high. **Do not 
 
 ## head-cto auditor loop (self-directed) — **code review + gate honesty**
 
-> **Model note:** head-cto works with code diffs, invariants, and bug reproduction.
-> Prefer a **Codex-class model** (e.g. Codex 5.5) over GLM for this role — code
-> reasoning is more important than architectural breadth here.
+> **Model note:** head-cto uses **Pi + zai + GLM 5.2** (high or xhigh), same
+> as all Heads. The unified advisor plane keeps harness coherence. Code review
+> depth comes from thinking effort, not model divergence.
 
 Identity: `head-cto`. Subject: `head-cto:`. Persona: [`heads/personas/cto.md`](heads/personas/cto.md). Legacy: correctness.
 

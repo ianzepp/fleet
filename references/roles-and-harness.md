@@ -139,10 +139,10 @@ pi --provider llama-router --model ornith-35b-q8 --print --no-session "<task>"
 
 | Role | Harness | Preferred model | Effort / thinking |
 | --- | --- | --- | --- |
-| **head-ceo** (strategist) | **Pi** | GLM 5.2 | **high** or **xhigh** |
-| **head-cto** (code review, gate honesty) | **Pi** | Codex 5.5 | **high** or **xhigh** |
-| **head-cxo** (complexity, purity) | **Pi** | GLM 5.2 | **high** or **xhigh** |
-| Other Heads (CPO, COO, CSO, CFO, CMO) | **Pi** | GLM 5.2 | **high** or **xhigh** |
+| **head-ceo** (strategist) | **Pi**, zai | GLM 5.2 | **high** or **xhigh** |
+| **head-cto** (code review, gate honesty) | **Pi**, zai | GLM 5.2 | **high** or **xhigh** |
+| **head-cxo** (complexity, purity) | **Pi**, zai | GLM 5.2 | **high** or **xhigh** |
+| Other Heads (CPO, COO, CSO, CFO, CMO) | **Pi**, zai | GLM 5.2 | **high** or **xhigh** |
 
 Advisors are largely one-shot (assign → report). Prefer Pi even when Mind is Grok or Codex.
 

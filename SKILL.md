@@ -151,7 +151,9 @@ Core process here; detail in `references/` + `scripts/`.
 | Remote | [`ssh-remote.md`](references/ssh-remote.md) |
 | Schema / ladders / wind-down | [`runtime-config.md`](references/runtime-config.md) |
 | Missing companions | [`companion-fallbacks.md`](references/companion-fallbacks.md) |
-| Sensors / baseline / doorbell | [`scripts/fleet-sensors.py`](scripts/fleet-sensors.py), [`fleet-baseline.py`](scripts/fleet-baseline.py), [`fleet-doorbell.sh`](scripts/fleet-doorbell.sh). Sensors include pending RTM/integration lag, ahead/behind, and bounded dirty paths. |
+| Sensors / baseline / doorbell | [`scripts/fleet-sensors.py`](scripts/fleet-sensors.py), [`fleet-baseline.py`](scripts/fleet-baseline.py), [`fleet-doorbell.sh`](scripts/fleet-doorbell.sh). `fleet-doorbell.sh` atomically records successful wake status in `last_hand_wake`; no duplicate helper is needed. Sensors include pending RTM/integration lag, ahead/behind, and bounded dirty paths. |
+| Runtime rebind | [`scripts/fleet-runtime-rebind.py`](scripts/fleet-runtime-rebind.py). Plan/apply atomic runtime config changes across Heads and Hands. |
+| Cycle close | [`scripts/fleet-cycle-close.py`](scripts/fleet-cycle-close.py). One command: sensors → baseline bump → optional steward rearm. |
 | Codex pane | [`scripts/codex-reinit.sh`](scripts/codex-reinit.sh) |
 | opencode pane | [`scripts/opencode-hand-ctl.sh`](scripts/opencode-hand-ctl.sh) |
 | Portability smoke | [`scripts/lib/env.sh`](scripts/lib/env.sh), [`smoke-portability.sh`](scripts/smoke-portability.sh) |
@@ -340,7 +342,7 @@ Host axis on slots: `host`, `ssh`, host-scoped cwd/tmux/launch. Wake/reinit **on
 
 1. **Arm/attach** — identities; harness; runtime binding; baseline counters; `mind_session`; **do not** arm steward unless operator asked for that fleet. Dormant-to-live procedure: [`launch.md`](references/launch.md)
 2. **Focus** — map package; Hand picks open target (no GO wait)  
-3. **Gather** — `fleet-sensors.py`; process new addressed mail before cadence; quiet if fingerprint/panes unchanged; doorbell/reinit; end: `fleet-baseline.py bump` (+ `steward.sh rearm` **only if steward armed for that fleet**)
+3. **Gather** — `fleet-sensors.py`; process new addressed mail before cadence; quiet if fingerprint/panes unchanged; doorbell/reinit; end: `fleet-cycle-close.py` (sensors → baseline → optional steward rearm) or `fleet-baseline.py bump` (+ `steward.sh rearm` **only if steward armed for that fleet**)
 4. **Hand work** — show → implement → validate → unit `$polish` → done → next/sleep  
 5. **Sleep** — most wakes no-ops ([`mind-cycle.md`](references/mind-cycle.md))  
 6. **Detach/wind-down** — if steward was armed, `steward.sh disarm` same turn; drop idle panes  
@@ -382,11 +384,17 @@ python3 <skill>/scripts/fleet-sensors.py --project <root> --text
 # Agent recovery only if doorbell sticks/errors:
 PROJECT=<root> FLEET=<root>/.vivi/fleet.json <skill>/scripts/codex-reinit.sh doctor hand-1      # Codex
 PROJECT=<root> FLEET=<root>/.vivi/fleet.json <skill>/scripts/opencode-hand-ctl.sh doctor hand-1  # opencode
+# Cycle close: sensors → baseline → optional steward rearm in one command
+python3 <skill>/scripts/fleet-cycle-close.py --project <root> --acted --summary '…'
+# or: --quiet for sleep cycles; --operator-engaged resets silence
 # silence: default bump increments turns_since_operator_message
 python3 <skill>/scripts/fleet-baseline.py bump -p <root> -s 'sleep' --quiet \
   --fingerprint-file /tmp/fleet-sensors.json
 # only if human prose this turn or since last_operator_message_at:
 # python3 …/fleet-baseline.py bump … --operator-engaged
+# Runtime rebind: plan dry-run or atomic apply
+python3 <skill>/scripts/fleet-runtime-rebind.py plan --project <root> --hands all --model grok-4.6
+python3 <skill>/scripts/fleet-runtime-rebind.py apply --project <root> --hands all --model grok-4.6 --restart
 # only if operator enabled+armed steward for this fleet:
 # scripts/steward.sh rearm --project <root>
 ```
