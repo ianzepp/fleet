@@ -73,6 +73,10 @@ def cmd_close(args: argparse.Namespace, project: Path) -> int:
     else:
         baseline_path_obj = project / ".vivi" / "mind-baseline.json"
 
+    if not fleet_path_obj.is_file():
+        print("error: fleet.json not found at %s" % fleet_path_obj, file=sys.stderr)
+        return 1
+
     # 1. Run fleet-sensors.py
     sensors_cmd = [
         sys.executable,
@@ -115,7 +119,7 @@ def cmd_close(args: argparse.Namespace, project: Path) -> int:
             print("error: fleet-sensors.py did not produce valid JSON", file=sys.stderr)
             return 1
 
-        fd, fingerprint_file = tempfile_name(sensors_blob)
+        fingerprint_file = tempfile_name(sensors_blob)
     else:
         print("error: fleet-sensors.py produced empty output", file=sys.stderr)
         return 1

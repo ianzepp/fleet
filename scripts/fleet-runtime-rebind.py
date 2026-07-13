@@ -300,14 +300,31 @@ def _stop_vivi_pty(session_id: str, socket: str) -> Tuple[bool, str]:
     return rc == 0, out
 
 
-def _start_tmux(slot: dict, identity: str, cwd: Optional[str]) -> Tuple[bool, str]:
-    """Start a tmux session for a role. Returns (ok, message)."""
+def _start_tmux(slot: dict, identity: str, cwd: Optional[str],
+                restart: bool = False) -> Tuple[bool, str]:
+    """Start a tmux session for a role. Returns (ok, message).
+
+    When restart=True and the session already exists, launch the new process
+    inside the existing pane via send-keys so the window/topology is preserved.
+    """
     target = slot.get("tmux_target") or ("%s:1.1" % slot.get("tmux_session", identity))
     session = target.split(":")[0]
     launch = (slot.get("agent_launch") or "").strip()
     tmux = shutil.which("tmux") or "tmux"
     rc, _ = run_cmd([tmux, "has-session", "-t", session], timeout=5)
     if rc == 0:
+        if restart and launch:
+            work_dir = cwd or "."
+            try:
+                parts = shlex.split(launch)
+            except ValueError:
+                parts = [launch]
+            full_cmd = " ".join(shlex.quote(p) for p in parts)
+            rc2, out = run_cmd(
+                [tmux, "send-keys", "-t", target, full_cmd, "Enter"],
+                timeout=10,
+            )
+            return rc2 == 0, out
         return True, "session exists"
     if not launch:
         return False, "no agent_launch to start"
@@ -663,12 +680,14 @@ def cmd_apply(args: argparse.Namespace, project: Path, fleet_path: Path) -> int:
                     print("  WARNING: failed to stop %s: %s" % (identity, msg), file=sys.stderr)
             print("  stopped %s" % identity)
 
-            # Start
+            # Start (brief settle so tmux shell recovers after C-c)
+            if c["runtime_kind"] != "vivi_pty":
+                time.sleep(0.5)
             cwd_val = entry.get("cwd") or str(project)
             if c["runtime_kind"] == "vivi_pty":
                 ok, msg = _start_vivi_pty(entry, identity, cwd_val, project)
             else:
-                ok, msg = _start_tmux(entry, identity, cwd_val)
+                ok, msg = _start_tmux(entry, identity, cwd_val, restart=True)
             if not ok:
                 print("  ERROR: failed to start %s: %s" % (identity, msg), file=sys.stderr)
                 rollback_needed = True
@@ -677,7 +696,7 @@ def cmd_apply(args: argparse.Namespace, project: Path, fleet_path: Path) -> int:
             print("  started %s" % identity)
 
             # Readiness check
-            ready, state = _check_readiness(entry, identity, project, timeout_sec=15.0)
+            ready, state = _check_readiness(entry, identity, project, timeout_sec=30.0)
             if ready:
                 print("  %s ready (state=%s)" % (identity, state))
             else:
