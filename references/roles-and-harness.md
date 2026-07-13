@@ -165,7 +165,7 @@ operators write that field. For model/effort changes at runtime, see
 
 ### Grok CLI
 
-Binary: `grok` (found at typical install locations like `/opt/homebrew/bin/grok` or `~/.local/bin/grok`). Config: `~/.grok/config.toml` (TOML). List available models: `grok models`.
+Binary: `grok` (resolve from PATH or Fleet's portable binary lookup; callers may override with an explicit launch command). Config: `~/.grok/config.toml` (TOML). List available models: `grok models`.
 
 | Flag | Purpose | Fleet use |
 | --- | --- | --- |
@@ -201,7 +201,7 @@ grok agent stdio --model grok-4.5   # for programmatic integration
 
 ### Codex CLI
 
-Binary: `codex` (found at `/opt/homebrew/bin/codex` or `~/.local/bin/codex`).
+Binary: `codex` (resolve from PATH or Fleet's portable binary lookup; callers may override with an explicit launch command).
 Config: `~/.codex/config.toml` (TOML). Model and effort are baked into the config
 by default; override per-invocation via `-c key=value` or `--model`.
 
@@ -280,7 +280,7 @@ models with capabilities, context windows, and costs. The `~/.pi/agent/settings.
 
 ### opencode CLI
 
-Binary: `opencode` (found at `/opt/homebrew/bin/opencode` or `~/.local/bin/opencode`).
+Binary: `opencode` (resolve from PATH or Fleet's portable binary lookup; callers may override with an explicit launch command).
 Config: `~/.config/opencode/opencode.jsonc` (JSON with comments) and project-local `AGENTS.md`.
 List available models: `opencode models [<provider>]`.
 

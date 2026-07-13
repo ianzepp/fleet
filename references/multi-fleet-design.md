@@ -209,7 +209,7 @@ In fleet `mind-baseline.json` (runtime, not config):
 
 ```json
 "mind_session": {
-  "label": "term1", "host": "pharos", "pid": 12345,
+  "label": "term1", "host": "host-a", "pid": 12345,
   "attached_at": "2026-07-11T14:02:00Z"
 }
 ```
