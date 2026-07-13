@@ -534,8 +534,12 @@ After hand-1 merge done: Mind **absorbs**, then **accepts** main result (or resi
 
 Fail-fast is required, but the interval should adapt in both directions. Mind owns cadence tuning for an operator-authorized loop and does not need a new operator decision for reversible interval changes.
 
+**Delegation requires a return path.** Before ending an operator conversation with asynchronous Hand or Head work outstanding, check for an active Fleet scheduler. If none exists, create one with the current roots, authority limits, and stop condition so the Mind will collect the result. If one already exists, keep it unless its interval is too slow for the newly requested work; tighten it instead of creating a duplicate. An explicit operator pause, dormant posture, or operator-only boundary still wins.
+
 | Signal | Cadence action |
 | --- | --- |
+| Operator conversation creates new Hand/Head work while no Fleet scheduler is active | Create the loop before ending the turn |
+| New operator-requested work enters a loop backed off to 10m, 20m, 1h, or otherwise too slow for interactive follow-up | Shorten promptly toward the base interactive cadence; replace the existing schedule without overlap |
 | 2–3 cycles with little or no new evidence, unchanged running panes, or reports too thin to justify the context cost | Lengthen one step (for example 5m → 10m → 20m) |
 | Work is healthy but naturally long-running | Hold or lengthen; do not poll deep work faster merely to appear active |
 | Multiple completions, addressed reports, merge decisions, or wake candidates accumulate between fires | Shorten one step (for example 20m → 10m → 5m → 3m) |
