@@ -110,6 +110,38 @@ Prompt classification is current-state first. In particular, Codex panes must
 treat a live bottom prompt (`›` / `codex ›`) as ready even if older scrollback
 contains failed commands, connection messages, or test errors.
 
+### `fleet-loop.py`
+
+```bash
+python3 scripts/fleet-loop.py --project <root> start 5m --target operator:node.1
+python3 scripts/fleet-loop.py --project <root> start 10m --duration 2h
+python3 scripts/fleet-loop.py --project <root> status
+python3 scripts/fleet-loop.py --project <root> stop
+```
+
+Fallback scheduler for Mind harnesses without native scheduled-loop/tool-call
+support. It periodically injects a `FLEET_CYCLE` message into the live Mind tmux
+pane via `tmux send-keys`; it does not run sensors or mutate the fleet baseline.
+
+| Flag | Meaning |
+| --- | --- |
+| `start [interval]` | Start background injector; interval accepts `5m`, `300s`, `1h`; default `5m` |
+| `--target <session:window.pane>` | Mind/operator pane to receive the cycle; default is current tmux pane when inferable |
+| `--duration <duration>` | Optional total runtime before the loop exits |
+| `--max-cycles N` | Optional stop after N injections |
+| `--immediate` | Send one cycle immediately before sleeping |
+| `--fleets <slugs>` | Override generated `FLEET_CYCLE fleets=...` first line |
+| `--payload <text>` | Custom payload; must still start with `FLEET_CYCLE`; expands `{project}` and `{fleet}` |
+
+State: `$ROOT/.vivi/fleet-loop.json`. Log:
+`$ROOT/.vivi/fleet-loop.log`. `start` refuses a duplicate live PID. `stop`
+kills only the recorded process group and removes the state file. `status`
+reports whether the recorded PID is still live.
+
+Loop ≠ steward. Starting this helper does not enable or arm the dead-man; rearm
+still happens only after a successful Mind cycle and only when that fleet's
+steward was explicitly enabled and armed.
+
 ### `codex-reinit.sh` (fallback)
 
 ```bash

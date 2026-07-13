@@ -57,7 +57,7 @@ fi
 pass "date iso: $(fleet_date_iso) epoch: $(fleet_date_epoch)"
 
 # Python modules compile
-for py in fleet_common.py fleet-resolve.py fleet-sensors.py fleet-baseline.py fleet-posture.py verify-fleet-json.py suggest-polish-files.py test_fleet_common.py; do
+for py in fleet_common.py fleet-resolve.py fleet-sensors.py fleet-baseline.py fleet-posture.py fleet-loop.py verify-fleet-json.py suggest-polish-files.py test_fleet_common.py; do
   if "$PYTHON_BIN" -m py_compile "$_FLEET_SCRIPT_DIR/$py"; then
     pass "py_compile $py"
   else
@@ -121,6 +121,11 @@ if [[ -n "$PROJECT" ]]; then
       pass "fleet-baseline get"
     else
       fail "fleet-baseline get failed"
+    fi
+    if "$PYTHON_BIN" "$_FLEET_SCRIPT_DIR/fleet-loop.py" "${scope[@]}" status >/dev/null; then
+      pass "fleet-loop status"
+    else
+      fail "fleet-loop status failed"
     fi
     # doorbell may refuse down panes — exit 1 is expected
     set +e

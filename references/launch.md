@@ -235,6 +235,35 @@ and next fire time. Do not create duplicate loops for the same Fleet.
 The first line of every scheduled payload follows the Fleet skill’s
 `FLEET_CYCLE` grammar. Paths belong in the body, not invented keys on that line.
 
+### tmux-backed fallback loop
+
+When the Mind harness cannot create a native scheduled loop, use
+`scripts/fleet-loop.py` to inject `FLEET_CYCLE` into the live operator/Mind tmux
+pane. This is a scheduler fallback, not a second Mind and not the steward.
+
+```bash
+# Start a five-minute loop into the current tmux pane.
+python3 "$SK/fleet-loop.py" --project "$ROOT" start 5m
+
+# Prefer an explicit target when starting from another shell.
+python3 "$SK/fleet-loop.py" --project "$ROOT" start 5m \
+  --target operator:node.1
+
+# Check or stop the loop.
+python3 "$SK/fleet-loop.py" --project "$ROOT" status
+python3 "$SK/fleet-loop.py" --project "$ROOT" stop
+```
+
+State lives in `$ROOT/.vivi/fleet-loop.json`; logs live in
+`$ROOT/.vivi/fleet-loop.log`. `start` refuses a duplicate live loop. `stop`
+kills only the recorded loop process group. Use `--duration 2h` or
+`--max-cycles N` for bounded supervision, and `--immediate` only when an
+immediate cycle injection is useful.
+
+The loop only sends the scheduled prompt. The Mind cycle still has to run
+sensors, disposition signals, wake/reinit roles, bump the baseline, and rearm
+the steward only if that fleet's steward was separately enabled and armed.
+
 ## 7. Verify the assembled Fleet
 
 Wait briefly for TUI startup, then run a fresh sensor pass:

@@ -568,6 +568,36 @@ Reset `turns_since_operator_message` only on **human operator** message (not pro
 
 If the scheduler implementation cannot change an interval in place, replace it atomically enough for supervision: create the new schedule, then cancel the old one in the same cycle. If replacement is unavailable, no-op cheaply and state the limitation.
 
+### tmux-backed fallback scheduler
+
+Some Mind harnesses do not expose native recurring tool calls or `/loop`
+support. In that case, use `scripts/fleet-loop.py` as the fallback scheduler:
+it sleeps in the background and injects a `FLEET_CYCLE` payload into the live
+operator tmux pane.
+
+```bash
+# From inside the operator/Mind tmux pane:
+python3 scripts/fleet-loop.py --project <root> start 5m
+
+# From another shell, name the Mind pane explicitly:
+python3 scripts/fleet-loop.py --project <root> start 5m \
+  --target operator:node.1
+
+python3 scripts/fleet-loop.py --project <root> status
+python3 scripts/fleet-loop.py --project <root> stop
+```
+
+Use this only when the target pane is the live Mind/operator conversation for
+the fleet. The helper records `$ROOT/.vivi/fleet-loop.json` and refuses
+duplicates. Stopping the loop removes that state and kills only the recorded
+background process group. Optional controls: `--duration 2h`, `--max-cycles N`,
+`--immediate`, and custom `--payload` values that still start with
+`FLEET_CYCLE`.
+
+`fleet-loop.py` does not run sensors, close cycles, wake Hands, or rearm
+steward. It only creates the next Mind turn. The injected cycle must still
+follow the normal disposition gate and baseline bump rules.
+
 ## Supervisor loops
 
 Periodic Mind/scout only help while product moves, residuals open, or panes need liveness. Empty tasking + flat trees + healthy idle panes → quiet or back off. Do not “keep the campaign alive” with restated plateaus after Hand exited — restart Hand, select next map package, back off, or stop.
