@@ -7,7 +7,9 @@ Pane ops, wake/reinit, rehome, theme switch, completion mail.
 | **Vivi** | Board of record — what work exists and is done |
 | **tmux** | Process layer — alive, idle, or broken |
 
-**Process address** = fleet.json **`tmux_target`**. Legacy: session==role (`hand-1:1.1`). Multi-fleet: session=fleet_id, window=role (`mgs:hand-1.1`).
+**Process address** = fleet.json **`tmux_target`**. Prefer session-per-fleet
+for new fleets: session=fleet_id, window=role (`mgs:hand-1.1`). Legacy
+single-fleet targets are still supported: session==role (`hand-1:1.1`).
 
 | Concern | Prefer |
 | --- | --- |
@@ -57,10 +59,10 @@ Prefer `show` first; `thread` for multi-hop / residual / RTM. `--infer` = histor
 
 | Layout | Mail identity | tmux session | Typical `tmux_target` |
 | --- | --- | --- | --- |
-| **legacy** (single-fleet host) | role (`hand-1`) | role (`hand-1`) | `hand-1:1.1` |
-| **session-per-fleet** (multi-fleet host) | role (`hand-1`) | `fleet_id` | `mgs:hand-1.1` (window=role) |
+| **session-per-fleet** (recommended for new fleets) | role (`hand-1`) | `fleet_id` | `mgs:hand-1.1` (window=role) |
+| **legacy** (existing one-off fleets) | role (`hand-1`) | role (`hand-1`) | `hand-1:1.1` |
 
-| Mail | tmux (legacy) | Notes |
+| Mail | tmux binding | Notes |
 | --- | --- | --- |
 | `mind@…` | **none** | Operator TUI only — no mind tmux |
 | `hand-1@…` | `hand-1` or fleet session | Respect base-index; never invent target |
@@ -76,7 +78,7 @@ Map lives in **project fleet config**:
   "default_hand": "hand-1",
   "legacy_hand_identity": "codex",
   "fleet_id": "example",
-  "tmux_layout": "legacy",
+  "tmux_layout": "session_per_fleet",
   "mind_inbox": "mind",
   "mind_inbox_note": "Board-only To: mind. Process = operator TUI. No tmux for mind.",
   "head_report_inbox": "mind",
@@ -97,8 +99,9 @@ Map lives in **project fleet config**:
   "hands": {
     "hand-1": {
       "mail_identity": "hand-1",
-      "tmux_session": "hand-1",
-      "tmux_target": "hand-1:1.1",
+      "tmux_session": "example",
+      "tmux_window": "hand-1",
+      "tmux_target": "example:hand-1.1",
       "cwd": "/path/to/project",
       "agent": "grok",
       "merges_to_main": true,
@@ -106,10 +109,30 @@ Map lives in **project fleet config**:
       "min_seconds_between_wakes": 180
     }
   },
-  "head-ceo": { "mail_identity": "head-ceo", "tmux_session": "head-ceo", "agent": "pi" },
-  "head-cto": { "mail_identity": "head-cto", "tmux_session": "head-cto", "agent": "pi" },
-  "head-cxo": { "mail_identity": "head-cxo", "tmux_session": "head-cxo", "agent": "pi" },
-  "binding_rule": "legacy: mail_identity==tmux_session; session_per_fleet: mail_identity==role, session==fleet_id; always use tmux_target (Hands/Heads only; mind has no tmux)"
+  "heads": {
+    "head-ceo": {
+      "mail_identity": "head-ceo",
+      "tmux_session": "example",
+      "tmux_window": "head-ceo",
+      "tmux_target": "example:head-ceo.1",
+      "agent": "pi"
+    },
+    "head-cto": {
+      "mail_identity": "head-cto",
+      "tmux_session": "example",
+      "tmux_window": "head-cto",
+      "tmux_target": "example:head-cto.1",
+      "agent": "pi"
+    },
+    "head-cxo": {
+      "mail_identity": "head-cxo",
+      "tmux_session": "example",
+      "tmux_window": "head-cxo",
+      "tmux_target": "example:head-cxo.1",
+      "agent": "pi"
+    }
+  },
+  "binding_rule": "session_per_fleet: mail_identity==role, session==fleet_id, window==role; legacy: mail_identity==tmux_session; always use tmux_target (Hands/Heads only; mind has no tmux)"
 }
 ```
 
@@ -119,7 +142,7 @@ Fleet-specific durable law may live in overlay / project `Agents.md` — **overl
 vivi mailspace identity add mind --project <root>          # board only
 vivi mailspace identity add hand-1 --project <root>
 vivi mailspace identity add head-cto --project <root>
-tmux new-session -d -s hand-1 -c <cwd>                     # Hands/Heads only
+tmux new-session -d -s example -n hand-1 -c <cwd>          # Hands/Heads only
 # no tmux for mind
 ```
 
@@ -146,6 +169,10 @@ tmux new-session -d -s hand-1 -c <cwd>                     # Hands/Heads only
 Grok: placeholder (“Build anything”) while idle ≠ in-flight. Prefer `Waiting for response` as only hard `running` unless live spinner in **tail**.
 
 Codex: `•` monologue then `›` is often an **answer that stopped**. Back-to-back `HAND WAKE` lines without submit-settle are the failure mode.
+
+Classifiers must prefer current bottom-of-pane prompt evidence over stale
+scrollback failures. A live Codex `›` / `codex ›` prompt after an earlier error
+is `waiting_for_input`, not `failed`.
 
 **opencode:** pane classification keyed on opencode-specific markers (`OpenCode Zen`, `Build auto`, `Build ·`, `ctrl+p commands`). Bottom status bar determines state:
 - `waiting_for_input`: `Ask anything...` in last ~6 lines

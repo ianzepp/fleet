@@ -189,7 +189,9 @@ vivi mailspace identity list --project "$ROOT"
 
 **Required:** `$ROOT/.vivi/fleet.json` — roster and process binding.
 
-Minimal **single-fleet host** shape (`tmux_session` == role):
+Recommended new-fleet shape: **session-per-fleet**. The tmux session is the
+`fleet_id`, and each role gets a tmux window named after the role. This keeps
+new repo families, copied overlays, and multi-fleet hosts from colliding.
 
 ```json
 {
@@ -197,6 +199,7 @@ Minimal **single-fleet host** shape (`tmux_session` == role):
   "project": "/path/to/your/project",
   "mailspace": "your-project-name",
   "fleet_id": "myfleet",
+  "tmux_layout": "session_per_fleet",
   "mind_inbox": "mind",
   "operator_inbox": "operator",
   "default_hand": "hand-1",
@@ -206,8 +209,9 @@ Minimal **single-fleet host** shape (`tmux_session` == role):
   "hands": {
     "hand-1": {
       "mail_identity": "hand-1",
-      "tmux_session": "hand-1",
-      "tmux_target": "hand-1:1.1",
+      "tmux_session": "myfleet",
+      "tmux_window": "hand-1",
+      "tmux_target": "myfleet:hand-1.1",
       "cwd": "/path/to/your/project",
       "agent": "grok",
       "agent_launch": "grok --always-approve",
@@ -233,6 +237,10 @@ Minimal **single-fleet host** shape (`tmux_session` == role):
 
 Replace paths, `agent` / `agent_launch`, and `cwd`. Full schema / multi-fleet `tmux_layout`: [`runtime-config.md`](runtime-config.md), [`multi-fleet.md`](multi-fleet.md).
 
+Legacy single-fleet targets (`tmux_session == role`, for example
+`hand-1:1.1`) remain supported for existing one-off fleets. Do not choose that
+layout for a new fleet unless the operator explicitly wants the old shape.
+
 **Required (or created on first cycle):** `$ROOT/.vivi/mind-baseline.json`
 
 ```bash
@@ -244,14 +252,28 @@ Optional later: watch cursor (auto-created by sensors), steward files (when `ste
 ### 2.5 Start process panes
 
 ```bash
-# single-fleet: session name == role (must match fleet.json tmux_target)
-tmux new-session -d -s hand-1 -c "$ROOT"
-tmux send-keys -t hand-1:1.1 -l -- 'grok --always-approve'   # = agent_launch
-tmux send-keys -t hand-1:1.1 Enter
-# optional: tmux attach -t hand-1
+# session-per-fleet: session name == fleet_id; window name == role
+tmux new-session -d -s myfleet -n hand-1 -c "$ROOT"
+tmux send-keys -t myfleet:hand-1.1 -l -- 'grok --always-approve'   # = agent_launch
+tmux send-keys -t myfleet:hand-1.1 Enter
+# optional: tmux attach -t myfleet
 ```
 
 Heads and steward panes can wait until enabled.
+
+### 2.5a Cold clone / recovery note
+
+Fresh clones do not preserve the other machine's file mtimes. When recovering
+recent decisions or docs from a repo family, use git history before filesystem
+timestamps:
+
+```bash
+git log --since '24 hours ago' --name-only --format='%h %cI %s'
+git log --since '6 hours ago' --all -- <path-or-doc-dir>
+```
+
+If a discussed document is not in history or on a pushed branch, treat it as
+unrecovered rather than reconstructing it from memory.
 
 ### 2.6 Smoke the board
 

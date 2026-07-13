@@ -61,7 +61,14 @@ python3 scripts/fleet-baseline.py rearm-note -p <root>   # cycle clock only
 python3 scripts/fleet-baseline.py wound-up -p <root> -s 'wound_up' --dropped hand-1,hand-2
 ```
 
-`--project/-p` before or after subcommand. `bump` increments `last_cycle`, quiet/mode counters, stores fingerprint/runtime_states, merges `sensors.heads` → `head-*`.`last_report_*`, touches **`mind_loop.last_successful_cycle_at`** (dead-man cycle clock). It does **not** arm steward or stamp `steward.last_rearm_at` — that is `steward.sh arm|rearm` only (when steward is enabled+armed).
+`--project/-p` works before or after the subcommand. Keep regression coverage
+for both shapes; the command parser intentionally accepts global project scope
+on the parent parser and on each subcommand. `bump` increments `last_cycle`,
+quiet/mode counters, stores fingerprint/runtime_states, merges `sensors.heads`
+→ `head-*`.`last_report_*`, touches **`mind_loop.last_successful_cycle_at`**
+(dead-man cycle clock). It does **not** arm steward or stamp
+`steward.last_rearm_at` — that is `steward.sh arm|rearm` only (when steward is
+enabled+armed).
 
 ### `verify-fleet-json.py`
 
@@ -98,6 +105,10 @@ scripts/fleet-doorbell.sh --project <root> --fleet <fleet-id> --role hand-1 --ru
 ```
 
 Resolves the logical role through `fleet-resolve.py`; refuses running/down/rate-limit unless `--force`; records `last_hand_wake`.
+
+Prompt classification is current-state first. In particular, Codex panes must
+treat a live bottom prompt (`›` / `codex ›`) as ready even if older scrollback
+contains failed commands, connection messages, or test errors.
 
 ### `codex-reinit.sh` (fallback)
 
@@ -220,7 +231,7 @@ Always write fallbacks into baseline + fleet per-hand runtime fields.
 Exit (reinit): `0` ok · `1` hard · `2` **stuck_idle** · `3` bad args. Doctor: `0` healthy · `1` unhealthy · `2` trust/stuck/starving.  
 Exit 2 → one more reinit same cycle OK; still stuck next cycle → model ladder or snapshot + operator.
 
-**Classify traps:** do not treat tool `timeout N cmd` or `error: test failed` as `failed` with connection detail when the runtime is live and working. Prefer doctor evidence over raw greps.
+**Classify traps:** do not treat tool `timeout N cmd` or `error: test failed` as `failed` with connection detail when the runtime is live and working. Prefer current bottom prompt evidence and doctor evidence over raw greps of older scrollback.
 
 **Manual fallback:** kill agent children of pane only; leave tmux+shell; launch without `exec` via fleet `agent_launch`; short bootstrap; record `last_codex_reinit_at`.
 

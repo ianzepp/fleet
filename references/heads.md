@@ -17,6 +17,30 @@ Load persona only when assigning that Head for depth — not every FLEET_CYCLE.
 
 See `roles-and-harness.md`. Shared finding schema: [`heads/personas/shared-operating-rules.md`](heads/personas/shared-operating-rules.md).
 
+## Cold-boot recovery / exec warm-up
+
+Use this when a repo or laptop is freshly recovered and the executive context
+was on another machine. The goal is to warm Heads on pushed direction, not to
+re-decide the company from memory.
+
+1. Add local identities first: `head-ceo`, `head-cto`, `head-cso` when used,
+   and `head-cxo`.
+2. Build one assignment file per Head under `.vivi/head-assignments/` with:
+   persona path, shared operating rules, exact doc packet, and the instruction
+   to report **To: mind** only.
+3. Prefer session-per-fleet panes for new recovery fleets: tmux session =
+   `fleet_id`, window = Head identity (`<fleet>:head-ceo.1`).
+4. Launch each Head with the configured high-reasoning model/harness, then use
+   a doorbell or short pointer to the Vivi assignment handle. Do not paste long
+   briefing bodies into the TUI argv.
+5. Heads may summarize and identify gaps, but they must not edit files, file
+   Hand work, or invent unpublished documents. If a remembered concept is not
+   in pushed git history, report it as unrecovered.
+
+For cold clone evidence, search git history (`git log --since ... --name-only`)
+before relying on filesystem mtimes. Fresh clones make "recent file" searches
+misleading.
+
 ## Posture × Head duty (summary)
 
 | Mode | head-ceo (strategist) | head-cto | head-cxo |
