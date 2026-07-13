@@ -404,7 +404,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     rest, project_arg, baseline_arg, fleet_id_arg, fleet_file_arg = _extract_globals(raw)
 
     parent = argparse.ArgumentParser(add_help=False)
-    add_fleet_scope_arguments(parent)
+    add_fleet_scope_arguments(parent, required_project=False)
     parent.add_argument("--baseline", default=None, help="default: PROJECT/.vivi/mind-baseline.json")
 
     ap = argparse.ArgumentParser(

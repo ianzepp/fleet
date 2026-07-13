@@ -100,7 +100,7 @@ class RuntimeRebindPlanTests(unittest.TestCase):
         self._write_fleet({
             "fleet_id": "test",
             "mind": {"agent": "grok"},
-            "hands": {"hand-1": {"agent": "grok", "agent_model": "grok-4.5", "tmux_target": "hand-1:1.1"}},
+            "hands": {"hand-1": {"agent": "grok", "agent_model": "grok-4.5", "tmux_target": "test-hand-1:1.1"}},
         })
         rc, out, err = self._run("plan", "--hands", "all", "--model", "grok-4.6")
         self.assertEqual(rc, 0)
@@ -133,7 +133,7 @@ class RuntimeRebindPlanTests(unittest.TestCase):
     def test_plan_no_material_changes_shows_message(self):
         self._write_fleet({
             "fleet_id": "test",
-            "hands": {"hand-1": {"agent": "grok", "agent_model": "grok-4.5", "agent_launch": "grok --model grok-4.5 --always-approve", "tmux_target": "hand-1:1.1"}},
+            "hands": {"hand-1": {"agent": "grok", "agent_model": "grok-4.5", "agent_launch": "grok --model grok-4.5 --always-approve", "tmux_target": "test-hand-1:1.1"}},
         })
         # No model field changes — even agent_launch stays the same
         rc, out, err = self._run("plan", "--hands", "all")
@@ -147,7 +147,7 @@ class RuntimeRebindPlanTests(unittest.TestCase):
         # We set up a fake fleet with a known identity.
         self._write_fleet({
             "fleet_id": "test",
-            "hands": {"hand-1": {"agent": "grok", "agent_model": "grok-4.5", "tmux_target": "hand-1:1.1"}},
+            "hands": {"hand-1": {"agent": "grok", "agent_model": "grok-4.5", "tmux_target": "test-hand-1:1.1"}},
         })
         # Without real tmux, state is stopped → no warning
         rc, out, err = self._run("plan", "--hands", "all", "--model", "grok-4.6")
@@ -156,7 +156,7 @@ class RuntimeRebindPlanTests(unittest.TestCase):
     def test_plan_is_never_mutating(self):
         self._write_fleet({
             "fleet_id": "test",
-            "hands": {"hand-1": {"agent": "grok", "agent_model": "grok-4.5", "tmux_target": "hand-1:1.1"}},
+            "hands": {"hand-1": {"agent": "grok", "agent_model": "grok-4.5", "tmux_target": "test-hand-1:1.1"}},
         })
         fleet_path = self.root / ".vivi" / "fleet.json"
         original = fleet_path.read_text()
@@ -204,7 +204,7 @@ class RuntimeRebindApplyTests(unittest.TestCase):
             "agent": "grok",
             "agent_model": "grok-4.5",
             "mail_identity": "hand-1",
-            "tmux_target": "hand-1:1.1",
+            "tmux_target": "test-hand-1:1.1",
             "cwd": str(self.root),
         }
         if extra_hand:

@@ -174,6 +174,7 @@ classify() {
   for class in \
     'running|Working \(|esc to interrupt|Waiting for response|Responding' \
     'approval_required|Yes, continue|Do you trust|trust this workspace|Always allow|Allow always|Allow once|until OpenCode is restarted' \
+    'waiting_for_input|›|codex ›' \
     'failed|over capacity|rate limit|usage limit'
   do
     if printf '%s\n' "$t" | grep -Eiq "${class#*|}"; then

@@ -142,6 +142,23 @@ class FleetResolverTests(unittest.TestCase):
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertEqual(result.stdout.strip(), "hand-1")
 
+    def test_baseline_cli_accepts_scope_before_and_after_subcommand(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self.write_fleet(root, {"fleet_id": "example", "hands": {}})
+            for args in (
+                ["--project", str(root), "get"],
+                ["get", "--project", str(root)],
+                ["bump", "--project", str(root), "--summary", "sleep", "--quiet"],
+            ):
+                result = subprocess.run(
+                    [sys.executable, str(SCRIPTS / "fleet-baseline.py"), *args],
+                    capture_output=True,
+                    text=True,
+                    check=False,
+                )
+                self.assertEqual(result.returncode, 0, result.stderr)
+
 
 if __name__ == "__main__":
     unittest.main()
