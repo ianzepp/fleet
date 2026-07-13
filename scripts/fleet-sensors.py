@@ -25,8 +25,16 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from fleet_common import load_json as _load_json  # noqa: E402
-from fleet_common import now_iso, require_python, run_cmd, which  # noqa: E402
+from fleet_common import (  # noqa: E402
+    FleetScopeError,
+    add_fleet_scope_arguments,
+    load_json as _load_json,
+    now_iso,
+    require_python,
+    resolve_fleet_file,
+    run_cmd,
+    which,
+)
 
 require_python()
 
@@ -1030,8 +1038,7 @@ def format_text_summary(out: dict, fp: dict, git_main: dict) -> str:
 
 def main() -> int:
     ap = argparse.ArgumentParser(description="Fleet cheap sensors snapshot (Python 3.9+; macOS/Linux)")
-    ap.add_argument("--project", "-p", required=True, help="Fleet project root")
-    ap.add_argument("--fleet", "-f", default=None, help="Path to fleet.json (default: PROJECT/.vivi/fleet.json)")
+    add_fleet_scope_arguments(ap, include_role=True)
     ap.add_argument("--json", action="store_true", default=True, help="JSON output (default)")
     ap.add_argument("--text", action="store_true", help="Human text summary instead of JSON")
     ap.add_argument("--no-watch", action="store_true", help="Skip mailspace watch --once")
@@ -1040,9 +1047,11 @@ def main() -> int:
     ap.add_argument("--record-cycle", action="store_true", help="Record this canonical Mind-cycle observation when sensor_log is enabled")
     ap.add_argument("--cycle-id", default=None, help="Cycle identifier (default: next baseline cycle)")
     ap.add_argument("--history", type=int, metavar="N", help="Read the last N recorded cycles without collecting sensors")
-    ap.add_argument("--role", default=None, help="With --history, reduce role-bearing fields to this Head/Hand")
     args = ap.parse_args()
-    if args.role and args.history is None:
+    selected_role = args.role[0] if args.role else None
+    if args.role and len(args.role) != 1:
+        ap.error("--role may be specified once for --history")
+    if selected_role and args.history is None:
         ap.error("--role requires --history")
     if args.cycle_id is not None and not args.record_cycle:
         ap.error("--cycle-id requires --record-cycle")
@@ -1056,8 +1065,11 @@ def main() -> int:
         print(json.dumps({"error": "project not a directory: %s" % project}), file=sys.stderr)
         return 1
 
-    fleet_path = Path(args.fleet).expanduser().resolve() if args.fleet else project / ".vivi" / "fleet.json"
-    fleet = load_json(fleet_path)
+    try:
+        fleet_path, fleet = resolve_fleet_file(project, args.fleet, args.fleet_file)
+    except FleetScopeError as exc:
+        print(json.dumps({"error": str(exc)}), file=sys.stderr)
+        return 1
     baseline_path = project / ".vivi" / "mind-baseline.json"
     baseline = load_json(baseline_path)
     log_config = sensor_log_config(fleet, project)
@@ -1065,7 +1077,7 @@ def main() -> int:
         if args.history < 0:
             ap.error("--history must be non-negative")
         selected = read_history(log_config["path"], args.history, None)
-        if args.role:
+        if selected_role:
             known_roles = set()
             role_aliases = {}
             for name, block in (fleet.get("hands") or fleet.get("hunters") or {}).items():
@@ -1096,9 +1108,9 @@ def main() -> int:
                         for name in value:
                             known_roles.add(str(name))
                             role_aliases.setdefault(str(name), str(name))
-            if args.role not in known_roles:
-                ap.error("unknown --role %r (known roles: %s)" % (args.role, ", ".join(sorted(known_roles)) or "none"))
-            selected = read_history(log_config["path"], args.history, role_aliases[args.role])
+            if selected_role not in known_roles:
+                ap.error("unknown --role %r (known roles: %s)" % (selected_role, ", ".join(sorted(known_roles)) or "none"))
+            selected = read_history(log_config["path"], args.history, role_aliases[selected_role])
         print(json.dumps({"schema_version": 1, "history": selected}, indent=2, ensure_ascii=False))
         return 0
     # previous fingerprint — quiet-sleep only (not head report bookkeeping)

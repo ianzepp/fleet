@@ -165,7 +165,7 @@ Same-host fleets both get `hand-1` **windows** without collision (`mgs:hand-1` v
 
 #### Why session-per-fleet (not prefixed flat)
 
-| | Prefixed (`mgs-hand-1`) | Session=fleet, window=role |
+| | Prefixed (`fleet-role`) | Session=fleet, window=role |
 | --- | --- | --- |
 | Collision-free | Yes | Yes |
 | Attach / kill whole fleet | Many sessions / N kills | `attach -t mgs` / `kill-session -t mgs` |

@@ -26,7 +26,7 @@ Do **not** hardcode only `/opt/homebrew/...`. Prefer `fleet_find_*` from `lib/en
 python3 scripts/fleet-sensors.py --project <root>            # JSON (default)
 python3 scripts/fleet-sensors.py --project <root> --text
 python3 scripts/fleet-sensors.py --project <root> --no-watch # skip mailspace watch
-python3 scripts/fleet-sensors.py -p <root> --fleet <path/to/fleet.json>
+python3 scripts/fleet-sensors.py -p <root> --fleet <fleet-id> --fleet-file <path/to/fleet.json>
 python3 scripts/fleet-sensors.py -p <root> --tail 12 --cursor-file <path>
 python3 scripts/fleet-sensors.py -p <root> --record-cycle [--cycle-id <id>]
 python3 scripts/fleet-sensors.py -p <root> --history 10 [--role hand-1]
@@ -67,7 +67,7 @@ python3 scripts/fleet-baseline.py wound-up -p <root> -s 'wound_up' --dropped han
 
 ```bash
 python3 scripts/verify-fleet-json.py --project <root>                  # text summary
-python3 scripts/verify-fleet-json.py --fleet /path/to/fleet.json --json
+python3 scripts/verify-fleet-json.py --fleet-file /path/to/fleet.json --json
 python3 scripts/verify-fleet-json.py --project <root> --strict         # warnings as errors
 python3 scripts/verify-fleet-json.py --project <root> --no-path-checks # skip on-disk refs
 ```
@@ -92,25 +92,25 @@ Updates only `fleet.json.fleet_posture`, preserves unspecified posture fields, s
 ### `fleet-doorbell.sh`
 
 ```bash
-scripts/fleet-doorbell.sh --project <root> hand-1 [--handle HEX] [--note '…'] [--force]
-scripts/fleet-doorbell.sh --project <root> hand-1 --target <session:win.pane> --message '…'
+scripts/fleet-doorbell.sh --project <root> --fleet <fleet-id> --role hand-1 [--handle HEX] [--note '…'] [--force]
+scripts/fleet-doorbell.sh --project <root> --fleet <fleet-id> --role hand-1 --runtime-target <session:win.pane> --message '…'
 # optional env: FLEET_DOORBELL_SUBMIT_DELAY_SEC (Codex submit-settle)
 ```
 
-Resolves fleet.json `tmux_target` (or `--target`); refuses running/down/rate-limit unless `--force`; records `last_hand_wake`.
+Resolves the logical role through `fleet-resolve.py`; refuses running/down/rate-limit unless `--force`; records `last_hand_wake`.
 
 ### `codex-reinit.sh` (fallback)
 
 ```bash
-PROJECT=/path/to/fleet FLEET=/path/to/fleet.json scripts/codex-reinit.sh doctor
-scripts/codex-reinit.sh heal hand-3
-scripts/codex-reinit.sh reinit hand-1 --boot 'HAND WAKE …'
-scripts/codex-reinit.sh classify hand-2
+scripts/codex-reinit.sh doctor --project /path/to/fleet --fleet <fleet-id>
+scripts/codex-reinit.sh heal --project /path/to/fleet --fleet <fleet-id> --role hand-3
+scripts/codex-reinit.sh reinit --project /path/to/fleet --fleet <fleet-id> --role hand-1 --boot 'HAND WAKE …'
+scripts/codex-reinit.sh classify --project /path/to/fleet --fleet <fleet-id> --role hand-2
 ```
 
 | Rule | Detail |
 | --- | --- |
-| Defaults | `PROJECT` from cwd or parent of `FLEET`; `FLEET`=`$PROJECT/.vivi/fleet.json` |
+| Defaults | `PROJECT` from cwd; `FLEET_FILE`=`$PROJECT/.vivi/fleet.json`; `--fleet` selects the logical ID |
 | Launch | Prefer Hand **`agent_launch`** (after `cd` to fleet cwd). If empty: `codex -m <agent_model> -c model_reasoning_effort=xhigh` (`CODEX_EFFORT` / `--model` overrides). Never `exec codex` |
 | Exit | reinit `0/1/2 stuck_idle/3`; doctor `0/1/2` (script header) |
 | Symlink | Fleets may wrap via `.vivi/codex-reinit.sh` |

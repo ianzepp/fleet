@@ -13,9 +13,13 @@ _FLEET_SCRIPT_DIR="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
 fleet_bootstrap_env
 
 PROJECT=""
+FLEET_ID=""
+FLEET_FILE=""
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --project|-p) PROJECT="$2"; shift 2 ;;
+    --fleet|-f) FLEET_ID="$2"; shift 2 ;;
+    --fleet-file) FLEET_FILE="$2"; shift 2 ;;
     -h|--help)
       fleet_usage_from_header "$0" 2 10
       exit 0
@@ -53,7 +57,7 @@ fi
 pass "date iso: $(fleet_date_iso) epoch: $(fleet_date_epoch)"
 
 # Python modules compile
-for py in fleet_common.py fleet-sensors.py fleet-baseline.py fleet-posture.py verify-fleet-json.py suggest-polish-files.py; do
+for py in fleet_common.py fleet-resolve.py fleet-sensors.py fleet-baseline.py fleet-posture.py verify-fleet-json.py suggest-polish-files.py test_fleet_common.py; do
   if "$PYTHON_BIN" -m py_compile "$_FLEET_SCRIPT_DIR/$py"; then
     pass "py_compile $py"
   else
@@ -62,7 +66,7 @@ for py in fleet_common.py fleet-sensors.py fleet-baseline.py fleet-posture.py ve
 done
 
 # Bash syntax
-for sh in fleet-doorbell.sh steward.sh codex-reinit.sh opencode-hand-ctl.sh smoke-portability.sh lib/env.sh; do
+for sh in fleet-doorbell.sh steward.sh codex-reinit.sh opencode-hand-ctl.sh vivi-pty-reinit.sh smoke-portability.sh lib/env.sh; do
   if bash -n "$_FLEET_SCRIPT_DIR/$sh"; then
     pass "bash -n $sh"
   else
@@ -97,8 +101,12 @@ if [[ -n "$PROJECT" ]]; then
   if ! PROJECT="$(fleet_abs_project "$PROJECT")"; then
     hard "bad --project: $PROJECT"
   fi
-  if [[ -f "$PROJECT/.vivi/fleet.json" ]]; then
-    if "$PYTHON_BIN" "$_FLEET_SCRIPT_DIR/fleet-sensors.py" --project "$PROJECT" --no-watch --text >/tmp/fleet-smoke-sensors.txt; then
+  fleet_path="${FLEET_FILE:-$PROJECT/.vivi/fleet.json}"
+  if [[ -f "$fleet_path" ]]; then
+    scope=(--project "$PROJECT")
+    [[ -n "$FLEET_ID" ]] && scope+=(--fleet "$FLEET_ID")
+    [[ -n "$FLEET_FILE" ]] && scope+=(--fleet-file "$FLEET_FILE")
+    if "$PYTHON_BIN" "$_FLEET_SCRIPT_DIR/fleet-sensors.py" "${scope[@]}" --no-watch --text >/tmp/fleet-smoke-sensors.txt; then
       pass "fleet-sensors --text on $PROJECT"
     else
       # exit 2 partial still useful
@@ -109,14 +117,14 @@ if [[ -n "$PROJECT" ]]; then
         fail "fleet-sensors failed rc=$rc"
       fi
     fi
-    if "$PYTHON_BIN" "$_FLEET_SCRIPT_DIR/fleet-baseline.py" get -p "$PROJECT" >/dev/null; then
+    if "$PYTHON_BIN" "$_FLEET_SCRIPT_DIR/fleet-baseline.py" get "${scope[@]}" >/dev/null; then
       pass "fleet-baseline get"
     else
       fail "fleet-baseline get failed"
     fi
     # doorbell may refuse down panes — exit 1 is expected
     set +e
-    "$_FLEET_SCRIPT_DIR/fleet-doorbell.sh" --project "$PROJECT" hand-1 --note smoke >/tmp/fleet-smoke-door.txt 2>/tmp/fleet-smoke-door.err
+    "$_FLEET_SCRIPT_DIR/fleet-doorbell.sh" "${scope[@]}" --role hand-1 --note smoke >/tmp/fleet-smoke-door.txt 2>/tmp/fleet-smoke-door.err
     drc=$?
     set -e
     if [[ $drc -eq 0 || $drc -eq 1 ]]; then

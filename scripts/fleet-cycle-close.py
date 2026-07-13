@@ -41,10 +41,13 @@ from typing import Any, Dict, List, Optional
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from fleet_common import (  # noqa: E402
+    FleetScopeError,
+    add_fleet_scope_arguments,
     ensure_dict,
     load_json,
     now_iso as _now_iso,
     require_python,
+    resolve_fleet_file,
     run_cmd,
 )
 
@@ -61,11 +64,11 @@ def _find_scripts_dir() -> Path:
 
 def cmd_close(args: argparse.Namespace, project: Path) -> int:
     scripts = _find_scripts_dir()
-    fleet_path = args.fleet
-    if fleet_path:
-        fleet_path_obj = Path(fleet_path).expanduser().resolve()
-    else:
-        fleet_path_obj = project / ".vivi" / "fleet.json"
+    try:
+        fleet_path_obj, _ = resolve_fleet_file(project, args.fleet, args.fleet_file)
+    except FleetScopeError as exc:
+        print("error: %s" % exc, file=sys.stderr)
+        return 1
 
     baseline_path = args.baseline
     if baseline_path:
@@ -83,6 +86,10 @@ def cmd_close(args: argparse.Namespace, project: Path) -> int:
         str(scripts / "fleet-sensors.py"),
         "--project", str(project),
     ]
+    if args.fleet:
+        sensors_cmd.extend(["--fleet", args.fleet])
+    if args.fleet_file:
+        sensors_cmd.extend(["--fleet-file", args.fleet_file])
     if args.no_watch:
         sensors_cmd.append("--no-watch")
     if args.sensors_text:
@@ -134,6 +141,10 @@ def cmd_close(args: argparse.Namespace, project: Path) -> int:
             "-p", str(project),
             "-s", summary,
         ]
+        if args.fleet:
+            bump_cmd += ["--fleet", args.fleet]
+        if args.fleet_file:
+            bump_cmd += ["--fleet-file", args.fleet_file]
         if args.acted:
             bump_cmd.append("--acted")
         if args.quiet:
@@ -288,8 +299,7 @@ def parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
         description="Close a Mind cycle: sensors → baseline → optional steward rearm.",
     )
-    p.add_argument("--project", "-p", required=True, help="fleet project root")
-    p.add_argument("--fleet", help="fleet.json path (default: PROJECT/.vivi/fleet.json)")
+    add_fleet_scope_arguments(p)
     p.add_argument("--baseline", help="mind-baseline.json path (default: PROJECT/.vivi/mind-baseline.json)")
 
     act_group = p.add_mutually_exclusive_group(required=True)

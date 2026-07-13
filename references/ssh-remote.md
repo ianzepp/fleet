@@ -88,8 +88,8 @@ Same pointer-only rules as local dual-channel.
 ### Remote reinit fallback (Codex)
 
 ```bash
-$SSH 'export PATH=…; PROJECT=/path/on/remote FLEET=/path/to/fleet.json \
-  /path/to/codex-reinit.sh heal hand-N'
+$SSH 'export PATH=…; /path/to/codex-reinit.sh heal --project /path/on/remote \
+  --fleet-file /path/to/fleet.json --role hand-N'
 ```
 
 For normal remote Codex wakes, use the same pointer doorbell with submit-settle on the Hand host. Copy/symlink `scripts/codex-reinit.sh` onto remote only for fallback recovery; laptop path may not exist there.

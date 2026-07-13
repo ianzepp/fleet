@@ -48,10 +48,13 @@ from typing import Any, Dict, List, Optional, Sequence, Set, Tuple, Union
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from fleet_common import (  # noqa: E402
+    FleetScopeError,
     ensure_dict,
     load_json,
     now_iso as _now_iso,
     require_python,
+    resolve_fleet_file,
+    resolve_runtime_binding,
     run_cmd,
     save_json,
 )
@@ -81,7 +84,7 @@ def now_iso() -> str:
 
 def _build_launch(agent: str, agent_model: Optional[str], provider: Optional[str],
                   thinking: Optional[str], reasoning: Optional[str],
-                  name_hint: str = "", approve: bool = True) -> Optional[str]:
+                  approve: bool = True) -> Optional[str]:
     """Build a canonical agent_launch argv string for the given harness.
 
     Returns a single-quoted shell command string, or None if the harness is
@@ -202,7 +205,12 @@ def _resolve_slots(fleet: dict, head_selector: Optional[str],
     return selected
 
 
-def _load_runtime_state(project: Path, identity: str, slot: dict) -> Optional[dict]:
+def _binding_for_slot(project: Path, identity: str, slot: dict, fleet: Optional[dict] = None) -> dict:
+    source = fleet if isinstance(fleet, dict) else {"hands": {identity: slot}}
+    return resolve_runtime_binding(source, identity, project=project)
+
+
+def _load_runtime_state(project: Path, identity: str, slot: dict, fleet: Optional[dict] = None) -> Optional[dict]:
     """Snapshot runtime state for one role before mutation.
 
     Returns None if the role has no known runtime backend.
@@ -211,11 +219,11 @@ def _load_runtime_state(project: Path, identity: str, slot: dict) -> Optional[di
     kind = runtime.get("kind") or "tmux"
     if kind == "vivi_pty":
         return _snapshot_vivi_pty(project, identity, slot)
-    return _snapshot_tmux(project, identity, slot)
+    return _snapshot_tmux(project, identity, slot, fleet)
 
 
-def _snapshot_tmux(project: Path, identity: str, slot: dict) -> Optional[dict]:
-    target = slot.get("tmux_target") or ("%s:1.1" % slot.get("tmux_session", identity))
+def _snapshot_tmux(project: Path, identity: str, slot: dict, fleet: Optional[dict] = None) -> Optional[dict]:
+    target = _binding_for_slot(project, identity, slot, fleet)["target"]
     session = target.split(":")[0]
     tmux = shutil.which("tmux") or "tmux"
     rc, _ = run_cmd([tmux, "has-session", "-t", session], timeout=5)
@@ -301,13 +309,14 @@ def _stop_vivi_pty(session_id: str, socket: str) -> Tuple[bool, str]:
 
 
 def _start_tmux(slot: dict, identity: str, cwd: Optional[str],
-                restart: bool = False) -> Tuple[bool, str]:
+                restart: bool = False, fleet: Optional[dict] = None,
+                project: Optional[Path] = None) -> Tuple[bool, str]:
     """Start a tmux session for a role. Returns (ok, message).
 
     When restart=True and the session already exists, launch the new process
     inside the existing pane via send-keys so the window/topology is preserved.
     """
-    target = slot.get("tmux_target") or ("%s:1.1" % slot.get("tmux_session", identity))
+    target = _binding_for_slot(project or Path(cwd or "."), identity, slot, fleet)["target"]
     session = target.split(":")[0]
     launch = (slot.get("agent_launch") or "").strip()
     tmux = shutil.which("tmux") or "tmux"
@@ -359,13 +368,13 @@ def _start_vivi_pty(slot: dict, identity: str, cwd: Optional[str],
 
 
 def _check_readiness(slot: dict, identity: str, project: Path,
-                     timeout_sec: float = 10.0) -> Tuple[bool, str]:
+                     timeout_sec: float = 10.0, fleet: Optional[dict] = None) -> Tuple[bool, str]:
     """Poll until the runtime is ready (running/waiting_for_input/completed) or timeout."""
     runtime = slot.get("runtime") if isinstance(slot.get("runtime"), dict) else {}
     kind = runtime.get("kind") or "tmux"
     deadline = time.time() + timeout_sec
     while time.time() < deadline:
-        state = _load_runtime_state(project, identity, slot)
+        state = _load_runtime_state(project, identity, slot, fleet)
         if state is None:
             return False, "unable to read runtime state"
         current = state.get("state", "unknown")
@@ -385,7 +394,7 @@ def _validate_candidate(candidate: Path, script_dir: Path) -> None:
         sys.stderr.write("warning: verify-fleet-json.py not found, skipping strict validation\n")
         return
     result = subprocess.run(
-        [sys.executable, str(verifier), "--fleet", str(candidate), "--strict"],
+        [sys.executable, str(verifier), "--fleet-file", str(candidate), "--strict"],
         text=True,
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
@@ -463,7 +472,7 @@ def _build_change_plan(
         runtime_kind = runtime.get("kind") or "tmux"
 
         # Capture current state
-        current_state = _load_runtime_state(project, identity, entry)
+        current_state = _load_runtime_state(project, identity, entry, fleet)
         current_class = (current_state or {}).get("state", "unknown")
 
         # Check running guard
@@ -507,8 +516,7 @@ def _build_change_plan(
         new_effort = thinking or reasoning
 
         # Generate canonical launch
-        launch = _build_launch(new_agent, new_model, new_provider, thinking, reasoning,
-                               name_hint=identity)
+        launch = _build_launch(new_agent, new_model, new_provider, thinking, reasoning)
         if launch is not None:
             after["agent_launch"] = launch
         elif entry.get("agent_launch"):
@@ -673,7 +681,7 @@ def cmd_apply(args: argparse.Namespace, project: Path, fleet_path: Path) -> int:
                 if not ok:
                     print("  WARNING: failed to stop %s: %s" % (identity, msg), file=sys.stderr)
             else:
-                target = entry.get("tmux_target") or ("%s:1.1" % entry.get("tmux_session", identity))
+                target = resolve_runtime_binding(updated, identity, project=project)["target"]
                 session = target.split(":")[0]
                 ok, msg = _stop_tmux(target, session)
                 if not ok:
@@ -687,7 +695,7 @@ def cmd_apply(args: argparse.Namespace, project: Path, fleet_path: Path) -> int:
             if c["runtime_kind"] == "vivi_pty":
                 ok, msg = _start_vivi_pty(entry, identity, cwd_val, project)
             else:
-                ok, msg = _start_tmux(entry, identity, cwd_val, restart=True)
+                ok, msg = _start_tmux(entry, identity, cwd_val, restart=True, fleet=updated, project=project)
             if not ok:
                 print("  ERROR: failed to start %s: %s" % (identity, msg), file=sys.stderr)
                 rollback_needed = True
@@ -696,7 +704,7 @@ def cmd_apply(args: argparse.Namespace, project: Path, fleet_path: Path) -> int:
             print("  started %s" % identity)
 
             # Readiness check
-            ready, state = _check_readiness(entry, identity, project, timeout_sec=30.0)
+            ready, state = _check_readiness(entry, identity, project, timeout_sec=30.0, fleet=updated)
             if ready:
                 print("  %s ready (state=%s)" % (identity, state))
             else:
@@ -724,10 +732,11 @@ def cmd_apply(args: argparse.Namespace, project: Path, fleet_path: Path) -> int:
     return 0
 
 
-def _extract_globals(argv: List[str]) -> Tuple[List[str], Optional[str], Optional[str]]:
-    """Allow --project / -p and --fleet before OR after the subcommand."""
+def _extract_globals(argv: List[str]) -> Tuple[List[str], Optional[str], Optional[str], Optional[str]]:
+    """Allow project, logical fleet, and fleet-file before/after the subcommand."""
     project = None  # type: Optional[str]
-    fleet = None  # type: Optional[str]
+    fleet_id = None  # type: Optional[str]
+    fleet_file = None  # type: Optional[str]
     out: List[str] = []
     i = 0
     while i < len(argv):
@@ -744,17 +753,25 @@ def _extract_globals(argv: List[str]) -> Tuple[List[str], Optional[str], Optiona
             project = a[3:]
             i += 1
             continue
-        if a == "--fleet" and i + 1 < len(argv):
-            fleet = argv[i + 1]
+        if a in ("--fleet", "-f") and i + 1 < len(argv):
+            fleet_id = argv[i + 1]
             i += 2
             continue
         if a.startswith("--fleet="):
-            fleet = a.split("=", 1)[1]
+            fleet_id = a.split("=", 1)[1]
+            i += 1
+            continue
+        if a == "--fleet-file" and i + 1 < len(argv):
+            fleet_file = argv[i + 1]
+            i += 2
+            continue
+        if a.startswith("--fleet-file="):
+            fleet_file = a.split("=", 1)[1]
             i += 1
             continue
         out.append(a)
         i += 1
-    return out, project, fleet
+    return out, project, fleet_id, fleet_file
 
 
 def parser() -> argparse.ArgumentParser:
@@ -797,7 +814,7 @@ def parser() -> argparse.ArgumentParser:
 
 def main(argv: Optional[List[str]] = None) -> int:
     raw = list(sys.argv[1:] if argv is None else argv)
-    rest, project_arg, fleet_arg = _extract_globals(raw)
+    rest, project_arg, fleet_id_arg, fleet_file_arg = _extract_globals(raw)
     args = parser().parse_args(rest)
     project_s = project_arg
     if not project_s:
@@ -807,7 +824,11 @@ def main(argv: Optional[List[str]] = None) -> int:
     if not project.is_dir():
         print("error: project is not a directory: %s" % project, file=sys.stderr)
         return 1
-    fleet_path = Path(fleet_arg).expanduser().resolve() if fleet_arg else project / ".vivi" / "fleet.json"
+    try:
+        fleet_path, _ = resolve_fleet_file(project, fleet_id_arg, fleet_file_arg)
+    except FleetScopeError as exc:
+        print("error: %s" % exc, file=sys.stderr)
+        return 1
 
     if args.command == "plan":
         return cmd_plan(args, project, fleet_path)

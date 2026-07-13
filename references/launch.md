@@ -168,10 +168,10 @@ Use the doorbell helper so backend selection, state refusal, throttling, and wak
 records stay canonical:
 
 ```bash
-"$SK/fleet-doorbell.sh" --project "$ROOT" hand-3 --handle <hex>
+"$SK/fleet-doorbell.sh" --project "$ROOT" --role hand-3 --handle <hex>
 
 # Assigned lane with durable campaign truth but no single handle:
-"$SK/fleet-doorbell.sh" --project "$ROOT" hand-3 \
+"$SK/fleet-doorbell.sh" --project "$ROOT" --role hand-3 \
   --note 'HAND WAKE hand-3. Read your configured lane, Vivi bag, and campaign; continue the highest-priority honest unblocked unit.'
 ```
 

@@ -360,11 +360,11 @@ If **operator→mind** mail or open/unread **To operator@** → present/absorb *
 - `down` / `error_*` → recreate pane or runtime ladder — do not assume init case 2.
 
 ```bash
-"$SK/fleet-doorbell.sh" --project "$ROOT" hand-1 --handle <hex>
+"$SK/fleet-doorbell.sh" --project "$ROOT" --role hand-1 --handle <hex>
 
 # Codex recovery only if the doorbell sticks:
-# "$SK/codex-reinit.sh" doctor hand-1
-# PROJECT="$ROOT" FLEET="$ROOT/.vivi/fleet.json" "$SK/codex-reinit.sh" reinit hand-1 --boot 'HAND WAKE …'
+# "$SK/codex-reinit.sh" doctor --project "$ROOT" --role hand-1
+# "$SK/codex-reinit.sh" reinit --project "$ROOT" --role hand-1 --boot 'HAND WAKE …'
 ```
 
 ### 3.6 Steward is OFF by default (operator opt-in)

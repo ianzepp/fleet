@@ -223,7 +223,7 @@ python3 $SK/fleet-sensors.py --project "$ROOT" --record-cycle --cycle-id <non-ne
 python3 $SK/fleet-sensors.py --project "$ROOT" --history 10 [--role hand-1]
 
 # Doorbell for Grok/Pi/Codex; Codex helper path uses submit-settle
-$SK/fleet-doorbell.sh --project "$ROOT" hand-1 --handle <hex> --note 'bag open'
+$SK/fleet-doorbell.sh --project "$ROOT" --role hand-1 --handle <hex> --note 'bag open'
 # exit 0 sent · 1 refused (running|down|rate-limit) · 2 usage
 
 python3 $SK/fleet-sensors.py --project "$ROOT" --record-cycle --cycle-id <non-negative-integer> > /tmp/fleet-sensors.json

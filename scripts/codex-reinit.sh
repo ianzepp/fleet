@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Generic Codex reinit for fleet hand-N (fleet-agnostic).
-# Set PROJECT and FLEET (or run from a fleet with fleet JSON).
-# Resolves tmux_target from fleet.json (legacy hand-1:1.1 or mgs:hand-1.1).
+# Set PROJECT and FLEET_FILE (or run from a fleet with fleet JSON).
+# Resolves the logical role through fleet-resolve.py.
 #
 # Invariants:
 #   - pane_pid MUST remain a shell (zsh/bash); codex is always a child
@@ -12,17 +12,17 @@
 #   - after bootstrap, require Working (or exit STUCK_IDLE)
 #
 # Usage:
-#   .vivi/codex-reinit.sh status   hand-1
-#   .vivi/codex-reinit.sh classify hand-1
+#   .vivi/codex-reinit.sh status   --role hand-1
+#   .vivi/codex-reinit.sh classify --role hand-1
 #   .vivi/codex-reinit.sh doctor            # fleet health + bag join (no kill)
-#   .vivi/codex-reinit.sh doctor   hand-2 # one slot, verbose evidence
-#   .vivi/codex-reinit.sh probe    hand-1 # same as doctor one-slot
-#   .vivi/codex-reinit.sh snapshot [hand-N] # forensic dump under /tmp/codex-debug-*
+#   .vivi/codex-reinit.sh doctor   --role hand-2 # one slot, verbose evidence
+#   .vivi/codex-reinit.sh probe    --role hand-1 # same as doctor one-slot
+#   .vivi/codex-reinit.sh snapshot [--role hand-N] # forensic dump under /tmp/codex-debug-*
 #   .vivi/codex-reinit.sh heal              # reinit idle/error + open bag (leave running)
-#   .vivi/codex-reinit.sh heal     hand-3 # one slot only
-#   .vivi/codex-reinit.sh reinit   hand-1 --boot 'short pointer…'
-#   .vivi/codex-reinit.sh reinit   hand-2 --boot-file /tmp/boot.txt
-#   .vivi/codex-reinit.sh reinit   hand-3 --no-boot
+#   .vivi/codex-reinit.sh heal     --role hand-3 # one slot only
+#   .vivi/codex-reinit.sh reinit   --role hand-1 --boot 'short pointer…'
+#   .vivi/codex-reinit.sh reinit   --role hand-2 --boot-file /tmp/boot.txt
+#   .vivi/codex-reinit.sh reinit   --role hand-3 --no-boot
 #   .vivi/codex-reinit.sh reinit-all --boot-template 'HAND WAKE {name}. vivi --for {name}. Implement open bag now.'
 #
 # Env overrides: PROJECT, CODEX_BIN, TMUX_BIN, VIVI_BIN, PYTHON_BIN, MODEL,
@@ -43,13 +43,15 @@ fleet_bootstrap_env
 
 PROJECT="${PROJECT:-}"
 if [[ -z "$PROJECT" ]]; then
-  if [[ -n "${FLEET:-}" && -f "$FLEET" ]]; then
-    PROJECT="$(CDPATH= cd -- "$(dirname "$FLEET")/.." && pwd)"
+  if [[ -n "${FLEET_FILE:-}" && -f "$FLEET_FILE" ]]; then
+    PROJECT="$(CDPATH= cd -- "$(dirname "$FLEET_FILE")/.." && pwd)"
   else
     PROJECT="$(pwd)"
   fi
 fi
-FLEET="${FLEET:-$PROJECT/.vivi/fleet.json}"
+FLEET_ID="${FLEET_ID:-}"
+FLEET_FILE="${FLEET_FILE:-}"
+RUNTIME_TARGET="${RUNTIME_TARGET:-}"
 TMUX_BIN="$(fleet_find_tmux 2>/dev/null || true)"; TMUX_BIN="${TMUX_BIN:-tmux}"
 CODEX_BIN="$(fleet_find_bin codex /opt/homebrew/bin/codex /usr/local/bin/codex "${HOME}/.local/bin/codex" 2>/dev/null || true)"
 CODEX_BIN="${CODEX_BIN:-codex}"
@@ -169,30 +171,15 @@ default_boot() {
 # Prints: session\tcwd\ttarget\tmodel\tlaunch
 fleet_resolve() {
   local name=$1
-  "$PYTHON_BIN" - "$FLEET" "$name" <<'PY'
+  local resolver=("$PYTHON_BIN" "$_FLEET_SCRIPT_DIR/fleet-resolve.py"
+    --project "$PROJECT" --fleet-file "$FLEET_FILE" --role "$name" --json)
+  [[ -n "$FLEET_ID" ]] && resolver+=(--fleet "$FLEET_ID")
+  [[ -n "$RUNTIME_TARGET" ]] && resolver+=(--runtime-target "$RUNTIME_TARGET")
+  "${resolver[@]}" | "$PYTHON_BIN" -c '
 import json, sys
-fleet_path, name = sys.argv[1], sys.argv[2]
-f = json.loads(open(fleet_path).read())
-h = (f.get("hands") or {}).get(name)
-if not h:
-    h = (f.get("hands") or {}).get(name)  # alternate key
-if not h and name == "lab-codex":
-    h = (f.get("lab") or {}).get("lab-codex")
-if not h:
-    sys.stderr.write(f"unknown hand in fleet: {name}\n")
-    sys.exit(1)
-session = h.get("tmux_session") or name
-target = h.get("tmux_target") or f"{session}:1.1"
-cwd = h.get("cwd") or f.get("project") or ""
-if not cwd:
-    sys.stderr.write("fleet hand missing cwd and fleet.project\n")
-    sys.exit(1)
-if h.get("packet") and isinstance(h["packet"], dict):
-    cwd = h["packet"].get("worker_cwd") or h["packet"].get("root") or cwd
-model = h.get("agent_model") or (f.get("agent_policy") or {}).get("codex_default_model") or "gpt-5.6-sol"
-launch = h.get("agent_launch") or ""
-print(f"{session}\t{cwd}\t{target}\t{model}\t{launch}")
-PY
+x = json.load(sys.stdin)
+print("\t".join(str(x.get(k, "")) for k in ("session", "cwd", "target", "model", "launch")))
+'
 }
 
 pane_pid() {
@@ -617,14 +604,7 @@ cmd_reinit_all() {
   [[ -n "$template" ]] || template='HAND WAKE {name}. Codex. vivi --for {name} --project {project}. Show bag. Implement first open task now.'
 
   local names rc=0 name boot
-  names=$("$PYTHON_BIN" - "$FLEET" <<'PY'
-import json, sys
-f = json.loads(open(sys.argv[1]).read())
-for name, h in sorted((f.get("hands") or {}).items()):
-    if (h.get("agent") or "") == "codex":
-        print(name)
-PY
-)
+  names=$(fleet_roles)
   local fails=0 stuck=0
   for name in $names; do
     boot=${template//\{name\}/$name}
@@ -642,17 +622,14 @@ PY
 }
 
 codex_hand_names() {
-  "$PYTHON_BIN" - "$FLEET" <<'PY'
-import json, sys
-f = json.loads(open(sys.argv[1]).read())
-hands = dict(f.get("hands") or {})
-# Alternate hands key (do not override hands)
-for name, h in (f.get("hands") or {}).items():
-    hands.setdefault(name, h)
-for name, h in sorted(hands.items()):
-    if (h.get("agent") or "") == "codex":
-        print(name)
-PY
+  fleet_roles
+}
+
+fleet_roles() {
+  local resolver=("$PYTHON_BIN" "$_FLEET_SCRIPT_DIR/fleet-resolve.py"
+    --project "$PROJECT" --fleet-file "$FLEET_FILE" --list --agent codex --group hand)
+  [[ -n "$FLEET_ID" ]] && resolver+=(--fleet "$FLEET_ID")
+  "${resolver[@]}"
 }
 
 # Per-slot health snapshot (stdout). Sets global __doctor_rc: 0 ok · 1 bad · 2 action.
@@ -860,7 +837,7 @@ cmd_snapshot() {
     echo "AUTO_TRUST=$AUTO_TRUST"
   } >"$dir/meta.txt"
 
-  cp "$FLEET" "$dir/fleet.json" 2>/dev/null || true
+  cp "$FLEET_FILE" "$dir/fleet.json" 2>/dev/null || true
   if [[ -x "${VIVI_BIN:-}" ]]; then
     "$VIVI_BIN" mailspace status --project "$PROJECT" >"$dir/mailspace-status.txt" 2>&1 || true
   fi
@@ -993,28 +970,40 @@ need_bins
 : >>"$LOG"
 cmd=${1:-}
 shift || true
+ROLE=""
+_COMMAND_ARGS=()
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --project|-p) fleet_need_optarg "$1" "${2-}" || usage; PROJECT="$2"; shift 2 ;;
+    --fleet|-f) fleet_need_optarg "$1" "${2-}" || usage; FLEET_ID="$2"; shift 2 ;;
+    --fleet-file) fleet_need_optarg "$1" "${2-}" || usage; FLEET_FILE="$2"; shift 2 ;;
+    --runtime-target) fleet_need_optarg "$1" "${2-}" || usage; RUNTIME_TARGET="$2"; shift 2 ;;
+    --role) fleet_need_optarg "$1" "${2-}" || usage; ROLE="$2"; shift 2 ;;
+    *) _COMMAND_ARGS+=("$1"); shift ;;
+  esac
+done
+FLEET_FILE="${FLEET_FILE:-$PROJECT/.vivi/fleet.json}"
 case "$cmd" in
-  status) [[ $# -ge 1 ]] || usage; cmd_status "$1" ;;
+  status) [[ -n "$ROLE" ]] || usage; cmd_status "$ROLE" ;;
   classify)
-    [[ $# -ge 1 ]] || usage
-    IFS=$'\t' read -r session cwd target model launch < <(fleet_resolve "$1")
+    [[ -n "$ROLE" ]] || usage
+    IFS=$'\t' read -r session cwd target model launch < <(fleet_resolve "$ROLE")
     echo "$(classify "$target")"
     ;;
   doctor|probe|debug)
-    # doctor [hand-N] · probe/debug alias
-    cmd_doctor "${1:-}"
+    cmd_doctor "${ROLE:-}"
     ;;
   snapshot|dump)
-    cmd_snapshot "${1:-}"
+    cmd_snapshot "${ROLE:-}"
     ;;
   heal)
-    cmd_heal "${1:-}"
+    cmd_heal "${ROLE:-}"
     ;;
-  reinit) [[ $# -ge 1 ]] || usage; cmd_reinit "$@" ;;
-  reinit-all) cmd_reinit_all "$@" ;;
+  reinit) [[ -n "$ROLE" ]] || usage; cmd_reinit "$ROLE" "${_COMMAND_ARGS[@]}" ;;
+  reinit-all) cmd_reinit_all "${_COMMAND_ARGS[@]}" ;;
   topo)
-    [[ $# -ge 1 ]] || usage
-    IFS=$'\t' read -r session cwd target model launch < <(fleet_resolve "$1")
+    [[ -n "$ROLE" ]] || usage
+    IFS=$'\t' read -r session cwd target model launch < <(fleet_resolve "$ROLE")
     topo "$target"
     ;;
   -h|--help|help|"") usage ;;

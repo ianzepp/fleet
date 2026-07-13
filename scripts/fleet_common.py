@@ -6,6 +6,8 @@ from __future__ import annotations
 
 import json
 import os
+import argparse
+import re
 import shutil
 import subprocess
 import sys
@@ -16,6 +18,10 @@ from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 
 MIN_PY: Tuple[int, int] = (3, 9)
 PathLike = Union[str, Path]
+
+
+class FleetScopeError(ValueError):
+    """A fleet project, identity, or role cannot be resolved safely."""
 
 
 def require_python(min_version: Tuple[int, int] = MIN_PY) -> None:
@@ -154,3 +160,200 @@ def ensure_dict(value: Any) -> Dict[str, Any]:
 
 def ensure_list(value: Any) -> List[Any]:
     return value if isinstance(value, list) else []
+
+
+def fleet_id_of(fleet: Dict[str, Any], project: Optional[PathLike] = None) -> str:
+    """Return the configured logical fleet ID, with the documented fallback."""
+    for key in ("fleet_id", "mailspace"):
+        value = fleet.get(key)
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+    if project is not None:
+        return Path(project).expanduser().resolve().name
+    return ""
+
+
+def resolve_fleet_file(
+    project: PathLike,
+    fleet_id: Optional[str] = None,
+    fleet_file: Optional[PathLike] = None,
+) -> Tuple[Path, Dict[str, Any]]:
+    """Resolve and validate the fleet overlay selected by standard flags.
+
+    ``--fleet`` is a logical ID. ``--fleet-file`` is the only path override.
+    The project remains the durability boundary and is always required by
+    callers even when a file override is used.
+    """
+    root = Path(project).expanduser().resolve()
+    if not root.is_dir():
+        raise FleetScopeError("project is not a directory: %s" % root)
+    path = (
+        Path(fleet_file).expanduser().resolve()
+        if fleet_file
+        else root / ".vivi" / "fleet.json"
+    )
+    if not path.is_file():
+        raise FleetScopeError("fleet.json not found: %s" % path)
+    data = load_json(path, default=None)
+    if not isinstance(data, dict):
+        raise FleetScopeError("fleet.json must contain a JSON object: %s" % path)
+    actual = fleet_id_of(data, root)
+    if fleet_id and fleet_id != actual:
+        raise FleetScopeError(
+            "fleet ID mismatch: requested %r, configured %r (%s)"
+            % (fleet_id, actual, path)
+        )
+    return path, data
+
+
+def add_fleet_scope_arguments(
+    parser: argparse.ArgumentParser,
+    *,
+    required_project: bool = True,
+    include_role: bool = False,
+) -> None:
+    """Add the shared logical fleet scope flags to a Python helper parser."""
+    parser.add_argument(
+        "--project", "-p", required=required_project,
+        help="fleet project root",
+    )
+    parser.add_argument(
+        "--fleet", "-f", default=None,
+        help="logical fleet ID; validate against fleet.json",
+    )
+    parser.add_argument(
+        "--fleet-file", default=None,
+        help="explicit fleet.json path override",
+    )
+    if include_role:
+        parser.add_argument(
+            "--role", action="append", default=None,
+            help="logical Hand/Head role; repeatable",
+        )
+
+
+def role_names(fleet: Dict[str, Any]) -> List[str]:
+    """Return all configured Hand/Head role keys in stable order."""
+    names = set()
+    for block_name in ("hands", "hunters", "heads"):
+        block = fleet.get(block_name)
+        if isinstance(block, dict):
+            names.update(str(key) for key, value in block.items() if isinstance(value, dict))
+    names.update(
+        str(key) for key, value in fleet.items()
+        if isinstance(key, str) and key.startswith("head-") and isinstance(value, dict)
+    )
+    return sorted(names)
+
+
+def resolve_role(fleet: Dict[str, Any], role: str) -> Tuple[str, Dict[str, Any], str]:
+    """Resolve a logical role to its config block and role group."""
+    if not isinstance(role, str) or not role.strip():
+        raise FleetScopeError("role is required")
+    name = role.strip()
+    hands = fleet.get("hands") if isinstance(fleet.get("hands"), dict) else {}
+    hunters = fleet.get("hunters") if isinstance(fleet.get("hunters"), dict) else {}
+    heads = fleet.get("heads") if isinstance(fleet.get("heads"), dict) else {}
+    for group, block in (("hand", hands), ("hand", hunters), ("head", heads)):
+        value = block.get(name)
+        if isinstance(value, dict):
+            return name, value, group
+    value = fleet.get(name)
+    if name.startswith("head-") and isinstance(value, dict):
+        return name, value, "head"
+    raise FleetScopeError(
+        "unknown role %r (known roles: %s)" % (name, ", ".join(role_names(fleet)) or "none")
+    )
+
+
+def _tmux_parts(target: str) -> Tuple[str, str, str]:
+    """Split a tmux target into session, window, and pane components."""
+    match = re.match(r"^([^:]+):([^\.]+)(?:\.(.+))?$", target)
+    if not match:
+        return target, "", ""
+    return match.group(1), match.group(2), match.group(3) or ""
+
+
+def resolve_runtime_binding(
+    fleet: Dict[str, Any],
+    role: str,
+    *,
+    project: Optional[PathLike] = None,
+    runtime_target: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Derive one backend-neutral runtime binding from logical fleet + role."""
+    name, slot, group = resolve_role(fleet, role)
+    project_path = Path(project).expanduser().resolve() if project else None
+    fleet_id = fleet_id_of(fleet, project_path)
+    runtime = slot.get("runtime") if isinstance(slot.get("runtime"), dict) else {}
+    kind = str(runtime.get("kind") or "tmux")
+    mail_identity = str(slot.get("mail_identity") or name)
+    cwd = str(slot.get("cwd") or (project_path if project_path else fleet.get("project") or ""))
+    if isinstance(slot.get("packet"), dict):
+        packet = slot["packet"]
+        cwd = str(packet.get("worker_cwd") or packet.get("root") or cwd)
+
+    if kind == "vivi_pty":
+        session_id = str(runtime.get("session_id") or mail_identity or name)
+        socket = str(
+            runtime.get("socket")
+            or ((project_path / ".vivi" / "vivi-pty.sock") if project_path else "")
+        )
+        return {
+            "fleet_id": fleet_id,
+            "role": name,
+            "group": group,
+            "kind": kind,
+            "mail_identity": mail_identity,
+            "cwd": cwd,
+            "target": runtime_target or session_id,
+            "session": session_id,
+            "window": "",
+            "pane": "",
+            "socket": socket,
+            "agent": str(slot.get("agent") or "unknown"),
+            "driver": str(runtime.get("driver") or slot.get("agent") or "generic"),
+            "model": str(slot.get("agent_model") or ""),
+            "launch": str(slot.get("agent_launch") or ""),
+            "runtime_command": runtime.get("command") if isinstance(runtime.get("command"), list) else [],
+            "min_seconds_between_wakes": int(
+                180 if slot.get("min_seconds_between_wakes") is None
+                else slot.get("min_seconds_between_wakes")
+            ),
+        }
+
+    configured_target = slot.get("tmux_target")
+    target = str(runtime_target or configured_target or "")
+    layout = str(fleet.get("tmux_layout") or "legacy")
+    session = str(slot.get("tmux_session") or (fleet_id if layout == "session_per_fleet" else name))
+    window = str(slot.get("tmux_window") or (name if layout == "session_per_fleet" else "1"))
+    pane = str(slot.get("tmux_pane") or "1")
+    if target:
+        parsed_session, parsed_window, parsed_pane = _tmux_parts(target)
+        session = parsed_session or session
+        window = parsed_window or window
+        pane = parsed_pane or pane
+    else:
+        target = "%s:%s.%s" % (session, window, pane)
+    return {
+        "fleet_id": fleet_id,
+        "role": name,
+        "group": group,
+        "kind": kind,
+        "mail_identity": mail_identity,
+        "cwd": cwd,
+        "target": target,
+        "session": session,
+        "window": window,
+        "pane": pane,
+        "socket": "",
+        "agent": str(slot.get("agent") or "unknown"),
+        "driver": str(slot.get("agent") or "generic"),
+        "model": str(slot.get("agent_model") or ""),
+        "launch": str(slot.get("agent_launch") or ""),
+        "runtime_command": [],
+        "min_seconds_between_wakes": int(
+            180 if slot.get("min_seconds_between_wakes") is None
+            else slot.get("min_seconds_between_wakes")
+        ),
+    }

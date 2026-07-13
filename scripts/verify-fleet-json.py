@@ -2,7 +2,7 @@
 """Validate the shape and cross-references of a fleet.json config.
 
   verify-fleet-json.py --project <root>
-  verify-fleet-json.py --fleet /path/to/fleet.json
+  verify-fleet-json.py --fleet-file /path/to/fleet.json
   verify-fleet-json.py --project <root> --json
   verify-fleet-json.py --project <root> --strict        # warnings count as errors
   verify-fleet-json.py --project <root> --no-path-checks # skip on-disk path refs
@@ -32,7 +32,13 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from fleet_common import ensure_dict, ensure_list, require_python  # noqa: E402
+from fleet_common import (  # noqa: E402
+    add_fleet_scope_arguments,
+    ensure_dict,
+    ensure_list,
+    fleet_id_of,
+    require_python,
+)
 
 require_python()
 
@@ -283,20 +289,19 @@ def main(argv: Optional[List[str]] = None) -> int:
     ap = argparse.ArgumentParser(
         description="Validate fleet.json shape, cross-references, and path refs (Python 3.9+)."
     )
-    ap.add_argument("--project", "-p", default=None, help="Fleet project root (default fleet = PROJECT/.vivi/fleet.json)")
-    ap.add_argument("--fleet", "-f", default=None, help="Path to fleet.json (overrides --project)")
+    add_fleet_scope_arguments(ap, required_project=False)
     ap.add_argument("--json", action="store_true", help="Machine-readable JSON output instead of text")
     ap.add_argument("--strict", action="store_true", help="Treat warnings as errors")
     ap.add_argument("--no-path-checks", action="store_true", help="Skip on-disk existence checks for referenced paths")
     args = ap.parse_args(argv)
 
     fleet_path: Optional[Path] = None
-    if args.fleet:
-        fleet_path = Path(args.fleet).expanduser().resolve()
+    if args.fleet_file:
+        fleet_path = Path(args.fleet_file).expanduser().resolve()
     elif args.project:
         fleet_path = Path(args.project).expanduser().resolve() / ".vivi" / "fleet.json"
     if not fleet_path:
-        ap.error("provide --project or --fleet")
+        ap.error("provide --project or --fleet-file")
         return 2
     if not fleet_path.is_file():
         msg = "fleet.json not found: %s" % fleet_path
@@ -318,7 +323,14 @@ def main(argv: Optional[List[str]] = None) -> int:
         return 1
 
     report = validate(fleet, fleet_path, path_checks=not args.no_path_checks)
-    fleet_id = fleet.get("fleet_id") or fleet.get("mailspace") or fleet_path.parent.parent.name
+    fleet_id = fleet_id_of(fleet, fleet_path.parent.parent)
+    if args.fleet and args.fleet != fleet_id:
+        msg = "fleet ID mismatch: requested %r, configured %r" % (args.fleet, fleet_id)
+        if args.json:
+            print(json.dumps({"ok": False, "fleet_path": str(fleet_path), "errors": [{"where": "$", "msg": msg}], "warnings": []}))
+        else:
+            print("INVALID: %s" % msg)
+        return 1
 
     hard = report.errors
     soft = report.warnings

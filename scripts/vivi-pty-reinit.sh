@@ -2,10 +2,10 @@
 # Reinit helper for Fleet roles bound to the vivi-pty runtime.
 #
 # Usage:
-#   vivi-pty-reinit.sh --project <root> status hand-2
-#   vivi-pty-reinit.sh --project <root> doctor [hand-2]
-#   vivi-pty-reinit.sh --project <root> heal   [hand-2]
-#   vivi-pty-reinit.sh --project <root> reinit hand-2 [--boot 'pointer text']
+#   vivi-pty-reinit.sh --project <root> status --role hand-2
+#   vivi-pty-reinit.sh --project <root> doctor [--role hand-2]
+#   vivi-pty-reinit.sh --project <root> heal   [--role hand-2]
+#   vivi-pty-reinit.sh --project <root> reinit --role hand-2 [--boot 'pointer text']
 #
 # Exit: 0 ok · 1 hard fail · 2 session exists but harness is stuck/idle
 set -euo pipefail
@@ -17,16 +17,44 @@ fleet_bootstrap_env
 
 PROJECT=""
 COMMAND=""
-NAME=""
+ROLE=""
+FLEET_ID=""
+FLEET_FILE=""
+RUNTIME_TARGET=""
 BOOT=""
 BOOT_FILE=""
 FORCE=0
+
+usage() {
+  fleet_usage_from_header "$0" 2 20
+  exit 2
+}
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --project|-p)
       fleet_need_optarg "$1" "${2-}" || usage
       PROJECT="$2"
+      shift 2
+      ;;
+    --fleet|-f)
+      fleet_need_optarg "$1" "${2-}" || usage
+      FLEET_ID="$2"
+      shift 2
+      ;;
+    --fleet-file)
+      fleet_need_optarg "$1" "${2-}" || usage
+      FLEET_FILE="$2"
+      shift 2
+      ;;
+    --runtime-target)
+      fleet_need_optarg "$1" "${2-}" || usage
+      RUNTIME_TARGET="$2"
+      shift 2
+      ;;
+    --role)
+      fleet_need_optarg "$1" "${2-}" || usage
+      ROLE="$2"
       shift 2
       ;;
     --force) FORCE=1; shift ;;
@@ -51,11 +79,8 @@ while [[ $# -gt 0 ]]; do
       if [[ -z "$COMMAND" ]]; then
         COMMAND="$1"
         shift
-      elif [[ -z "$NAME" ]]; then
-        NAME="$1"
-        shift
       else
-        echo "unknown arg: $1" >&2
+        echo "unexpected positional argument: $1 (use --role)" >&2
         usage
       fi
       ;;
@@ -64,8 +89,8 @@ done
 
 [[ -n "$PROJECT" ]] || usage
 PROJECT="$(fleet_abs_project "$PROJECT")" || { echo "bad project: $PROJECT" >&2; exit 1; }
-FLEET="${FLEET:-$PROJECT/.vivi/fleet.json}"
-[[ -f "$FLEET" ]] || { echo "missing fleet.json: $FLEET" >&2; exit 1; }
+FLEET_FILE="${FLEET_FILE:-$PROJECT/.vivi/fleet.json}"
+[[ -f "$FLEET_FILE" ]] || { echo "missing fleet.json: $FLEET_FILE" >&2; exit 1; }
 
 if ! PYTHON_BIN="$(fleet_find_python3)"; then
   echo "ERROR: python3 >= 3.9 not found" >&2
@@ -74,56 +99,29 @@ fi
 VIVI_PTY_BIN="$(fleet_find_vivi_pty)" || { echo "vivi-pty not found" >&2; exit 1; }
 VIVI_BIN="$(fleet_find_vivi 2>/dev/null || true)"
 
-usage() {
-  fleet_usage_from_header "$0" 2 20
-  exit 2
-}
-
 # Resolve a role from fleet.json. Emits key=value lines for eval.
 resolve_role() {
   local name=$1
-  "$PYTHON_BIN" - "$FLEET" "$PROJECT" "$name" <<'PY'
-import json, sys
-from pathlib import Path
-
-fleet_path, project, name = sys.argv[1:4]
-project = Path(project)
-with open(fleet_path, encoding="utf-8") as fh:
-    f = json.load(fh)
-
-hands = f.get("hands") or f.get("hunters") or {}
-slot = hands.get(name)
-if not isinstance(slot, dict):
-    slot = f.get(name)
-if not isinstance(slot, dict):
-    slot = (f.get("heads") or {}).get(name)
-if not isinstance(slot, dict):
-    sys.stderr.write("unknown role: %s\n" % name)
-    sys.exit(1)
-
-runtime = slot.get("runtime") or {}
-if not (isinstance(runtime, dict) and runtime.get("kind") == "vivi_pty"):
-    sys.stderr.write("role %s is not vivi_pty\n" % name)
-    sys.exit(1)
-
-session_id = (runtime.get("session_id") if isinstance(runtime, dict) else None) or slot.get("mail_identity") or name
-command = runtime.get("command") if isinstance(runtime, dict) else None
-if not isinstance(command, list) or not command:
-    sys.stderr.write("role %s missing runtime.command\n" % name)
-    sys.exit(1)
-
-out = {
-    "session_id": session_id,
-    "socket": (runtime.get("socket") if isinstance(runtime, dict) else None) or str(project / ".vivi" / "vivi-pty.sock"),
-    "cwd": slot.get("cwd") or str(project),
-    "driver": (runtime.get("driver") if isinstance(runtime, dict) else None) or slot.get("agent") or "generic",
-    "mail_identity": slot.get("mail_identity") or name,
+  local resolver=("$PYTHON_BIN" "$_FLEET_SCRIPT_DIR/fleet-resolve.py"
+    --project "$PROJECT" --fleet-file "$FLEET_FILE" --role "$name" --shell)
+  [[ -n "$FLEET_ID" ]] && resolver+=(--fleet "$FLEET_ID")
+  [[ -n "$RUNTIME_TARGET" ]] && resolver+=(--runtime-target "$RUNTIME_TARGET")
+  eval "$("${resolver[@]}")"
+  [[ "$RESOLVED_KIND" == "vivi_pty" ]] || { echo "role $name is not vivi_pty" >&2; return 1; }
+  [[ ${#RESOLVED_RUNTIME_COMMAND[@]} -gt 0 ]] || { echo "role $name missing runtime.command" >&2; return 1; }
+  printf 'ROLE_session_id=%q\n' "$RESOLVED_SESSION"
+  printf 'ROLE_socket=%q\n' "$RESOLVED_SOCKET"
+  printf 'ROLE_cwd=%q\n' "$RESOLVED_CWD"
+  printf 'ROLE_driver=%q\n' "$RESOLVED_DRIVER"
+  printf 'ROLE_mail_identity=%q\n' "$RESOLVED_MAIL_IDENTITY"
+  printf 'ROLE_command_args=(%s)\n' "$(printf '%q ' "${RESOLVED_RUNTIME_COMMAND[@]}")"
 }
-for k, v in out.items():
-    sys.stdout.write("ROLE_%s=%s\n" % (k, json.dumps(v, ensure_ascii=False)))
-# Bash array for the command so it can be passed as separate arguments.
-sys.stdout.write("ROLE_command_args=(%s)\n" % " ".join(json.dumps(c, ensure_ascii=False) for c in command))
-PY
+
+fleet_roles() {
+  local resolver=("$PYTHON_BIN" "$_FLEET_SCRIPT_DIR/fleet-resolve.py"
+    --project "$PROJECT" --fleet-file "$FLEET_FILE" --list --kind vivi_pty --group hand)
+  [[ -n "$FLEET_ID" ]] && resolver+=(--fleet "$FLEET_ID")
+  "${resolver[@]}"
 }
 
 daemon_running() {
@@ -242,19 +240,7 @@ cmd_doctor() {
       fi
     fi
   else
-    for r in $("$PYTHON_BIN" - "$FLEET" <<'PY'
-import json, sys
-with open(sys.argv[1], encoding="utf-8") as fh:
-    f = json.load(fh)
-hands = f.get("hands") or f.get("hunters") or {}
-for name, h in hands.items():
-    if not isinstance(h, dict):
-        continue
-    runtime = h.get("runtime") or {}
-    if isinstance(runtime, dict) and runtime.get("kind") == "vivi_pty":
-        print(name)
-PY
-); do
+    for r in $(fleet_roles); do
       if ! cmd_doctor "$r"; then
         healthy=1
       fi
@@ -270,19 +256,7 @@ cmd_heal() {
     ensure_role "$name"
     maybe_boot "$ROLE_session_id" "$ROLE_socket" "${BOOT:-}"
   else
-    for r in $("$PYTHON_BIN" - "$FLEET" <<'PY'
-import json, sys
-with open(sys.argv[1], encoding="utf-8") as fh:
-    f = json.load(fh)
-hands = f.get("hands") or f.get("hunters") or {}
-for name, h in hands.items():
-    if not isinstance(h, dict):
-        continue
-    runtime = h.get("runtime") or {}
-    if isinstance(runtime, dict) and runtime.get("kind") == "vivi_pty":
-        print(name)
-PY
-); do
+    for r in $(fleet_roles); do
       if ! cmd_heal "$r"; then
         fail=1
       fi
@@ -315,10 +289,10 @@ if [[ -n "$BOOT_FILE" && -f "$BOOT_FILE" ]]; then
 fi
 
 case "$COMMAND" in
-  status) cmd_status "$NAME" ;;
-  doctor) cmd_doctor "$NAME" ;;
-  heal) cmd_heal "$NAME" ;;
-  reinit) cmd_reinit "$NAME" ;;
+  status) [[ -n "$ROLE" ]] || usage; cmd_status "$ROLE" ;;
+  doctor) cmd_doctor "$ROLE" ;;
+  heal) cmd_heal "$ROLE" ;;
+  reinit) [[ -n "$ROLE" ]] || usage; cmd_reinit "$ROLE" ;;
   "") usage ;;
   *) echo "unknown command: $COMMAND" >&2; usage ;;
 esac

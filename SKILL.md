@@ -39,8 +39,8 @@ Reporting a blocker without acting, delegating, escalating, or recording a valid
 | **mind** | `mind@…` | none | Board To: Mind; process = this chat |
 | **operator** | `operator@…` | none | Human only — [`operator-mail.md`](references/operator-mail.md) |
 | **steward** | optional opt-in | tmux runtime | Dead-man, not Mind — **off by default**; operator must enable+arm per fleet — [`dead-man.md`](references/dead-man.md) |
-| **hand-N** | `hand-N@…` | configured runtime | `hand-1` merges to main; `agent_launch` must pass a `--name` flag matching the role identity so the agent knows its fleet role and processes assigned work |
-| **head-*** | `head-*@…` | configured runtime | ceo=strategist (map health/buckets); cto post-main+gates; cxo purity (not operator-facing); `agent_launch` must pass a `--name` flag matching the role identity |
+| **hand-N** | `hand-N@…` | configured runtime | `hand-1` merges to main; helpers select the logical role and derive the configured backend binding |
+| **head-*** | `head-*@…` | configured runtime | ceo=strategist (map health/buckets); cto post-main+gates; cxo purity (not operator-facing); helpers select the logical role and derive the configured backend binding |
 
 | Layout | Binding |
 | --- | --- |
@@ -49,6 +49,24 @@ Reporting a blocker without acting, delegating, escalating, or recording a valid
 
 **Ops use the role's configured runtime binding and consume canonical `runtime` observations.** No mind/operator runtime. No dual Mind process.
 **Fleet** = project root + `.vivi/`.
+
+### Standard helper scope
+
+Every fleet helper uses the same scope vocabulary:
+
+```text
+--project/-p <project-root>   durable fleet project boundary
+--fleet/-f <fleet-id>         logical fleet identity, validated against fleet.json
+--fleet-file <path>           explicit fleet.json path override
+--role <role>                 logical Hand/Head role (repeatable where selection needs it)
+--runtime-target <target>     concrete tmux/Vivi-PTY target override for the helper call
+```
+
+`--fleet` is never a fleet.json pathname, and a backend target is never used as
+the fleet identity. `scripts/fleet-resolve.py` is the narrow shared adapter for
+turning `project + fleet + role` into the configured tmux session/window/pane or
+Vivi-PTY session. Helpers may expose only the flags relevant to their operation,
+but use these meanings when they do.
 
 ### Tokens (disambiguation)
 
@@ -151,7 +169,7 @@ Core process here; detail in `references/` + `scripts/`.
 | Remote | [`ssh-remote.md`](references/ssh-remote.md) |
 | Schema / ladders / wind-down | [`runtime-config.md`](references/runtime-config.md) |
 | Missing companions | [`companion-fallbacks.md`](references/companion-fallbacks.md) |
-| Sensors / baseline / doorbell | [`scripts/fleet-sensors.py`](scripts/fleet-sensors.py), [`fleet-baseline.py`](scripts/fleet-baseline.py), [`fleet-doorbell.sh`](scripts/fleet-doorbell.sh). `fleet-doorbell.sh` atomically records successful wake status in `last_hand_wake`; no duplicate helper is needed. Sensors include pending RTM/integration lag, ahead/behind, and bounded dirty paths. |
+| Sensors / baseline / doorbell | [`scripts/fleet-sensors.py`](scripts/fleet-sensors.py), [`fleet-baseline.py`](scripts/fleet-baseline.py), [`fleet-doorbell.sh`](scripts/fleet-doorbell.sh), [`fleet-resolve.py`](scripts/fleet-resolve.py). `fleet-doorbell.sh` atomically records successful wake status in `last_hand_wake`; no duplicate helper is needed. Sensors include pending RTM/integration lag, ahead/behind, and bounded dirty paths. |
 | Runtime rebind | [`scripts/fleet-runtime-rebind.py`](scripts/fleet-runtime-rebind.py). Plan/apply atomic runtime config changes across Heads and Hands. |
 | Cycle close | [`scripts/fleet-cycle-close.py`](scripts/fleet-cycle-close.py). One command: sensors → baseline bump → optional steward rearm. |
 | Codex pane | [`scripts/codex-reinit.sh`](scripts/codex-reinit.sh) |
@@ -174,7 +192,7 @@ Core process here; detail in `references/` + `scripts/`.
 | Integration lag | Queue **merge** or **base-update** (whichever unblocks); **then** pivot other product work | Thrash re-verify on blocked consumer |
 | Pane dead/idle+open | Wake / reinit / runtime ladder | Stack wakes |
 | Human wall | File `operator@` + pivot | Silent stall |
-| Hand idle, tasks unprocessed | Verify `agent_launch` includes a `--name` flag matching the role identity. Without it, the agent doesn't know it's a fleet Hand. Also: hands receive **direct prompts** with task content, not `vivi board` — the board is Mind's dashboard, not a wake command. Send the task instructions inline. | Re-file task; send board to claim it was filed |
+| Hand idle, tasks unprocessed | Verify the helper resolved the logical fleet and role to the expected runtime target. Also: hands receive **direct prompts** with task content, not `vivi board` — the board is Mind's dashboard, not a wake command. Send the task instructions inline. | Re-file task; send board to claim it was filed |
 Sleep when bag empty **and** no honest next product unit (or posture is standby/dormant). Sleep is allowed — do not invent work.
 
 ### Growth-liveness refill
@@ -405,16 +423,16 @@ Skill = portable process. Overlay = roster, paths, models, ssh, maps, Status.
 
 ```bash
 # Placeholders: <skill> <root> <hex> — tokens without <> are literals
-python3 <skill>/scripts/fleet-sensors.py --project <root> --text
-<skill>/scripts/fleet-doorbell.sh --project <root> hand-1 --handle <hex>
+python3 <skill>/scripts/fleet-sensors.py --project <root> --fleet <fleet-id> --text
+<skill>/scripts/fleet-doorbell.sh --project <root> --fleet <fleet-id> --role hand-1 --handle <hex>
 # Agent recovery only if doorbell sticks/errors:
-PROJECT=<root> FLEET=<root>/.vivi/fleet.json <skill>/scripts/codex-reinit.sh doctor hand-1      # Codex
-PROJECT=<root> FLEET=<root>/.vivi/fleet.json <skill>/scripts/opencode-hand-ctl.sh doctor hand-1  # opencode
+<skill>/scripts/codex-reinit.sh doctor --project <root> --fleet <fleet-id> --role hand-1      # Codex
+<skill>/scripts/opencode-hand-ctl.sh doctor --project <root> --fleet <fleet-id> --role hand-1  # opencode
 # Cycle close: sensors → baseline → optional steward rearm in one command
 python3 <skill>/scripts/fleet-cycle-close.py --project <root> --acted --summary '…'
 # or: --quiet for sleep cycles; --operator-engaged resets silence
 # silence: default bump increments turns_since_operator_message
-python3 <skill>/scripts/fleet-baseline.py bump -p <root> -s 'sleep' --quiet \
+python3 <skill>/scripts/fleet-baseline.py bump -p <root> --fleet <fleet-id> -s 'sleep' --quiet \
   --fingerprint-file /tmp/fleet-sensors.json
 # only if human prose this turn or since last_operator_message_at:
 # python3 …/fleet-baseline.py bump … --operator-engaged

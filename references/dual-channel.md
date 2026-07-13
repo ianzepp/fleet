@@ -209,14 +209,14 @@ Hands share Mind’s harness (usually one column). Heads may use the other on pu
 
 Do not stack `/goal` onto a running turn. File board target first; `/goal` only during clean Codex reinit for coherent bounded objective.
 
-Helper: `scripts/codex-reinit.sh` (doctor / heal / reinit / classify). Set `PROJECT` and `FLEET`. See `runtime-config.md`.
+Helper: `scripts/codex-reinit.sh` (doctor / heal / reinit / classify). Pass the standard project/fleet/role flags. See `runtime-config.md`.
 
 ## Doorbell (wake)
 
 When `waiting_for_input` and Hand has open tasks/needs (or Mind just filed / answered blocking need):
 
 ```bash
-scripts/fleet-doorbell.sh --project <root> hand-1 --handle <hex> --note '…'
+scripts/fleet-doorbell.sh --project <root> --role hand-1 --handle <hex> --note '…'
 # exit 0 sent · 1 refused · 2 usage/config
 ```
 

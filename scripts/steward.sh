@@ -8,7 +8,7 @@
 #
 # Usage:
 #   PROJECT=/path/to/fleet path/to/steward.sh arm|rearm|disarm|status|check|clear|loop|trip
-#   steward.sh arm --project /path/to/fleet
+#   steward.sh arm --project /path/to/fleet [--fleet FLEET_ID]
 #
 # Requires: bash 3.2+, python3 >= 3.9. Portable macOS + Linux.
 # Exit: 0 ok · 1 tripped (check/loop) · 2 config/error · 3 inactive/disarmed
@@ -20,8 +20,15 @@ _FLEET_SCRIPT_DIR="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
 fleet_bootstrap_env
 
 PROJECT="${PROJECT:-}"
+FLEET_ID="${FLEET_ID:-}"
+FLEET_FILE="${FLEET_FILE:-}"
 CMD="${1:-}"
 shift || true
+
+usage() {
+  fleet_usage_from_header "$0" 2 20
+  exit 3
+}
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -31,10 +38,26 @@ while [[ $# -gt 0 ]]; do
       shift 2
       ;;
     --project=*) PROJECT="${1#*=}"; shift ;;
+    --fleet|-f)
+      fleet_need_optarg "$1" "${2-}" || exit 2
+      FLEET_ID="$2"
+      shift 2
+      ;;
+    --fleet=*) FLEET_ID="${1#*=}"; shift ;;
+    --fleet-file)
+      fleet_need_optarg "$1" "${2-}" || exit 2
+      FLEET_FILE="$2"
+      shift 2
+      ;;
+    --fleet-file=*) FLEET_FILE="${1#*=}"; shift ;;
     -h|--help) CMD=help; shift ;;
     *) break ;;
   esac
 done
+
+if [[ "$CMD" == "help" || "$CMD" == "-h" || "$CMD" == "--help" ]]; then
+  usage
+fi
 
 if [[ -z "$PROJECT" ]]; then
   if [[ -f .vivi/fleet.json || -f .vivi/mind-baseline.json ]]; then
@@ -48,7 +71,7 @@ if ! PROJECT="$(fleet_abs_project "$PROJECT")"; then
   echo "ERROR: project is not a directory: $PROJECT" >&2
   exit 2
 fi
-FLEET="${FLEET:-$PROJECT/.vivi/fleet.json}"
+FLEET_FILE="${FLEET_FILE:-$PROJECT/.vivi/fleet.json}"
 BASELINE="${BASELINE:-$PROJECT/.vivi/mind-baseline.json}"
 VIVI_DIR="$PROJECT/.vivi"
 REARM_TOUCH="$VIVI_DIR/steward.rearm"
@@ -66,25 +89,31 @@ log() { printf '%s %s\n' "$(fleet_date_iso)" "$*" | tee -a "$LOG" >&2; }
 
 die() { log "ERROR: $*"; exit 2; }
 
-usage() {
-  fleet_usage_from_header "$0" 2 20
-  exit 3
+scope_args_q() {
+  printf -- '--project %q' "$PROJECT"
+  [[ -n "$FLEET_ID" ]] && printf ' --fleet %q' "$FLEET_ID"
+  [[ -n "$FLEET_FILE" ]] && printf ' --fleet-file %q' "$FLEET_FILE"
 }
 
 [[ -d "$VIVI_DIR" ]] || mkdir -p "$VIVI_DIR"
 [[ -f "$BASELINE" ]] || echo '{}' >"$BASELINE"
 touch "$LOG"
+[[ -f "$FLEET_FILE" ]] || die "missing fleet.json: $FLEET_FILE"
+if [[ -n "$FLEET_ID" ]] && ! "$PYTHON_BIN" "$_FLEET_SCRIPT_DIR/verify-fleet-json.py" \
+  --project "$PROJECT" --fleet "$FLEET_ID" --fleet-file "$FLEET_FILE" >/dev/null; then
+  die "fleet ID does not match $FLEET_FILE: $FLEET_ID"
+fi
 
 # --- JSON helpers via python (fleet_common for load/save/time) ---
 py() {
-  FLEET_SCRIPTS="$_FLEET_SCRIPT_DIR" "$PYTHON_BIN" - "$PROJECT" "$FLEET" "$BASELINE" "$@" <<'PY'
+  FLEET_SCRIPTS="$_FLEET_SCRIPT_DIR" "$PYTHON_BIN" - "$PROJECT" "$FLEET_FILE" "$BASELINE" "$@" <<'PY'
 import json, os, sys, time
 from datetime import datetime, timezone
 from pathlib import Path
 
 # bash sets FLEET_SCRIPTS (python - has no __file__)
 sys.path.insert(0, os.environ.get("FLEET_SCRIPTS") or ".")
-from fleet_common import load_json, now_iso, save_json  # noqa: E402
+from fleet_common import FleetScopeError, load_json, now_iso, resolve_runtime_binding, save_json  # noqa: E402
 
 project, fleet_path, baseline_path = sys.argv[1], sys.argv[2], sys.argv[3]
 op = sys.argv[4]
@@ -109,22 +138,19 @@ def fleet_steward():
             target = f"{sess}:{win}.1"
         else:
             target = f"{sess}:1.1"
-    # Hands: list tmux_target for soft-hold (never hardcode session==role)
+    # Roles: resolve targets through the shared fleet binding contract.
     hand_targets = []
     hands = f.get("hands") or f.get("hunters") or {}
     for name, h in hands.items():
         if not isinstance(h, dict):
             continue
-        ht = h.get("tmux_target")
-        if not ht:
-            hs = h.get("tmux_session") or name
-            hw = h.get("tmux_window") or name
-            layout = f.get("tmux_layout") or "legacy"
-            if layout == "session_per_fleet":
-                ht = f"{hs}:{hw}.1"
-            else:
-                ht = f"{hs}:1.1"
-        hand_targets.append({"name": name, "tmux_target": ht})
+        try:
+            binding = resolve_runtime_binding(f, name, project=project)
+        except FleetScopeError:
+            continue
+        if binding.get("kind") != "tmux":
+            continue
+        hand_targets.append({"name": name, "tmux_target": binding["target"]})
     return {
         # Default OFF — operator must set steward.enabled true and ask to arm.
         "enabled": s.get("enabled", False),
@@ -400,7 +426,7 @@ ensure_tmux_session() {
 
 cmd_arm() {
   local target sess poll
-  [[ -f "$FLEET" ]] || die "missing fleet.json: $FLEET"
+  [[ -f "$FLEET_FILE" ]] || die "missing fleet.json: $FLEET_FILE"
   if ! py cfg | "$PYTHON_BIN" -c 'import json,sys; raise SystemExit(0 if json.load(sys.stdin).get("enabled", False) else 1)'; then
     log "steward disabled in fleet.json (default OFF; operator opt-in per fleet)"
     exit 3
@@ -412,7 +438,8 @@ cmd_arm() {
   poll="$(py cfg | "$PYTHON_BIN" -c 'import json,sys; print(json.load(sys.stdin)["poll_sec"])')"
   "$TMUX_BIN" send-keys -t "$target" C-c 2>/dev/null || true
   sleep 0.2
-  "$TMUX_BIN" send-keys -t "$target" -l "cd $(printf %q "$PROJECT") && STEWARD_LOG=$(printf %q "$LOG") $(printf %q "$SELF") loop --project $(printf %q "$PROJECT") 2>&1 | tee -a $(printf %q "$LOG")"
+  scope_args="$(scope_args_q)"
+  "$TMUX_BIN" send-keys -t "$target" -l "cd $(printf %q "$PROJECT") && STEWARD_LOG=$(printf %q "$LOG") $(printf %q "$SELF") loop $scope_args 2>&1 | tee -a $(printf %q "$LOG")"
   "$TMUX_BIN" send-keys -t "$target" Enter
   log "armed steward target=$target session=$sess poll=${poll}s project=$PROJECT"
   echo "armed $target"

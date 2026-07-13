@@ -2,8 +2,8 @@
 # Pointer-only Hand/Head wake via fleet.json tmux_target.
 #
 # Usage:
-#   fleet-doorbell.sh --project <root> <hand-name> [--handle HEX] [--note '…'] [--force]
-#   fleet-doorbell.sh --project <root> --target mgs:hand-1.1 --message 'HAND WAKE …'
+#   fleet-doorbell.sh --project <root> --role hand-1 [--handle HEX] [--note '…'] [--force]
+#   fleet-doorbell.sh --project <root> --role hand-1 --runtime-target mgs:hand-1.1
 #
 # Requires: bash 3.2+ (not sh/zsh-as-script), python3 >= 3.9
 # Backing runtime: tmux (default) or vivi-pty for roles with runtime.kind=vivi_pty.
@@ -22,7 +22,9 @@ _FLEET_SCRIPT_DIR="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
 fleet_bootstrap_env
 
 PROJECT=""
-NAME=""
+ROLE=""
+FLEET_ID=""
+FLEET_FILE=""
 HANDLE=""
 NOTE=""
 FORCE=0
@@ -63,6 +65,21 @@ while [[ $# -gt 0 ]]; do
       PROJECT="$2"
       shift 2
       ;;
+    --fleet|-f)
+      fleet_need_optarg "$1" "${2-}" || usage
+      FLEET_ID="$2"
+      shift 2
+      ;;
+    --fleet-file)
+      fleet_need_optarg "$1" "${2-}" || usage
+      FLEET_FILE="$2"
+      shift 2
+      ;;
+    --role)
+      fleet_need_optarg "$1" "${2-}" || usage
+      ROLE="$2"
+      shift 2
+      ;;
     --handle)
       fleet_need_optarg "$1" "${2-}" || usage
       HANDLE="$2"
@@ -74,7 +91,7 @@ while [[ $# -gt 0 ]]; do
       shift 2
       ;;
     --force) FORCE=1; shift ;;
-    --target)
+    --runtime-target)
       fleet_need_optarg "$1" "${2-}" || usage
       TARGET="$2"
       shift 2
@@ -94,13 +111,8 @@ while [[ $# -gt 0 ]]; do
       usage
       ;;
     *)
-      if [[ -z "$NAME" ]]; then
-        NAME="$1"
-        shift
-      else
-        echo "unknown arg: $1" >&2
-        usage
-      fi
+      echo "unexpected positional argument: $1 (use --role)" >&2
+      usage
       ;;
   esac
 done
@@ -110,109 +122,41 @@ if ! PROJECT="$(fleet_abs_project "$PROJECT")"; then
   echo "ERROR: project is not a directory: $PROJECT" >&2
   exit 2
 fi
-FLEET="${FLEET:-$PROJECT/.vivi/fleet.json}"
+FLEET_FILE="${FLEET_FILE:-$PROJECT/.vivi/fleet.json}"
 BASELINE="${BASELINE:-$PROJECT/.vivi/mind-baseline.json}"
-[[ -f "$FLEET" ]] || { echo "missing fleet.json: $FLEET" >&2; exit 2; }
+[[ -f "$FLEET_FILE" ]] || { echo "missing fleet.json: $FLEET_FILE" >&2; exit 2; }
 
-# Resolve hand slot from fleet.json (embedded python — portable, no zsh).
-# Emits a single line of shell-evaluable key=value pairs, one per line, ending with __RESOLVE_END__.
+# Resolve logical role through the shared backend-neutral resolver. Wake history
+# is a separate baseline concern and is intentionally not part of target
+# resolution.
 resolve() {
-  "$PYTHON_BIN" - "$FLEET" "$BASELINE" "${NAME:-}" "${TARGET:-}" "$PROJECT" <<'PY'
-import json, sys
+  local resolver=("$PYTHON_BIN" "$_FLEET_SCRIPT_DIR/fleet-resolve.py"
+    --project "$PROJECT" --fleet-file "$FLEET_FILE" --role "$ROLE" --shell)
+  [[ -n "$FLEET_ID" ]] && resolver+=(--fleet "$FLEET_ID")
+  [[ -n "$TARGET" ]] && resolver+=(--runtime-target "$TARGET")
+  "${resolver[@]}"
+  "$PYTHON_BIN" - "$BASELINE" "$ROLE" <<'PY'
+import json, shlex, sys
 from pathlib import Path
 
-fleet_path, baseline_path, name, target_override, project = sys.argv[1:6]
-
-def load(path):
-    p = Path(path)
-    if not p.is_file():
-        return {}
+path, role = sys.argv[1:3]
+baseline = {}
+if Path(path).is_file():
     try:
-        return json.loads(p.read_text(encoding="utf-8"))
+        baseline = json.loads(Path(path).read_text(encoding="utf-8"))
     except Exception:
-        return {}
-
-f = load(fleet_path)
-b = load(baseline_path)
-project = Path(project)
-
-hands = f.get("hands") or f.get("hunters") or {}
-slot = None
-if name and name in hands:
-    slot = hands[name]
-elif name:
-    candidate = f.get(name)
-    if not isinstance(candidate, dict):
-        candidate = (f.get("heads") or {}).get(name)
-    if isinstance(candidate, dict):
-        slot = candidate
-
-runtime = (slot or {}).get("runtime") or {}
-runtime_kind = runtime.get("kind") if isinstance(runtime, dict) else None
-wake_mode = "vivi_pty" if runtime_kind == "vivi_pty" else ((slot or {}).get("wake_mode") or "tmux_send_keys")
-
-if target_override:
-    target = target_override
-    session = target.split(":")[0]
-    agent = (slot or {}).get("agent") or "unknown"
-    min_gap = int((slot or {}).get("min_seconds_between_wakes") or 0)
-    mail = (slot or {}).get("mail_identity") or name or "hand"
-    socket = ""
-elif slot:
-    if wake_mode == "vivi_pty":
-        session_id = (runtime.get("session_id") if isinstance(runtime, dict) else None) or (slot.get("mail_identity") or name)
-        socket = (runtime.get("socket") if isinstance(runtime, dict) else None) or str(project / ".vivi" / "vivi-pty.sock")
-        target = session_id
-        session = socket
-        agent = slot.get("agent") or "unknown"
-        min_gap_value = slot.get("min_seconds_between_wakes")
-        min_gap = int(180 if min_gap_value is None else min_gap_value)
-        mail = slot.get("mail_identity") or name
-    else:
-        target = slot.get("tmux_target") or ("%s:1.1" % (slot.get("tmux_session") or name))
-        session = target.split(":")[0]
-        agent = slot.get("agent") or "unknown"
-        min_gap_value = slot.get("min_seconds_between_wakes")
-        min_gap = int(180 if min_gap_value is None else min_gap_value)
-        mail = slot.get("mail_identity") or name
-        socket = ""
-else:
-    sys.stderr.write("error: unknown slot\n")
-    sys.exit(2)
-
-# Rate-limit stamps are PER-HAND only (last_hand_wake.by_hand.<name>).
-# Never use top-level last_hand_wake_target / last_hand_wake_at alone — gatherer-era
-# baselines leave stale last_hand_wake_target=hand-N while last_hand_wake_at is
-# another Hand's timestamp, which falsely rate-limits the wrong slot every cycle.
-by = ((b.get("last_hand_wake") or {}).get("by_hand") or {})
-per = by.get(name) if name else None
-if isinstance(per, dict) and per.get("at"):
-    last_at = per.get("at") or ""
-    wake_count = int(per.get("count") or 0)
-else:
-    last_at = ""
-    wake_count = 0
-    # Legacy only: structured last_hand_wake.target must match this hand (not
-    # the separate top-level last_hand_wake_target field).
-    gl = b.get("last_hand_wake") if isinstance(b.get("last_hand_wake"), dict) else {}
-    if gl.get("target") == name and (gl.get("at") or b.get("last_hand_wake_at")):
-        last_at = gl.get("at") or b.get("last_hand_wake_at") or ""
+        pass
+by = ((baseline.get("last_hand_wake") or {}).get("by_hand") or {})
+entry = by.get(role) if isinstance(by, dict) else None
+last_at = entry.get("at", "") if isinstance(entry, dict) else ""
+wake_count = int(entry.get("count", 0) or 0) if isinstance(entry, dict) else 0
+if not last_at:
+    legacy = baseline.get("last_hand_wake") if isinstance(baseline.get("last_hand_wake"), dict) else {}
+    if legacy.get("target") == role:
+        last_at = legacy.get("at") or baseline.get("last_hand_wake_at") or ""
         wake_count = 1 if last_at else 0
-
-out = {
-    "target": target,
-    "session": session,
-    "agent": agent,
-    "min_gap": min_gap,
-    "mail": mail or "",
-    "last_at": last_at or "",
-    "name": name or "",
-    "wake_count": int(wake_count),
-    "wake_mode": wake_mode,
-    "socket": socket or "",
-}
-for key in ("target", "session", "agent", "min_gap", "mail", "last_at", "name", "wake_count", "wake_mode", "socket"):
-    sys.stdout.buffer.write(str(out[key]).encode("utf-8") + b"\0")
+print("RESOLVED_LAST_AT=" + shlex.quote(str(last_at or "")))
+print("RESOLVED_WAKE_COUNT=" + shlex.quote(str(wake_count)))
 PY
 }
 
@@ -267,35 +211,28 @@ AGENT="unknown"
 MIN_GAP=0
 MAIL=""
 LAST_AT=""
-LAST_TARGET=""
+WAKE_COUNT=0
 
-if [[ -n "$MESSAGE" && -n "$TARGET" ]]; then
+if [[ -n "$MESSAGE" && -n "$TARGET" && -z "$ROLE" ]]; then
   RESOLVED_TARGET="$TARGET"
   WAKE_MODE="tmux_send_keys"
   AGENT="unknown"
-  MAIL="${NAME:-}"
+  MAIL=""
   MIN_GAP=0
   LAST_AT=""
   WAKE_COUNT=0
   SOCKET=""
   SESSION="${TARGET%%:*}"
-elif [[ -n "$NAME" ]]; then
-  # Read fixed-order NUL-delimited values; never eval editable fleet JSON.
-  _resolve_values=()
-  while IFS= read -r -d '' _resolve_value; do
-    _resolve_values+=("$_resolve_value")
-  done < <(resolve)
-  [[ ${#_resolve_values[@]} -eq 10 ]] || { echo "ERROR: failed to resolve runtime binding" >&2; exit 2; }
-  RESOLVED_TARGET="${_resolve_values[0]}"
-  SESSION="${_resolve_values[1]}"
-  AGENT="${_resolve_values[2]}"
-  MIN_GAP="${_resolve_values[3]}"
-  MAIL="${_resolve_values[4]}"
-  LAST_AT="${_resolve_values[5]}"
-  LAST_TARGET="${_resolve_values[6]}"
-  WAKE_COUNT="${_resolve_values[7]}"
-  WAKE_MODE="${_resolve_values[8]}"
-  SOCKET="${_resolve_values[9]}"
+elif [[ -n "$ROLE" ]]; then
+  eval "$(resolve)"
+  RESOLVED_TARGET="${RESOLVED_TARGET:-}"
+  SESSION="${RESOLVED_SESSION:-}"
+  AGENT="${RESOLVED_AGENT:-unknown}"
+  MIN_GAP="${RESOLVED_MIN_SECONDS_BETWEEN_WAKES:-180}"
+  MAIL="${RESOLVED_MAIL_IDENTITY:-$ROLE}"
+  WAKE_MODE="${RESOLVED_KIND:-tmux}"
+  [[ "$WAKE_MODE" == "vivi_pty" ]] || WAKE_MODE="tmux_send_keys"
+  SOCKET="${RESOLVED_SOCKET:-}"
 else
   usage
 fi
@@ -341,7 +278,7 @@ except Exception:
   if [[ "$LAST_EPOCH" -gt 0 ]]; then
     DELTA=$((NOW_EPOCH - LAST_EPOCH))
     if [[ "$DELTA" -lt "$MIN_GAP" ]]; then
-      echo "refused: rate limit ${DELTA}s < ${MIN_GAP}s since last wake of $NAME (count=${WAKE_COUNT})" >&2
+      echo "refused: rate limit ${DELTA}s < ${MIN_GAP}s since last wake of $ROLE (count=${WAKE_COUNT})" >&2
       exit 1
     fi
   fi
@@ -350,11 +287,11 @@ fi
 # Build pointer message
 if [[ -z "$MESSAGE" ]]; then
   PROJECT_Q="$PROJECT"
-  MAIL_Q="${MAIL:-$NAME}"
+  MAIL_Q="${MAIL:-$ROLE}"
   if [[ -n "$HANDLE" ]]; then
-    MESSAGE="HAND WAKE ${NAME}. Bag: show ${HANDLE}. vivi --project ${PROJECT_Q} --for ${MAIL_Q}. ${NOTE} Continue."
+    MESSAGE="HAND WAKE ${ROLE}. Bag: show ${HANDLE}. vivi --project ${PROJECT_Q} --for ${MAIL_Q}. ${NOTE} Continue."
   else
-    MESSAGE="HAND WAKE ${NAME}. Bag: show next open. vivi --project ${PROJECT_Q} --for ${MAIL_Q}. ${NOTE} Continue."
+    MESSAGE="HAND WAKE ${ROLE}. Bag: show next open. vivi --project ${PROJECT_Q} --for ${MAIL_Q}. ${NOTE} Continue."
   fi
 fi
 
@@ -381,7 +318,7 @@ else
 fi
 
 # record last wake in baseline (atomic write)
-"$PYTHON_BIN" - "$BASELINE" "$PROJECT" "$NAME" "$HANDLE" "$RESOLVED_TARGET" "$WAKE_MODE" "$SOCKET" <<'PY'
+"$PYTHON_BIN" - "$BASELINE" "$PROJECT" "$ROLE" "$HANDLE" "$RESOLVED_TARGET" "$WAKE_MODE" "$SOCKET" <<'PY'
 import json, os, sys, tempfile
 from pathlib import Path
 from datetime import datetime, timezone

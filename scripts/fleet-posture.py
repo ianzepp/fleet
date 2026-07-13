@@ -26,6 +26,13 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from fleet_common import (  # noqa: E402
+    FleetScopeError,
+    add_fleet_scope_arguments,
+    resolve_fleet_file,
+)
+
 MODES = ("growth", "standby", "dormant")
 ALIASES = {"campaign": "growth", "active": "growth", "on_call": "standby", "on-call": "standby"}
 
@@ -74,7 +81,7 @@ def print_posture(path: Path, posture: Dict[str, Any], as_json: bool, changed: b
 def validate_candidate(candidate: Path, script_dir: Path) -> None:
     verifier = script_dir / "verify-fleet-json.py"
     result = subprocess.run(
-        [sys.executable, str(verifier), "--fleet", str(candidate), "--strict"],
+        [sys.executable, str(verifier), "--fleet-file", str(candidate), "--strict"],
         text=True,
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
@@ -107,8 +114,7 @@ def parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(description="Inspect or atomically change fleet posture")
     p.add_argument("command", choices=("get", "set"))
     p.add_argument("mode", nargs="?", help="growth, standby, or dormant (set only)")
-    p.add_argument("--project", "-p", required=True, help="fleet project root")
-    p.add_argument("--fleet", help="fleet.json path (default: PROJECT/.vivi/fleet.json)")
+    add_fleet_scope_arguments(p)
     p.add_argument("--reason", help="one-line posture reason (set only)")
     p.add_argument("--wake-trigger", action="append", default=None, help="replace wake triggers; repeatable")
     p.add_argument("--json", action="store_true", help="machine-readable output")
@@ -122,8 +128,8 @@ def main(argv: Optional[List[str]] = None) -> int:
     if args.command == "set" and args.mode is None:
         parser().error("set requires a posture mode")
     project = Path(args.project).expanduser().resolve()
-    path = Path(args.fleet).expanduser().resolve() if args.fleet else project / ".vivi" / "fleet.json"
     try:
+        path, _ = resolve_fleet_file(project, args.fleet, args.fleet_file)
         fleet = load_object(path)
         current = posture_of(fleet)
         if args.command == "get":
@@ -147,7 +153,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         save_atomic(path, fleet, Path(__file__).resolve().parent)
         print_posture(path, updated, args.json, changed=(updated != current))
         return 0
-    except ValueError as exc:
+    except (FleetScopeError, ValueError) as exc:
         print("error: %s" % exc, file=sys.stderr)
         return 1
 

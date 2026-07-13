@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # opencode Hand control for fleet hand-N (fleet-agnostic).
-# Set PROJECT and FLEET (or run from a fleet directory).
-# Resolves tmux_target from fleet.json (legacy hand-1:1.1 or mgs:hand-1.1).
+# Set PROJECT and FLEET_FILE (or run from a fleet directory).
+# Resolves logical roles through fleet-resolve.py.
 #
 # Invariants:
 #   - pane_pid MUST remain a shell (zsh/bash); opencode is always a child
@@ -11,17 +11,17 @@
 #   - launch with tmux send-keys -l (literal); wait ready before bootstrap
 #
 # Usage:
-#   .vivi/opencode-hand-ctl.sh status   hand-1
-#   .vivi/opencode-hand-ctl.sh classify hand-1
+#   .vivi/opencode-hand-ctl.sh status   --role hand-1
+#   .vivi/opencode-hand-ctl.sh classify --role hand-1
 #   .vivi/opencode-hand-ctl.sh doctor            # fleet health + bag join (no kill)
-#   .vivi/opencode-hand-ctl.sh doctor   hand-2
-#   .vivi/opencode-hand-ctl.sh kill     hand-1
-#   .vivi/opencode-hand-ctl.sh launch   hand-1
-#   .vivi/opencode-hand-ctl.sh reinit   hand-1 --boot 'short pointer…'
-#   .vivi/opencode-hand-ctl.sh reinit   hand-1 --no-boot
+#   .vivi/opencode-hand-ctl.sh doctor   --role hand-2
+#   .vivi/opencode-hand-ctl.sh kill     --role hand-1
+#   .vivi/opencode-hand-ctl.sh launch   --role hand-1
+#   .vivi/opencode-hand-ctl.sh reinit   --role hand-1 --boot 'short pointer…'
+#   .vivi/opencode-hand-ctl.sh reinit   --role hand-1 --no-boot
 #   .vivi/opencode-hand-ctl.sh heal              # reinit unhealthy slots
-#   .vivi/opencode-hand-ctl.sh heal     hand-3
-#   .vivi/opencode-hand-ctl.sh topo     hand-1
+#   .vivi/opencode-hand-ctl.sh heal     --role hand-3
+#   .vivi/opencode-hand-ctl.sh topo     --role hand-1
 #
 # Env overrides: PROJECT, OPENCODE_BIN, TMUX_BIN, VIVI_BIN, PYTHON_BIN,
 #                LOG, FORCE=1
@@ -38,13 +38,15 @@ fleet_bootstrap_env
 
 PROJECT="${PROJECT:-}"
 if [[ -z "$PROJECT" ]]; then
-  if [[ -n "${FLEET:-}" && -f "$FLEET" ]]; then
-    PROJECT="$(CDPATH= cd -- "$(dirname "$FLEET")/.." && pwd)"
+  if [[ -n "${FLEET_FILE:-}" && -f "$FLEET_FILE" ]]; then
+    PROJECT="$(CDPATH= cd -- "$(dirname "$FLEET_FILE")/.." && pwd)"
   else
     PROJECT="$(pwd)"
   fi
 fi
-FLEET="${FLEET:-$PROJECT/.vivi/fleet.json}"
+FLEET_ID="${FLEET_ID:-}"
+FLEET_FILE="${FLEET_FILE:-}"
+RUNTIME_TARGET="${RUNTIME_TARGET:-}"
 TMUX_BIN="$(fleet_find_tmux 2>/dev/null || true)"; TMUX_BIN="${TMUX_BIN:-tmux}"
 OPENCODE_BIN="$(fleet_find_bin opencode /opt/homebrew/bin/opencode /usr/local/bin/opencode "${HOME}/.local/bin/opencode" 2>/dev/null || true)"
 OPENCODE_BIN="${OPENCODE_BIN:-opencode}"
@@ -388,25 +390,15 @@ default_boot() {
 
 fleet_resolve() {
   local name=$1
-  "$PYTHON_BIN" - "$FLEET" "$name" <<'PY'
+  local resolver=("$PYTHON_BIN" "$_FLEET_SCRIPT_DIR/fleet-resolve.py"
+    --project "$PROJECT" --fleet-file "$FLEET_FILE" --role "$name" --json)
+  [[ -n "$FLEET_ID" ]] && resolver+=(--fleet "$FLEET_ID")
+  [[ -n "$RUNTIME_TARGET" ]] && resolver+=(--runtime-target "$RUNTIME_TARGET")
+  "${resolver[@]}" | "$PYTHON_BIN" -c '
 import json, sys
-fleet_path, name = sys.argv[1], sys.argv[2]
-f = json.loads(open(fleet_path).read())
-h = (f.get("hands") or {}).get(name)
-if not h:
-    sys.stderr.write(f"unknown hand in fleet: {name}\n")
-    sys.exit(1)
-session = h.get("tmux_session") or name
-target = h.get("tmux_target") or f"{session}:1.1"
-cwd = h.get("cwd") or f.get("project") or ""
-if not cwd:
-    sys.stderr.write("fleet hand missing cwd and fleet.project\n")
-    sys.exit(1)
-if h.get("packet") and isinstance(h["packet"], dict):
-    cwd = h["packet"].get("worker_cwd") or h["packet"].get("root") or cwd
-launch = h.get("agent_launch") or ""
-print(f"{session}\t{cwd}\t{target}\t{launch}")
-PY
+x = json.load(sys.stdin)
+print("\t".join(str(x.get(k, "")) for k in ("session", "cwd", "target", "launch")))
+'
 }
 
 # --- commands ---
@@ -425,13 +417,10 @@ cmd_status() {
 }
 
 opencode_hand_names() {
-  "$PYTHON_BIN" - "$FLEET" <<'PY'
-import json, sys
-f = json.loads(open(sys.argv[1]).read())
-for name, h in sorted((f.get("hands") or {}).items()):
-    if (h.get("agent") or "") in ("opencode",):
-        print(name)
-PY
+  local resolver=("$PYTHON_BIN" "$_FLEET_SCRIPT_DIR/fleet-resolve.py"
+    --project "$PROJECT" --fleet-file "$FLEET_FILE" --list --agent opencode --group hand)
+  [[ -n "$FLEET_ID" ]] && resolver+=(--fleet "$FLEET_ID")
+  "${resolver[@]}"
 }
 
 doctor_one() {
@@ -686,23 +675,36 @@ need_bins
 : >>"$LOG"
 cmd=${1:-}
 shift || true
+ROLE=""
+_COMMAND_ARGS=()
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --project|-p) fleet_need_optarg "$1" "${2-}" || usage; PROJECT="$2"; shift 2 ;;
+    --fleet|-f) fleet_need_optarg "$1" "${2-}" || usage; FLEET_ID="$2"; shift 2 ;;
+    --fleet-file) fleet_need_optarg "$1" "${2-}" || usage; FLEET_FILE="$2"; shift 2 ;;
+    --runtime-target) fleet_need_optarg "$1" "${2-}" || usage; RUNTIME_TARGET="$2"; shift 2 ;;
+    --role) fleet_need_optarg "$1" "${2-}" || usage; ROLE="$2"; shift 2 ;;
+    *) _COMMAND_ARGS+=("$1"); shift ;;
+  esac
+done
+FLEET_FILE="${FLEET_FILE:-$PROJECT/.vivi/fleet.json}"
 case "$cmd" in
-  status) [[ $# -ge 1 ]] || usage; cmd_status "$1" ;;
+  status) [[ -n "$ROLE" ]] || usage; cmd_status "$ROLE" ;;
   classify)
-    [[ $# -ge 1 ]] || usage
-    IFS=$'\t' read -r session cwd target launch < <(fleet_resolve "$1")
+    [[ -n "$ROLE" ]] || usage
+    IFS=$'\t' read -r session cwd target launch < <(fleet_resolve "$ROLE")
     echo "$(classify "$target")"
     ;;
   doctor|probe|debug)
-    cmd_doctor "${1:-}" ;;
-  kill) [[ $# -ge 1 ]] || usage; cmd_kill "$1" ;;
-  launch) [[ $# -ge 1 ]] || usage; cmd_launch "$1" ;;
-  reinit) [[ $# -ge 1 ]] || usage; cmd_reinit "$@" ;;
+    cmd_doctor "${ROLE:-}" ;;
+  kill) [[ -n "$ROLE" ]] || usage; cmd_kill "$ROLE" ;;
+  launch) [[ -n "$ROLE" ]] || usage; cmd_launch "$ROLE" ;;
+  reinit) [[ -n "$ROLE" ]] || usage; cmd_reinit "$ROLE" "${_COMMAND_ARGS[@]}" ;;
   heal)
-    cmd_heal "${1:-}" ;;
+    cmd_heal "${ROLE:-}" ;;
   topo)
-    [[ $# -ge 1 ]] || usage
-    IFS=$'\t' read -r session cwd target launch < <(fleet_resolve "$1")
+    [[ -n "$ROLE" ]] || usage
+    IFS=$'\t' read -r session cwd target launch < <(fleet_resolve "$ROLE")
     topo "$target"
     ;;
   -h|--help|help|"") usage ;;

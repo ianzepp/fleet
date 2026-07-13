@@ -34,11 +34,14 @@ from typing import Any, List, Optional, Tuple
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from fleet_common import (  # noqa: E402
+    FleetScopeError,
+    add_fleet_scope_arguments,
     ensure_dict,
     ensure_list,
     load_json,
     now_iso,
     require_python,
+    resolve_fleet_file,
     save_json,
 )
 
@@ -345,10 +348,12 @@ def cmd_wound_up(args: argparse.Namespace, project: Path, baseline: Path) -> int
     return 0
 
 
-def _extract_globals(argv: List[str]) -> Tuple[List[str], Optional[str], Optional[str]]:
-    """Allow --project / --baseline before *or* after the subcommand."""
+def _extract_globals(argv: List[str]) -> Tuple[List[str], Optional[str], Optional[str], Optional[str], Optional[str]]:
+    """Allow scope and baseline paths before or after the subcommand."""
     project = None  # type: Optional[str]
     baseline = None  # type: Optional[str]
+    fleet_id = None  # type: Optional[str]
+    fleet_file = None  # type: Optional[str]
     out: List[str] = []
     i = 0
     while i < len(argv):
@@ -373,17 +378,33 @@ def _extract_globals(argv: List[str]) -> Tuple[List[str], Optional[str], Optiona
             baseline = a.split("=", 1)[1]
             i += 1
             continue
+        if a in ("--fleet", "-f") and i + 1 < len(argv):
+            fleet_id = argv[i + 1]
+            i += 2
+            continue
+        if a.startswith("--fleet="):
+            fleet_id = a.split("=", 1)[1]
+            i += 1
+            continue
+        if a == "--fleet-file" and i + 1 < len(argv):
+            fleet_file = argv[i + 1]
+            i += 2
+            continue
+        if a.startswith("--fleet-file="):
+            fleet_file = a.split("=", 1)[1]
+            i += 1
+            continue
         out.append(a)
         i += 1
-    return out, project, baseline
+    return out, project, baseline, fleet_id, fleet_file
 
 
 def main(argv: Optional[List[str]] = None) -> int:
     raw = list(sys.argv[1:] if argv is None else argv)
-    rest, project_arg, baseline_arg = _extract_globals(raw)
+    rest, project_arg, baseline_arg, fleet_id_arg, fleet_file_arg = _extract_globals(raw)
 
     parent = argparse.ArgumentParser(add_help=False)
-    parent.add_argument("--project", "-p", default=None)
+    add_fleet_scope_arguments(parent)
     parent.add_argument("--baseline", default=None, help="default: PROJECT/.vivi/mind-baseline.json")
 
     ap = argparse.ArgumentParser(
@@ -442,6 +463,15 @@ def main(argv: Optional[List[str]] = None) -> int:
     project = Path(project_s).expanduser().resolve()
     if not project.is_dir():
         print("error: project is not a directory: %s" % project, file=sys.stderr)
+        return 1
+    try:
+        resolve_fleet_file(
+            project,
+            fleet_id_arg or args.fleet,
+            fleet_file_arg or args.fleet_file,
+        )
+    except FleetScopeError as exc:
+        print("error: %s" % exc, file=sys.stderr)
         return 1
     baseline = (
         Path(baseline_s).expanduser().resolve()
