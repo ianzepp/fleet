@@ -164,6 +164,30 @@ def _check_executive_cadence(report: Report, where: str, block: Dict[str, Any]) 
         report.warn("%s.sweep_mode" % cwhere, "should be a string, got %r" % (cad.get("sweep_mode"),))
 
 
+def _check_sensor_log(report: Report, value: Any) -> None:
+    if value is None:
+        return
+    where = "$.sensor_log"
+    if not isinstance(value, dict):
+        report.err(where, "must be an object")
+        return
+    if "enabled" in value and not isinstance(value.get("enabled"), bool):
+        report.err(where + ".enabled", "must be boolean")
+    level = value.get("level", "off")
+    if level not in ("off", "events", "summary", "full"):
+        report.err(where + ".level", "must be one of off, events, summary, full")
+    if value.get("enabled") is True and level == "off":
+        report.warn(where, "enabled=true with level=off records nothing")
+    for key in ("path", "directory"):
+        if key in value and (not isinstance(value[key], str) or not value[key].strip()):
+            report.err(where + "." + key, "must be a non-empty path string")
+    if "path" in value and "directory" in value:
+        report.err(where, "set only one of path or directory")
+    retention = value.get("retention_cycles")
+    if retention is not None and (not isinstance(retention, int) or isinstance(retention, bool) or retention < 1):
+        report.err(where + ".retention_cycles", "must be a positive integer")
+
+
 def validate(fleet: Dict[str, Any], fleet_path: Path, path_checks: bool) -> Report:
     report = Report()
     if not isinstance(fleet, dict):
@@ -175,6 +199,7 @@ def validate(fleet: Dict[str, Any], fleet_path: Path, path_checks: bool) -> Repo
         _check_inbox_key(report, "$.%s" % k, fleet.get(k))
     if "version" in fleet and not isinstance(fleet.get("version"), int):
         report.warn("$.version", "version should be an integer, got %r" % (fleet.get("version"),))
+    _check_sensor_log(report, fleet.get("sensor_log"))
 
     # --- default_hand cross-reference (hands may be keyed as 'hunters' in legacy fleets) ---
     hands = ensure_dict(fleet.get("hands") or fleet.get("hunters"))

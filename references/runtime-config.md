@@ -28,9 +28,26 @@ python3 scripts/fleet-sensors.py --project <root> --text
 python3 scripts/fleet-sensors.py --project <root> --no-watch # skip mailspace watch
 python3 scripts/fleet-sensors.py -p <root> --fleet <path/to/fleet.json>
 python3 scripts/fleet-sensors.py -p <root> --tail 12 --cursor-file <path>
+python3 scripts/fleet-sensors.py -p <root> --record-cycle [--cycle-id <id>]
+python3 scripts/fleet-sensors.py -p <root> --history 10 [--role hand-1]
 ```
 
-Emits board status, open handles, pane classes, git tip, ahead/behind counts, bounded dirty paths, pending RTM/integration-lag evidence, fingerprint, `signals[]`, `quiet_hint`, posture, and Head cadence due flags. RTM reconciliation uses advertised commit ancestry when available and newer main-Hand merge-completion mail as the cheap fallback. Exit `0` ok · `1` hard · `2` partial.
+Emits board status, open handles, pane classes, git tip, ahead/behind counts, bounded dirty paths, pending RTM/integration-lag evidence, fingerprint, `signals[]`, `quiet_hint`, posture, Head cadence due flags, and model provenance for every configured Head/Hand. `configured` normalizes fleet role fields (`agent`; explicit `provider`; `model` or `agent_model`; and `reasoning`, `agent_reasoning_effort`, `thinking`, or `effort`) and may fill otherwise absent values from the role's unambiguous `preferred_models` profile; it never parses `agent_launch`. `observed` comes only from structured normalized runtime diagnostics and remains null when not provable. `match_status` therefore distinguishes `match`, `mismatch`, `configured_only`, `observed_only`, and `unknown` without treating config as observation. RTM reconciliation uses advertised commit ancestry when available and newer main-Hand merge-completion mail as the cheap fallback. Exit `0` ok · `1` hard · `2` partial.
+
+Sensor history is opt-in and normal/ad-hoc invocations never write it:
+
+```json
+{
+  "sensor_log": {
+    "enabled": true,
+    "level": "summary",
+    "directory": ".vivi/logs/sensors",
+    "retention_cycles": 100
+  }
+}
+```
+
+Levels are `off`, `events` (material fingerprint diffs), `summary` (fixed reduced fields), and `full` (conservatively redacted snapshot). `path` is accepted instead of `directory`; relative paths resolve under the project and the default is `.vivi/logs/sensors`, intended to remain gitignored. A recorded call uses a serialized first-write-wins atomic write to create one schema-versioned JSON file per cycle. Cycle IDs are canonical non-negative decimal integers. Retrying the same cycle and level is idempotent; conflicting metadata is reported without replacing the original, then retention prunes oldest cycle IDs. Logging failures add `sensor_log_failed`, return partial, and still print the live snapshot. Persisted full records exclude pane bodies/tails, runtime evidence text, mail subjects/bodies, customer content, and secret/token/password/credential fields. They never persist raw pane tails.
 
 ### `fleet-baseline.py`
 
@@ -58,7 +75,7 @@ python3 scripts/verify-fleet-json.py --project <root> --no-path-checks # skip on
 Validates fleet.json shape, cross-references (`default_hand` resolves,
 `mail_identity` unique, `merges_to_main` only on a hand), `executive_cadence` /
 wake-field well-formedness, and that referenced absolute paths (`role_prompt`,
-`persona`, `tooling` binaries) exist. The schema is permissive ("extend freely;
+`persona`, `tooling` binaries) exist, and validates `sensor_log` level/path/retention shape. The schema is permissive ("extend freely;
 skill cares about meanings") — unknown keys are NOT rejected. Exit `0` ok ·
 `1` validation errors (or any warning under `--strict`) · `2` usage.
 

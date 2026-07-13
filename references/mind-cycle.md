@@ -216,12 +216,17 @@ ROOT=/path/to/fleet/project
 python3 $SK/fleet-sensors.py --project "$ROOT"
 python3 $SK/fleet-sensors.py --project "$ROOT" --text
 python3 $SK/fleet-sensors.py --project "$ROOT" --no-watch
+# Exactly one canonical history write per completed Mind cycle when sensor_log is enabled.
+# Pass the cycle being completed explicitly; ad-hoc/warm-up reads omit --record-cycle.
+python3 $SK/fleet-sensors.py --project "$ROOT" --record-cycle --cycle-id <non-negative-integer>
+# Warm-up or post-compaction context may read history without collecting/writing sensors:
+python3 $SK/fleet-sensors.py --project "$ROOT" --history 10 [--role hand-1]
 
 # Doorbell for Grok/Pi/Codex; Codex helper path uses submit-settle
 $SK/fleet-doorbell.sh --project "$ROOT" hand-1 --handle <hex> --note 'bag open'
 # exit 0 sent · 1 refused (running|down|rate-limit) · 2 usage
 
-python3 $SK/fleet-sensors.py --project "$ROOT" > /tmp/fleet-sensors.json
+python3 $SK/fleet-sensors.py --project "$ROOT" --record-cycle --cycle-id <non-negative-integer> > /tmp/fleet-sensors.json
 python3 $SK/fleet-baseline.py bump -p "$ROOT" -s 'sleep' --quiet \
   --fingerprint-file /tmp/fleet-sensors.json
 # only if steward enabled+armed for this fleet (default: skip):

@@ -12,11 +12,14 @@ Exit: 0 ok · 1 hard error (missing project/fleet) · 2 sensors partial (still p
 from __future__ import annotations
 
 import argparse
+import fcntl
 import hashlib
 import json
+import os
 import re
 import shutil
 import sys
+import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -71,6 +74,33 @@ def is_vivi_pty_role(slot: dict) -> bool:
     return isinstance(runtime, dict) and runtime.get("kind") == "vivi_pty"
 
 
+def _model_fields(value: Any) -> Dict[str, Any]:
+    """Return only structured model evidence; free-form terminal text is never evidence."""
+    if not isinstance(value, dict):
+        return {}
+    result = {}
+    for key in ("agent", "provider", "model", "reasoning"):
+        item = value.get(key)
+        if isinstance(item, (str, int, float, bool)) and str(item).strip():
+            result[key] = item
+    return result
+
+
+def _observed_model(diagnostic: dict) -> Dict[str, Any]:
+    """Merge structured runtime evidence; earlier normalized candidates win per field."""
+    result = {}
+    for candidate in (
+        diagnostic.get("model_provenance"),
+        (diagnostic.get("runtime") or {}).get("model_provenance") if isinstance(diagnostic.get("runtime"), dict) else None,
+        diagnostic.get("runtime"),
+        diagnostic.get("session"),
+        diagnostic,
+    ):
+        for key, value in _model_fields(candidate).items():
+            result.setdefault(key, value)
+    return result
+
+
 def capture_vivi_pty(session_id: str, socket: str, vivi_pty_bin: str) -> dict:
     """Capture one canonical runtime observation from vivi-pty diagnostics."""
     unavailable = {
@@ -80,6 +110,7 @@ def capture_vivi_pty(session_id: str, socket: str, vivi_pty_bin: str) -> dict:
         "process_state": "unknown",
         "confidence": "low",
         "evidence": [],
+        "model": {},
     }
     if not vivi_pty_bin:
         return unavailable
@@ -103,6 +134,7 @@ def capture_vivi_pty(session_id: str, socket: str, vivi_pty_bin: str) -> dict:
         "process_state": process_state,
         "confidence": diagnostic.get("confidence", "low"),
         "evidence": diagnostic.get("evidence") or [],
+        "model": _observed_model(diagnostic),
     }
 
 
@@ -675,6 +707,261 @@ def quiet_hint_from(fp: dict, prev: dict, signals: list, steward: dict) -> bool:
     return fp_cmp == prev_cmp and not hard and not steward.get("tripped")
 
 
+def _configured_model_fields(config: Any) -> Dict[str, Any]:
+    if not isinstance(config, dict):
+        return {}
+    aliases = {
+        "agent": ("agent",),
+        "provider": ("provider",),
+        "model": ("model", "agent_model"),
+        "reasoning": ("reasoning", "agent_reasoning_effort", "thinking", "effort"),
+    }
+    result = {}
+    for canonical, keys in aliases.items():
+        for key in keys:
+            item = config.get(key)
+            if isinstance(item, (str, int, float, bool)) and str(item).strip():
+                result[canonical] = item
+                break
+    return result
+
+
+def _preferred_model_profile(fleet: Optional[dict], role: str, agent: Optional[str]) -> Dict[str, Any]:
+    """Resolve only an exact, structurally unambiguous preferred-model profile."""
+    preferred = fleet.get("preferred_models") if isinstance(fleet, dict) else None
+    if not isinstance(preferred, dict):
+        return {}
+    if role == "head":
+        profile = preferred.get("head")
+        if not isinstance(profile, dict):
+            return {}
+        profile_agent = profile.get("agent")
+        if profile_agent and agent and str(profile_agent).lower() != str(agent).lower():
+            return {}
+        return {
+            key: value
+            for key, value in _configured_model_fields(profile).items()
+            if key in ("provider", "model", "reasoning")
+        }
+    if role != "hand" or not agent:
+        return {}
+    matches = [value for key, value in preferred.items() if str(key).lower() == str(agent).lower()]
+    if len(matches) != 1 or not isinstance(matches[0], dict):
+        return {}
+    profile = matches[0].get("hand")
+    if isinstance(profile, dict):
+        return {
+            key: value
+            for key, value in _configured_model_fields(profile).items()
+            if key in ("provider", "model", "reasoning")
+        }
+    if isinstance(profile, str) and profile.strip():
+        return {"model": profile}
+    return {}
+
+
+def model_provenance(
+    config: dict,
+    observed: Optional[dict] = None,
+    fleet: Optional[dict] = None,
+    role: str = "hand",
+) -> dict:
+    configured = _preferred_model_profile(fleet, role, config.get("agent"))
+    configured.update(_configured_model_fields(config))
+    nested = _configured_model_fields(config.get("model_provenance"))
+    configured.update(nested)
+    observed = _model_fields(observed or {})
+    comparable = sorted(set(configured).intersection(observed))
+    if observed and configured:
+        configured_model = configured.get("model")
+        observed_model = observed.get("model")
+        if configured_model is not None and observed_model is None:
+            status = "unknown"
+        elif configured_model is not None and configured_model != observed_model:
+            status = "mismatch"
+        elif not comparable:
+            status = "unknown"
+        else:
+            status = "match" if all(configured[k] == observed[k] for k in comparable) else "mismatch"
+    elif observed:
+        status = "observed_only"
+    elif configured:
+        status = "configured_only"
+    else:
+        status = "unknown"
+    return {"configured": configured or None, "observed": observed or None, "match_status": status}
+
+
+_PRIVATE_KEYS = {
+    "tail", "contents", "body", "message", "prompt", "completion", "customer",
+    "subject", "board_status_raw_tail", "event", "evidence", "focus", "map_focus",
+}
+
+
+def redact_snapshot(value: Any) -> Any:
+    """Conservatively remove content-bearing fields from persisted full snapshots."""
+    if isinstance(value, dict):
+        return {
+            str(key): redact_snapshot(item)
+            for key, item in sorted(value.items(), key=lambda pair: str(pair[0]))
+            if str(key).lower() not in _PRIVATE_KEYS
+            and not any(token in str(key).lower() for token in ("secret", "token", "password", "credential"))
+        }
+    if isinstance(value, list):
+        return [redact_snapshot(item) for item in value]
+    return value
+
+
+def summary_snapshot(out: dict) -> dict:
+    roles = {}
+    for group in ("heads", "hands"):
+        for name, row in sorted((out.get(group) or {}).items()):
+            runtime = row.get("runtime") or {}
+            roles[name] = {
+                "actionable": row.get("actionable"),
+                "next_handle": row.get("next_handle"),
+                "runtime_state": runtime.get("state"),
+                "model_provenance": row.get("model_provenance"),
+            }
+    return {
+        "fleet_id": out.get("fleet_id"),
+        "fleet_posture": out.get("fleet_posture"),
+        "signals": sorted(out.get("signals") or []),
+        "quiet_hint": out.get("quiet_hint"),
+        "partial": out.get("partial"),
+        "fingerprint": redact_snapshot(out.get("fingerprint") or {}),
+        "roles": roles,
+    }
+
+
+def _history_files(directory: Path) -> List[Path]:
+    if not directory.is_dir():
+        return []
+    def cycle_key(path: Path) -> tuple:
+        stem = path.stem
+        return (0, int(stem), "") if stem.isdigit() else (1, 0, stem)
+    return sorted((p for p in directory.glob("*.json") if p.is_file()), key=cycle_key)
+
+
+def sensor_log_config(fleet: dict, project: Path) -> dict:
+    raw = fleet.get("sensor_log") if isinstance(fleet.get("sensor_log"), dict) else {}
+    location = raw.get("path") or raw.get("directory") or ".vivi/logs/sensors"
+    path = Path(str(location)).expanduser()
+    if not path.is_absolute():
+        path = project / path
+    return {
+        "enabled": bool(raw.get("enabled", False)),
+        "level": str(raw.get("level") or "off").lower(),
+        "path": path.resolve(),
+        "retention_cycles": raw.get("retention_cycles"),
+    }
+
+
+def read_history(directory: Path, limit: int, role: Optional[str]) -> List[dict]:
+    records = []
+    if limit <= 0:
+        return records
+    for path in _history_files(directory)[-limit:]:
+        try:
+            record = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, UnicodeError, json.JSONDecodeError):
+            continue
+        if role:
+            data = record.get("observation") or {}
+            roles = data.get("roles") if isinstance(data, dict) else None
+            if isinstance(roles, dict):
+                data = dict(data)
+                data["roles"] = {role: roles[role]} if role in roles else {}
+            elif isinstance(data, dict):
+                data = dict(data)
+                for key in ("heads", "hands", "model_provenance"):
+                    value = data.get(key)
+                    if isinstance(value, dict):
+                        data[key] = {role: value[role]} if role in value else {}
+            record = dict(record)
+            record["observation"] = data
+        records.append(record)
+    return records
+
+
+class CycleConflictError(ValueError):
+    pass
+
+
+def record_history(out: dict, config: dict, cycle_id: str, recorded_at: str) -> dict:
+    directory = config["path"]
+    if not re.fullmatch(r"0|[1-9][0-9]*", cycle_id):
+        raise ValueError("cycle id must be a canonical non-negative decimal integer")
+    safe_id = cycle_id
+    directory.mkdir(parents=True, exist_ok=True)
+    target = directory / (safe_id + ".json")
+    level = config["level"]
+    if level == "summary":
+        observation = summary_snapshot(out)
+    elif level == "full":
+        observation = redact_snapshot(out)
+    else:
+        previous = read_history(directory, 1, None)
+        prior = ((previous[-1].get("observation") or {}).get("fingerprint") if previous else {}) or {}
+        current = redact_snapshot(out.get("fingerprint") or {})
+        observation = {
+            "fleet_id": out.get("fleet_id"),
+            "signals": sorted(out.get("signals") or []),
+            "fingerprint": current,
+            "material_diff": {
+                key: {"before": prior.get(key), "after": current.get(key)}
+                for key in sorted(set(prior).union(current))
+                if prior.get(key) != current.get(key)
+            },
+            "model_provenance": {
+                name: row.get("model_provenance")
+                for group in ("heads", "hands")
+                for name, row in sorted((out.get(group) or {}).items())
+            },
+        }
+    record = {"schema_version": 1, "cycle_id": cycle_id, "cycle_at": recorded_at, "level": level, "observation": observation}
+    encoded = (json.dumps(record, indent=2, ensure_ascii=False, sort_keys=True) + "\n").encode("utf-8")
+    status = "recorded"
+    stored_bytes = len(encoded)
+    pruned = []
+    lock_path = directory / ".write.lock"
+    with lock_path.open("a+b") as lock:
+        fcntl.flock(lock.fileno(), fcntl.LOCK_EX)
+        if target.exists():
+            existing_bytes = target.read_bytes()
+            try:
+                existing = json.loads(existing_bytes.decode("utf-8"))
+            except (UnicodeError, json.JSONDecodeError) as exc:
+                raise CycleConflictError("existing cycle record is unreadable: %s" % exc)
+            expected = {"schema_version": 1, "cycle_id": cycle_id, "level": level}
+            actual = {key: existing.get(key) for key in expected} if isinstance(existing, dict) else {}
+            if actual != expected:
+                raise CycleConflictError(
+                    "cycle %s conflicts with existing metadata: expected %r, found %r"
+                    % (cycle_id, expected, actual)
+                )
+            status = "idempotent"
+            stored_bytes = len(existing_bytes)
+        else:
+            fd, temporary = tempfile.mkstemp(prefix=".%s." % safe_id, suffix=".tmp", dir=str(directory))
+            try:
+                with os.fdopen(fd, "wb") as stream:
+                    stream.write(encoded)
+                    stream.flush()
+                    os.fsync(stream.fileno())
+                os.replace(temporary, target)
+            finally:
+                if os.path.exists(temporary):
+                    os.unlink(temporary)
+        keep = config.get("retention_cycles")
+        if isinstance(keep, int) and not isinstance(keep, bool) and keep >= 0:
+            files = _history_files(directory)
+            for stale in files[:-keep] if keep else files:
+                stale.unlink()
+                pruned.append(stale.name)
+    return {"status": status, "path": str(target), "bytes": stored_bytes, "pruned": pruned}
+
+
 def format_text_summary(out: dict, fp: dict, git_main: dict) -> str:
     lines = [
         "fleet %s @ %s" % (out["fleet_id"], out["at"]),
@@ -750,7 +1037,19 @@ def main() -> int:
     ap.add_argument("--no-watch", action="store_true", help="Skip mailspace watch --once")
     ap.add_argument("--tail", type=int, default=16, help="tmux capture lines per pane")
     ap.add_argument("--cursor-file", default=None, help="watch cursor path (default: .vivi/mind-watch.cursor)")
+    ap.add_argument("--record-cycle", action="store_true", help="Record this canonical Mind-cycle observation when sensor_log is enabled")
+    ap.add_argument("--cycle-id", default=None, help="Cycle identifier (default: next baseline cycle)")
+    ap.add_argument("--history", type=int, metavar="N", help="Read the last N recorded cycles without collecting sensors")
+    ap.add_argument("--role", default=None, help="With --history, reduce role-bearing fields to this Head/Hand")
     args = ap.parse_args()
+    if args.role and args.history is None:
+        ap.error("--role requires --history")
+    if args.cycle_id is not None and not args.record_cycle:
+        ap.error("--cycle-id requires --record-cycle")
+    if args.history is not None and (args.record_cycle or args.cycle_id is not None or args.text):
+        ap.error("--history cannot be combined with --record-cycle, --cycle-id, or --text")
+    if args.cycle_id is not None and not re.fullmatch(r"0|[1-9][0-9]*", args.cycle_id):
+        ap.error("--cycle-id must be a canonical non-negative decimal integer")
 
     project = Path(args.project).expanduser().resolve()
     if not project.is_dir():
@@ -761,6 +1060,47 @@ def main() -> int:
     fleet = load_json(fleet_path)
     baseline_path = project / ".vivi" / "mind-baseline.json"
     baseline = load_json(baseline_path)
+    log_config = sensor_log_config(fleet, project)
+    if args.history is not None:
+        if args.history < 0:
+            ap.error("--history must be non-negative")
+        selected = read_history(log_config["path"], args.history, None)
+        if args.role:
+            known_roles = set()
+            role_aliases = {}
+            for name, block in (fleet.get("hands") or fleet.get("hunters") or {}).items():
+                canonical = str(name)
+                known_roles.add(canonical)
+                role_aliases[canonical] = canonical
+                if isinstance(block, dict) and block.get("mail_identity"):
+                    alias = str(block["mail_identity"])
+                    known_roles.add(alias)
+                    role_aliases[alias] = canonical
+            nested_heads = fleet.get("heads") if isinstance(fleet.get("heads"), dict) else {}
+            for name, block in list(nested_heads.items()) + list(fleet.items()):
+                if str(name).startswith("head-") and isinstance(block, dict):
+                    canonical = str(name)
+                    known_roles.add(canonical)
+                    role_aliases[canonical] = canonical
+                    if block.get("mail_identity"):
+                        alias = str(block["mail_identity"])
+                        known_roles.add(alias)
+                        role_aliases[alias] = canonical
+            for record in selected:
+                observation = record.get("observation") if isinstance(record, dict) else None
+                if not isinstance(observation, dict):
+                    continue
+                for key in ("roles", "heads", "hands", "model_provenance"):
+                    value = observation.get(key)
+                    if isinstance(value, dict):
+                        for name in value:
+                            known_roles.add(str(name))
+                            role_aliases.setdefault(str(name), str(name))
+            if args.role not in known_roles:
+                ap.error("unknown --role %r (known roles: %s)" % (args.role, ", ".join(sorted(known_roles)) or "none"))
+            selected = read_history(log_config["path"], args.history, role_aliases[args.role])
+        print(json.dumps({"schema_version": 1, "history": selected}, indent=2, ensure_ascii=False))
+        return 0
     # previous fingerprint — quiet-sleep only (not head report bookkeeping)
     prev = baseline.get("last_actionable_fingerprint") or {}
     if not isinstance(prev, dict):
@@ -939,6 +1279,7 @@ def main() -> int:
         process_state = "unknown"
         runtime_confidence = "medium"
         runtime_evidence = []
+        observed_model = {}
         if vivi_pty_role:
             if not vivi_pty_bin:
                 partial = True
@@ -951,6 +1292,7 @@ def main() -> int:
                 process_state = captured["process_state"]
                 runtime_confidence = captured["confidence"]
                 runtime_evidence = captured["evidence"]
+                observed_model = captured.get("model") or {}
                 if not sess_ok and not tail:
                     partial = True
         elif tmux_bin:
@@ -1068,6 +1410,7 @@ def main() -> int:
         if vivi_pty_role:
             runtime_observation["socket"] = session
         hand_row["runtime"] = runtime_observation
+        hand_row["model_provenance"] = model_provenance(h, observed_model, fleet, "hand")
         out["hands"][name] = hand_row
 
         # git for main hand (walk up from cwd; container fleets scan children / git.main_cwd)
@@ -1152,6 +1495,7 @@ def main() -> int:
         process_state = "unknown"
         runtime_confidence = "medium"
         runtime_evidence = []
+        observed_model = {}
         if vivi_pty_role:
             if not vivi_pty_bin:
                 partial = True
@@ -1164,6 +1508,7 @@ def main() -> int:
                 process_state = captured["process_state"]
                 runtime_confidence = captured["confidence"]
                 runtime_evidence = captured["evidence"]
+                observed_model = captured.get("model") or {}
         elif tmux_bin:
             rc, _ = run([tmux_bin, "has-session", "-t", session], timeout=5)
             sess_ok = rc == 0
@@ -1307,6 +1652,7 @@ def main() -> int:
         if vivi_pty_role:
             runtime_observation["socket"] = session
         head_row["runtime"] = runtime_observation
+        head_row["model_provenance"] = model_provenance(block, observed_model, fleet, "head")
         out["heads"][key] = head_row
 
     # steward block from fleet + baseline + optional pane
@@ -1360,6 +1706,28 @@ def main() -> int:
     out["baseline_mind_mode"] = baseline.get("mind_mode")
     out["partial"] = partial
     out["ok"] = not partial or bool(out["hands"])
+
+    out["sensor_log"] = {
+        "enabled": log_config["enabled"],
+        "level": log_config["level"],
+        "path": str(log_config["path"]),
+        "status": "not_requested",
+    }
+    if args.record_cycle:
+        if not log_config["enabled"] or log_config["level"] == "off":
+            out["sensor_log"]["status"] = "disabled"
+        else:
+            try:
+                cycle_id = args.cycle_id or str(max(0, int(baseline.get("last_cycle") or 0) + 1))
+                out["sensor_log"].update(record_history(out, log_config, cycle_id, out["at"]))
+                out["sensor_log"]["cycle_id"] = cycle_id
+            except (OSError, UnicodeError, ValueError, TypeError) as exc:
+                partial = True
+                out["signals"].append("sensor_log_failed")
+                status = "conflict" if isinstance(exc, CycleConflictError) else "failed"
+                out["sensor_log"].update({"status": status, "error": str(exc)})
+                out["partial"] = True
+                out["ok"] = not partial or bool(out["hands"])
 
     if args.text:
         print(format_text_summary(out, fp, git_main))
