@@ -330,9 +330,9 @@ Never wake a `running` Hand merely because bag unchanged. Deep work only on paid
 | Shape | Default cadence |
 | --- | --- |
 | **Manual / unscheduled Mind polling** | Sleep **≥ 60s** between unchanged checks |
-| **Formal scheduled loop** | Fire every **3–5 minutes** (~3m fine-grained; ~5m coarser) |
+| **Formal scheduled loop** | Start around **5 minutes**, then adapt to observed work density |
 
-Grok supports formal scheduled loop. Codex as Mind: discrete cycles + shell `sleep` ≥ 60s. Fail-fast regardless.
+Grok supports formal scheduled loops. Codex as Mind: discrete cycles + shell `sleep` ≥ 60s. Fail-fast regardless. A scheduled cadence is a control setting, not a permanent promise: Mind should proactively replace the scheduler with a longer interval when repeated cycles are thin or unchanged, and with a shorter interval when reports, completions, decisions, or integration work accumulate faster than cycles can absorb them. Preserve the same loop goal and stop condition when replacing it, cancel the old scheduler, and report the new cadence in the next cycle summary.
 
 | Kind | When | Work |
 | --- | --- | --- |
@@ -530,22 +530,34 @@ When Mind **accepts** a packet, merge task names at least:
 
 After hand-1 merge done: Mind **absorbs**, then **accepts** main result (or residual). Operator may retire worktrees later.
 
-## Optional cadence backoff
+## Adaptive scheduled cadence
 
-Fail-fast required. Interval backoff **optional** for multi-hour idle:
+Fail-fast is required, but the interval should adapt in both directions. Mind owns cadence tuning for an operator-authorized loop and does not need a new operator decision for reversible interval changes.
+
+| Signal | Cadence action |
+| --- | --- |
+| 2–3 cycles with little or no new evidence, unchanged running panes, or reports too thin to justify the context cost | Lengthen one step (for example 5m → 10m → 20m) |
+| Work is healthy but naturally long-running | Hold or lengthen; do not poll deep work faster merely to appear active |
+| Multiple completions, addressed reports, merge decisions, or wake candidates accumulate between fires | Shorten one step (for example 20m → 10m → 5m → 3m) |
+| One cycle cannot disposition the arriving work without backlog | Shorten promptly until the backlog clears |
+| All scoped reports or stop conditions are complete | Cancel the loop rather than backing it off indefinitely |
+
+`quiet_streak` remains a useful backoff hint:
 
 | `quiet_streak` | Suggested interval |
 | --- | --- |
-| 0–2 | base (e.g. 5m) |
+| 0–2 | base (commonly 5m) |
 | 3–5 | 2× base |
 | 6–10 | 4× / ~20–30m |
-| 11+ | ~1h or sleep until operator/Hand signal |
+| 11+ | ~1h or stop when no continuing observation duty exists |
+
+Use judgment rather than changing cadence on one anomalous fire. When adapting a scheduler: create the replacement with the same goal, roots, authority limits, and stop condition; cancel the superseded scheduler immediately; never leave duplicate loops active; record the new scheduler id and reason in the cycle summary and baseline. Do not shorten below 3 minutes for normal Fleet supervision. An urgent addressed-mail or runtime event is handled in the current cycle, not by waiting for a cadence adjustment.
 
 Reset `quiet_streak` on real progress: new/changed tasking, HEAD move, Status absorb, filed residual, completed unit, successful wake, or ops intervention.
 
 Reset `turns_since_operator_message` only on **human operator** message (not product progress, board mail, successful ops, or FLEET_CYCLE itself). FLEET_CYCLE-only wake still resets if **history since last cycle** has human prose.
 
-If scheduler cannot change interval, still no-op cheaply each fire.
+If the scheduler implementation cannot change an interval in place, replace it atomically enough for supervision: create the new schedule, then cancel the old one in the same cycle. If replacement is unavailable, no-op cheaply and state the limitation.
 
 ## Supervisor loops
 
