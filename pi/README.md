@@ -55,6 +55,11 @@ Hands (`H`) and Heads (`Hd`) rows, and a Vivi summary for work, mail, needs,
 pending RTM, and signal counts. The native Pi footer remains intact and carries
 a compact Fleet chip.
 
+Each scheduled `FLEET_CYCLE` now includes a fresh, sanitized sensor preflight
+from the extension. It contains role states, work/mail/need/RTM counts, and
+signals; it does not include terminal tails or message bodies. The Mind still
+owns interpretation and disposition and may refresh before acting.
+
 The first implementation exposes read-only `fleet_sensors`, `fleet_board`, and
 `fleet_runtime` tools plus the `fleet_loop` lifecycle tool. Steward, posture,
 reinitialization, doorbell, task-routing, and other Fleet mutations remain

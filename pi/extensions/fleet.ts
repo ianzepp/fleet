@@ -250,11 +250,60 @@ function snapshotChanged(previous: Snapshot | undefined, next: Snapshot): boolea
     JSON.stringify({ signals: next.signals ?? [], fingerprint: next.fingerprint ?? {} });
 }
 
+function preflightCounts(snapshot: Snapshot): { actionable: number; mail: number; needs: number; rtm: number } {
+  let actionable = 0;
+  let mail = numeric((snapshot.mind as JsonObject | undefined)?.inbox_unread);
+  let needs = numeric((snapshot.operator as JsonObject | undefined)?.open_count);
+  for (const group of [snapshot.hands, snapshot.heads]) {
+    for (const row of Object.values(group ?? {})) {
+      actionable += numeric(row.actionable);
+      mail += numeric(row.inbox_unread);
+      needs += numeric(row.needs_open);
+    }
+  }
+  return {
+    actionable,
+    mail,
+    needs,
+    rtm: numeric((snapshot.integration as JsonObject | undefined)?.pending_rtm_count),
+  };
+}
+
+function preflightRoleLine(group: Record<string, JsonObject> | undefined, head: boolean): string {
+  return Object.entries(group ?? {}).map(([name, row]) => {
+    const stateName = roleGlyph(row).state;
+    const shortName = head ? name.replace(/^head-/, "") : name.replace(/^hand-/, "h");
+    const metric = head
+      ? row.sweep_due === true ? "due" : row.sweep_enabled === true ? "on" : "—"
+      : String(numeric(row.actionable));
+    return `${shortName}=${stateName}/${metric}`;
+  }).join(" ");
+}
+
+function preflightLine(fleet: FleetRef, snapshot: Snapshot | undefined): string[] {
+  if (!snapshot) return [`  ${fleet.fleetId}: sensors=pending`];
+  const counts = preflightCounts(snapshot);
+  const signals = (snapshot.signals ?? []).slice(0, 12).map((signal) => signal.slice(0, 100));
+  const captured = typeof snapshot.at === "string" ? snapshot.at : "unknown";
+  const lines = [
+    `  ${fleet.fleetId}: captured=${captured}${snapshot.partial ? " partial" : ""}`,
+    `    work=${counts.actionable} mail=${counts.mail} operator-needs=${counts.needs} pending-rtm=${counts.rtm}`,
+    `    Hands: ${preflightRoleLine(snapshot.hands, false) || "none"}`,
+    `    Heads: ${preflightRoleLine(snapshot.heads, true) || "none"}`,
+    `    signals: ${signals.length > 0 ? signals.join(", ") : "none"}`,
+  ];
+  if ((snapshot.signals?.length ?? 0) > signals.length) {
+    lines[lines.length - 1] += ` +${(snapshot.signals?.length ?? 0) - signals.length} more`;
+  }
+  return lines;
+}
+
 function cyclePayload(): string {
   const fleets = [...state.attachments.values()].sort((a, b) => a.fleetId.localeCompare(b.fleetId));
   const slugs = fleets.map((fleet) => fleet.fleetId).join(",");
   const roots = fleets.map((fleet) => `  ${fleet.fleetId}: ${fleet.root}`).join("\n");
-  return `FLEET_CYCLE fleets=${slugs}\nRoots:\n${roots}`;
+  const preflight = fleets.flatMap((fleet) => preflightLine(fleet, state.snapshots.get(fleet.root))).join("\n");
+  return `FLEET_CYCLE fleets=${slugs}\nRoots:\n${roots}\n\nSensor preflight (observation only; Mind owns disposition):\n${preflight}`;
 }
 
 const ACTIVE_RUNTIME_STATES = new Set(["starting", "submitting", "running"]);
@@ -501,7 +550,9 @@ function startTimers(pi: ExtensionAPI): void {
     void refreshAll(pi, true);
   }, POLL_INTERVAL_MS);
   state.loopTimer = setInterval(() => {
-    queueCycle(pi, "scheduled cycle");
+    // Refresh immediately before scheduled delivery so the preflight is not
+    // merely the last 60-second poll snapshot.
+    void refreshAll(pi, false).then(() => queueCycle(pi, "scheduled cycle"));
   }, state.intervalSec * 1000);
   renderWidget(state.ctx!);
 }
