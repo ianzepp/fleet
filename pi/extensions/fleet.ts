@@ -624,9 +624,9 @@ async function readSnapshot(pi: ExtensionAPI, fleet: FleetRef, readOnly = false)
   ) as Snapshot;
 }
 
-async function refreshFleet(pi: ExtensionAPI, fleet: FleetRef, wakeOnChange: boolean): Promise<Snapshot> {
+async function refreshFleet(pi: ExtensionAPI, fleet: FleetRef, wakeOnChange: boolean, readOnly = false): Promise<Snapshot> {
   const [snapshot, external, baseline] = await Promise.all([
-    readSnapshot(pi, fleet),
+    readSnapshot(pi, fleet, readOnly),
     readExternalLoop(pi, fleet),
     readBaseline(pi, fleet),
   ]);
@@ -853,6 +853,120 @@ async function monitorStatus(pi: ExtensionAPI, ctx: ExtensionContext): Promise<v
   ctx.ui.notify(state.monitors.size > 0 ? [...state.monitors.values()].map((fleet) => fleet.fleetId).join(", ") : "No fleets monitored", "info");
 }
 
+type SessionFleet = { fleet: FleetRef; mode: "mind" | "monitor" };
+
+type PreflightRecord = {
+  fleet: FleetRef;
+  mode: "mind" | "monitor";
+  posture: string;
+  baseline: JsonObject;
+  snapshot: Snapshot;
+  externalLoop?: ExternalLoop;
+  recommendations: string[];
+};
+
+function sessionFleets(id?: string): SessionFleet[] {
+  const result: SessionFleet[] = [];
+  const seen = new Set<string>();
+  const add = (fleet: FleetRef, mode: "mind" | "monitor") => {
+    if (id && fleet.fleetId !== id && fleet.root !== resolve(id)) return;
+    if (seen.has(fleet.root)) return;
+    seen.add(fleet.root);
+    result.push({ fleet, mode });
+  };
+  for (const fleet of state.attachments.values()) add(fleet, "mind");
+  for (const fleet of state.monitors.values()) add(fleet, "monitor");
+  return result;
+}
+
+function resolveFleetInput(root: string | undefined, fleetId: string | undefined): string {
+  if (root?.trim()) return root.trim();
+  if (fleetId) {
+    const current = state.candidate;
+    if (current?.fleetId === fleetId) return current.root;
+    const existing = sessionFleets(fleetId)[0];
+    if (existing) return existing.fleet.root;
+  }
+  throw new Error("provide a fleet root or a fleet ID visible in the current session");
+}
+
+function preflightRecommendations(snapshot: Snapshot, baseline: JsonObject): string[] {
+  const recommendations: string[] = [];
+  const operator = snapshot.operator as JsonObject | undefined;
+  const mind = snapshot.mind as JsonObject | undefined;
+  if (numeric(operator?.open_count) > 0) recommendations.push("resolve operator backlog before launch");
+  if (numeric(operator?.to_mind_count) > 0) recommendations.push("absorb operator-to-Mind feedback first");
+  if ((snapshot.steward as JsonObject | undefined)?.tripped === true) recommendations.push("recover tripped steward before launch");
+  if ((baseline.mind_loop as JsonObject | undefined)?.state === "wound_up") recommendations.push("review wound-down state");
+  for (const [name, row] of Object.entries(snapshot.hands ?? {})) {
+    if (numeric(row.actionable) > 0 && roleGlyph(row).state === "stopped") recommendations.push(`start/wake ${name}`);
+  }
+  for (const [name, row] of Object.entries(snapshot.heads ?? {})) {
+    if (row.sweep_due === true) recommendations.push(`run due ${name} sweep`);
+  }
+  if (numeric(mind?.inbox_unread) > 0) recommendations.push("review Mind inbox");
+  if (recommendations.length === 0) recommendations.push("no immediate launch blocker detected");
+  return recommendations;
+}
+
+async function runPreflight(pi: ExtensionAPI, selected?: string): Promise<PreflightRecord[]> {
+  const fleets = sessionFleets(selected);
+  if (fleets.length === 0) throw new Error(selected ? `fleet is not attached or monitored: ${selected}` : "no fleets are attached or monitored");
+  const records: PreflightRecord[] = [];
+  for (const { fleet, mode } of fleets) {
+    let snapshot: Snapshot;
+    let baseline: JsonObject;
+    if (mode === "monitor") {
+      await refreshMonitor(pi, fleet, false);
+      snapshot = state.monitorSnapshots.get(fleet.root) ?? await readSnapshot(pi, fleet, true);
+      baseline = state.monitorBaselines.get(fleet.root) ?? await readBaseline(pi, fleet);
+    } else {
+      snapshot = await refreshFleet(pi, fleet, false, true);
+      baseline = state.baselines.get(fleet.root) ?? await readBaseline(pi, fleet);
+    }
+    records.push({
+      fleet,
+      mode,
+      posture: compactState((snapshot.fleet_posture as JsonObject | undefined)?.mode ?? "unknown"),
+      baseline,
+      snapshot,
+      externalLoop: state.externalLoops.get(fleet.root),
+      recommendations: preflightRecommendations(snapshot, baseline),
+    });
+  }
+  renderWidget(state.ctx);
+  return records;
+}
+
+function preflightDetails(records: PreflightRecord[]): JsonObject {
+  return {
+    fleets: records.map(({ fleet, mode, posture, baseline, snapshot, externalLoop, recommendations }) => ({
+      fleet,
+      mode,
+      posture,
+      cycle: baselineCycle(baseline),
+      baseline: {
+        last_cycle_at: baseline.last_cycle_at,
+        last_cycle_summary: baselineSummary(baseline),
+        mind_loop: baseline.mind_loop,
+        steward: baseline.steward,
+        operational_pauses: baseline.operational_pauses,
+      },
+      snapshot: safeSnapshot(snapshot),
+      external_loop: externalLoop,
+      recommendations,
+    })),
+  };
+}
+
+function preflightText(records: PreflightRecord[]): string {
+  return records.map(({ fleet, mode, posture, baseline, snapshot, recommendations }) => {
+    const counts = preflightCounts(snapshot);
+    const signals = (snapshot.signals ?? []).slice(0, 6).join(", ") || "none";
+    return `${fleet.fleetId} mode=${mode} posture=${posture} cycle=${baselineCycle(baseline)} work=${counts.actionable} mail=${counts.mail} operator-needs=${counts.needs} pending-rtm=${counts.rtm} signals=${signals} recommendations=${recommendations.join("; ")}`;
+  }).join("\n");
+}
+
 async function startMonitor(pi: ExtensionAPI, interval?: string): Promise<void> {
   if (state.monitors.size === 0) throw new Error("attach at least one monitor first");
   if (interval) state.monitorIntervalSec = parseDuration(interval);
@@ -980,6 +1094,10 @@ export default function (pi: ExtensionAPI): void {
           } else if (monitorAction === "status") await monitorStatus(pi, ctx);
           else throw new Error(`unknown monitor action: ${monitorAction}`);
         }
+        else if (action === "preflight" || action === "prepare") {
+          const records = await runPreflight(pi, parts[0]);
+          ctx.ui.notify(`${action}:\n${preflightText(records)}`, "info");
+        }
         else if (action === "list" || action === "status" || action === "refresh") {
           if (action === "refresh") await refreshAll(pi, false);
           renderWidget(ctx);
@@ -1002,13 +1120,92 @@ export default function (pi: ExtensionAPI): void {
           else if (loopAction !== "status") throw new Error(`unknown loop action: ${loopAction}`);
           renderWidget(ctx);
         } else {
-          throw new Error(`unknown action: ${action}; use attach, detach, monitor, list, refresh, start, update, or stop`);
+          throw new Error(`unknown action: ${action}; use attach, detach, monitor, preflight, prepare, list, refresh, start, update, or stop`);
         }
       } catch (error) {
         state.lastError = error instanceof Error ? error.message : String(error);
         renderWidget(ctx);
         ctx.ui.notify(state.lastError, "error");
       }
+    },
+  });
+
+  pi.registerTool({
+    name: "fleet_attach",
+    label: "Fleet Attach",
+    description: "Attach a Fleet as the current Mind or as a read-only monitor. Mind attachment may update the canonical advisory baseline lock; monitor attachment never touches Fleet state.",
+    promptSnippet: "Attach a Fleet as Mind or read-only monitor",
+    parameters: Type.Object({
+      root: Type.Optional(Type.String({ description: "Fleet project root containing .vivi/fleet.json" })),
+      fleet_id: Type.Optional(Type.String({ description: "Known fleet ID when its root is the current candidate or session attachment" })),
+      mode: Type.Optional(Type.Union([Type.Literal("mind"), Type.Literal("monitor")])),
+      takeover: Type.Optional(Type.Boolean({ description: "Request confirmed takeover of a foreign Mind lock; never assume this" })),
+    }),
+    async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
+      state.ctx = ctx;
+      const root = resolveFleetInput(params.root, params.fleet_id);
+      if (params.mode === "monitor") await monitorAttach(pi, ctx, root);
+      else await attach(pi, ctx, root, params.takeover === true);
+      const fleet = inspectFleet(root);
+      return summaryContent(
+        `${params.mode === "monitor" ? "Monitoring" : "Attached Mind"} ${fleet?.fleetId ?? params.fleet_id ?? root}`,
+        { root, fleet_id: fleet?.fleetId, mode: params.mode ?? "mind", read_only: params.mode === "monitor" },
+      );
+    },
+  });
+
+  pi.registerTool({
+    name: "fleet_detach",
+    label: "Fleet Detach",
+    description: "Detach the current Mind or stop a read-only monitor. Mind detachment updates the canonical baseline; monitor detachment only changes Pi session state.",
+    promptSnippet: "Detach a Mind or read-only Fleet monitor",
+    parameters: Type.Object({
+      root: Type.Optional(Type.String()),
+      fleet_id: Type.Optional(Type.String()),
+      mode: Type.Optional(Type.Union([Type.Literal("mind"), Type.Literal("monitor")])),
+    }),
+    async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
+      state.ctx = ctx;
+      const root = resolveFleetInput(params.root, params.fleet_id);
+      const mode = params.mode ?? (state.monitors.has(resolve(root)) && !state.attachments.has(resolve(root)) ? "monitor" : "mind");
+      if (mode === "monitor") {
+        await monitorDetach(pi, ctx, root);
+      } else {
+        const ok = await ctx.ui.confirm("Detach Fleet Mind?", `Detach Mind control from ${params.fleet_id ?? root}? This updates the Fleet baseline.`);
+        if (!ok) throw new Error("Mind detach cancelled");
+        await detach(pi, ctx, root);
+      }
+      return summaryContent(`Detached ${params.fleet_id ?? root} (${mode})`, { root, mode });
+    },
+  });
+
+  pi.registerTool({
+    name: "fleet_preflight",
+    label: "Fleet Preflight",
+    description: "Run a read-only Fleet-specific preflight for explicitly attached or monitored fleets. It inspects config, baseline, Vivi, runtimes, posture, blockers, and launch hazards without modifying Fleet state or waking a Mind.",
+    promptSnippet: "Run a read-only Fleet preflight",
+    parameters: Type.Object({ fleet_id: Type.Optional(Type.String()) }),
+    async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
+      state.ctx = ctx;
+      const records = await runPreflight(pi, params.fleet_id);
+      return summaryContent(preflightText(records), preflightDetails(records));
+    },
+  });
+
+  pi.registerTool({
+    name: "fleet_prepare",
+    label: "Fleet Prepare",
+    description: "Prepare a read-only launch assessment after Fleet preflight. Returns recommended runtime, operator, posture, and tasking follow-ups without starting processes or filing work.",
+    promptSnippet: "Prepare a read-only Fleet launch assessment",
+    parameters: Type.Object({ fleet_id: Type.Optional(Type.String()) }),
+    async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
+      state.ctx = ctx;
+      const records = await runPreflight(pi, params.fleet_id);
+      return summaryContent(`Launch assessment:\n${preflightText(records)}`, {
+        ...preflightDetails(records),
+        side_effects: "none",
+        next_step: "operator confirmation required before any Fleet launch action",
+      });
     },
   });
 

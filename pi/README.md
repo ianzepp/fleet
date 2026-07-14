@@ -40,6 +40,8 @@ access, and this extension invokes Fleet's Python and shell helpers.
 /fleet monitor start 60s
 /fleet monitor status
 /fleet monitor stop
+/fleet preflight [id]  run a read-only Fleet preflight
+/fleet prepare [id]    produce a read-only launch assessment
 /fleet detach <root>   detach an explicitly attached fleet
 /fleet refresh         refresh read-only sensor state
 /fleet start [5m]      start the Pi-owned internal loop
@@ -73,7 +75,9 @@ from the extension. It contains role states, work/mail/need/RTM counts, and
 signals; it does not include terminal tails or message bodies. The Mind still
 owns interpretation and disposition and may refresh before acting.
 
-The first implementation exposes read-only `fleet_sensors`, `fleet_board`, and
-`fleet_runtime` tools plus the `fleet_loop` lifecycle tool. Steward, posture,
-reinitialization, doorbell, task-routing, and other Fleet mutations remain
-outside this initial read-only surface.
+The extension exposes `fleet_attach` and `fleet_detach` tools for explicit Mind
+or monitor operations, plus read-only `fleet_preflight` and `fleet_prepare`
+tools. It also exposes read-only `fleet_sensors`, `fleet_board`, and
+`fleet_runtime` tools plus the `fleet_loop` lifecycle tool. Launching runtimes,
+posture changes, reinitialization, doorbells, task-routing, steward control, and
+other Fleet mutations remain outside the launch-assessment surface.

@@ -23,6 +23,8 @@ Build a shareable Pi extension package in the Fleet repository that gives a Pi M
 - Validate fleet identity and runtime bindings through the canonical Fleet configuration/helpers.
 - Expose an in-TUI Fleet panel showing attached fleets, posture, role/runtime status, task/need/mail signals, pending integration indicators, active loop state, and important sensor obligations.
 - Preserve Pi's native footer and working indicator; add compact Fleet status through additive extension status/widget surfaces.
+- Add explicit model-callable `fleet_attach`/`fleet_detach` operations for Mind or monitor mode, with takeover confirmation and monitor read-only isolation.
+- Add read-only `fleet_preflight` and `fleet_prepare` operations for Fleet-specific operational orientation and launch assessment.
 - Add grouped, structured tools for canonical Fleet sensors, board state, runtime state, and loop lifecycle.
 - Provide an internal Pi-owned Fleet loop with `status`, `start`, `update`, and `stop` operations.
 - Poll canonical Fleet sensors and wake the Mind with valid `FLEET_CYCLE` user messages when scheduled or material signals require attention.
@@ -158,6 +160,8 @@ Decision: **included**.
 - The package can be loaded locally and, after packaging is authorized, installed from the Fleet repository using Pi's package mechanism.
 - A monitor can observe a fleet whose baseline is owned by another Mind without changing any Fleet file or emitting a cycle prompt.
 - Multiple monitors aggregate independently advancing cycle summaries in the human panel.
+- The LLM can explicitly attach/detach Mind or monitor state through confirmation-aware tools.
+- `fleet_preflight` and `fleet_prepare` return launch-relevant Fleet evidence without starting runtimes, waking agents, filing work, or changing posture.
 - The existing Fleet skill/scripts continue to pass their relevant tests and smoke checks.
 
 ## Validation
