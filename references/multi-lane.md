@@ -8,10 +8,35 @@ Track **all active hands** every cycle. Do not collapse maps into one spine.
 
 **Live assignment = fleet JSON** (`hands.*.packet` / `focus` / `cwd`). Prose “H2 always owns X” is not law.
 
+### Recommended floater shape
+
+For multi-repo containers, prefer this default shape:
+
+| Slot | Recommended use |
+| --- | --- |
+| **hand-1** | Dedicated main/integration lane. Keep it stable for spine work, merge tasks, and main-checkout residuals. |
+| **hand-2..hand-4** | Floater pool. Assign per unit/theme to any ready repo/worktree whose write scope does not overlap another active Hand. |
+| **hand-5+** | Fleet-specific extra capacity; follow explicit config/operator policy. |
+
+This is a strong suggestion, not a schema requirement. Fleet config and explicit
+operator direction win. The invariant is not “H2 owns repo X”; it is “Mind
+keeps floaters on honest, non-overlapping product work.”
+
+Before filing a floater task:
+
+1. Name the writable repo/worktree scope in the task body.
+2. Check active Hand scopes; avoid parallel writes to the same repo unless the
+   operator explicitly accepts the collision.
+3. If all ready work overlaps, serialize or record a dependency defer instead
+   of inventing makework.
+4. After a floater finishes, absorb the unit and reassign from the queue/map;
+   do not preserve the old repo binding by inertia.
+
 | Slot | Workspace | Bag empty means |
 | --- | --- | --- |
 | **hand-1** | **main** (sticky) | starvation if main map next, pending_merges, or better open residuals |
-| **hand-2+** | **current fleet assignment** | starvation if **that assignment’s** map has unblocked next — refill same cycle |
+| **hand-2..hand-4** | **current floater assignment** | starvation if any non-overlapping ready repo unit exists — refill same cycle; valid defer if only overlapping/dependent work remains |
+| **hand-5+** | **fleet-specific assignment** | follow explicit fleet config/operator policy |
 
 File **To the Hand that owns that assignment**. Never cross-file continuous work.
 

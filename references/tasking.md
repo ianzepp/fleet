@@ -64,14 +64,17 @@ Not a hard stop: missing Mind congratulations or “GO” mail.
 - One handle → one owner — do not put the same P1 on two hands
 - Partition by focus (campaign track, repo, or package) when possible
 - Legacy `codex` may remain readable during migration; **new** targets go to `hand-N`
+- In multi-repo containers, prefer **hand-1** as the dedicated main/integration lane and **hand-2..hand-4** as floaters. This is a strong default, not a requirement: operator direction and fleet config can pin any hand differently.
+- Floaters may run in parallel only when their writable repo/worktree scopes do not overlap. If two ready units touch the same repo, serialize them, choose a different repo for one floater, or record a dependency defer.
+- A floater assignment is per unit/theme, not an identity promise. After a unit lands, Mind may refill that same hand from any non-overlapping ready repo lane.
 
 | Role | Duty |
 | --- | --- |
 | **head-ceo** | Maintain / report **side-lane candidate bucket** with **effort + est_tokens** — bounded packages safe off main |
 | **Mind** | Choose from bucket (or map) using size + calibration; bind packet; **file** tasks; wake/reinit; record actual vs est |
-| **hand-2+** | Execute only assigned targets in packet cwd — never invent main spine |
+| **hand-2+** | Execute only assigned targets in packet cwd or assigned repo — never invent main spine |
 
-Empty hand-2 + no candidates and no map side track → operational pause (record why) **or** assign head-ceo “what should hand-2 run in parallel (with cost ballparks)?” — not silent multi-cycle empty while INDEX has a second unblocked goal.
+Empty floater + no non-overlapping candidates and no map side track → operational pause (record why) **or** assign head-ceo “what should the floater pool run in parallel (with cost ballparks)?” — not silent multi-cycle empty while INDEX has a second unblocked goal.
 
 **Estimates = head-ceo-owned; calibration = Mind-owned.** Hands do not invent token math. Optional: Hand turn-end notes harness usage **if the TUI surfaces it**. **Codex TUI** often has no reliable token counter → Mind writes `actual_source=unavailable` (or `mind_estimate`) — never fabricated `actual_tokens`.
 
@@ -79,12 +82,13 @@ Empty hand-2 + no candidates and no map side track → operational pause (record
 
 | Slot | Workspace role | Merge to main? |
 | --- | --- | --- |
-| **hand-1** | **Main checkout** (sticky workspace role — not sticky model) | **Yes** — only hand-1 merges packet branches (when Mind assigns) |
-| **hand-2+** | **Dynamically assigned** — usually worktree packets (`worktrees/<slug>/…`); rehome when reassigned | **Never** — commits on packet branch; unit done → refill; theme → ready-to-merge |
+| **hand-1** | **Main checkout / integration lane** (sticky workspace role — not sticky model) | **Yes** — only hand-1 merges packet branches (when Mind assigns) |
+| **hand-2..hand-4** | **Recommended floater pool** — dynamically assigned by repo/worktree; rehome when reassigned | **Never** — commits on assigned repo/packet branch; unit done → refill; theme → ready-to-merge |
+| **hand-5+** | Fleet-specific extra capacity; follow explicit config/operator policy | Usually never, unless fleet config says otherwise |
 
-1. File campaign spine to hand-1. Assign hand-2+ to operator-created worktree packets for bounded work; never unbounded spine there. Packet↔hand bindings are **current assignment**, not permanent types.
+1. File campaign spine and integration work to hand-1. Assign hand-2..hand-4 as floaters to bounded repo/worktree packets; never unbounded spine there. Packet↔hand bindings are **current assignment**, not permanent types.
 2. **hand-1** runs while map has packages or residuals. Idle + empty = starvation: refill, queue merge, wake/reinit by **hand-1’s current runtime**. Quiet only when map and residual bag both empty.
-3. **hand-2+** never merge/rebase/delete packet worktrees or invent main work. After **unit**: mark done + turn-end; Mind refills next map unit (or reassigns). After **theme** boundary: ready-to-merge mail; Mind owns merge clock.
+3. **hand-2..hand-4** floaters never merge/rebase/delete packet worktrees or invent main work. After **unit**: mark done + turn-end; Mind refills the next non-overlapping map unit (or reassigns). After **theme** boundary: ready-to-merge mail; Mind owns merge clock.
 4. Mind absorbs unit lands without merging; at theme accept creates `pending_merges` + merge task for hand-1.
 5. At clean breakpoint, wake/reinit hand-1 for merge; defer while main mid-phase or dirty. Merge checks watch-scope drift and green-gate; absorb then accept as separate step.
 6. **Runtime vs assignment:** assignment orthogonal to **model** within harness. **Hand harness is not free** — follows Mind. Rebind model/launch without renaming Hand or moving assignment; rebind Hand harness only when Mind’s harness changes or operator records exception.
@@ -100,6 +104,7 @@ Posture (`fleet_posture.mode`) gates whether empty bags are a problem — [`flee
 | **hand-N** idle + empty + packet `paused*` / baseline `operational_pauses` | **Operational pause** | Do **not** treat `starvation_candidate_*` alone as act — refill only when unpausing |
 | **hand-1** idle + empty + `pending_merges` or spine residuals | Starvation | Merge task and/or next spine targets |
 | **hand-2+** just finished a **unit** (not theme) | Not success-idle | Absorb/review; **refill** next **product** map unit (or reassign) |
+| **hand-2..hand-4** idle + empty + ready work exists only in a repo already being written by another Hand | Valid dependency / write-scope pause | Do not stack overlapping work; choose a different ready repo, serialize, or record defer |
 | **hand-2+** after **theme** RTM, empty, waiting merge | **Operational pause** | Review → accept → merge to h1; optional light pivot if map has unrelated **product** work |
 | **growth** + empty bags + map empty / only makework / value unclear | **Continuity doubt** | **Do not invent polish**; sleep or one head-ceo continuity consult (continue vs pause) |
 | **Operational pause only** | Allowed empty/hold | base-update wait · mid-unit · operator pause · map empty · hard upstream with need filed (prefer pivot) |
