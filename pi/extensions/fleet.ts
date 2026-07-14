@@ -482,10 +482,10 @@ function fleetDetailRows(fleet: FleetRef, mode: "mind" | "monitor", theme: any):
   const modeColor = mode === "mind" ? "accent" : "muted";
   const external = mode === "mind" && state.externalLoops.get(fleet.root)?.running ? theme.fg("warning", " !ext") : "";
   const lines = [
-    `  ${theme.fg("accent", "◈")} ${theme.bold(fleet.fleetId)} ${theme.fg(modeColor, modeText)} ${theme.fg(posture === "growth" ? "success" : "dim", posture)}  ${theme.fg("dim", `${cycle} · period ${cyclePeriod} · ${timing}`)}${external}`,
+    ` ${theme.fg("accent", "◈")} ${theme.bold(fleet.fleetId)} ${theme.fg(modeColor, modeText)} ${theme.fg(posture === "growth" ? "success" : "dim", posture)}  ${theme.fg("dim", `${cycle} · period ${cyclePeriod} · ${timing}`)}${external}`,
   ];
   if (!snapshot) {
-    lines.push(`    ${theme.fg("dim", "sensors=pending")}`);
+    lines.push(`   ${theme.fg("dim", "sensors=pending")}`);
     return lines;
   }
   const { hands, heads } = { hands: Object.entries(snapshot.hands ?? {}), heads: Object.entries(snapshot.heads ?? {}) };
@@ -493,13 +493,13 @@ function fleetDetailRows(fleet: FleetRef, mode: "mind" | "monitor", theme: any):
   const headTokens = heads.map(([name, row]) => roleToken(name, row, true, theme)).join("  ");
   const counts = preflightCounts(snapshot);
   const signalText = signalCount(snapshot) > 0 ? theme.fg("warning", `!${signalCount(snapshot)}`) : theme.fg("dim", "!0");
-  lines.push(`    ${theme.fg("muted", "Hand")} ${theme.fg("dim", `${hands.filter(([, row]) => ACTIVE_RUNTIME_STATES.has(roleGlyph(row).state)).length}/${hands.length}`)}  ${handTokens || theme.fg("dim", "idle")}`);
-  lines.push(`    ${theme.fg("muted", "Head")} ${theme.fg("dim", `${heads.filter(([, row]) => ACTIVE_RUNTIME_STATES.has(roleGlyph(row).state)).length}/${heads.length}`)}  ${headTokens || theme.fg("dim", "idle")}`);
-  lines.push(`    ${theme.fg("muted", "Vivi")} ${theme.fg("success", "●")} ${theme.fg("dim", `work ${counts.actionable}`)}  ${theme.fg("dim", `✉${counts.mail}`)}  ${theme.fg("dim", `⚑${counts.needs}`)}  ${theme.fg("dim", `↻${counts.rtm}`)}  ${signalText}`);
+  lines.push(`   ${theme.fg("muted", "Hand")} ${theme.fg("dim", `${hands.filter(([, row]) => ACTIVE_RUNTIME_STATES.has(roleGlyph(row).state)).length}/${hands.length}`)}  ${handTokens || theme.fg("dim", "idle")}`);
+  lines.push(`   ${theme.fg("muted", "Head")} ${theme.fg("dim", `${heads.filter(([, row]) => ACTIVE_RUNTIME_STATES.has(roleGlyph(row).state)).length}/${heads.length}`)}  ${headTokens || theme.fg("dim", "idle")}`);
+  lines.push(`   ${theme.fg("muted", "Vivi")} ${theme.fg("success", "●")} ${theme.fg("dim", `work ${counts.actionable}`)}  ${theme.fg("dim", `✉${counts.mail}`)}  ${theme.fg("dim", `⚑${counts.needs}`)}  ${theme.fg("dim", `↻${counts.rtm}`)}  ${signalText}`);
   const summary = event
     ? `${event.acted ? "acted" : "quiet"} · ${event.summary}`
     : baselineSummary(baseline ?? {});
-  lines.push(`    ${theme.fg("dim", `last: ${summary}`)}`);
+  lines.push(`   ${theme.fg("dim", `last: ${summary}`)}`);
   return lines;
 }
 
@@ -520,26 +520,17 @@ class FleetPanel {
     }
 
     const lines: string[] = [];
-    if (fleets.length > 0) {
-      const next = state.loopRunning && state.nextCycleAt !== undefined
-        ? `next ${formatDuration(state.nextCycleAt / 1000 - Date.now() / 1000)}`
-        : "next —";
-      const loopText = state.loopRunning ? `loop ${state.intervalSec}s · ${next}` : "loop off";
-      lines.push(truncateToWidth(`${this.theme.fg("accent", "◉")} ${this.theme.fg("muted", "Mind")} ${this.theme.fg("dim", loopText)}`, width, "…"));
-      for (const fleet of fleets) {
-        for (const line of fleetDetailRows(fleet, "mind", this.theme)) {
-          lines.push(truncateToWidth(line, width, "…"));
-        }
+    for (const fleet of fleets) {
+      for (const line of fleetDetailRows(fleet, "mind", this.theme)) {
+        lines.push(truncateToWidth(line, width, "…"));
       }
+      lines.push("");
     }
-    if (monitors.length > 0) {
-      const monitorLoop = state.monitorTimer ? `watch ${state.monitorIntervalSec}s` : "watch off";
-      lines.push(truncateToWidth(`${this.theme.fg("accent", "◌")} ${this.theme.fg("muted", "Monitor")} ${this.theme.fg("dim", monitorLoop)}  ${this.theme.fg("dim", `${monitors.length} fleet${monitors.length === 1 ? "" : "s"}`)}`, width, "…"));
-      for (const fleet of monitors) {
-        for (const line of fleetDetailRows(fleet, "monitor", this.theme)) {
-          lines.push(truncateToWidth(line, width, "…"));
-        }
+    for (const fleet of monitors) {
+      for (const line of fleetDetailRows(fleet, "monitor", this.theme)) {
+        lines.push(truncateToWidth(line, width, "…"));
       }
+      lines.push("");
     }
     if (state.lastError) {
       lines.push(truncateToWidth(`${this.theme.fg("error", "×")} ${this.theme.fg("error", state.lastError)}`, width, "…"));
