@@ -1,0 +1,51 @@
+# Pi Fleet extension
+
+This directory contains the shareable Pi extension for Fleet Mind sessions. The
+extension is intentionally kept beside the Fleet skill and canonical helper
+scripts; it does not reimplement Fleet policy.
+
+## Local development
+
+From a Pi checkout, load the extension directly:
+
+```bash
+pi -e /Users/ianzepp/work/ianzepp/fleet/pi/extensions/fleet.ts
+```
+
+Or install the Fleet repository as a Pi package:
+
+```bash
+pi install /Users/ianzepp/work/ianzepp/fleet
+```
+
+A shared git install should use a pinned commit or tag:
+
+```bash
+pi install git:github.com/ianzepp/fleet@<tag-or-commit>
+```
+
+Review the package before installation: Pi extensions run with full system
+access, and this extension invokes Fleet's Python and shell helpers.
+
+## Operator commands
+
+```text
+/fleet                 show attached fleets and loop state
+/fleet attach .        detect and explicitly attach the current fleet
+/fleet attach <root>   attach another fleet root
+/fleet detach <root>   detach an explicitly attached fleet
+/fleet refresh         refresh read-only sensor state
+/fleet start [5m]      start the Pi-owned internal loop
+/fleet update 10m      update the internal loop cadence
+/fleet stop            stop the internal loop
+```
+
+Attachment is session-scoped and recorded in Pi custom session entries so a
+reload can restore it. A detected current-directory fleet is only a candidate;
+it is never attached automatically. The extension refuses to start its loop
+when a canonical external `fleet-loop.py` loop is already active.
+
+The first implementation exposes read-only `fleet_sensors`, `fleet_board`, and
+`fleet_runtime` tools plus the `fleet_loop` lifecycle tool. Steward, posture,
+reinitialization, doorbell, task-routing, and other Fleet mutations remain
+outside this initial read-only surface.
