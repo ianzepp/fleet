@@ -278,6 +278,18 @@ the loop's own mechanics as memos is the core memo anti-pattern. When attaching
 to a repo that has real history but no Vivi memory, seed from durable sources
 once — see [`cold-boot.md`](cold-boot.md).
 
+**Mind mail hygiene — same test, mail channel.** The loop does not narrate
+itself into mail any more than into memos. Self-addressed mail (`mind@` →
+`mind@`) and reply-thread echoes that exist only to record cycle state are the
+mail-channel form of cycle-dispatch memos: the record belongs in baseline /
+`mind_loop` state. Before sending mail To `mind@`, ask whether it is genuine
+routing, triage, or deliberation — or just the loop writing itself a note.
+`mail absorb` consumes mail for cycle bookkeeping but does **not** mark it read,
+so raw `unread` stays high even after absorb — triage on **unabsorbed** mail and
+do not chase a high unread count that is mostly already-absorbed. Prefer a
+structured `done` (evidence + commit) over burying a completion inside a reply
+chain.
+
 **Sleep immediately** only after the disposition gate passes and when:
 
 - fleet actionable fingerprint unchanged (hand-N only; ignore legacy codex)
