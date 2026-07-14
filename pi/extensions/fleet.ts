@@ -356,19 +356,19 @@ class FleetPanel {
     const handTokens = hands.map(([name, row]) => roleToken(name, row, false, this.theme)).join("  ");
     const headTokens = heads.map(([name, row]) => roleToken(name, row, true, this.theme)).join("  ");
     lines.push(truncateToWidth(
-      `${this.theme.fg("muted", "H")} ${this.theme.fg("dim", `${metrics.activeHands}/${metrics.totalHands}`)}  ${handTokens || this.theme.fg("dim", "idle")}`,
+      `${this.theme.fg("muted", "Hand")} ${this.theme.fg("dim", `${metrics.activeHands}/${metrics.totalHands}`)}  ${handTokens || this.theme.fg("dim", "idle")}`,
       width,
       "…",
     ));
     lines.push(truncateToWidth(
-      `${this.theme.fg("muted", "Hd")} ${this.theme.fg("dim", `${metrics.activeHeads}/${metrics.totalHeads}`)}  ${headTokens || this.theme.fg("dim", "idle")}`,
+      `${this.theme.fg("muted", "Head")} ${this.theme.fg("dim", `${metrics.activeHeads}/${metrics.totalHeads}`)}  ${headTokens || this.theme.fg("dim", "idle")}`,
       width,
       "…",
     ));
     const viviState = state.snapshots.size > 0 ? this.theme.fg("success", "●") : this.theme.fg("dim", "○");
     const signalText = metrics.signals > 0 ? this.theme.fg("warning", `!${metrics.signals}`) : this.theme.fg("dim", "!0");
     lines.push(truncateToWidth(
-      `${this.theme.fg("muted", "V")} ${viviState} ${this.theme.fg("dim", `work ${metrics.actionable}`)}  ${this.theme.fg("dim", `✉${metrics.mail}`)}  ${this.theme.fg("dim", `⚑${metrics.needs}`)}  ${this.theme.fg("dim", `↻${metrics.rtm}`)}  ${signalText}`,
+      `${this.theme.fg("muted", "Vivi")} ${viviState} ${this.theme.fg("dim", `work ${metrics.actionable}`)}  ${this.theme.fg("dim", `✉${metrics.mail}`)}  ${this.theme.fg("dim", `⚑${metrics.needs}`)}  ${this.theme.fg("dim", `↻${metrics.rtm}`)}  ${signalText}`,
       width,
       "…",
     ));
