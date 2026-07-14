@@ -49,6 +49,12 @@ it is never attached automatically. A foreign Mind attachment is refused unless
 Mind is dead or has yielded. The extension refuses to start its loop when a
 canonical external `fleet-loop.py` loop is already active.
 
+The human-facing widget is intentionally denser than the model-facing tool
+output. It uses colored state glyphs for active/waiting/failed roles, compact
+Hands (`H`) and Heads (`Hd`) rows, and a Vivi summary for work, mail, needs,
+pending RTM, and signal counts. The native Pi footer remains intact and carries
+a compact Fleet chip.
+
 The first implementation exposes read-only `fleet_sensors`, `fleet_board`, and
 `fleet_runtime` tools plus the `fleet_loop` lifecycle tool. Steward, posture,
 reinitialization, doorbell, task-routing, and other Fleet mutations remain

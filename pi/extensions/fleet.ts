@@ -2,6 +2,7 @@ import { readFileSync, existsSync } from "node:fs";
 import { hostname } from "node:os";
 import { dirname, resolve } from "node:path";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
+import { truncateToWidth } from "@earendil-works/pi-tui";
 import { Type } from "typebox";
 
 const FLEET_ROOT = resolve(dirname(__dirname), "..");
@@ -256,6 +257,130 @@ function cyclePayload(): string {
   return `FLEET_CYCLE fleets=${slugs}\nRoots:\n${roots}`;
 }
 
+const ACTIVE_RUNTIME_STATES = new Set(["starting", "submitting", "running"]);
+
+function numeric(value: unknown): number {
+  return typeof value === "number" && Number.isFinite(value) ? value : 0;
+}
+
+function roleGlyph(row: JsonObject | undefined): { glyph: string; color: string; state: string } {
+  const runtime = row?.runtime as JsonObject | undefined;
+  const stateName = compactState(runtime?.state ?? row?.state ?? "unknown");
+  if (ACTIVE_RUNTIME_STATES.has(stateName)) return { glyph: "●", color: "success", state: stateName };
+  if (stateName === "approval_required") return { glyph: "!", color: "warning", state: stateName };
+  if (stateName === "failed" || stateName === "stopped") return { glyph: "×", color: "error", state: stateName };
+  if (stateName === "unknown") return { glyph: "?", color: "dim", state: stateName };
+  return { glyph: "○", color: "dim", state: stateName };
+}
+
+function roleToken(name: string, row: JsonObject, head: boolean, theme: any): string {
+  const status = roleGlyph(row);
+  const shortName = head ? name.replace(/^head-/, "") : name.replace(/^hand-/, "h");
+  const metric = head
+    ? row.sweep_due === true ? "due" : row.sweep_enabled === true ? "on" : "—"
+    : String(numeric(row.actionable ?? row.tasks_open));
+  const labelColor = status.state === "unknown" ? "dim" : "muted";
+  return `${theme.fg(status.color, status.glyph)} ${theme.fg(labelColor, shortName)}${theme.fg("dim", `:${metric}`)}`;
+}
+
+function roleGroups(): { hands: Array<[string, JsonObject]>; heads: Array<[string, JsonObject]> } {
+  const hands: Array<[string, JsonObject]> = [];
+  const heads: Array<[string, JsonObject]> = [];
+  for (const snapshot of state.snapshots.values()) {
+    for (const [name, row] of Object.entries(snapshot.hands ?? {})) hands.push([name, row]);
+    for (const [name, row] of Object.entries(snapshot.heads ?? {})) heads.push([name, row]);
+  }
+  return { hands, heads };
+}
+
+function panelMetrics(): { activeHands: number; totalHands: number; activeHeads: number; totalHeads: number; mail: number; needs: number; rtm: number; signals: number; actionable: number } {
+  let mail = 0;
+  let needs = 0;
+  let rtm = 0;
+  let signals = 0;
+  let actionable = 0;
+  for (const snapshot of state.snapshots.values()) {
+    signals += signalCount(snapshot);
+    mail += numeric((snapshot.mind as JsonObject | undefined)?.inbox_unread);
+    needs += numeric((snapshot.operator as JsonObject | undefined)?.open_count);
+    rtm += numeric((snapshot.integration as JsonObject | undefined)?.pending_rtm_count);
+    for (const group of [snapshot.hands, snapshot.heads]) {
+      for (const row of Object.values(group ?? {})) {
+        mail += numeric(row.inbox_unread);
+        needs += numeric(row.needs_open);
+        actionable += numeric(row.actionable);
+      }
+    }
+  }
+  const { hands, heads } = roleGroups();
+  return {
+    activeHands: hands.filter(([, row]) => ACTIVE_RUNTIME_STATES.has(roleGlyph(row).state)).length,
+    totalHands: hands.length,
+    activeHeads: heads.filter(([, row]) => ACTIVE_RUNTIME_STATES.has(roleGlyph(row).state)).length,
+    totalHeads: heads.length,
+    mail,
+    needs,
+    rtm,
+    signals,
+    actionable,
+  };
+}
+
+class FleetPanel {
+  constructor(private readonly theme: any) {}
+
+  render(width: number): string[] {
+    const fleets = [...state.attachments.values()].sort((a, b) => a.fleetId.localeCompare(b.fleetId));
+    const candidate = state.candidate && !state.attachments.has(state.candidate.root) ? state.candidate : undefined;
+    if (fleets.length === 0) {
+      if (!candidate) return [];
+      return [truncateToWidth(
+        `${this.theme.fg("dim", "◇")} ${this.theme.fg("muted", "candidate")} ${this.theme.fg("accent", candidate.fleetId)} ${this.theme.fg("dim", shellSafePath(candidate.root))} ${this.theme.fg("accent", "→ /fleet attach .")}`,
+        width,
+        "…",
+      )];
+    }
+
+    const metrics = panelMetrics();
+    const loopGlyph = state.loopRunning ? this.theme.fg("success", "◎") : this.theme.fg("dim", "·");
+    const loopText = state.loopRunning ? `loop ${state.intervalSec}s` : "loop off";
+    const header = fleets.map((fleet) => {
+      const snapshot = state.snapshots.get(fleet.root);
+      const posture = compactState((snapshot?.fleet_posture as JsonObject | undefined)?.mode ?? "unknown");
+      const external = state.externalLoops.get(fleet.root)?.running ? this.theme.fg("warning", " !ext") : "";
+      return `${this.theme.fg("accent", "◈")} ${this.theme.bold(fleet.fleetId)} ${this.theme.fg(posture === "growth" ? "success" : "dim", posture)}${external}`;
+    }).join("  ");
+    const lines = [truncateToWidth(`${header}  ${loopGlyph} ${this.theme.fg("dim", loopText)}`, width, "…")];
+
+    const { hands, heads } = roleGroups();
+    const handTokens = hands.map(([name, row]) => roleToken(name, row, false, this.theme)).join("  ");
+    const headTokens = heads.map(([name, row]) => roleToken(name, row, true, this.theme)).join("  ");
+    lines.push(truncateToWidth(
+      `${this.theme.fg("muted", "H")} ${this.theme.fg("dim", `${metrics.activeHands}/${metrics.totalHands}`)}  ${handTokens || this.theme.fg("dim", "idle")}`,
+      width,
+      "…",
+    ));
+    lines.push(truncateToWidth(
+      `${this.theme.fg("muted", "Hd")} ${this.theme.fg("dim", `${metrics.activeHeads}/${metrics.totalHeads}`)}  ${headTokens || this.theme.fg("dim", "idle")}`,
+      width,
+      "…",
+    ));
+    const viviState = state.snapshots.size > 0 ? this.theme.fg("success", "●") : this.theme.fg("dim", "○");
+    const signalText = metrics.signals > 0 ? this.theme.fg("warning", `!${metrics.signals}`) : this.theme.fg("dim", "!0");
+    lines.push(truncateToWidth(
+      `${this.theme.fg("muted", "V")} ${viviState} ${this.theme.fg("dim", `work ${metrics.actionable}`)}  ${this.theme.fg("dim", `✉${metrics.mail}`)}  ${this.theme.fg("dim", `⚑${metrics.needs}`)}  ${this.theme.fg("dim", `↻${metrics.rtm}`)}  ${signalText}`,
+      width,
+      "…",
+    ));
+    if (state.lastError) {
+      lines.push(truncateToWidth(`${this.theme.fg("error", "×")} ${this.theme.fg("error", state.lastError)}`, width, "…"));
+    }
+    return lines;
+  }
+
+  invalidate(): void {}
+}
+
 function renderWidget(ctx?: ExtensionContext): void {
   if (!ctx) return;
   const fleets = [...state.attachments.values()].sort((a, b) => a.fleetId.localeCompare(b.fleetId));
@@ -265,27 +390,14 @@ function renderWidget(ctx?: ExtensionContext): void {
     ctx.ui.setStatus(STATUS_KEY, undefined);
     return;
   }
-
-  const lines: string[] = [];
-  if (fleets.length > 0) {
-    const loop = state.loopRunning ? `loop ${state.intervalSec}s` : "loop off";
-    lines.push(`Fleet  ${fleets.map((fleet) => fleet.fleetId).join(",")}  ${loop}`);
-    for (const fleet of fleets) {
-      const snapshot = state.snapshots.get(fleet.root);
-      const external = state.externalLoops.get(fleet.root);
-      const externalMark = external?.running ? " external-loop" : "";
-      lines.push(`  ${snapshot ? snapshotSummary(fleet, snapshot) : `${fleet.fleetId} sensors=pending`}${externalMark}`);
-      const signals = snapshot?.signals ?? [];
-      if (signals.length > 0) lines.push(`    signals: ${signals.slice(0, 3).join(", ")}${signals.length > 3 ? ` +${signals.length - 3}` : ""}`);
-    }
-    if (state.lastError) lines.push(`  error: ${state.lastError}`);
-  } else if (candidate) {
-    lines.push(`Fleet candidate  ${candidate.fleetId}`);
-    lines.push(`  ${shellSafePath(candidate.root)}`);
-    lines.push("  use /fleet attach . to attach");
-  }
-  ctx.ui.setWidget(WIDGET_KEY, lines);
-  ctx.ui.setStatus(STATUS_KEY, fleets.length > 0 ? `fleet:${fleets.map((fleet) => fleet.fleetId).join(",")}` : `fleet? ${candidate?.fleetId}`);
+  ctx.ui.setWidget(WIDGET_KEY, (_tui, theme) => new FleetPanel(theme));
+  const metrics = panelMetrics();
+  ctx.ui.setStatus(
+    STATUS_KEY,
+    fleets.length > 0
+      ? `◈ ${fleets.map((fleet) => fleet.fleetId).join(",")} · H${metrics.activeHands}/${metrics.totalHands} · Hd${metrics.activeHeads}/${metrics.totalHeads} · ✉${metrics.mail} · !${metrics.signals}`
+      : `◇ candidate ${candidate?.fleetId}`,
+  );
 }
 
 async function execJson(
