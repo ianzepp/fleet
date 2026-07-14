@@ -417,7 +417,7 @@ function onAgentSettled(): void {
   state.cycleQueued = false;
 }
 
-async function attach(pi: ExtensionAPI, ctx: ExtensionContext, input: string): Promise<void> {
+async function attach(pi: ExtensionAPI, ctx: ExtensionContext, input: string, takeover = false): Promise<void> {
   const rootInput = input.trim() || ctx.cwd;
   const fleet = inspectFleet(rootInput === "." ? ctx.cwd : rootInput);
   if (!fleet) throw new Error(`no valid .vivi/fleet.json at ${shellSafePath(rootInput)}`);
@@ -426,12 +426,19 @@ async function attach(pi: ExtensionAPI, ctx: ExtensionContext, input: string): P
   const owner = (baseline.mind_session as JsonObject | undefined)?.label;
   const label = sessionLabel(ctx);
   if (owner && owner !== label) {
-    throw new Error(`${fleet.fleetId} is attached to another Mind session (${owner})`);
+    if (!takeover) throw new Error(`${fleet.fleetId} is attached to another Mind session (${owner}); retry with --takeover after confirming it is dead or yielded`);
+    const confirmed = await ctx.ui.confirm(
+      "Take over Fleet Mind?",
+      `${fleet.fleetId} is attached to ${owner}. Confirm that Mind is dead or has yielded; this overwrites the advisory lock.`,
+    );
+    if (!confirmed) throw new Error("takeover cancelled");
   }
-  if (!owner) {
+  if (!owner || takeover) {
     await execJson(pi, "python3", [
       BASELINE_SCRIPT, "bump", "--project", fleet.root, "--fleet", fleet.fleetId,
-      "--summary", `pi fleet attach: ${label}`, "--mind-session", label, "--mind-host", hostname(),
+      "--summary", `${takeover ? "pi fleet takeover" : "pi fleet attach"}: ${label}`,
+      "--acted", "--mind-session", label, "--mind-host", hostname(),
+      "--recap", `${takeover ? "Took over" : "Attached"} Mind session ${label}`,
     ], undefined, 20_000);
   }
   state.attachments.set(fleet.root, fleet);
@@ -457,7 +464,7 @@ async function detach(pi: ExtensionAPI, ctx: ExtensionContext, input: string): P
   }
   await execJson(pi, "python3", [
     BASELINE_SCRIPT, "bump", "--project", fleet.root, "--fleet", fleet.fleetId,
-    "--summary", `pi fleet detach: ${label}`, "--detach",
+    "--summary", `pi fleet detach: ${label}`, "--acted", "--detach",
   ], undefined, 20_000);
   state.attachments.delete(fleet.root);
   state.snapshots.delete(fleet.root);
@@ -527,7 +534,11 @@ export default function (pi: ExtensionAPI): void {
       const parts = args.trim().split(/\s+/).filter(Boolean);
       const action = parts.shift() ?? "status";
       try {
-        if (action === "attach") await attach(pi, ctx, parts.join(" "));
+        if (action === "attach") {
+          const takeover = parts[0] === "--takeover";
+          if (takeover) parts.shift();
+          await attach(pi, ctx, parts.join(" "), takeover);
+        }
         else if (action === "detach") await detach(pi, ctx, parts.join(" "));
         else if (action === "list" || action === "status" || action === "refresh") {
           if (action === "refresh") await refreshAll(pi, false);

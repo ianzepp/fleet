@@ -33,6 +33,8 @@ access, and this extension invokes Fleet's Python and shell helpers.
 /fleet                 show attached fleets and loop state
 /fleet attach .        detect and explicitly attach the current fleet
 /fleet attach <root>   attach another fleet root
+/fleet attach --takeover <root>
+                       take over after confirming the other Mind is dead/yielded
 /fleet detach <root>   detach an explicitly attached fleet
 /fleet refresh         refresh read-only sensor state
 /fleet start [5m]      start the Pi-owned internal loop
@@ -42,8 +44,10 @@ access, and this extension invokes Fleet's Python and shell helpers.
 
 Attachment is session-scoped and recorded in Pi custom session entries so a
 reload can restore it. A detected current-directory fleet is only a candidate;
-it is never attached automatically. The extension refuses to start its loop
-when a canonical external `fleet-loop.py` loop is already active.
+it is never attached automatically. A foreign Mind attachment is refused unless
+`--takeover` is supplied and the confirmation dialog approves that the other
+Mind is dead or has yielded. The extension refuses to start its loop when a
+canonical external `fleet-loop.py` loop is already active.
 
 The first implementation exposes read-only `fleet_sensors`, `fleet_board`, and
 `fleet_runtime` tools plus the `fleet_loop` lifecycle tool. Steward, posture,
