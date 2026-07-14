@@ -99,58 +99,35 @@ Typical actions:
 ## 3. Start configured Hand runtimes
 
 Read each Hand’s binding from `fleet.json`. Do not infer a backend from the
-agent name.
-
-### tmux Hand
-
-Use the configured `tmux_session`, `tmux_window`, `tmux_target`, `cwd`, and
-`agent_launch`. Create missing topology without replacing live panes:
+agent name. Use the backend-neutral runtime helper first; it wraps tmux topology
+creation and Vivi-PTY daemon/session mechanics so Mind does not hand-code either
+transport during launch.
 
 ```bash
-tmux has-session -t <session> 2>/dev/null || \
-  tmux new-session -d -s <session> -n <window> -c <cwd>
-
-tmux send-keys -t <target> -l -- '<agent_launch>'
-tmux send-keys -t <target> Enter
+python3 "$SK/fleet-runtime.py" --project "$ROOT" --hands all status
+python3 "$SK/fleet-runtime.py" --project "$ROOT" --role hand-1 start
+python3 "$SK/fleet-runtime.py" --project "$ROOT" --role hand-2 restart \
+  --boot 'HAND WAKE hand-2. Read your Vivi bag and continue only assigned work.'
 ```
 
-For a session-per-Fleet layout, add missing role windows with `tmux new-window`.
-Never kill or recreate a running pane merely to make the layout prettier.
+Helper semantics:
 
-### `vivi_pty` Hand
+- `start` creates/starts the configured runtime if it is absent or stopped; it
+  does not assign work.
+- `restart`/`reinit` stop then start through the configured backend, preserving
+  the role identity and assignment.
+- `stop` tears down configured runtime capacity for selected roles.
+- For tmux roles, the helper creates the configured session/window and refuses
+  to stack an `agent_launch` into an existing target unless `--force` is used.
+- For `vivi_pty` roles, the helper starts the daemon if needed, restarts stopped
+  tombstones, and starts new sessions from the configured command array without
+  shell evaluation.
 
-Use the configured socket, session ID, cwd, driver, and command array. Preserve
-argv boundaries; do not flatten an editable command array into shell `eval`.
-
-```bash
-SOCKET="$ROOT/.vivi/vivi-pty.sock"
-
-vivi-pty info --socket "$SOCKET" >/dev/null 2>&1 || \
-  nohup vivi-pty daemon --project "$ROOT" --socket "$SOCKET" \
-    >/tmp/vivi-pty.log 2>&1 &
-
-vivi-pty session start <session-id> \
-  --driver <agent> \
-  --cwd <cwd> \
-  --socket "$SOCKET" \
-  -- <command> <arg> ...
-```
-
-Before `session start`, inspect `session list` and `session inspect`. A stopped
-session may remain as a tombstone; use the supported restart/replacement path
-rather than assuming the same ID can always be created again. A restart reuses
-its stored binding unless the installed `vivi-pty` explicitly supports rebinding.
-
-After startup, require:
-
-- `process_state=running`;
-- expected cwd, driver, command, and model/effort arguments;
-- a rendered prompt or other driver evidence;
-- no duplicate session for the same role.
-
-The initial harness footer may show a default model before the first request.
-When model identity matters, confirm the configured argv and verify the footer
-again after a harmless first turn.
+After startup, require expected cwd, driver/agent command, model/effort
+arguments when observable, and no duplicate session for the same role. The
+initial harness footer may show a default model before the first request. When
+model identity matters, confirm the configured argv and verify the footer again
+after a harmless first turn.
 
 ## 4. Wake Hands by assignment, not by headcount
 
@@ -185,7 +162,12 @@ Heads are advisory capacity, not extra product Hands.
 
 For each configured Head:
 
-1. Start its configured runtime if missing.
+1. Start its configured runtime if missing with `fleet-runtime.py`:
+
+   ```bash
+   python3 "$SK/fleet-runtime.py" --project "$ROOT" --role head-cto start
+   ```
+
 2. Load its persona and role prompt.
 3. Inspect addressed mail.
 4. Apply its policy:

@@ -96,6 +96,35 @@ python3 scripts/fleet-posture.py set --project <root> growth|standby|dormant \
 
 Updates only `fleet.json.fleet_posture`, preserves unspecified posture fields, stamps `since`, strictly validates a same-directory temporary candidate, and atomically replaces the overlay. It does not wake roles, run sensors, bump the Mind baseline, or arm the steward; normal Mind-cycle processing applies the transition. Exit `0` ok · `1` data/validation error · `2` usage.
 
+### `fleet-runtime.py`
+
+```bash
+python3 scripts/fleet-runtime.py --project <root> --role head-cto status
+python3 scripts/fleet-runtime.py --project <root> --heads all start
+python3 scripts/fleet-runtime.py --project <root> --role hand-1 restart --boot 'HAND WAKE hand-1. Read your bag.'
+python3 scripts/fleet-runtime.py --project <root> --hands all stop
+python3 scripts/fleet-runtime.py --project <root> --role head-ceo doctor
+```
+
+Backend-neutral process lifecycle for configured Hand/Head roles. It resolves
+`fleet.json` bindings and dispatches to `tmux` or `vivi_pty` without changing
+assignments, posture, board state, or runtime backend. Use it when a role is
+stopped/missing before using `fleet-doorbell.sh` to deliver a work pointer.
+
+| Command | Meaning |
+| --- | --- |
+| `status` / `doctor` | Inspect configured runtime state; `doctor` exits non-zero for stopped/failed roles |
+| `start` | Create/start the configured runtime if absent or stopped; never assigns work |
+| `restart` / `reinit` | Stop then start through the configured backend; optional `--boot` pointer |
+| `stop` | Tear down the configured process/session/window for selected roles |
+
+Selectors: `--role` (repeatable), `--hands all|h1,h2`, `--heads all|head-ceo,…`.
+A boot pointer is transport-only; still use board handles for durable work truth.
+For tmux roles, `start` will not stack a launch command into an existing target
+unless `--force` is passed. For Vivi-PTY roles, stopped tombstones are restarted
+through `vivi-pty session restart` and new sessions use the configured command
+array without shell evaluation.
+
 ### `fleet-doorbell.sh`
 
 ```bash

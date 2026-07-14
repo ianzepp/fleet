@@ -57,7 +57,7 @@ fi
 pass "date iso: $(fleet_date_iso) epoch: $(fleet_date_epoch)"
 
 # Python modules compile
-for py in fleet_common.py fleet-resolve.py fleet-sensors.py fleet-baseline.py fleet-posture.py fleet-loop.py verify-fleet-json.py suggest-polish-files.py test_fleet_common.py; do
+for py in fleet_common.py fleet-resolve.py fleet-sensors.py fleet-baseline.py fleet-posture.py fleet-loop.py fleet-runtime.py verify-fleet-json.py suggest-polish-files.py test_fleet_common.py test_fleet_runtime.py; do
   if "$PYTHON_BIN" -m py_compile "$_FLEET_SCRIPT_DIR/$py"; then
     pass "py_compile $py"
   else

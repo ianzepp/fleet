@@ -178,6 +178,7 @@ Core process here; detail in `references/` + `scripts/`.
 | Pi Mind extension | [`pi.md`](references/pi.md) |
 | Sensors / baseline / doorbell | [`scripts/fleet-sensors.py`](scripts/fleet-sensors.py), [`fleet-baseline.py`](scripts/fleet-baseline.py), [`fleet-doorbell.sh`](scripts/fleet-doorbell.sh), [`fleet-resolve.py`](scripts/fleet-resolve.py). `fleet-doorbell.sh` atomically records successful wake status in `last_hand_wake`; no duplicate helper is needed. Sensors include pending RTM/integration lag, ahead/behind, and bounded dirty paths. |
 | Mind loop fallback | [`scripts/fleet-loop.py`](scripts/fleet-loop.py). tmux-backed `FLEET_CYCLE` injector for Mind harnesses without native scheduled loops. Records `.vivi/fleet-loop.json`; `start`, `status`, `stop`; loop ≠ steward and never runs sensors itself. |
+| Runtime lifecycle | [`scripts/fleet-runtime.py`](scripts/fleet-runtime.py). Backend-neutral start/stop/restart/status for configured Hand/Head runtimes; use before doorbell when a role is stopped. |
 | Runtime rebind | [`scripts/fleet-runtime-rebind.py`](scripts/fleet-runtime-rebind.py). Plan/apply atomic runtime config changes across Heads and Hands. |
 | Cycle close | [`scripts/fleet-cycle-close.py`](scripts/fleet-cycle-close.py). One command: sensors → baseline bump → optional steward rearm. |
 | Codex pane | [`scripts/codex-reinit.sh`](scripts/codex-reinit.sh) |
@@ -442,6 +443,7 @@ Skill = portable process. Overlay = roster, paths, models, ssh, maps, Status.
 ```bash
 # Placeholders: <skill> <root> <hex> — tokens without <> are literals
 python3 <skill>/scripts/fleet-sensors.py --project <root> --fleet <fleet-id> --text
+python3 <skill>/scripts/fleet-runtime.py --project <root> --fleet <fleet-id> --role hand-1 start
 <skill>/scripts/fleet-doorbell.sh --project <root> --fleet <fleet-id> --role hand-1 --handle <hex>
 # Agent recovery only if doorbell sticks/errors:
 <skill>/scripts/codex-reinit.sh doctor --project <root> --fleet <fleet-id> --role hand-1      # Codex

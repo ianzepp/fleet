@@ -58,6 +58,7 @@ and anti-patterns. Everything below is a map into that file and its references.
 | [`scripts/steward.sh`](scripts/steward.sh) | Arm / rearm / disarm the dead-man watchdog |
 | [`scripts/suggest-polish-files.py`](scripts/suggest-polish-files.py) | Rank files for a bounded polish task after main moves |
 | [`scripts/verify-fleet-json.py`](scripts/verify-fleet-json.py) | Validate a fleet's `fleet.json` |
+| [`scripts/fleet-runtime.py`](scripts/fleet-runtime.py) | Backend-neutral start/stop/restart/status for configured Hand/Head runtimes |
 | [`scripts/fleet-runtime-rebind.py`](scripts/fleet-runtime-rebind.py) | Plan/apply atomic runtime rebinds across roles |
 | [`scripts/fleet-cycle-close.py`](scripts/fleet-cycle-close.py) | Close a Mind cycle: sensors → baseline → optional steward rearm |
 | [`scripts/smoke-portability.sh`](scripts/smoke-portability.sh) | Env + helper portability checks |
