@@ -223,7 +223,7 @@ python3 $SK/fleet-sensors.py --project "$ROOT" --record-cycle --cycle-id <non-ne
 # Warm-up or post-compaction context may read history without collecting/writing sensors:
 python3 $SK/fleet-sensors.py --project "$ROOT" --history 10 [--role hand-1]
 
-# Doorbell for Grok/Pi/Codex; Codex helper path uses submit-settle
+# Doorbell for Pi and compatibility harnesses; Codex helper path uses submit-settle
 $SK/fleet-doorbell.sh --project "$ROOT" --role hand-1 --handle <hex> --note 'bag open'
 # exit 0 sent · 1 refused (running|down|rate-limit) · 2 usage
 
@@ -359,7 +359,7 @@ Even **sleep** interactive uses this shape. **Not required:** full mail dumps, f
 | Head-role report mail | Mind | absorb; triage to hand-N when actionable |
 | Approach / sequencing fork | head-ceo (or Mind) | one advisory report / note |
 | Runtime `waiting_for_input` / `completed` + open tasking | Mind | doorbell |
-| Theme finished + next target (**Grok**) | Mind | **theme-switch compact** then doorbell |
+| Theme finished + next target (**Pi**) | Mind | **theme-switch compact** then doorbell |
 | Theme finished + next target (**Codex**) | Mind | doorbell; reinit only if stale/stuck |
 | Pane `error_*` | Mind | ops intervene (model/retry/reinit) |
 | Pane `down` | Mind | recreate session + agent; may need **new session** |
@@ -375,7 +375,7 @@ Never wake a `running` Hand merely because bag unchanged. Deep work only on paid
 | **Manual / unscheduled Mind polling** | Sleep **≥ 60s** between unchanged checks |
 | **Formal scheduled loop** | Start around **5 minutes**, then adapt to observed work density |
 
-Grok supports formal scheduled loops. Codex as Mind: discrete cycles + shell `sleep` ≥ 60s. Fail-fast regardless. A scheduled cadence is a control setting, not a permanent promise: Mind should proactively replace the scheduler with a longer interval when repeated cycles are thin or unchanged, and with a shorter interval when reports, completions, decisions, or integration work accumulate faster than cycles can absorb them. Preserve the same loop goal and stop condition when replacing it, cancel the old scheduler, and report the new cadence in the next cycle summary.
+Pi Mind cycles may use the Pi-owned Fleet loop or discrete cycles with shell `sleep` ≥ 60s. Fail-fast regardless. A scheduled cadence is a control setting, not a permanent promise: Mind should proactively replace the scheduler with a longer interval when repeated cycles are thin or unchanged, and with a shorter interval when reports, completions, decisions, or integration work accumulate faster than cycles can absorb them. Preserve the same loop goal and stop condition when replacing it, cancel the old scheduler, and report the new cadence in the next cycle summary.
 
 | Kind | When | Work |
 | --- | --- | --- |

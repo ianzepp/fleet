@@ -16,7 +16,7 @@ Arming a fleet, rebinding runtimes, Mind/Hand/Head duties.
 
 One Mind owns the tasking bag and integration clock: **Mind files and wakes; Heads advise.** Heads never merge, never keep product tasking “full,” never stamp GO/NO-GO. **head-ceo** proposes **what hand-2+ could work on**; Mind decides when to bind a packet and file. Reports To: **mind**; Mind triages into hand-N tasks/needs.
 
-Prefer numbered hands (`hand-N`) over shared `codex`. Prefer heterogeneous Head runtimes; keep Hand harness aligned with Mind.
+Prefer numbered hands (`hand-N`) over harness-named identities. Keep the product plane on Pi by default; Heads may use different Pi providers or models for independent review.
 
 ## Fleet axes (identity ≠ assignment ≠ runtime)
 
@@ -47,33 +47,29 @@ describes done-when, and debugs Hand failures. When Hands share the same harness
 instructions the Mind writes are natively understood by the Hand without
 translation or impedance mismatch.
 
-A Hand on a different harness (e.g. Codex Hand under a Grok Mind) must cope with
-instructions shaped by a different agentic loop, different tool-use conventions,
-and a different internal model of how work gets done. This adds translation
-friction, increases the risk of miscommunication, and forces the Mind to
-mentally double-encode every task. The product plane stays coherent when the
-control plane and execution plane speak the same harness language.
+A Hand on a different harness from its Mind must cope with instructions shaped
+by a different agentic loop, tool-use conventions, and internal model of how
+work gets done. This adds translation friction and increases miscommunication.
+The product plane stays coherent when the control and execution planes use Pi.
 
-**Exception:** This is a strong default, not a law. Documented fleet config
-exceptions (desktop Claude Mind + Grok Hands, Pi local Hands) are valid when
-the operator has good reason — token budget, failure isolation, or zero-cost
-local execution. The key is that the exception is *deliberate and recorded*,
-not a silent drift.
+**Exception:** This is a strong default, not a law. A documented fleet config
+may temporarily select another supported harness when the operator has a
+specific capacity or compatibility reason. The exception must be deliberate,
+recorded, and removed when the constraint clears.
 
 | Role | Harness policy | Model policy |
 | --- | --- | --- |
 | **Mind** | Source of truth for product harness *unless* fleet records a Hand exception | May change for capacity; Hands follow when aligned |
 | **Hand** | **Same harness as Mind** by default | May differ within that harness (ladder) |
-| **Head** | **Prefer a different harness and/or model** | Independence is a feature |
+| **Head** | **Pi with a distinct provider and/or model when useful** | Independent review without changing harness |
 
-Same-harness Hands keep one wake/reinit/bootstrap surface. Heads diversify to challenge the product plane. Default Heads: **Pi harness** with role-dependent model selection (see Advisor plane table below).
+Pi-aligned roles keep one wake/reinit/bootstrap surface. Heads diversify through provider, model, prompt, and role—not by changing the default harness.
 
 **Documented exceptions (do not override without operator):**
 
 | Exception | Why |
 | --- | --- |
-| Desktop Claude Mind + Grok/Pi Hands | No desktop harness in tmux — Hands cannot match Mind |
-| Pi Hand under desktop Mind | Local discrete units; zero API cost |
+| Desktop-only Mind + Pi Hands | Desktop harness cannot run in tmux; Pi remains the managed pane harness |
 | Operator-recorded temporary mixed Hands | Capacity/experiment — baseline note; re-align when quiet |
 
 **Arm / rebind:**
@@ -88,46 +84,38 @@ Same-harness Hands keep one wake/reinit/bootstrap surface. Heads diversify to ch
 
 ## Preferred models by role
 
-Default arm preferences. Live ids in project fleet config (`agent_model`, `agent_launch`, effort flags). Capacity ladders step same-harness; they do not invent permanent Hand identity from model strings.
+Default every managed role to the **Pi harness**. Live provider, model, and effort
+remain project configuration (`provider`, `agent_model`, `agent_launch`, thinking
+flags). Capacity ladders change Pi provider/model without inventing permanent
+Hand identity from model strings.
 
-### Product plane (Mind + Hands — one harness family)
+### Product plane (Mind + Hands)
 
-| Product harness | Role | Preferred model | Effort / thinking |
+| Harness | Role | Preferred provider/model | Effort / thinking |
 | --- | --- | --- | --- |
-| **Grok** | **Mind** | Grok 4.5 | harness default |
-| **Grok** | **Hand** | Grok 4.5 | harness default |
-| **Codex** | **Mind** | `gpt-5.6-sol` | **medium** |
-| **Codex** | **Hand** | `gpt-5.6-luna` | **xhigh** |
-| **opencode** | **Mind** | (provider-defined; e.g. DeepSeek V4 Flash Free) | **medium** |
-| **opencode** | **Hand** | (same provider/model as Mind) | harness default |
-| **Claude Code (desktop)** | **Mind** | Sonnet 5 | app default |
-| **Grok** | **Hand** (under desktop Mind) | Grok 4.5 | harness default |
-| **Pi (`llama-router`)** | **Hand** (under desktop Mind, local/discrete units) | `ornith-35b-q8` | reasoning off |
+| **Pi** | **Mind** | operator-selected capable model | **medium** or higher |
+| **Pi** | **Hand** | task-appropriate provider/model | **medium** or higher |
+| **Pi** | **Hand** (local/discrete units) | `llama-router` / `ornith-35b-q8` | reasoning off |
 
 | Note | Detail |
 | --- | --- |
-| Grok | Mind and Hand share model class (Grok 4.5) and harness |
-| Codex | Mind/Hand may differ within family (sol/medium vs luna/xhigh); harness stays Codex |
-| opencode | Mind and Hand share the same binary and provider/model configuration. The fleet `mind.agent` should be `"opencode"`; Hands default to `"opencode"` unless overridden. No built-in `/goal` — uses same generic pointer as Grok. opencode has its own agentic loop and can infer lifecycle, read the bag, and call `vivi task done` autonomously. |
-| Claude desktop Mind | **Declared exception to Harness alignment** (experimental). No local CLI for tmux pane → Hands cannot match Mind harness. Treat **Grok as fleet Hand harness**: desktop Mind files tasking + reads panes; Grok Hands use normal Grok wake without tmux-resident Mind |
-| Why desktop Mind | (1) **token budget** — deep/interactive Mind off product Hand harness; (2) **failure isolation** — tmux/shell death ≠ Mind death. Combine with remote Hands/Heads (`ssh-remote.md`). Expect learning/tweaks |
-| Codex under desktop Mind | Only if Grok capacity exhausted — use doorbell-first Codex wake; reinit remains fallback |
-| Heads | Still **Pi harness** regardless of Mind harness; model varies by role |
-| Pi local Hand | Validated alternate for desktop-Mind when fully local + discrete/bounded units — see Pi-as-Hand |
-| Capacity | Start at primaries, step models in `runtime_fallback` (do not flip product harness first) |
+| Alignment | Mind and Hands use Pi; provider/model may differ by role or capacity. |
+| Desktop Mind | When the interactive Mind is desktop-only, managed tmux Hands still use Pi. |
+| Heads | Use Pi; vary provider, model, prompt, and role to preserve independent review. |
+| Capacity | Step provider/model entries in `runtime_fallback`; do not change harness first. |
 
-### Pi-as-Hand (local models)
+### Pi local Hands
 
 Validated 2026-07-11 against `ornith-35b-q8` via local `llama-router` (`~/.pi/agent/models.json`), one-shot `--print` and persistent tmux TUI.
 
 | Topic | Guidance |
 | --- | --- |
-| Scope | Discrete, well-specified units (write, run, self-verify). Not a Grok/Codex substitute for ambiguous / multi-step / long-context spine |
-| Wake | Same doorbell as Grok: plain `pi` (no `--print`) idles in tmux; `send-keys … Enter` wakes; context retained; `/compact` works (errors only on too-small session) |
-| Autonomy | No built-in agentic loop. Passive between wakes like Grok. Codex uses doorbell-first wake with reinit fallback |
-| Slash surface | `/help` not recognized (goes to model as text). Do not assume Grok command parity beyond tested commands |
-| cwd | Pin by true process cwd, not preceding shell `cd` in compound command. Prefer subshell or `tmux new-session -c <cwd>`. Verify on first use in new packet |
-| Cost | Fully local, zero marginal API. Step back to Grok/Codex if unit needs real multi-step reasoning |
+| Scope | Discrete, well-specified units (write, run, self-verify); use a stronger Pi provider/model for ambiguous, multi-step, or long-context work |
+| Wake | Plain `pi` (no `--print`) idles in tmux; `send-keys … Enter` wakes; context retained; `/compact` works when the session is large enough |
+| Autonomy | Passive between wakes; the Mind supplies lifecycle pointers and checks completion |
+| Slash surface | `/help` is model input rather than a guaranteed command; use documented Pi commands only |
+| cwd | Pin by true process cwd, not preceding shell `cd` in a compound command. Prefer a subshell or `tmux new-session -c <cwd>`; verify on first use |
+| Capacity | Stay on Pi and select a stronger provider/model when the unit needs deeper reasoning |
 
 ```bash
 pi --provider llama-router --model ornith-35b-q8
@@ -144,7 +132,7 @@ pi --provider llama-router --model ornith-35b-q8 --print --no-session "<task>"
 | **head-cxo** (complexity, purity) | **Pi**, zai | GLM 5.2 | **high** or **xhigh** |
 | Other Heads (CPO, COO, CSO, CFO, CMO) | **Pi**, zai | GLM 5.2 | **high** or **xhigh** |
 
-Advisors are largely one-shot (assign → report). Prefer Pi even when Mind is Grok or Codex.
+Advisors are largely one-shot (assign → report). Use Pi with a deliberately distinct provider/model when independent review benefits from diversity.
 
 ```text
 pi --provider zai --model glm-5.2 --thinking high   # or xhigh
@@ -160,46 +148,10 @@ operators write that field. For model/effort changes at runtime, see
 ### Principles
 
 1. `agent_launch` in fleet.json wins for every slot — never hardcode model strings as identity.
-2. Model changes within a harness step the **same-harness ladder** first; harness flips are fleet-wide Mind decisions.
-3. Heads use Pi harness regardless of Mind harness; model and thinking effort vary by role.
+2. Model changes step the configured **Pi provider/model ladder** first.
+3. Heads use Pi; model and thinking effort vary by role.
 
-### Grok CLI
-
-Binary: `grok` (resolve from PATH or Fleet's portable binary lookup; callers may override with an explicit launch command). Config: `~/.grok/config.toml` (TOML). List available models: `grok models`.
-
-| Flag | Purpose | Fleet use |
-| --- | --- | --- |
-| `-m` / `--model <MODEL>` | Model ID (e.g. `grok-4.5`, `deepseek-v4-flash-openrouter`) | Set `agent_model` |
-| `--reasoning-effort` / `--effort <EFFORT>` | Reasoning budget for reasoning models | When model supports it |
-| `--always-approve` | Auto-approve all tool executions | Standard for Hands |
-| `--sandbox <PROFILE>` | Sandbox profile | `--sandbox off` for full access |
-| `--deny 'Bash(<pattern>)'` | Deny tool-use patterns | Safety — deny destructive commands |
-| `--allow <RULE>` | Allow tool-use patterns | Complement to --deny |
-| `--no-subagents` | Disable subagent spawning | For simple / narrow-scope Hands |
-| `--resume [<ID>]` / `--continue` | Resume prior session | Theme continuation |
-| `--worktree [-w] [<NAME>]` | Start in new git worktree | Packet isolation |
-| `--single` / `-p <PROMPT>` | Single-turn (headless) | One-shot tasks |
-| `--system-prompt-override <PROMPT>` | Replace default system prompt | Custom role definitions |
-| `--cwd <DIR>` | Working directory | Override for specific cwd |
-| `--max-turns <N>` | Cap agent turns | Budget control |
-| `--no-memory` | Disable cross-session memory | Clean-slate Hand |
-| `--no-plan` | Disable plan mode | Headless automation |
-| `--permission-mode <MODE>` | Permission mode (`auto`, `dontAsk`, `plan`, …) | Alternative to `--always-approve` |
-
-**Typical Hand launch:**
-```bash
-grok --always-approve
-# or with sandbox and deny rules:
-grok --sandbox off --deny 'Bash(sudo *)' --deny 'Bash(rm -rf *)' --always-approve
-```
-
-**Headless / agent mode:**
-```bash
-grok agent headless --model grok-4.5 --always-approve
-grok agent stdio --model grok-4.5   # for programmatic integration
-```
-
-### Codex CLI
+### Codex CLI (explicit compatibility exception)
 
 Binary: `codex` (resolve from PATH or Fleet's portable binary lookup; callers may override with an explicit launch command).
 Config: `~/.codex/config.toml` (TOML). Model and effort are baked into the config
@@ -328,13 +280,6 @@ Binary: `vivi` (Rust CLI, typically at `~/.cargo/bin/vivi`). Config: defined by
 Each harness stores configuration in a well-known directory. The tables below
 list the default search paths (“`~`” resolves to the current user’s home directory).
 
-**Grok:**
-| File / Dir | Purpose |
-| --- | --- |
-| `~/.grok/config.toml` | Model defaults, UI settings, plugin config |
-| `~/.grok/agents/` | Agent profile definitions |
-| `~/.grok/AGENTS.md` | Project-level agent rules |
-
 **Codex:**
 | File / Dir | Purpose |
 | --- | --- |
@@ -365,7 +310,6 @@ list the default search paths (“`~`” resolves to the current user’s home d
 
 | Harness | Command | Output |
 | --- | --- | --- |
-| **Grok** | `grok models` | All configured models with default marker |
 | **Codex** | Config file (`~/.codex/config.toml` `model` key) | Single default; profiles for alternates |
 | **Pi** | `pi --list-models [<provider>]` | Provider-filtered table with context, max-out, thinking support, images |
 | **opencode** | `opencode models [<provider>]` | Provider-filtered model list |

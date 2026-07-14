@@ -27,7 +27,7 @@ Source of truth: `~/work/ianzepp/fleet/references/heads/` — `cast.md`, `heads.
 
 Shared finding-class vocabulary (`priority_inversion`, `starved_producer`, `unicorn_wait`, `false_gate`, `soft_gate`, `hard_gate`, `expansion_candidate`, `stewardship`, `clean_pass`) is the lingua franca all heads emit in their reports. The report contract (kind/posture/business_area/evidence/recommendation/confidence) is consistently followed.
 
-**Harness split:** Heads prefer Pi (alternate harness); faber uses `pi + zai + glm-5.2 high`, swarm uses `pi + openai-codex + gpt-5.5 high`. Product Hands inherit the Mind's Grok harness. This advisor-plane coherence is by design and is healthy.
+**Harness policy update:** Minds, Hands, and Heads default to Pi. Faber uses `pi + zai + glm-5.2 high`; swarm uses `pi + openai-codex + gpt-5.5 high`. Advisor independence comes from provider, model, prompt, and role rather than changing harness.
 
 ---
 

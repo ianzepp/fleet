@@ -1,0 +1,28 @@
+{
+  "name": "fleet",
+  "version": "0.1.0",
+  "description": "Operate and visualize Mind, Head, and Hand Fleets from Codex.",
+  "author": {
+    "name": "Ian Zepp",
+    "url": "https://github.com/ianzepp"
+  },
+  "repository": "https://github.com/ianzepp/fleet",
+  "license": "MIT",
+  "keywords": ["fleet", "multi-agent", "mind", "vivi", "tmux"],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Fleet",
+    "shortDescription": "Operate multi-agent Fleets from Codex.",
+    "longDescription": "Attach, inspect, and operate canonical Fleet state from Codex, with compact dashboard output for Mind sessions and read-only monitors.",
+    "developerName": "Ian Zepp",
+    "category": "Productivity",
+    "capabilities": ["Read", "Write", "Interactive"],
+    "defaultPrompt": [
+      "Attach this Codex session as Fleet Mind.",
+      "Run a Fleet preflight and show the dashboard.",
+      "Inspect Fleet signals and recommend the next disposition."
+    ],
+    "brandColor": "#3B82F6"
+  },
+  "mcpServers": "./.mcp.json"
+}

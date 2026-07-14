@@ -63,7 +63,7 @@ Build a shareable Pi extension package in the Fleet repository that gives a Pi M
 - `/Users/ianzepp/.nvm/versions/node/v24.15.0/lib/node_modules/@earendil-works/pi-coding-agent/docs/packages.md`: Pi package manifests, local/git installation, conventional directories, peer dependencies, and package security requirements.
 - `/Users/ianzepp/.nvm/versions/node/v24.15.0/lib/node_modules/@earendil-works/pi-coding-agent/dist/modes/interactive/components/footer.js.map`: native footer information set, including cwd/branch/session, token/cache/cost/context statistics, provider/model/thinking level, and extension statuses.
 - `/Users/ianzepp/.nvm/versions/node/v24.15.0/lib/node_modules/@earendil-works/pi-coding-agent/dist/modes/interactive/interactive-mode.js`: native tool expansion defaults and TUI lifecycle seams; confirms that extension-level tool presentation is separate from core layout.
-- `/Users/ianzepp/work/pi-agent-tui-design-handoff.md`: Grok-inspired status/widget/watchers visual language, compact metadata, contextual chrome, and grayscale-first design constraints.
+- `/Users/ianzepp/work/pi-agent-tui-design-handoff.md`: status/widget/watchers visual language, compact metadata, contextual chrome, and grayscale-first design constraints.
 - User clarification in this session: explicit fleet attachment is preferred; current working directory detection is useful; no Pi source patching; Pi's useful metadata must remain visible; shared extension source should live with Fleet.
 
 ## Reference Packet

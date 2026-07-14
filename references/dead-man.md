@@ -28,7 +28,7 @@ Mind must **not** enable or arm steward proactively. Per-fleet only — enabling
 
 | Failure | Effect |
 | --- | --- |
-| Grok `/loop` timer dies | No more `FLEET_CYCLE` → fleet freezes |
+| Pi-owned Fleet loop dies | No more `FLEET_CYCLE` → fleet freezes |
 | Hook / turn hard-abort | Loop fires but every turn dies before cycle end → **deadlock** |
 | Mind session crash | No successful cycle ticks |
 

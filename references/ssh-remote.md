@@ -69,7 +69,7 @@ REMOTE_PATH='export PATH="$HOME/.local/bin:$HOME/.cargo/bin:$HOME/.nvm/versions/
 
 $SSH "tmux has-session -t hand-N 2>/dev/null || \
   tmux new-session -d -s hand-N -c /path/on/remote -n main"
-$SSH "$REMOTE_PATH; tmux send-keys -t hand-N:1.1 -l -- 'codex' "  # or grok / pi
+$SSH "$REMOTE_PATH; tmux send-keys -t hand-N:1.1 -l -- 'pi --provider <provider> --model <model> --approve' "
 $SSH "tmux send-keys -t hand-N:1.1 Enter"
 ```
 

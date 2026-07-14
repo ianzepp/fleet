@@ -217,10 +217,9 @@ See [`dead-man.md`](dead-man.md). Subcommands: `arm` / `rearm` / `disarm` / `che
 Prefer **Mind-aligned product harness**. Fleet names ordered ladders **per harness** (do not invent ids not in fleet):
 
 ```text
-codex_model_ladder_mind:  [ gpt-5.6-sol@medium, … ]
-codex_model_ladder_hand:  [ gpt-5.6-luna@xhigh, … ]
-grok_model_ladder:        [ grok-4.5, … ]
-head_pi_model:            [ glm-5.2@high, glm-5.2@xhigh, … ]
+pi_model_ladder_mind:  [ openai-codex/gpt-5.5@medium, zai/glm-5.2@high, … ]
+pi_model_ladder_hand:  [ openai-codex/gpt-5.5@medium, zai/glm-5.2@high, … ]
+pi_model_ladder_head:  [ zai/glm-5.2@high, zai/glm-5.2@xhigh, … ]
 ```
 
 **On `failed` with `runtime.detail=capacity`:**
@@ -243,9 +242,9 @@ head_pi_model:            [ glm-5.2@high, glm-5.2@xhigh, … ]
 3. Temporary single-Hand exception (operator only): baseline note; re-align ASAP
 4. Heads already on alternate harnesses: leave unless they fail too
 
-Do **not** default to “flip H3 to pi while Mind stays Grok.”
+Do **not** change a single Hand's harness while the Mind and other Hands remain Pi. Capacity fallback changes Pi provider/model first.
 
-Harness flip = update `mind.agent` + every Hand’s `agent` + `agent_launch` + `wake_mode`, clean launch. **Assignment unchanged.**
+A rare harness flip updates `mind.agent` + every Hand’s `agent` + `agent_launch` + `wake_mode` at a clean breakpoint. **Assignment remains unchanged.**
 
 ### Per-cycle budget (anti-thrash)
 
@@ -383,36 +382,33 @@ Recommended keys (extend freely; skill cares about meanings):
   },
   "binding_rule": "legacy: mail_identity==tmux_session; session_per_fleet: mail_identity==role, tmux_session==fleet_id, tmux_window==role; always use tmux_target",
   "mind": {
-    "agent": "grok",
-    "agent_model": "grok-4.5",
-    "note": "Product harness for Hands; Mind is not a fleet process slot"
+    "agent": "pi",
+    "agent_model": "gpt-5.5",
+    "provider": "openai-codex",
+    "thinking": "medium",
+    "note": "Pi is the product harness; Mind is not a fleet process slot"
   },
   "agent_policy": {
     "hands_follow_mind_harness": true,
     "heads_prefer_pi": true
   },
   "preferred_models": {
-    "grok": { "mind": "grok-4.5", "hand": "grok-4.5" },
-    "codex": {
-      "mind": { "model": "gpt-5.6-sol", "effort": "medium" },
-      "hand": { "model": "gpt-5.6-luna", "effort": "xhigh" }
-    },
-    "opencode": { "mind": {}, "hand": {} },
-    "head": { "agent": "pi", "model": "glm-5.2", "thinking": "high|xhigh" }
+    "pi": {
+      "mind": { "provider": "openai-codex", "model": "gpt-5.5", "thinking": "medium" },
+      "hand": { "provider": "openai-codex", "model": "gpt-5.5", "thinking": "medium" },
+      "head": { "provider": "zai", "model": "glm-5.2", "thinking": "high|xhigh" }
+    }
   },
   "tooling": {
     "pi": { "binary": "/abs/path/to/pi" },
     "codex": { "binary": "/abs/path/to/codex" },
-    "grok": { "binary": "/abs/path/to/grok" },
     "opencode": { "binary": "/abs/path/to/opencode" },
     "vivi": { "binary": "/abs/path/to/vivi" }
   },
   "runtime_fallback": {
-    "grok_model_ladder": ["grok-4.5"],
-    "codex_model_ladder_mind": ["gpt-5.6-sol"],
-    "codex_model_ladder_hand": ["gpt-5.6-luna"],
-    "opencode_model_ladder": [],
-    "head_pi_model_ladder": ["glm-5.2"],
+    "pi_model_ladder_mind": ["openai-codex/gpt-5.5", "zai/glm-5.2"],
+    "pi_model_ladder_hand": ["openai-codex/gpt-5.5", "zai/glm-5.2"],
+    "pi_model_ladder_head": ["zai/glm-5.2"],
     "hand_harness_follows_mind": true,
     "heads_prefer_pi": true
   },
@@ -423,9 +419,11 @@ Recommended keys (extend freely; skill cares about meanings):
       "tmux_session": "hand-1",
       "tmux_target": "hand-1:1.1",
       "cwd": "/path/to/main",
-      "agent": "grok",
-      "agent_model": "grok-4.5",
-      "agent_launch": "…",
+      "agent": "pi",
+      "provider": "openai-codex",
+      "agent_model": "gpt-5.5",
+      "thinking": "medium",
+      "agent_launch": "pi --provider openai-codex --model gpt-5.5 --thinking medium --approve",
       "merges_to_main": true,
       "assignment_sticky": true,
       "runtime_sticky": false,
@@ -437,7 +435,10 @@ Recommended keys (extend freely; skill cares about meanings):
       "host": "remote.example",
       "ssh": "ssh -o BatchMode=yes remote.example",
       "cwd": "/path/on/remote/side-lane",
-      "agent": "grok",
+      "agent": "pi",
+      "provider": "openai-codex",
+      "agent_model": "gpt-5.5",
+      "agent_launch": "pi --provider openai-codex --model gpt-5.5 --thinking medium --approve",
       "wake_mode": "tmux_send_keys_via_ssh",
       "merges_to_main": false,
       "assignment_sticky": false,

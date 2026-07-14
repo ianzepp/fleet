@@ -99,7 +99,7 @@ Canon for absorb/accept: [`mind-cycle.md`](references/mind-cycle.md) § Absorb v
 | Loop continuity | Before ending a turn with delegated Hand/Head work outstanding, ensure a Fleet loop is active to collect the result. Create one if absent; if an existing interval is too slow for new operator-requested work, tighten it. Never create a duplicate — [`mind-cycle.md`](references/mind-cycle.md#adaptive-scheduled-cadence) |
 | Cadence | Scheduled loops adapt: thin/unchanged results → lengthen; accumulated work faster than absorption → shorten; completion → cancel. Replace schedules without duplicates and preserve goal/limits/stop condition — [`mind-cycle.md`](references/mind-cycle.md#adaptive-scheduled-cadence) |
 | Stuck | Freeze fails — name, unstick, pivot. No status-only blocked cycles. Stuck ≠ “must invent work” |
-| Harness | **Default:** Hands = Mind harness; Heads prefer alternate. **Fleet config exceptions win** (desktop Mind, Pi Hand, operator-recorded mixed) — [`roles-and-harness.md`](references/roles-and-harness.md) |
+| Harness | **Default:** Mind, Hands, and Heads use Pi; provider/model diversity preserves advisor independence. **Fleet config exceptions win** (desktop Mind, compatibility harness, operator-recorded mixed) — [`roles-and-harness.md`](references/roles-and-harness.md) |
 | Quality | Hand ships unit quality; **head-cto** reviews **main after merge** — not Mind peer-review of every packet, and not a Head review task opened per Hand completion. Low-risk completions satisfy accept via the Hand's `done` evidence; route full Head review by **risk signal, security/auth/persistence change, or sampled audit** — never universally |
 | Head backpressure | A Head that refuses or does not run is **`deferred-valid`**: record once in baseline, retry on cadence. Do **not** re-dispatch to it this cycle and do **not** memo the stall. Dispatch/refuse churn is a failed cycle, not a disposition |
 | Mind mail hygiene | The loop does not narrate itself into mail. Self-addressed mail (`mind@` → `mind@`) and reply-thread echoes are not a memory substitute — a cycle's record lives in baseline / `mind_loop` state, same as memos. Mail To `mind@` is routing/triage and deliberation, not an append-only audit sink. `mail absorb` marks mail read (the consume lifecycle) and is not a memory mechanism — durable context belongs in `memo` |
@@ -182,6 +182,7 @@ Core process here; detail in `references/` + `scripts/`.
 | Runtime rebind | [`scripts/fleet-runtime-rebind.py`](scripts/fleet-runtime-rebind.py). Plan/apply atomic runtime config changes across Heads and Hands. |
 | Cycle close | [`scripts/fleet-cycle-close.py`](scripts/fleet-cycle-close.py). One command: sensors → baseline bump → optional steward rearm. |
 | Codex pane | [`scripts/codex-reinit.sh`](scripts/codex-reinit.sh) |
+| Codex plugin | [`plugins/fleet/`](plugins/fleet) |
 | opencode pane | [`scripts/opencode-hand-ctl.sh`](scripts/opencode-hand-ctl.sh) |
 | Portability smoke | [`scripts/lib/env.sh`](scripts/lib/env.sh), [`smoke-portability.sh`](scripts/smoke-portability.sh) |
 
@@ -457,8 +458,8 @@ python3 <skill>/scripts/fleet-baseline.py bump -p <root> --fleet <fleet-id> -s '
 # only if human prose this turn or since last_operator_message_at:
 # python3 …/fleet-baseline.py bump … --operator-engaged
 # Runtime rebind: plan dry-run or atomic apply
-python3 <skill>/scripts/fleet-runtime-rebind.py plan --project <root> --hands all --model grok-4.6
-python3 <skill>/scripts/fleet-runtime-rebind.py apply --project <root> --hands all --model grok-4.6 --restart
+python3 <skill>/scripts/fleet-runtime-rebind.py plan --project <root> --hands all --agent pi --provider openai-codex --model gpt-5.5 --thinking medium
+python3 <skill>/scripts/fleet-runtime-rebind.py apply --project <root> --hands all --agent pi --provider openai-codex --model gpt-5.5 --thinking medium --restart
 # only if operator enabled+armed steward for this fleet:
 # scripts/steward.sh rearm --project <root>
 ```

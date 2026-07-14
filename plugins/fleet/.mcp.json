@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "fleet": {
+      "command": "python3",
+      "args": ["./mcp/fleet_server.py"],
+      "cwd": "."
+    }
+  }
+}

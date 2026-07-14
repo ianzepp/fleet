@@ -542,7 +542,7 @@ notify_external() {
   fi
 
   subj="[fleet steward] ${fleet}: Mind ticks stopped — holding"
-  body="$(printf 'Fleet steward trip\n\nFleet: %s\nProject: %s\nLast successful Mind cycle: %s\nAge: %ss (grace %ss)\n\nSteward is holding this fleet (no new map packages). Reattach Mind, run steward.sh clear, fix the Grok loop/hooks, then rearm.\n\n— fleet steward (preauthorized trip page only)\n' \
+  body="$(printf 'Fleet steward trip\n\nFleet: %s\nProject: %s\nLast successful Mind cycle: %s\nAge: %ss (grace %ss)\n\nSteward is holding this fleet (no new map packages). Reattach Mind, run steward.sh clear, fix the Pi-owned Fleet loop/hooks, then rearm.\n\n— fleet steward (preauthorized trip page only)\n' \
     "$fleet" "$PROJECT" "$last" "$age" "$grace")"
 
   draft_out="$(

@@ -13,6 +13,18 @@ second acceptance gate, a code reviewer on every packet, or a personal IMAP clie
 See [`SKILL.md`](SKILL.md) for the full process — roles, modes, tasking, lifecycle, bans,
 and anti-patterns. Everything below is a map into that file and its references.
 
+## Codex plugin
+
+The repository also contains a repo-local Codex plugin at
+[`plugins/fleet/`](plugins/fleet/). It packages a Codex adapter skill and a
+local MCP bridge over the canonical Fleet scripts. The bridge exposes attach,
+preflight, sensor, board, runtime, loop, posture, cycle-close, and compact
+dashboard tools without creating a second Fleet control plane.
+
+The root `SKILL.md` remains the policy source of truth. The plugin dashboard
+is an inline Codex task surface; Codex does not currently provide a documented
+native desktop widget API for a persistent Fleet panel.
+
 ## Start here
 
 - [`SKILL.md`](SKILL.md) — the skill: roles, identity, modes, tasking, lifecycle, anti-patterns

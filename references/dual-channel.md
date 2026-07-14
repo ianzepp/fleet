@@ -14,7 +14,7 @@ single-fleet targets are still supported: session==role (`hand-1:1.1`).
 | Concern | Prefer |
 | --- | --- |
 | “Unit done; evidence is …” | Vivi tasking done (+ optional mail **To mind**) |
-| “Grok/Codex idle at prompt with open tasking” | tmux → **pointer doorbell** |
+| “Pi/compatibility harness idle at prompt with open tasking” | tmux → **pointer doorbell** |
 | “Codex doorbell leaves text stuck / pane down / trust or error prompt” | tmux → **reinit fallback** (kill + fresh + short bootstrap) |
 | “Over capacity / connection failed / hung Waiting” | tmux → ops intervene (model / retry / restart) |
 | “Human must decide / recover / guide a fix” | Vivi **To `operator@`** (need/mail) — not status To mind; `operator-mail.md` |
@@ -82,19 +82,18 @@ Map lives in **project fleet config**:
   "mind_inbox": "mind",
   "mind_inbox_note": "Board-only To: mind. Process = operator TUI. No tmux for mind.",
   "head_report_inbox": "mind",
-  "mind": { "agent": "grok", "note": "Product harness for Hands; Mind is operator session" },
+  "mind": { "agent": "pi", "note": "Pi is the product harness; Mind is operator session" },
   "agent_policy": {
     "hands_follow_mind_harness": true,
     "heads_prefer_pi": true,
     "codex_reinit_after_kill": true
   },
   "preferred_models": {
-    "grok": { "mind": "grok-4.5", "hand": "grok-4.5" },
-    "codex": {
-      "mind": { "model": "gpt-5.6-sol", "effort": "medium" },
-      "hand": { "model": "gpt-5.6-luna", "effort": "xhigh" }
-    },
-    "head": { "agent": "pi", "model": "glm-5.2", "thinking": "high|xhigh" }
+    "pi": {
+      "mind": { "provider": "openai-codex", "model": "gpt-5.5", "thinking": "medium" },
+      "hand": { "provider": "openai-codex", "model": "gpt-5.5", "thinking": "medium" },
+      "head": { "provider": "zai", "model": "glm-5.2", "thinking": "high|xhigh" }
+    }
   },
   "hands": {
     "hand-1": {
@@ -103,7 +102,8 @@ Map lives in **project fleet config**:
       "tmux_window": "hand-1",
       "tmux_target": "example:hand-1.1",
       "cwd": "/path/to/project",
-      "agent": "grok",
+      "agent": "pi",
+      "agent_launch": "pi --provider openai-codex --model gpt-5.5 --thinking medium --approve",
       "merges_to_main": true,
       "wake_mode": "tmux_send_keys",
       "min_seconds_between_wakes": 180
@@ -159,14 +159,12 @@ tmux new-session -d -s example -n hand-1 -c <cwd>          # Hands/Heads only
 | --- | --- | --- |
 | `starting` / `submitting` | runtime transition in progress | wait; do not stack input |
 | `running` | current `Waiting for response` / live spinner / streaming / progress bar | sleep; do not wake/reinit |
-| `waiting_for_input` | Grok `❯`; Codex `›`; opencode `Ask anything...` | Doorbell if open tasking |
+| `waiting_for_input` | Pi input prompt; Codex `›`; opencode `Ask anything...` | Doorbell if open tasking |
 | `completed` | finished turn with input prompt restored | Doorbell if work exists; otherwise refill or pause |
 | `approval_required` | workspace trust or permission UI | Resolve once; do not treat as running or ready |
 | `failed` | capacity, connection, or runtime evidence; inspect `runtime.detail` | model fallback, retry, or reinit by detail |
 | `stopped` | process/session absent or exited | recreate runtime + agent |
 | `unknown` | insufficient or contradictory evidence | record sample; do not claim certainty or thrash |
-
-Grok: placeholder (“Build anything”) while idle ≠ in-flight. Prefer `Waiting for response` as only hard `running` unless live spinner in **tail**.
 
 Codex: `•` monologue then `›` is often an **answer that stopped**. Back-to-back `HAND WAKE` lines without submit-settle are the failure mode.
 
@@ -202,14 +200,14 @@ This deliberately uses the Mind cycle as the debounce period: multiple messages 
 
 ## Agent harness (keyed on fleet `agent`, not H-number)
 
-Hands share Mind’s harness (usually one column). Heads may use the other on purpose.
+Mind, Hands, and Heads default to Pi. Provider/model diversity is allowed without changing harness.
 
-| | **Grok** (`agent=grok`) | **Codex** (`agent=codex`) | **opencode** (`agent=opencode`) |
+| | **Pi** (`agent=pi`) | **Codex compatibility exception** (`agent=codex`) | **opencode compatibility exception** (`agent=opencode`) |
 | --- | --- | --- | --- |
-| After unit + open tasking | Pointer **doorbell** | Pointer **doorbell** with submit-settle delay | Pointer **doorbell** (explicit `vivi task done` in wake text) |
-| Theme switch same cwd | `/compact` then pointer | Pointer doorbell; reinit only for stale/stuck sessions | Pointer doorbell; version scrolls away — include context in pointer |
-| Launch | Prefer plain `grok …` | Plain `codex …` via `agent_launch` — **never `exec codex`** | Prefer plain `opencode`; use `opencode --auto` for unattended Hands |
-| Bootstrap | Pointer: identity, handle, `vivi --for` | Same short bootstrap as first user message — no multi-paragraph novels in argv | Pointer: include identity, handle, exact `vivi task` commands for lifecycle |
+| After unit + open tasking | Pointer **doorbell** | Pointer **doorbell** with submit-settle delay | Pointer **doorbell** with explicit lifecycle commands |
+| Theme switch same cwd | `/compact` then pointer | Pointer; reinit only for stale/stuck sessions | Pointer; include context because version may scroll away |
+| Launch | Use the role's Pi `agent_launch` | Plain `codex …`; never `exec codex` | Plain `opencode`; `--auto` only when explicitly approved |
+| Bootstrap | Pointer: identity, handle, `vivi --for` | Same short bootstrap as first user message | Pointer: identity, handle, exact Vivi lifecycle commands |
 
 ## Codex doorbell + reinit fallback
 
@@ -230,7 +228,6 @@ Hands share Mind’s harness (usually one column). Heads may use the other on pu
 | Harness | `/goal` |
 | --- | --- |
 | **Codex** | **Preferred.** Bootstrap may begin `/goal <bounded objective>`; include identity, handle, scope, done condition in same short message |
-| **Grok** | Supported; avoid by default — prefer pointer or scheduled-loop unless operator wants `/goal` |
 | **Pi** | Not supported. Plain task pointer/prompt |
 | **opencode** | Not supported (TUI-only). Plain pointer with explicit commands. |
 
@@ -253,8 +250,8 @@ tmux send-keys -t '<tmux_target>' Enter
 ```
 
 **Codex:** use the same helper; it applies a small submit-settle delay before Enter.  
-**Pi local Hands:** same doorbell as Grok (`roles-and-harness.md`).  
-**opencode:** same doorbell as Grok — plain `tmux send-keys` with no submit-settle delay. opencode has its own agentic loop and can handle the generic pointer, infer lifecycle, and call `vivi task done` autonomously.
+**Pi Hands:** plain pointer doorbell through `tmux send-keys`; keep the session resident.
+**opencode compatibility:** plain `tmux send-keys` with no submit-settle delay; include explicit lifecycle commands in the pointer.
 
 ### Channel split (mandatory)
 
@@ -282,45 +279,30 @@ Ops interventions stay one-liners; detail to Vivi if needed. Record `last_hand_w
 
 **Invariant:** fleet `cwd` / packet `root` (and `worker_cwd` once members exist) should match `tmux display -p -t <target> '#{pane_current_path}'`. Wrong cwd → writes against wrong tree.
 
-**Prefer rehome when:** hand-2+ reassigned; packet shell prepared but session still on main cwd; operator wants clean baseline (fresh Grok, no resume); session `down` / process dead.
+**Prefer rehome when:** hand-2+ is reassigned, the pane has the wrong cwd, the operator wants a clean Pi session, or the process is down.
 
-Prefer pointer doorbell when cwd + identity already correct. Use `/compact` for Grok theme switches when useful. Use Codex reinit only for stale/stuck sessions, process death, clean-slate operator preference, or cwd rehome.
+Prefer a pointer doorbell when cwd and identity are already correct. Reinit only for stale/stuck sessions, process death, clean-slate operator preference, or cwd rehome.
 
-### Packet rehome sequence (Grok TUI in tmux)
+### Packet rehome sequence (Pi TUI in tmux)
 
 ```text
-1. Runtime must be `waiting_for_input` (not Waiting) unless operator allows cancel
-2. Exit Grok cleanly: send /quit  (alias /exit)  — own turn, then Enter
-3. Wait until pane_current_command is a shell (zsh/bash), not grok
-4. Confirm or create session with correct -c:
-     tmux new-session -d -s hand-N -c <packet-or-main-cwd> -n main
-   Respect window/pane base-index (often 1 → target hand-N:1.1)
-5. From shell already in the right cwd, start Grok
-6. Verify: pane path == fleet cwd; command is grok; then short bootstrap doorbell
+1. Runtime must be waiting for input unless the operator allows cancellation.
+2. Exit Pi cleanly and wait until pane_current_command is a shell.
+3. Recreate or retarget the tmux session/window with `-c <packet-or-main-cwd>`.
+4. Start the role's configured Pi `agent_launch` from that cwd.
+5. Verify pane path and process, then send one short bootstrap pointer.
 ```
 
-```bash
-# Pane shell already in packet root. Quote every --deny pattern with * for zsh.
-grok --sandbox off \
-  --deny 'Bash(sudo *)' \
-  --deny 'Bash(rm -rf /)' \
-  --deny 'Bash(rm -rf ~)' \
-  --deny 'Bash(rm -rf $HOME)' \
-  --always-approve
-```
-
-Bootstrap after restart still **pointer-only**. Full assignment stays in Vivi + `PACKET.md`.
+Bootstrap after restart remains **pointer-only**. Full assignment stays in Vivi + `PACKET.md`.
 
 | Do | Don't |
 | --- | --- |
-| `tmux send-keys -t … -l -- '…'` for literal text | Rely on unescaped `*` in unquoted shell args |
-| Single-quote each `--deny 'Bash(…*)'` for zsh | Paste deny lists without quotes into interactive zsh |
-| Prefer plain `grok …` / `codex …` | `exec grok` / **`exec codex`** — can leave pane unusable or destroy session |
-| Recreate with `tmux new-session -d -s hand-N -c <cwd>` if session died | Assume old session still exists after bad restart |
-| Match fleet `tmux_target` to real base-index (`1.1` vs `0.0`) | Hardcode wrong indices after recreate |
-| Fresh Grok (no `--resume`) when rehoming to new packet | Blindly resume main-checkout session into packet cwd |
-| `--resume <id>` only when continuing same workspace/theme intentionally | Resume across packet reassignment without operator intent |
-| After start: check `#{pane_current_path}` and short capture | Trust fleet JSON alone without verifying live pane |
+| Use `tmux send-keys -t … -l -- '…'` for literal text | Stack wake messages into a busy pane |
+| Launch the exact Pi command from `fleet.json` | Invent provider/model flags during recovery |
+| Recreate with `tmux new-session -d -s <fleet> -c <cwd>` when needed | Assume a dead session still exists |
+| Match `tmux_target` to the real base index | Hardcode indices without checking |
+| Start a fresh Pi session for a new packet | Resume context across packet reassignment |
+| Verify `#{pane_current_path}` and capture the prompt | Trust configuration without checking runtime |
 
 ```bash
 tmux has-session -t hand-N || \
@@ -329,9 +311,9 @@ tmux has-session -t hand-N || \
 
 Record restarts in baseline when useful. Product state lives in Vivi; process rehome ≠ bag event unless you also file/clear targets.
 
-## Theme switch: `/compact` then continue (Grok)
+## Theme switch: compact then continue
 
-Grok theme → next in same session: `/compact` + pointer wake. New session only when pane down, different model/flags, still confused after compact, or operator wants clean slate.
+For the next theme in the same Pi session, use `/compact` when useful and then send a pointer wake. Start a new session only when the pane is down, provider/model flags change, context remains confused after compaction, or the operator requests a clean slate.
 
 **Codex:** after unit with next target, doorbell first; reinit only if stale/stuck or changing to a clean slate.
 

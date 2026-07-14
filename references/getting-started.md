@@ -105,7 +105,7 @@ Once a real fleet is chosen and case 2 or 3 applies, leave this section — oper
 | --- | --- |
 | **tmux** | Hand/Head/steward process plane |
 | **git** | HEAD / dirty sensors |
-| **Agent harness** for Hands (same family as Mind) | Grok, Codex, … — `roles-and-harness.md` |
+| **Pi harness** for Mind, Hands, and Heads | Provider/model selected per role — `roles-and-harness.md` |
 
 Optional: companion skills → [`companion-fallbacks.md`](companion-fallbacks.md). External email → steward **pages** only; board `operator@` works without it.
 
@@ -204,7 +204,7 @@ new repo families, copied overlays, and multi-fleet hosts from colliding.
   "operator_inbox": "operator",
   "default_hand": "hand-1",
   "mind": {
-    "agent": "grok"
+    "agent": "pi"
   },
   "hands": {
     "hand-1": {
@@ -213,8 +213,8 @@ new repo families, copied overlays, and multi-fleet hosts from colliding.
       "tmux_window": "hand-1",
       "tmux_target": "myfleet:hand-1.1",
       "cwd": "/path/to/your/project",
-      "agent": "grok",
-      "agent_launch": "grok --always-approve",
+      "agent": "pi",
+      "agent_launch": "pi --provider openai-codex --model gpt-5.5 --thinking medium --approve",
       "merges_to_main": true,
       "wake_mode": "tmux_send_keys",
       "min_seconds_between_wakes": 180
@@ -254,7 +254,7 @@ Optional later: watch cursor (auto-created by sensors), steward files (when `ste
 ```bash
 # session-per-fleet: session name == fleet_id; window name == role
 tmux new-session -d -s myfleet -n hand-1 -c "$ROOT"
-tmux send-keys -t myfleet:hand-1.1 -l -- 'grok --always-approve'   # = agent_launch
+tmux send-keys -t myfleet:hand-1.1 -l -- 'pi --provider openai-codex --model gpt-5.5 --thinking medium --approve'   # = agent_launch
 tmux send-keys -t myfleet:hand-1.1 Enter
 # optional: tmux attach -t myfleet
 ```
