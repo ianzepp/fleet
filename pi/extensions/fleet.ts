@@ -669,7 +669,13 @@ function baselineCycle(baseline: JsonObject): number {
 
 function baselineSummary(baseline: JsonObject): string {
   const raw = typeof baseline.last_cycle_summary === "string" ? baseline.last_cycle_summary : "cycle observed";
-  return raw.replace(/[\\r\\n\\t]+/g, " ").replace(/\\s+/g, " ").trim().slice(0, 100) || "cycle observed";
+  const compact = raw.replace(/[\r\n\t]+/g, " ").replace(/\s+/g, " ").trim();
+  if (/pi fleet takeover/i.test(compact)) return "Mind takeover";
+  if (/pi fleet attach/i.test(compact)) return "Mind attached";
+  if (/operator.*detach|detach.*operator/i.test(compact)) return "Operator detached";
+  if (/pi fleet detach/i.test(compact)) return "Mind detached";
+  if (/^(sleep|quiet|sensor-gated quiet)/i.test(compact)) return "quiet";
+  return compact.slice(0, 100) || "cycle observed";
 }
 
 async function refreshMonitor(pi: ExtensionAPI, fleet: FleetRef, detectCycle: boolean): Promise<void> {
