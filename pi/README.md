@@ -2,7 +2,8 @@
 
 This directory contains the shareable Pi extension for Fleet Mind sessions. The
 extension is intentionally kept beside the Fleet skill and canonical helper
-scripts; it does not reimplement Fleet policy.
+scripts; it does not reimplement Fleet policy. The skill-facing reference is
+[`../references/pi.md`](../references/pi.md).
 
 ## Local development
 

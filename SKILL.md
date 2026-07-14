@@ -141,6 +141,7 @@ These are the references a Mind session should load before executing fleet comma
 | [`vivi.md`](references/vivi.md) | Command semantics for `status`, `list`, `show`, `watch`, `done`, and mailbox/task routing |
 | [`mind-cycle.md`](references/mind-cycle.md) | How Mind runs basic cycles, resolves mode, scans sensors, updates baselines, and reports status |
 | [`multi-fleet.md`](references/multi-fleet.md) | Required when supervising more than one fleet; attached-set cycles, per-fleet status, and cross-fleet recap |
+| [`pi.md`](references/pi.md) | Required when the Mind is running inside Pi; attachment, monitor isolation, preflight, loop tools, and human summaries |
 
 If you are only attaching to one fleet, `vivi.md` and `mind-cycle.md` are the mandatory pair. If the attached set contains more than one fleet, read `multi-fleet.md` before touching shared-cycle commands or trying to report the status of all assigned fleets.
 
@@ -174,6 +175,7 @@ Core process here; detail in `references/` + `scripts/`.
 | Remote | [`ssh-remote.md`](references/ssh-remote.md) |
 | Schema / ladders / wind-down | [`runtime-config.md`](references/runtime-config.md) |
 | Missing companions | [`companion-fallbacks.md`](references/companion-fallbacks.md) |
+| Pi Mind extension | [`pi.md`](references/pi.md) |
 | Sensors / baseline / doorbell | [`scripts/fleet-sensors.py`](scripts/fleet-sensors.py), [`fleet-baseline.py`](scripts/fleet-baseline.py), [`fleet-doorbell.sh`](scripts/fleet-doorbell.sh), [`fleet-resolve.py`](scripts/fleet-resolve.py). `fleet-doorbell.sh` atomically records successful wake status in `last_hand_wake`; no duplicate helper is needed. Sensors include pending RTM/integration lag, ahead/behind, and bounded dirty paths. |
 | Mind loop fallback | [`scripts/fleet-loop.py`](scripts/fleet-loop.py). tmux-backed `FLEET_CYCLE` injector for Mind harnesses without native scheduled loops. Records `.vivi/fleet-loop.json`; `start`, `status`, `stop`; loop ≠ steward and never runs sensors itself. |
 | Runtime rebind | [`scripts/fleet-runtime-rebind.py`](scripts/fleet-runtime-rebind.py). Plan/apply atomic runtime config changes across Heads and Hands. |
