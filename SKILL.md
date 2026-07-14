@@ -89,7 +89,7 @@ Canon for absorb/accept: [`mind-cycle.md`](references/mind-cycle.md) § Absorb v
 | Invariant | Rule |
 | --- | --- |
 | Process | Mind fills bag; Hand empties. Progress = open tasking + map — not GO stamps |
-| Mind memory | Use **mind memos** as the durable operating log for campaign state that would otherwise live only in chat: current thesis, active lanes, intentional defers, operator policy, invariants, and next likely moves. Tasks route work; mail reports events; baseline tracks counters; memos preserve cold-boot context. |
+| Mind memory | Use **mind memos** as atomic durable checklist facts that would otherwise live only in chat: current thesis, lane ownership, intentional defers, operator policy, invariants, and next likely moves. Tasks route work; mail reports events; baseline tracks counters; memos preserve cold-boot context. |
 | Multi-hand | Mind files/wakes/merges clock; head-ceo side-lane bucket (`effort`+`est_tokens`); Mind calibrates est vs actual |
 | Floater shape | **Recommended for multi-repo containers:** keep **hand-1** as the dedicated main/integration lane; use **hand-2..hand-4** as floaters that may run in parallel when their assigned repos/worktrees do not overlap. This is a strong default, not a universal requirement; explicit fleet config or operator direction wins. |
 | Starvation | Empty bag + **honest unblocked product unit on the map** → file+wake. Never invent polish/makework to fill bags |

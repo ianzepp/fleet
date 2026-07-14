@@ -109,35 +109,30 @@ vivi memo delete --project "$ROOT" --for <mind-or-head-id> <handle>
 delegate, or report work; use task, need, want, or mail. Memos are omitted from
 `vivi board`, task dumps, and normal mail dumps.
 
-### Mind operating log
+### Mind operating checklist
 
-Mind should keep a small set of current memos as an operating log, not a diary.
-The log preserves the state that would be expensive or risky to reconstruct if
-the chat closes:
+Mind memos are checklist line items, not documents. Keep each memo atomic: one
+durable fact, invariant, assignment, or next-action pointer per memo. The
+subject should carry the summary; the body should add only the minimum evidence,
+handle, timestamp, or next command needed to act.
 
-| Memo subject | Holds |
-| --- | --- |
-| `ops-log: current fleet posture` | active campaigns, lane ownership, posture, loop/steward state, true operator blocks |
-| `ops-log: decisions and policy` | operator decisions, defaults, escalation thresholds, standing constraints |
-| `ops-log: campaign map` | selected thesis/experiment, active workstreams, dependencies, intentional defers |
-| `ops-log: integration debt` | merge waits, rerun gates, known external blockers, proof still needed |
-
-Update an operating-log memo when a material transition occurs: campaign start
-or close, operator policy change, lane reassignment, merge/proof gate change,
-fleet topology change, or a repeated defer that a future Mind must understand.
-Do not write every sensor tick, pane tail, or routine task result. Prefer
-replacing or deleting stale memos over accumulating contradictory history.
-
-Good memo body shape:
+Use subjects like:
 
 ```text
-Current: one paragraph of what is true now.
-Why it matters: operator decision, dependency, or invariant.
-Active lanes: role -> repo / task handle / expected next signal.
-Do next: 1-3 likely actions for a cold-boot Mind.
-Do not: constraints or traps that caused prior churn.
-Last reviewed: ISO timestamp / cycle.
+ops: posture growth; loop 5m; true operator blocks only
+policy: Railway reversible smoke proceeds without operator approval
+lane: hand-1 owns Railway candidate; hand-2 owns Mind Console
+gate: rerun integration suite_56 after swarm /doc mount lands
+invariant: candidate swarmd must not proxy to external services
+next: cold boot starts with fleet-sensors.py then newest mind mail
 ```
+
+Update checklist memos when a material transition occurs: campaign start or
+close, operator policy change, lane reassignment, merge/proof gate change, fleet
+topology change, or a repeated defer that a future Mind must understand. Delete
+or supersede stale line items instead of preserving history in the memo surface.
+Do not write every sensor tick, pane tail, routine task result, or multi-section
+status note.
 
 Use mail when another identity needs to know something now. Use a task/need
 when work must be drained. Use a memo when the same identity needs durable

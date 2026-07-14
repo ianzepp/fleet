@@ -252,8 +252,8 @@ A compact autonomous report may summarize dispositions in one clause. An interac
 ### Mind memo checkpoint
 
 Before closing an acted cycle, ask whether a future cold-boot Mind would need
-context that is currently only in chat. If yes, update the `mind` operating-log
-memo before `fleet-cycle-close.py` / baseline bump. This is mandatory for:
+context that is currently only in chat. If yes, update the `mind` checklist
+memos before `fleet-cycle-close.py` / baseline bump. This is mandatory for:
 
 - operator policy or default changing
 - campaign/factory direction changing
@@ -262,9 +262,10 @@ memo before `fleet-cycle-close.py` / baseline bump. This is mandatory for:
 - a repeated defer/blocker that remains valid but non-obvious
 
 Do not memo routine heartbeat status, every commit, or pane tails. The board
-and git history already hold those. The memo should explain durable intent and
-constraints: what is in flight, why, what is intentionally deferred, and what
-the next Mind should do first.
+and git history already hold those. Each memo should be one durable checklist
+fact: an invariant, policy, lane owner, gate, defer, or next-action pointer. If
+you need paragraphs, use a document or mail report and keep only the pointer as
+a memo.
 
 **Sleep immediately** only after the disposition gate passes and when:
 
