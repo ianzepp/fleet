@@ -35,6 +35,11 @@ access, and this extension invokes Fleet's Python and shell helpers.
 /fleet attach <root>   attach another fleet root
 /fleet attach --takeover <root>
                        take over after confirming the other Mind is dead/yielded
+/fleet attach --monitor <root>
+                       attach a Pi-local read-only monitor without claiming Mind
+/fleet monitor start 60s
+/fleet monitor status
+/fleet monitor stop
 /fleet detach <root>   detach an explicitly attached fleet
 /fleet refresh         refresh read-only sensor state
 /fleet start [5m]      start the Pi-owned internal loop
@@ -42,12 +47,17 @@ access, and this extension invokes Fleet's Python and shell helpers.
 /fleet stop            stop the internal loop
 ```
 
-Attachment is session-scoped and recorded in Pi custom session entries so a
-reload can restore it. A detected current-directory fleet is only a candidate;
+Mind attachment is session-scoped and recorded in Pi custom session entries so
+a reload can restore it. A detected current-directory fleet is only a candidate;
 it is never attached automatically. A foreign Mind attachment is refused unless
 `--takeover` is supplied and the confirmation dialog approves that the other
 Mind is dead or has yielded. The extension refuses to start its loop when a
 canonical external `fleet-loop.py` loop is already active.
+
+Monitor attachment is separate Pi-local state. It never claims `mind_session`,
+never writes `fleet.json` or `mind-baseline.json`, never emits `FLEET_CYCLE`, and
+uses `fleet-sensors.py --no-watch` for read-only observation. Multiple monitored
+fleets are aggregated in the human panel.
 
 The human-facing widget is intentionally denser than the model-facing tool
 output. It uses colored state glyphs for active/waiting/failed roles, compact

@@ -18,6 +18,8 @@ Build a shareable Pi extension package in the Fleet repository that gives a Pi M
 - Package the extension so it can be loaded locally and shared/imported as a Pi package.
 - Detect a candidate fleet only from the current working directory when `<cwd>/.vivi/fleet.json` exists; do not scan home directories or invent a global attachment manifest.
 - Support explicit session-scoped attachment and detachment of one or more fleet roots.
+- Support a separate Pi-local read-only monitor attachment that may observe fleets owned by other Mind sessions without claiming or overwriting ownership.
+- Aggregate cycle summaries and current sensor state from multiple monitored fleets in the human panel.
 - Validate fleet identity and runtime bindings through the canonical Fleet configuration/helpers.
 - Expose an in-TUI Fleet panel showing attached fleets, posture, role/runtime status, task/need/mail signals, pending integration indicators, active loop state, and important sensor obligations.
 - Preserve Pi's native footer and working indicator; add compact Fleet status through additive extension status/widget surfaces.
@@ -35,6 +37,8 @@ Build a shareable Pi extension package in the Fleet repository that gives a Pi M
 - Do not create a global manifest claiming which fleets a Mind is attached to.
 - Do not auto-attach or take over a fleet merely because a `fleet.json` file is detected.
 - Do not scan arbitrary home-directory paths for fleets.
+- Do not treat monitor attachment as Mind attachment; monitors must never claim `mind_session`.
+- Do not let monitor mode write `fleet.json`, `mind-baseline.json`, watch cursors, sensor history, or other Fleet state.
 - Do not infer Fleet work truth from tmux pane text; use Vivi and canonical sensor output.
 - Do not create duplicate loops when an external `fleet-loop.py` loop already exists.
 - Do not automatically arm or rearm a steward.
@@ -79,6 +83,7 @@ Before editing:
 ## Constraints And Invariants
 
 - **Explicit attachment:** an attached fleet is in the current Pi Mind session only after an operator-directed attach operation. A detected `.vivi/fleet.json` is merely a candidate until attached.
+- **Monitor isolation:** a monitor registration is Pi-local session state only. It reads canonical config, baseline, and sensors with watch persistence disabled; it never emits `FLEET_CYCLE`, wakes a Mind, or performs a Fleet mutation.
 - **Canonical identity:** use fleet project root plus `fleet_id` from `fleet.json`; never substitute a tmux session name or runtime target for fleet identity.
 - **Dual-channel truth:** Vivi is work truth; configured tmux/Vivi-PTY runtime observations are process truth. The panel must show both without conflating them.
 - **No global manifest:** do not create a global list of Mind-attached fleets. Rebuild each attached fleet from explicit session attachment plus its own baseline/configuration.
@@ -110,6 +115,7 @@ Before editing:
 
 - **Phase 1 — package and attachment foundation:** add a repo-owned Pi package/extension layout; support explicit `/fleet attach`, `/fleet detach`, `/fleet list`, and current-directory candidate detection; validate `fleet.json`; use canonical baseline attach/detach helpers; keep attachment state session-scoped.
 - **Phase 2 — read-only sensors and panel:** invoke `fleet-sensors.py --json` for each attached fleet; normalize snapshots; render a compact Fleet widget and additive native-footer status; expose `/fleet refresh` and a detail overlay; show signal obligations without performing dispositions.
+- **Phase 2b — monitor mode:** add `/fleet attach --monitor`, `/fleet monitor start/update/status/stop`, session-local monitor entries, baseline cycle-change detection, and aggregated human summaries. Use `fleet-sensors.py --no-watch`; do not claim Mind ownership or wake any LLM.
 - **Phase 3 — internal loop:** implement `fleet_loop` status/start/update/stop; persist only the minimum loop state required by the live extension/session; enforce single-flight, cadence bounds, cleanup, and external-loop duplicate detection; generate valid FLEET_CYCLE payloads.
 - **Phase 4 — proactive polling and Mind wake:** poll bounded sensor/watch surfaces; detect meaningful changes; coalesce notifications; wake the Mind with `pi.sendUserMessage` using follow-up delivery when busy; keep canonical sensor/baseline work in the Mind cycle.
 - **Phase 5 — grouped read-only helper tools:** add model-callable `fleet_sensors`, `fleet_board`, and `fleet_runtime` tools with concise model-facing content and structured UI details; render compact tool output consistent with the current Pi Fleet visual pass.
@@ -150,6 +156,8 @@ Decision: **included**.
 - Read-only helper tools return concise model-facing summaries, preserve structured details for UI rendering, and use validated canonical helper arguments.
 - Mutation tools are absent or explicitly gated in the first milestone; no wake/reinit/steward/task-routing side effect occurs from read-only observation.
 - The package can be loaded locally and, after packaging is authorized, installed from the Fleet repository using Pi's package mechanism.
+- A monitor can observe a fleet whose baseline is owned by another Mind without changing any Fleet file or emitting a cycle prompt.
+- Multiple monitors aggregate independently advancing cycle summaries in the human panel.
 - The existing Fleet skill/scripts continue to pass their relevant tests and smoke checks.
 
 ## Validation

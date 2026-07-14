@@ -17,6 +17,7 @@ const DEFAULT_INTERVAL_SEC = 300;
 const MIN_INTERVAL_SEC = 60;
 const POLL_INTERVAL_MS = 60_000;
 const ATTACHMENT_ENTRY = "pi-fleet-attachment";
+const MONITOR_ENTRY = "pi-fleet-monitor";
 const WIDGET_KEY = "pi-fleet";
 const STATUS_KEY = "pi-fleet";
 
@@ -54,19 +55,39 @@ type AttachmentEntry = {
   fleetId: string;
 };
 
+type MonitorEntry = {
+  action: "attach" | "detach";
+  root: string;
+  fleetId: string;
+};
+
+type MonitorEvent = {
+  cycle: number;
+  at?: string;
+  acted: boolean;
+  summary: string;
+  signalCount: number;
+};
+
 type State = {
   ctx?: ExtensionContext;
   candidate?: FleetRef;
   attachments: Map<string, FleetRef>;
+  monitors: Map<string, FleetRef>;
   snapshots: Map<string, Snapshot>;
+  monitorSnapshots: Map<string, Snapshot>;
+  monitorBaselines: Map<string, JsonObject>;
+  monitorEvents: Map<string, MonitorEvent>;
   externalLoops: Map<string, ExternalLoop>;
   pollTimer?: ReturnType<typeof setInterval>;
+  monitorTimer?: ReturnType<typeof setInterval>;
   loopTimer?: ReturnType<typeof setInterval>;
   pollInFlight: boolean;
   cycleInFlight: boolean;
   cycleQueued: boolean;
   loopRunning: boolean;
   intervalSec: number;
+  monitorIntervalSec: number;
   startedAt?: string;
   lastCycleAt?: string;
   lastPollAt?: string;
@@ -75,13 +96,18 @@ type State = {
 
 const state: State = {
   attachments: new Map(),
+  monitors: new Map(),
   snapshots: new Map(),
+  monitorSnapshots: new Map(),
+  monitorBaselines: new Map(),
+  monitorEvents: new Map(),
   externalLoops: new Map(),
   pollInFlight: false,
   cycleInFlight: false,
   cycleQueued: false,
   loopRunning: false,
   intervalSec: DEFAULT_INTERVAL_SEC,
+  monitorIntervalSec: 60,
 };
 
 function jsonFile(path: string): JsonObject | undefined {
@@ -147,8 +173,39 @@ function restoreAttachments(ctx: ExtensionContext): void {
   }
 }
 
+function monitorEntriesForSession(ctx: ExtensionContext): MonitorEntry[] {
+  const entries = ctx.sessionManager.getBranch();
+  const result: MonitorEntry[] = [];
+  for (const entry of entries) {
+    if (entry.type !== "custom" || entry.customType !== MONITOR_ENTRY) continue;
+    const data = entry.data as Partial<MonitorEntry> | undefined;
+    if (
+      (data?.action === "attach" || data?.action === "detach") &&
+      typeof data.root === "string" &&
+      typeof data.fleetId === "string"
+    ) {
+      result.push(data as MonitorEntry);
+    }
+  }
+  return result;
+}
+
+function restoreMonitors(ctx: ExtensionContext): void {
+  state.monitors.clear();
+  for (const entry of monitorEntriesForSession(ctx)) {
+    const fleet = inspectFleet(entry.root);
+    if (!fleet || fleet.fleetId !== entry.fleetId) continue;
+    if (entry.action === "detach") state.monitors.delete(fleet.root);
+    else state.monitors.set(fleet.root, fleet);
+  }
+}
+
 function appendAttachmentEntry(pi: ExtensionAPI, fleet: FleetRef, action: "attach" | "detach"): void {
   pi.appendEntry(ATTACHMENT_ENTRY, { action, root: fleet.root, fleetId: fleet.fleetId } satisfies AttachmentEntry);
+}
+
+function appendMonitorEntry(pi: ExtensionAPI, fleet: FleetRef, action: "attach" | "detach"): void {
+  pi.appendEntry(MONITOR_ENTRY, { action, root: fleet.root, fleetId: fleet.fleetId } satisfies MonitorEntry);
 }
 
 function parseDuration(value: string | undefined): number {
@@ -380,8 +437,9 @@ class FleetPanel {
 
   render(width: number): string[] {
     const fleets = [...state.attachments.values()].sort((a, b) => a.fleetId.localeCompare(b.fleetId));
-    const candidate = state.candidate && !state.attachments.has(state.candidate.root) ? state.candidate : undefined;
-    if (fleets.length === 0) {
+    const monitors = [...state.monitors.values()].sort((a, b) => a.fleetId.localeCompare(b.fleetId));
+    const candidate = state.candidate && !state.attachments.has(state.candidate.root) && !state.monitors.has(state.candidate.root) ? state.candidate : undefined;
+    if (fleets.length === 0 && monitors.length === 0) {
       if (!candidate) return [];
       return [truncateToWidth(
         `${this.theme.fg("dim", "◇")} ${this.theme.fg("muted", "candidate")} ${this.theme.fg("accent", candidate.fleetId)} ${this.theme.fg("dim", shellSafePath(candidate.root))} ${this.theme.fg("accent", "→ /fleet attach .")}`,
@@ -391,36 +449,59 @@ class FleetPanel {
     }
 
     const metrics = panelMetrics();
-    const loopGlyph = state.loopRunning ? this.theme.fg("success", "◎") : this.theme.fg("dim", "·");
-    const loopText = state.loopRunning ? `loop ${state.intervalSec}s` : "loop off";
-    const header = fleets.map((fleet) => {
-      const snapshot = state.snapshots.get(fleet.root);
-      const posture = compactState((snapshot?.fleet_posture as JsonObject | undefined)?.mode ?? "unknown");
-      const external = state.externalLoops.get(fleet.root)?.running ? this.theme.fg("warning", " !ext") : "";
-      return `${this.theme.fg("accent", "◈")} ${this.theme.bold(fleet.fleetId)} ${this.theme.fg(posture === "growth" ? "success" : "dim", posture)}${external}`;
-    }).join("  ");
-    const lines = [truncateToWidth(`${header}  ${loopGlyph} ${this.theme.fg("dim", loopText)}`, width, "…")];
+    const lines: string[] = [];
+    if (fleets.length > 0) {
+      const loopGlyph = state.loopRunning ? this.theme.fg("success", "◎") : this.theme.fg("dim", "·");
+      const loopText = state.loopRunning ? `loop ${state.intervalSec}s` : "loop off";
+      const header = fleets.map((fleet) => {
+        const snapshot = state.snapshots.get(fleet.root);
+        const posture = compactState((snapshot?.fleet_posture as JsonObject | undefined)?.mode ?? "unknown");
+        const external = state.externalLoops.get(fleet.root)?.running ? this.theme.fg("warning", " !ext") : "";
+        return `${this.theme.fg("accent", "◈")} ${this.theme.bold(fleet.fleetId)} ${this.theme.fg(posture === "growth" ? "success" : "dim", posture)}${external}`;
+      }).join("  ");
+      lines.push(truncateToWidth(`${header}  ${loopGlyph} ${this.theme.fg("dim", loopText)}`, width, "…"));
 
-    const { hands, heads } = roleGroups();
-    const handTokens = hands.map(([name, row]) => roleToken(name, row, false, this.theme)).join("  ");
-    const headTokens = heads.map(([name, row]) => roleToken(name, row, true, this.theme)).join("  ");
-    lines.push(truncateToWidth(
-      `${this.theme.fg("muted", "Hand")} ${this.theme.fg("dim", `${metrics.activeHands}/${metrics.totalHands}`)}  ${handTokens || this.theme.fg("dim", "idle")}`,
-      width,
-      "…",
-    ));
-    lines.push(truncateToWidth(
-      `${this.theme.fg("muted", "Head")} ${this.theme.fg("dim", `${metrics.activeHeads}/${metrics.totalHeads}`)}  ${headTokens || this.theme.fg("dim", "idle")}`,
-      width,
-      "…",
-    ));
-    const viviState = state.snapshots.size > 0 ? this.theme.fg("success", "●") : this.theme.fg("dim", "○");
-    const signalText = metrics.signals > 0 ? this.theme.fg("warning", `!${metrics.signals}`) : this.theme.fg("dim", "!0");
-    lines.push(truncateToWidth(
-      `${this.theme.fg("muted", "Vivi")} ${viviState} ${this.theme.fg("dim", `work ${metrics.actionable}`)}  ${this.theme.fg("dim", `✉${metrics.mail}`)}  ${this.theme.fg("dim", `⚑${metrics.needs}`)}  ${this.theme.fg("dim", `↻${metrics.rtm}`)}  ${signalText}`,
-      width,
-      "…",
-    ));
+      const { hands, heads } = roleGroups();
+      const handTokens = hands.map(([name, row]) => roleToken(name, row, false, this.theme)).join("  ");
+      const headTokens = heads.map(([name, row]) => roleToken(name, row, true, this.theme)).join("  ");
+      lines.push(truncateToWidth(
+        `${this.theme.fg("muted", "Hand")} ${this.theme.fg("dim", `${metrics.activeHands}/${metrics.totalHands}`)}  ${handTokens || this.theme.fg("dim", "idle")}`,
+        width,
+        "…",
+      ));
+      lines.push(truncateToWidth(
+        `${this.theme.fg("muted", "Head")} ${this.theme.fg("dim", `${metrics.activeHeads}/${metrics.totalHeads}`)}  ${headTokens || this.theme.fg("dim", "idle")}`,
+        width,
+        "…",
+      ));
+      const viviState = state.snapshots.size > 0 ? this.theme.fg("success", "●") : this.theme.fg("dim", "○");
+      const signalText = metrics.signals > 0 ? this.theme.fg("warning", `!${metrics.signals}`) : this.theme.fg("dim", "!0");
+      lines.push(truncateToWidth(
+        `${this.theme.fg("muted", "Vivi")} ${viviState} ${this.theme.fg("dim", `work ${metrics.actionable}`)}  ${this.theme.fg("dim", `✉${metrics.mail}`)}  ${this.theme.fg("dim", `⚑${metrics.needs}`)}  ${this.theme.fg("dim", `↻${metrics.rtm}`)}  ${signalText}`,
+        width,
+        "…",
+      ));
+    }
+    if (monitors.length > 0) {
+      const monitorLoop = state.monitorTimer ? `watch ${state.monitorIntervalSec}s` : "watch off";
+      lines.push(truncateToWidth(`${this.theme.fg("accent", "◌")} ${this.theme.fg("muted", "Monitor")} ${this.theme.fg("dim", monitorLoop)}  ${this.theme.fg("dim", `${monitors.length} fleet${monitors.length === 1 ? "" : "s"}`)}`, width, "…"));
+      for (const fleet of monitors) {
+        const baseline = state.monitorBaselines.get(fleet.root);
+        const snapshot = state.monitorSnapshots.get(fleet.root);
+        const event = state.monitorEvents.get(fleet.root);
+        const cycle = baseline ? `cycle ${baselineCycle(baseline)}` : "cycle —";
+        const signalText = `!${signalCount(snapshot)}`;
+        const eventText = event
+          ? `${event.acted ? "acted" : "quiet"} · ${event.summary}`
+          : "watching";
+        const eventColor = event?.acted ? "success" : "dim";
+        lines.push(truncateToWidth(
+          `  ${this.theme.fg("accent", fleet.fleetId)} ${this.theme.fg("dim", cycle)}  ${this.theme.fg(eventColor, eventText)}  ${this.theme.fg("dim", signalText)}`,
+          width,
+          "…",
+        ));
+      }
+    }
     if (state.lastError) {
       lines.push(truncateToWidth(`${this.theme.fg("error", "×")} ${this.theme.fg("error", state.lastError)}`, width, "…"));
     }
@@ -433,8 +514,9 @@ class FleetPanel {
 function renderWidget(ctx?: ExtensionContext): void {
   if (!ctx) return;
   const fleets = [...state.attachments.values()].sort((a, b) => a.fleetId.localeCompare(b.fleetId));
-  const candidate = state.candidate && !state.attachments.has(state.candidate.root) ? state.candidate : undefined;
-  if (fleets.length === 0 && !candidate) {
+  const monitors = [...state.monitors.values()].sort((a, b) => a.fleetId.localeCompare(b.fleetId));
+  const candidate = state.candidate && !state.attachments.has(state.candidate.root) && !state.monitors.has(state.candidate.root) ? state.candidate : undefined;
+  if (fleets.length === 0 && monitors.length === 0 && !candidate) {
     ctx.ui.setWidget(WIDGET_KEY, undefined);
     ctx.ui.setStatus(STATUS_KEY, undefined);
     return;
@@ -444,8 +526,10 @@ function renderWidget(ctx?: ExtensionContext): void {
   ctx.ui.setStatus(
     STATUS_KEY,
     fleets.length > 0
-      ? `◈ ${fleets.map((fleet) => fleet.fleetId).join(",")} · H${metrics.activeHands}/${metrics.totalHands} · Hd${metrics.activeHeads}/${metrics.totalHeads} · ✉${metrics.mail} · !${metrics.signals}`
-      : `◇ candidate ${candidate?.fleetId}`,
+      ? `◈ ${fleets.map((fleet) => fleet.fleetId).join(",")} · H${metrics.activeHands}/${metrics.totalHands} · Hd${metrics.activeHeads}/${metrics.totalHeads} · ✉${metrics.mail} · !${metrics.signals}${monitors.length > 0 ? ` · M${monitors.length}` : ""}`
+      : monitors.length > 0
+        ? `◌ monitor:${monitors.map((fleet) => fleet.fleetId).join(",")} · M${monitors.length}`
+        : `◇ candidate ${candidate?.fleetId}`,
   );
 }
 
@@ -487,12 +571,14 @@ async function readExternalLoop(pi: ExtensionAPI, fleet: FleetRef): Promise<Exte
   }
 }
 
-async function readSnapshot(pi: ExtensionAPI, fleet: FleetRef): Promise<Snapshot> {
+async function readSnapshot(pi: ExtensionAPI, fleet: FleetRef, readOnly = false): Promise<Snapshot> {
   // fleet-sensors.py uses exit code 2 for a partial-but-usable snapshot.
+  const args = [SENSOR_SCRIPT, "--project", fleet.root, "--fleet", fleet.fleetId, "--json"];
+  if (readOnly) args.push("--no-watch");
   return await execJson(
     pi,
     "python3",
-    [SENSOR_SCRIPT, "--project", fleet.root, "--fleet", fleet.fleetId, "--json"],
+    args,
     undefined,
     45_000,
     [0, 2],
@@ -531,6 +617,56 @@ async function refreshAll(pi: ExtensionAPI, wakeOnChange = false): Promise<void>
     state.pollInFlight = false;
     renderWidget(state.ctx!);
   }
+}
+
+function baselineCycle(baseline: JsonObject): number {
+  return numeric(baseline.last_cycle);
+}
+
+function baselineSummary(baseline: JsonObject): string {
+  const raw = typeof baseline.last_cycle_summary === "string" ? baseline.last_cycle_summary : "cycle observed";
+  return raw.replace(/[\\r\\n\\t]+/g, " ").replace(/\\s+/g, " ").trim().slice(0, 100) || "cycle observed";
+}
+
+async function refreshMonitor(pi: ExtensionAPI, fleet: FleetRef, detectCycle: boolean): Promise<void> {
+  const [baseline, snapshot] = await Promise.all([readBaseline(pi, fleet), readSnapshot(pi, fleet, true)]);
+  const previous = state.monitorBaselines.get(fleet.root);
+  const cycle = baselineCycle(baseline);
+  state.monitorBaselines.set(fleet.root, baseline);
+  state.monitorSnapshots.set(fleet.root, snapshot);
+  if (detectCycle && previous && cycle !== baselineCycle(previous)) {
+    state.monitorEvents.set(fleet.root, {
+      cycle,
+      at: typeof baseline.last_cycle_at === "string" ? baseline.last_cycle_at : undefined,
+      acted: baseline.last_cycle_acted === true,
+      summary: baselineSummary(baseline),
+      signalCount: signalCount(snapshot),
+    });
+  }
+}
+
+async function refreshMonitors(pi: ExtensionAPI, detectCycle = true): Promise<void> {
+  const fleets = [...state.monitors.values()];
+  await Promise.all(fleets.map(async (fleet) => {
+    try {
+      await refreshMonitor(pi, fleet, detectCycle);
+    } catch (error) {
+      state.lastError = `monitor ${fleet.fleetId}: ${error instanceof Error ? error.message : String(error)}`;
+    }
+  }));
+  renderWidget(state.ctx);
+}
+
+function stopMonitorTimer(): void {
+  if (state.monitorTimer) clearInterval(state.monitorTimer);
+  state.monitorTimer = undefined;
+}
+
+function startMonitorTimer(pi: ExtensionAPI): void {
+  stopMonitorTimer();
+  state.monitorTimer = setInterval(() => {
+    void refreshMonitors(pi, true);
+  }, state.monitorIntervalSec * 1000);
 }
 
 function stopTimers(): void {
@@ -611,6 +747,58 @@ async function attach(pi: ExtensionAPI, ctx: ExtensionContext, input: string, ta
   await refreshFleet(pi, fleet, false);
   renderWidget(ctx);
   ctx.ui.notify(`Attached ${fleet.fleetId}`, "info");
+}
+
+async function monitorAttach(pi: ExtensionAPI, ctx: ExtensionContext, input: string): Promise<void> {
+  const rootInput = input.trim() || ctx.cwd;
+  const fleet = inspectFleet(rootInput === "." ? ctx.cwd : rootInput);
+  if (!fleet) throw new Error(`no valid .vivi/fleet.json at ${shellSafePath(rootInput)}`);
+  await validateFleet(pi, fleet);
+  state.monitors.set(fleet.root, fleet);
+  state.lastError = undefined;
+  appendMonitorEntry(pi, fleet, "attach");
+  await refreshMonitor(pi, fleet, false);
+  startMonitorTimer(pi);
+  renderWidget(ctx);
+  ctx.ui.notify(`Monitoring ${fleet.fleetId} (read-only)`, "info");
+}
+
+async function monitorDetach(pi: ExtensionAPI, ctx: ExtensionContext, input: string): Promise<void> {
+  const token = input.trim();
+  const fleet = [...state.monitors.values()].find((item) => item.root === resolve(token) || item.fleetId === token) ??
+    (token === "." || token === "" ? state.monitors.get(resolve(ctx.cwd)) : undefined);
+  if (!fleet) throw new Error(`fleet is not monitored: ${token || ctx.cwd}`);
+  state.monitors.delete(fleet.root);
+  state.monitorSnapshots.delete(fleet.root);
+  state.monitorBaselines.delete(fleet.root);
+  state.monitorEvents.delete(fleet.root);
+  state.lastError = undefined;
+  appendMonitorEntry(pi, fleet, "detach");
+  if (state.monitors.size === 0) stopMonitorTimer();
+  renderWidget(ctx);
+  ctx.ui.notify(`Stopped monitoring ${fleet.fleetId}`, "info");
+}
+
+async function monitorStatus(pi: ExtensionAPI, ctx: ExtensionContext): Promise<void> {
+  await refreshMonitors(pi, false);
+  renderWidget(ctx);
+  ctx.ui.notify(state.monitors.size > 0 ? [...state.monitors.values()].map((fleet) => fleet.fleetId).join(", ") : "No fleets monitored", "info");
+}
+
+async function startMonitor(pi: ExtensionAPI, interval?: string): Promise<void> {
+  if (state.monitors.size === 0) throw new Error("attach at least one monitor first");
+  if (interval) state.monitorIntervalSec = parseDuration(interval);
+  await refreshMonitors(pi, false);
+  startMonitorTimer(pi);
+  renderWidget(state.ctx);
+}
+
+async function updateMonitor(pi: ExtensionAPI, interval: string): Promise<void> {
+  if (state.monitors.size === 0) throw new Error("attach at least one monitor first");
+  state.monitorIntervalSec = parseDuration(interval);
+  await refreshMonitors(pi, false);
+  startMonitorTimer(pi);
+  renderWidget(state.ctx);
 }
 
 async function detach(pi: ExtensionAPI, ctx: ExtensionContext, input: string): Promise<void> {
@@ -700,15 +888,37 @@ export default function (pi: ExtensionAPI): void {
       const action = parts.shift() ?? "status";
       try {
         if (action === "attach") {
+          const monitor = parts[0] === "--monitor";
           const takeover = parts[0] === "--takeover";
-          if (takeover) parts.shift();
-          await attach(pi, ctx, parts.join(" "), takeover);
+          if (monitor) {
+            parts.shift();
+            await monitorAttach(pi, ctx, parts.join(" "));
+          } else {
+            if (takeover) parts.shift();
+            await attach(pi, ctx, parts.join(" "), takeover);
+          }
         }
         else if (action === "detach") await detach(pi, ctx, parts.join(" "));
+        else if (action === "monitor") {
+          const monitorAction = parts.shift() ?? "status";
+          if (monitorAction === "attach") await monitorAttach(pi, ctx, parts.join(" "));
+          else if (monitorAction === "detach") await monitorDetach(pi, ctx, parts.join(" "));
+          else if (monitorAction === "start") await startMonitor(pi, parts[0]);
+          else if (monitorAction === "update") await updateMonitor(pi, parts[0] ?? "");
+          else if (monitorAction === "stop") {
+            stopMonitorTimer();
+            renderWidget(ctx);
+          } else if (monitorAction === "status") await monitorStatus(pi, ctx);
+          else throw new Error(`unknown monitor action: ${monitorAction}`);
+        }
         else if (action === "list" || action === "status" || action === "refresh") {
           if (action === "refresh") await refreshAll(pi, false);
           renderWidget(ctx);
-          ctx.ui.notify(state.attachments.size ? [...state.attachments.values()].map((fleet) => fleet.fleetId).join(", ") : "No fleets attached", "info");
+          const names = [
+            ...[...state.attachments.values()].map((fleet) => `Mind:${fleet.fleetId}`),
+            ...[...state.monitors.values()].map((fleet) => `Monitor:${fleet.fleetId}`),
+          ];
+          ctx.ui.notify(names.length > 0 ? names.join(", ") : "No fleets attached or monitored", "info");
         } else if (action === "start") await startLoop(pi, parts[0]);
         else if (action === "update") await updateLoop(pi, parts[0] ?? "");
         else if (action === "stop") {
@@ -723,7 +933,7 @@ export default function (pi: ExtensionAPI): void {
           else if (loopAction !== "status") throw new Error(`unknown loop action: ${loopAction}`);
           renderWidget(ctx);
         } else {
-          throw new Error(`unknown action: ${action}; use attach, detach, list, refresh, start, update, or stop`);
+          throw new Error(`unknown action: ${action}; use attach, detach, monitor, list, refresh, start, update, or stop`);
         }
       } catch (error) {
         state.lastError = error instanceof Error ? error.message : String(error);
@@ -817,11 +1027,19 @@ export default function (pi: ExtensionAPI): void {
     state.ctx = ctx;
     state.candidate = inspectFleet(ctx.cwd);
     state.snapshots.clear();
+    state.monitorSnapshots.clear();
+    state.monitorBaselines.clear();
+    state.monitorEvents.clear();
     state.externalLoops.clear();
     state.lastError = undefined;
     restoreAttachments(ctx);
+    restoreMonitors(ctx);
     renderWidget(ctx);
     if (state.attachments.size > 0) await refreshAll(pi, false);
+    if (state.monitors.size > 0) {
+      await refreshMonitors(pi, false);
+      startMonitorTimer(pi);
+    }
   });
 
   pi.on("agent_settled", () => {
@@ -830,8 +1048,12 @@ export default function (pi: ExtensionAPI): void {
 
   pi.on("session_shutdown", () => {
     stopTimers();
+    stopMonitorTimer();
     state.ctx = undefined;
     state.snapshots.clear();
+    state.monitorSnapshots.clear();
+    state.monitorBaselines.clear();
+    state.monitorEvents.clear();
     state.externalLoops.clear();
   });
 }
