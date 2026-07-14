@@ -52,6 +52,20 @@ Prefer project-relative evidence:
 
 Do not invent hostnames, absolute paths, deploy providers, budgets, customers, or external tools unless project files or operator provide them.
 
+## Strategic / operational review mode
+
+A Mind may fan one question across multiple heads against **non-code artifacts** (corporate thesis, governance docs, capability matrices, operator priorities, recovery snapshots). This is a legitimate fleet review mode. Each lens applies its question to the artifact, not to product source:
+
+| Lens | Question on a thesis / governance / operating-model artifact |
+| --- | --- |
+| **head-ceo** | Is the priority stack coherent with the operating model? Does the company/factory/workspace map agree on direction? What gates the next strategic move? |
+| **head-cto** | Is a claimed capability **real or semantic-only** (code-trace, not business opinion)? Name the smallest producer fact. Are docs/manifests/commits internally consistent? |
+| **head-cxo** | Does the architecture **earn** the artifact's central claims? Duplicated truths, missing reconciliation primitives, unearned adjectives, seams the artifact's own invariant says should be one operating system. |
+| **head-cso** | Do policies and production-trust goals still match? Are JWT fail-closed, webhook integrity, egress, tenant isolation, authority/audit represented consistently? Unsafe defaults? |
+| **head-cpo / cmo / coo / cfo** | Lazy on-demand: product direction / positioning / ops readiness / cost sustainability of the artifact. |
+
+When a Mind assigns a review mode, the assignment file carries the lens-sliced scope, evidence packet, and report shape. Your job: re-ground in lens against the named artifact, then report **To: mind** with the shared finding schema. Do not invent a business opinion because the artifact is strategic — translate it into your lens question and answer that. If a strategic artifact drifts into another head's lens, note it and defer to that lens, do not absorb it.
+
 ## Finding classes (shared vocabulary)
 
 Use these in reports when they apply:
@@ -68,6 +82,18 @@ Use these in reports when they apply:
 | **stewardship** | Standby: status/priority/opt/correctness of current product | File fix or leave quiet |
 
 **Unicorn ban:** never end with “track X paused pending facts” without naming the **producer packet or decision** that would create those facts — or classifying the gate as false/soft.
+
+### Gate honesty — per-lens division
+
+All three armed heads classify gates (`hard_gate` / `soft_gate` / `false_gate` / `unicorn_wait`) because each lens has a distinct question about the *same* gate. Stay on your angle:
+
+| Lens | Question on a gate |
+| --- | --- |
+| **head-ceo** | Is the gate on the critical path, and is its **priority** correct? (sequencing / expansion / inversion) |
+| **head-cto** | Is the gate technically **real** — hard, soft, or false? Name the smallest **producer fact** that unblocks honest progress. (behavioral truth) |
+| **head-cxo** | Is the gate **invented by shape** — over-coupling, no parity guardrail, inverted dependency? (structural origin) |
+
+Two heads may legitimately report the same gate from different lenses; coordinate by stating which lens you are reporting under, not by claiming the finding exclusively.
 
 ## Report contract (To: mind)
 
