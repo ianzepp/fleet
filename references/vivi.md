@@ -60,6 +60,11 @@ Prefer **`fleet-sensors.py`** for the first two; raw CLI:
 ROOT=/path/to/fleet
 CURSOR="$ROOT/.vivi/mind-watch.cursor"
 
+# Sensors include bounded Mind memo checklist metadata by default.
+# Use --memo-limit 0 to disable, or show a memo body only when needed:
+python3 <fleet-skill>/scripts/fleet-sensors.py --project "$ROOT" --text
+vivi memo show --project "$ROOT" <handle>
+
 vivi mailspace status --project "$ROOT"
 
 vivi mailspace watch --for mind --project "$ROOT" \

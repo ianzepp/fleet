@@ -393,6 +393,42 @@ def list_recent_mail(vivi, project, recipient, limit=100):
     return found
 
 
+def list_memos(vivi, project, identity, limit=20):
+    """Newest role memos for cold-boot checklist context.
+
+    Memos are intentionally subject-first line items. Sensors list metadata only;
+    Mind can `vivi memo show <handle>` when a body is needed.
+    """
+    if not vivi or not identity or limit <= 0:
+        return []
+    rc, out = run([vivi, "memo", "list", "--for", identity, "--project", project], timeout=20)
+    if rc != 0 or not out.strip():
+        return []
+    found = []
+    for line in out.splitlines():
+        parsed = _parse_memo_line(line)
+        if parsed is None:
+            continue
+        handle, date, subj = parsed
+        found.append({"handle": handle, "date": date, "subject": subj})
+        if len(found) >= limit:
+            break
+    return found
+
+
+def _parse_memo_line(line):
+    """Parse one `vivi memo list` row into (handle, date, subject) or None."""
+    line = line.strip()
+    if not line or line.startswith("handle"):
+        return None
+    parts = line.split(None, 2)
+    if len(parts) < 2 or not re.match(r"^[a-f0-9]{6,}$", parts[0]):
+        return None
+    if len(parts) >= 3 and re.match(r"^\d{4}-\d{2}-\d{2}T", parts[1]):
+        return parts[0], parts[1], parts[2].strip()
+    return parts[0], None, (parts[1].strip() if len(parts) > 1 else "")
+
+
 def rtm_completion_mail(rtm: dict, recent_mail: list, main_identity: str) -> Optional[dict]:
     """Find a newer main-Hand merge completion with strong subject overlap."""
     stop = {"ready", "merge", "merged", "packet", "pass", "done", "first", "playability", "re"}
@@ -986,6 +1022,11 @@ def format_text_summary(out: dict, fp: dict, git_main: dict) -> str:
         ),
         "quiet_hint=%s signals=%s" % (out.get("quiet_hint"), out.get("signals")),
     ]
+    memos = (out.get("mind") or {}).get("memos") or []
+    if memos:
+        lines.append("mind_memos:")
+        for memo in memos:
+            lines.append("  %s: %s" % (memo.get("handle"), (memo.get("subject") or "")[:100]))
     for om in (out.get("operator") or {}).get("to_mind") or []:
         lines.append("  op→mind %s: %s" % (om.get("handle"), (om.get("subject") or "")[:80]))
     if git_main.get("dirty_paths"):
@@ -1043,6 +1084,7 @@ def main() -> int:
     ap.add_argument("--text", action="store_true", help="Human text summary instead of JSON")
     ap.add_argument("--no-watch", action="store_true", help="Skip mailspace watch --once")
     ap.add_argument("--tail", type=int, default=16, help="tmux capture lines per pane")
+    ap.add_argument("--memo-limit", type=int, default=20, help="number of Mind memo checklist lines to include; 0 disables")
     ap.add_argument("--cursor-file", default=None, help="watch cursor path (default: .vivi/mind-watch.cursor)")
     ap.add_argument("--record-cycle", action="store_true", help="Record this canonical Mind-cycle observation when sensor_log is enabled")
     ap.add_argument("--cycle-id", default=None, help="Cycle identifier (default: next baseline cycle)")
@@ -1059,6 +1101,8 @@ def main() -> int:
         ap.error("--history cannot be combined with --record-cycle, --cycle-id, or --text")
     if args.cycle_id is not None and not re.fullmatch(r"0|[1-9][0-9]*", args.cycle_id):
         ap.error("--cycle-id must be a canonical non-negative decimal integer")
+    if args.memo_limit < 0:
+        ap.error("--memo-limit must be non-negative")
 
     project = Path(args.project).expanduser().resolve()
     if not project.is_dir():
@@ -1216,11 +1260,15 @@ def main() -> int:
         out["signals"].append("operator_to_mind")  # human wrote Mind — absorb first
 
     mind_row = out["identities"].get(mind_inbox) or {}
+    mind_memos = list_memos(vivi, str(project), mind_inbox, limit=args.memo_limit) if vivi else []
     out["mind"] = {
         "identity": mind_inbox,
         "inbox_unread": mind_row.get("inbox_unread", 0),
         "from_operator": op_to_mind,
         "from_operator_count": len(op_to_mind),
+        "memos": mind_memos,
+        "memo_count": len(mind_memos),
+        "memo_limit": args.memo_limit,
     }
 
     # --- fleet posture (continuity vs sleep) ---

@@ -216,6 +216,7 @@ ROOT=/path/to/fleet/project
 python3 $SK/fleet-sensors.py --project "$ROOT"
 python3 $SK/fleet-sensors.py --project "$ROOT" --text
 python3 $SK/fleet-sensors.py --project "$ROOT" --no-watch
+python3 $SK/fleet-sensors.py --project "$ROOT" --memo-limit 8 --text
 # Exactly one canonical history write per completed Mind cycle when sensor_log is enabled.
 # Pass the cycle being completed explicitly; ad-hoc/warm-up reads omit --record-cycle.
 python3 $SK/fleet-sensors.py --project "$ROOT" --record-cycle --cycle-id <non-negative-integer>
