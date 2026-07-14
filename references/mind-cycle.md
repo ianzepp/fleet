@@ -249,6 +249,23 @@ Examples: `operator_to_mind` must be absorbed first; `operator_mail` must be pre
 
 A compact autonomous report may summarize dispositions in one clause. An interactive report must surface unresolved non-quiet obligations until they are disposed.
 
+### Mind memo checkpoint
+
+Before closing an acted cycle, ask whether a future cold-boot Mind would need
+context that is currently only in chat. If yes, update the `mind` operating-log
+memo before `fleet-cycle-close.py` / baseline bump. This is mandatory for:
+
+- operator policy or default changing
+- campaign/factory direction changing
+- lane ownership or fleet topology changing
+- a merge, deploy, or proof gate becoming the next critical path
+- a repeated defer/blocker that remains valid but non-obvious
+
+Do not memo routine heartbeat status, every commit, or pane tails. The board
+and git history already hold those. The memo should explain durable intent and
+constraints: what is in flight, why, what is intentionally deferred, and what
+the next Mind should do first.
+
 **Sleep immediately** only after the disposition gate passes and when:
 
 - fleet actionable fingerprint unchanged (hand-N only; ignore legacy codex)

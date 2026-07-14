@@ -91,9 +91,10 @@ Only **Mind and Head identities** use this surface; Hands do not create, read,
 or maintain memos. A Hand's findings return through its assigned task or normal
 advisory mail, and Mind or a Head decides what should persist.
 
-At cold attach or resume, Mind and Heads may review their own memory. Save only
-stable decisions, recurring constraints, strategy, or findings worth carrying
-across a cycle or reinitialization:
+At cold attach or resume, Mind and Heads must review their own memory before
+reconstructing state from chat. Save only stable decisions, recurring
+constraints, strategy, or findings worth carrying across a cycle or
+reinitialization:
 
 ```bash
 vivi memo list --project "$ROOT" --for <mind-or-head-id>
@@ -107,6 +108,40 @@ vivi memo delete --project "$ROOT" --for <mind-or-head-id> <handle>
 `memo dump --for` is deliberately identity-scoped. Do not use memos to assign,
 delegate, or report work; use task, need, want, or mail. Memos are omitted from
 `vivi board`, task dumps, and normal mail dumps.
+
+### Mind operating log
+
+Mind should keep a small set of current memos as an operating log, not a diary.
+The log preserves the state that would be expensive or risky to reconstruct if
+the chat closes:
+
+| Memo subject | Holds |
+| --- | --- |
+| `ops-log: current fleet posture` | active campaigns, lane ownership, posture, loop/steward state, true operator blocks |
+| `ops-log: decisions and policy` | operator decisions, defaults, escalation thresholds, standing constraints |
+| `ops-log: campaign map` | selected thesis/experiment, active workstreams, dependencies, intentional defers |
+| `ops-log: integration debt` | merge waits, rerun gates, known external blockers, proof still needed |
+
+Update an operating-log memo when a material transition occurs: campaign start
+or close, operator policy change, lane reassignment, merge/proof gate change,
+fleet topology change, or a repeated defer that a future Mind must understand.
+Do not write every sensor tick, pane tail, or routine task result. Prefer
+replacing or deleting stale memos over accumulating contradictory history.
+
+Good memo body shape:
+
+```text
+Current: one paragraph of what is true now.
+Why it matters: operator decision, dependency, or invariant.
+Active lanes: role -> repo / task handle / expected next signal.
+Do next: 1-3 likely actions for a cold-boot Mind.
+Do not: constraints or traps that caused prior churn.
+Last reviewed: ISO timestamp / cycle.
+```
+
+Use mail when another identity needs to know something now. Use a task/need
+when work must be drained. Use a memo when the same identity needs durable
+context later.
 
 ## Mailspace (setup + status + watch)
 
