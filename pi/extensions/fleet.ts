@@ -897,12 +897,27 @@ function preflightRecommendations(snapshot: Snapshot, baseline: JsonObject): str
   const recommendations: string[] = [];
   const operator = snapshot.operator as JsonObject | undefined;
   const mind = snapshot.mind as JsonObject | undefined;
-  if (numeric(operator?.open_count) > 0) recommendations.push("resolve operator backlog before launch");
-  if (numeric(operator?.to_mind_count) > 0) recommendations.push("absorb operator-to-Mind feedback first");
-  if ((snapshot.steward as JsonObject | undefined)?.tripped === true) recommendations.push("recover tripped steward before launch");
-  if ((baseline.mind_loop as JsonObject | undefined)?.state === "wound_up") recommendations.push("review wound-down state");
-  for (const [name, row] of Object.entries(snapshot.hands ?? {})) {
-    if (numeric(row.actionable) > 0 && roleGlyph(row).state === "stopped") recommendations.push(`start/wake ${name}`);
+  const posture = compactState((snapshot.fleet_posture as JsonObject | undefined)?.mode ?? "unknown");
+  const operatorOpen = numeric(operator?.open_count);
+  const operatorToMind = numeric(operator?.to_mind_count);
+  const stewardTripped = (snapshot.steward as JsonObject | undefined)?.tripped === true;
+  const woundDown = (baseline.mind_loop as JsonObject | undefined)?.state === "wound_up";
+  const stoppedActionableHands = Object.entries(snapshot.hands ?? {})
+    .filter(([, row]) => numeric(row.actionable) > 0 && roleGlyph(row).state === "stopped")
+    .map(([name]) => name);
+
+  if (operatorOpen > 0) recommendations.push("resolve operator backlog before launch");
+  if (operatorToMind > 0) recommendations.push("absorb operator-to-Mind feedback first");
+  if (stewardTripped) recommendations.push("recover tripped steward before launch");
+  if (woundDown) recommendations.push("review wound-down state");
+  if (posture === "standby" && stoppedActionableHands.length > 0) {
+    recommendations.push("select an explicit standby lane before waking stopped Hands");
+  } else if (posture === "dormant" && stoppedActionableHands.length > 0) {
+    recommendations.push("reactivate Fleet posture before waking stopped Hands");
+  } else if (posture !== "growth" && stoppedActionableHands.length > 0) {
+    recommendations.push("confirm Fleet posture before waking stopped Hands");
+  } else if (!operatorOpen && !operatorToMind && !stewardTripped && !woundDown) {
+    for (const name of stoppedActionableHands) recommendations.push(`start/wake ${name}`);
   }
   for (const [name, row] of Object.entries(snapshot.heads ?? {})) {
     if (row.sweep_due === true) recommendations.push(`run due ${name} sweep`);

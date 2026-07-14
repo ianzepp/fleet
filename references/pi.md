@@ -157,8 +157,10 @@ Produce a read-only launch assessment after preflight.
 ```
 
 This repeats a fresh preflight and adds recommended runtime, operator, posture,
-and tasking follow-ups. It returns `side_effects: "none"` and explicitly states
-that operator confirmation is required before launch actions.
+and tasking follow-ups. Recommendations are posture-aware: queued Hand work in
+`standby` or `dormant` is reported as a launch gate, not converted into a broad
+wake instruction. It returns `side_effects: "none"` and explicitly states that
+operator confirmation is required before launch actions.
 
 Typical result:
 
