@@ -443,6 +443,7 @@ async function attach(pi: ExtensionAPI, ctx: ExtensionContext, input: string, ta
   }
   state.attachments.set(fleet.root, fleet);
   state.candidate = undefined;
+  state.lastError = undefined;
   appendAttachmentEntry(pi, fleet, "attach");
   await refreshFleet(pi, fleet, false);
   renderWidget(ctx);
@@ -469,6 +470,7 @@ async function detach(pi: ExtensionAPI, ctx: ExtensionContext, input: string): P
   state.attachments.delete(fleet.root);
   state.snapshots.delete(fleet.root);
   state.externalLoops.delete(fleet.root);
+  state.lastError = undefined;
   appendAttachmentEntry(pi, fleet, "detach");
   if (state.attachments.size === 0) stopTimers();
   renderWidget(ctx);
