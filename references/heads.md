@@ -222,6 +222,8 @@ Fleet **code-review** Head + **technical gate honesty**. Mind does **not** peer-
 
 **Surface: main after merge** (not continuous multi-worktree juggling). Cross-theme bugs often appear only on shared main. Bugs on main → task To owning Hand.
 
+Review is **post-main by cadence/risk**, not a task Mind files per Hand completion: low-risk `done` evidence satisfies accept, and head-cto reviews by risk signal or sample. If head-cto refuses or is not running, that is `deferred-valid` — Mind records it once and retries on cadence; it does not re-dispatch or open fresh review tasks each cycle.
+
 1. Sensors: has-session; pane class; Mind inbox for reports; **main HEAD/dirty**; cadence `head_due_cto`
 2. Session **down** → recreate + role-prompt bootstrap (unless operator/dormant paused)
 3. New report → absorb; triage task/need **To owning Hand**; doorbell if idle; baseline `head_cto.last_report_*`

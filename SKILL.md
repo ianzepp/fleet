@@ -89,7 +89,7 @@ Canon for absorb/accept: [`mind-cycle.md`](references/mind-cycle.md) § Absorb v
 | Invariant | Rule |
 | --- | --- |
 | Process | Mind fills bag; Hand empties. Progress = open tasking + map — not GO stamps |
-| Mind memory | Use **mind memos** as atomic durable checklist facts that would otherwise live only in chat: current thesis, lane ownership, intentional defers, operator policy, invariants, and next likely moves. Tasks route work; mail reports events; baseline tracks counters; memos preserve cold-boot context. |
+| Mind memory | Use **mind memos** as atomic durable checklist facts that would otherwise live only in chat: current thesis, lane ownership, intentional defers, operator policy, invariants, and next likely moves. Tasks route work; mail reports events; baseline tracks counters; memos preserve cold-boot context. **Durability test:** would this fact still matter after a reinit, or in a week? If not — cycle dispatch, wake/queue state, per-commit status, pane state — it is **loop state** (baseline / `mind_loop` state), not a memo. |
 | Multi-hand | Mind files/wakes/merges clock; head-ceo side-lane bucket (`effort`+`est_tokens`); Mind calibrates est vs actual |
 | Floater shape | **Recommended for multi-repo containers:** keep **hand-1** as the dedicated main/integration lane; use **hand-2..hand-4** as floaters that may run in parallel when their assigned repos/worktrees do not overlap. This is a strong default, not a universal requirement; explicit fleet config or operator direction wins. |
 | Starvation | Empty bag + **honest unblocked product unit on the map** → file+wake. Never invent polish/makework to fill bags |
@@ -100,7 +100,8 @@ Canon for absorb/accept: [`mind-cycle.md`](references/mind-cycle.md) § Absorb v
 | Cadence | Scheduled loops adapt: thin/unchanged results → lengthen; accumulated work faster than absorption → shorten; completion → cancel. Replace schedules without duplicates and preserve goal/limits/stop condition — [`mind-cycle.md`](references/mind-cycle.md#adaptive-scheduled-cadence) |
 | Stuck | Freeze fails — name, unstick, pivot. No status-only blocked cycles. Stuck ≠ “must invent work” |
 | Harness | **Default:** Hands = Mind harness; Heads prefer alternate. **Fleet config exceptions win** (desktop Mind, Pi Hand, operator-recorded mixed) — [`roles-and-harness.md`](references/roles-and-harness.md) |
-| Quality | Hand ships unit quality; **head-cto** reviews **main after merge** — not Mind peer-review of every packet |
+| Quality | Hand ships unit quality; **head-cto** reviews **main after merge** — not Mind peer-review of every packet, and not a Head review task opened per Hand completion. Low-risk completions satisfy accept via the Hand's `done` evidence; route full Head review by **risk signal, security/auth/persistence change, or sampled audit** — never universally |
+| Head backpressure | A Head that refuses or does not run is **`deferred-valid`**: record once in baseline, retry on cadence. Do **not** re-dispatch to it this cycle and do **not** memo the stall. Dispatch/refuse churn is a failed cycle, not a disposition |
 | Peer communication | Heads and Hands may send advisory **mail** to one another. They may not assign or reroute peer tasks, needs, or wants; transfer ownership; authorize merges; or create gates. Material peer mail must remain visible to Mind. |
 | Hygiene | Mind never runs `$polish`/`$housekeeping` itself; never thrash polish for continuity |
 
@@ -148,13 +149,14 @@ Core process here; detail in `references/` + `scripts/`.
 
 | Context | Load |
 | --- | --- |
-| **Cold attach** (new session, empty context, post-`/compact` without recap) | **Order:** (1) this file (2) [`vivi.md`](references/vivi.md) (3) [`mind-cycle.md`](references/mind-cycle.md) (4) [`multi-fleet.md`](references/multi-fleet.md) if supervising >1 fleet (5) [`fleet-guide.md`](references/fleet-guide.md) once for vocab (6) [`getting-started.md`](references/getting-started.md) — **§0** if no fleet visible, else **§3** attach steps |
+| **Cold attach** (new session, empty context, post-`/compact` without recap) | **Order:** (1) this file (2) [`vivi.md`](references/vivi.md) (3) [`mind-cycle.md`](references/mind-cycle.md) (4) [`multi-fleet.md`](references/multi-fleet.md) if supervising >1 fleet (5) [`fleet-guide.md`](references/fleet-guide.md) once for vocab (6) [`getting-started.md`](references/getting-started.md) — **§0** if no fleet visible, else **§3** attach steps (7) [`cold-boot.md`](references/cold-boot.md) if memos are empty/thin or the repo has history but no prior fleet memory |
 | **Hot cycle** (mode/counters/state already in context) | This file alone if quiet; open a ref when that surface hits |
 | **Arm / first Mind turn on a live fleet** | This file + refs for surfaces you will touch this turn |
 
 | Load when | Path |
 | --- | --- |
 | Install / init / attach | [`getting-started.md`](references/getting-started.md) |
+| Cold boot (no institutional memory) | [`cold-boot.md`](references/cold-boot.md) |
 | Dormant → fully launched | [`launch.md`](references/launch.md) |
 | Vocab / shape (cold) | [`fleet-guide.md`](references/fleet-guide.md) |
 | Roles / harness / models | [`roles-and-harness.md`](references/roles-and-harness.md) |
@@ -362,6 +364,14 @@ to assign, delegate, or report work; use task, need, want, or mail for those
 purposes. Memos do not appear in `vivi board`, task dumps, or normal mail
 dumps, and Hands are not a fallback memory store.
 
+**Transient routing state is not memory.** Per-cycle dispatch, wake/queue
+state, per-commit status, and Head-refusal stalls belong in baseline /
+`mind_loop` state — never in memos. Do not memoize “cycle N dispatched…”; the
+loop narrating its own mechanics to itself is the core memo anti-pattern. When
+attaching to a repo that has real history but no Vivi memory (lost store, or
+first fleet management), rebuild a small seed set from durable sources — see
+[`cold-boot.md`](references/cold-boot.md).
+
 ## Dual channel (summary)
 
 Vivi = work truth. The configured tmux or `vivi_pty` runtime = process truth. Sensors normalize both into one nested `runtime` object.
@@ -453,7 +463,7 @@ Desktop Mind OK; Hands stay terminal/tmux. Schema: [`runtime-config.md`](referen
 ## Anti-patterns
 
 **Bag:** GO warden; severity-as-kind; sleep while map has **product** work; sleep in growth without an executive refill sweep; invent work to avoid sleep; dual Mind; Heads own bags; hand-2..hand-4 idle while non-overlapping repo work exists; floaters assigned to overlapping write scopes without an explicit serialize/defer decision; wait on scheduled Head cadence; wait on head-ceo for obvious spine; buckets without cost ballparks.
-**Process:** mail-only or pane-only truth; policy via tmux; mixed Hand harness; back-to-back wake stacks; wrong-host tmux; IMAP as bag sensor; unbounded watch; multi-fleet “fairness” busywork on standby fleets.
+**Process:** mail-only or pane-only truth; policy via tmux; mixed Hand harness; back-to-back wake stacks; wrong-host tmux; IMAP as bag sensor; unbounded watch; multi-fleet “fairness” busywork on standby fleets; **per-cycle dispatch memos** (loop narrating itself to memory); **universal per-completion Head review tasks**; **dispatch-refuse churn** (re-dispatching + re-memoing a refused reviewer every cycle).
 **Integrate:** packet-green≠consumer-green; “compiler residual” when integration lag; red theme merge; Mind merges packets; absorb-as-accept.  
 **Hygiene/workspace:** skip unit polish / polish foreign; Mind runs polish/HK; **polish thrash for continuity**; HK every land; score as merge gate; destructive dirt cleanup; status-only dirt; topic monogamy; deep-plan every autonomous cycle; interactive forever; **FLEET_CYCLE ⇒ force autonomous**; **FLEET_CYCLE ⇒ force turns=0 every fire**; hand-edit silence after `baseline bump`; compact report while interactive; novel autonomous reports; head-ceo permission freeze; missing FLEET_CYCLE prefix; status→operator@; skip operator present-on-return; arm steward without operator ask; leave steward armed after stop-loop; steward as Mind; heartbeat that does not cause a real Mind cycle; global roster scan; hardcode session=role when `tmux_target` set.
 

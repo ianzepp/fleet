@@ -200,7 +200,7 @@ python3 scripts/fleet-baseline.py bump -p <ROOT> -s '<summary>' \
 
 Progress = **successful cycle completion for that fleet**, not inject or turn start. Multi-fleet: baseline bump **each** mini-cycled fleet; rearm only fleets with steward armed. [`dead-man.md`](dead-man.md), [`multi-fleet.md`](multi-fleet.md).
 
-Thorough/superficial cadence still applies (`cycle % N == 0`). Autonomous thorough = residual-shaped — **not** peer review of every packet. **head-cto** reviews main after merge.
+Thorough/superficial cadence still applies (`cycle % N == 0`). Autonomous thorough = residual-shaped — **not** peer review of every packet. **head-cto** reviews main after merge. **Review triage:** do not open a Head review task per Hand completion — low-risk `done` evidence satisfies accept; full review is post-main, by risk signal, security/auth/persistence change, or sampled audit. Universal per-completion review is an anti-pattern.
 
 ## Fail-fast wake (context budget)
 
@@ -246,6 +246,8 @@ python3 $SK/fleet-baseline.py bump -p "$ROOT" -s 'sleep' --quiet \
 
 Examples: `operator_to_mind` must be absorbed first; `operator_mail` must be presented/carry-forwarded; `wake_candidate_*` must be doorbelled/reinit'd or validly deferred; `runtime_*_stopped|failed|approval_required` must be repaired, assigned to ops, or escalated; `starvation_candidate_*` in growth must trigger file+wake or executive refill/valid pause; repeated dirty blockers must be diff-classified A/B/C.
 
+**Head backpressure is a valid defer.** A Head that refuses or does not run (running/down/rate-limit, or an explicit refusal) is `deferred-valid` for that cycle: record it once in baseline and retry on the Head's cadence. Do **not** re-dispatch to it this cycle and do **not** memo the stall — dispatch/refuse churn is a failed cycle, not a disposition. Head review is filed on main after merge by risk/cadence, not as a task per Hand completion (see *Residual scan* below).
+
 `mail_for_<role>` means new mail was addressed to a process role since the prior successful cycle. The cycle is the debounce boundary: if `mail_wake_candidate_<role>` is also present, doorbell that idle role immediately with the mail handle. Do not wait for an executive cadence interval. If the pane is running, leave it uninterrupted and carry the mail signal forward for the next idle cycle. Cadence controls unsolicited sweeps only; addressed work is demand-driven.
 
 A compact autonomous report may summarize dispositions in one clause. An interactive report must surface unresolved non-quiet obligations until they are disposed.
@@ -267,6 +269,14 @@ and git history already hold those. Each memo should be one durable checklist
 fact: an invariant, policy, lane owner, gate, defer, or next-action pointer. If
 you need paragraphs, use a document or mail report and keep only the pointer as
 a memo.
+
+**Durability test:** would this fact still matter after a reinit, or in a week?
+Apply it before every `memo save`. Transient routing state — per-cycle dispatch
+("cycle N dispatched…"), wake/queue state, per-commit status, Head-refusal
+stalls — is **loop state** (baseline / `mind_loop` state), not memory. Recording
+the loop's own mechanics as memos is the core memo anti-pattern. When attaching
+to a repo that has real history but no Vivi memory, seed from durable sources
+once — see [`cold-boot.md`](cold-boot.md).
 
 **Sleep immediately** only after the disposition gate passes and when:
 
