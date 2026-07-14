@@ -64,6 +64,8 @@ fleets are aggregated in the human panel. Mind-attached and monitor-only fleets
 use the same detail rows: mode/posture/cycle timing, Hands, Heads, Vivi counts,
 and the last cycle summary. Mind-attached fleets show the internal loop
 countdown; monitor-only timing is estimated from the observed baseline cadence.
+Vivi PTY roles are shown from canonical `process_state` when their terminal
+marker is unavailable, with low confidence preserved as a warning state.
 
 The human-facing widget is intentionally denser than the model-facing tool
 output. It uses colored state glyphs for active/waiting/failed roles, compact

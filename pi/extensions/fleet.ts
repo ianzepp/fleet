@@ -236,9 +236,18 @@ function compactState(value: unknown): string {
   return "unknown";
 }
 
+function observedRuntimeState(runtime: JsonObject | undefined): string {
+  const declared = compactState(runtime?.state ?? "unknown");
+  if (declared !== "unknown") return declared;
+  const process = compactState(runtime?.process_state ?? "unknown");
+  return process;
+}
+
 function roleState(role: JsonObject): string {
   const runtime = role.runtime as JsonObject | undefined;
-  return compactState(runtime?.state ?? role.state ?? "unknown");
+  return observedRuntimeState(runtime) !== "unknown"
+    ? observedRuntimeState(runtime)
+    : compactState(role.state ?? "unknown");
 }
 
 function roleCount(group: Record<string, JsonObject> | undefined): string {
@@ -375,8 +384,11 @@ function numeric(value: unknown): number {
 
 function roleGlyph(row: JsonObject | undefined): { glyph: string; color: string; state: string } {
   const runtime = row?.runtime as JsonObject | undefined;
-  const stateName = compactState(runtime?.state ?? row?.state ?? "unknown");
-  if (ACTIVE_RUNTIME_STATES.has(stateName)) return { glyph: "●", color: "success", state: stateName };
+  const stateName = observedRuntimeState(runtime) !== "unknown"
+    ? observedRuntimeState(runtime)
+    : compactState(row?.state ?? "unknown");
+  const lowConfidence = runtime?.confidence === "low";
+  if (ACTIVE_RUNTIME_STATES.has(stateName)) return { glyph: "●", color: lowConfidence ? "warning" : "success", state: stateName };
   if (stateName === "approval_required") return { glyph: "!", color: "warning", state: stateName };
   if (stateName === "failed" || stateName === "stopped") return { glyph: "×", color: "error", state: stateName };
   if (stateName === "unknown") return { glyph: "?", color: "dim", state: stateName };

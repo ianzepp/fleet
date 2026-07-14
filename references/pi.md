@@ -228,6 +228,35 @@ Each scheduled internal cycle refreshes a sanitized sensor preflight and queues
 one valid `FLEET_CYCLE` follow-up when Pi is busy rather than interrupting an
 active turn. The Mind still interprets signals and owns disposition.
 
+## Runtime backends and Head status
+
+Fleet roles may run under either configured tmux targets or Vivi PTY sessions.
+Pi does not assume that every role has a tmux pane.
+
+For Vivi PTY roles, canonical sensors may report:
+
+```json
+{
+  "kind": "vivi_pty",
+  "state": "unknown",
+  "process_state": "running",
+  "confidence": "low"
+}
+```
+
+This means the PTY process is alive, but the terminal does not expose a stable
+Pi marker that proves the agent's current screen state. The Pi panel therefore
+uses `process_state` as the observed lifecycle state and renders the active
+Head with a warning-colored active glyph. It should be read as **running with
+low confidence**, not as a clean successful/idle state. `fleet_runtime` and
+`fleet_preflight` retain the backend, state, process state, and confidence so
+the Mind can distinguish process liveness from agent health.
+
+A Head that is configured as `vivi_pty` should not be reported as absent merely
+because its tmux target is stopped or unused. Conversely, a live PTY process is
+not proof that the Head has completed its sweep; inspect `sweep_due`, mail,
+signals, and the last cycle before acting.
+
 ## Monitor mode
 
 Monitor mode is for observing a Fleet owned by another Mind session:
@@ -299,8 +328,10 @@ metadata remain Pi-owned.
 ```
 
 The glyphs summarize observed runtime state: `●` active, `○` waiting or
-inactive, `×` stopped/failed, `!` approval required, and `?` unknown. Hand
-metrics show actionable work; Head metrics show sweep state.
+inactive, `×` stopped/failed, `!` approval required, and `?` unknown. A
+warning-colored `●` indicates an active process whose runtime confidence is
+low, as commonly happens with Vivi PTY. Hand metrics show actionable work;
+Head metrics show sweep state.
 
 ### Monitor-only Fleet
 
