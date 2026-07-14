@@ -75,6 +75,7 @@ type State = {
   attachments: Map<string, FleetRef>;
   monitors: Map<string, FleetRef>;
   snapshots: Map<string, Snapshot>;
+  baselines: Map<string, JsonObject>;
   monitorSnapshots: Map<string, Snapshot>;
   monitorBaselines: Map<string, JsonObject>;
   monitorEvents: Map<string, MonitorEvent>;
@@ -82,6 +83,7 @@ type State = {
   pollTimer?: ReturnType<typeof setInterval>;
   monitorTimer?: ReturnType<typeof setInterval>;
   loopTimer?: ReturnType<typeof setInterval>;
+  uiTimer?: ReturnType<typeof setInterval>;
   pollInFlight: boolean;
   cycleInFlight: boolean;
   cycleQueued: boolean;
@@ -90,6 +92,7 @@ type State = {
   monitorIntervalSec: number;
   startedAt?: string;
   lastCycleAt?: string;
+  nextCycleAt?: number;
   lastPollAt?: string;
   lastError?: string;
 };
@@ -98,6 +101,7 @@ const state: State = {
   attachments: new Map(),
   monitors: new Map(),
   snapshots: new Map(),
+  baselines: new Map(),
   monitorSnapshots: new Map(),
   monitorBaselines: new Map(),
   monitorEvents: new Map(),
@@ -432,6 +436,73 @@ function panelMetrics(): { activeHands: number; totalHands: number; activeHeads:
   };
 }
 
+function configuredCycleInterval(fleet: FleetRef): number {
+  const config = jsonFile(fleet.fleetFile);
+  const loop = config?.mind_loop as JsonObject | undefined;
+  const raw = loop?.interval_sec ?? config?.loop_interval_sec;
+  const interval = numeric(raw);
+  return interval >= MIN_INTERVAL_SEC ? interval : DEFAULT_INTERVAL_SEC;
+}
+
+function formatDuration(seconds: number | undefined): string {
+  if (seconds === undefined || !Number.isFinite(seconds)) return "—";
+  if (seconds <= 0) return "due";
+  if (seconds < 60) return `${Math.ceil(seconds)}s`;
+  const minutes = Math.floor(seconds / 60);
+  const remainder = Math.ceil(seconds % 60);
+  if (minutes < 60) return `${minutes}m${remainder ? ` ${remainder}s` : ""}`;
+  const hours = Math.floor(minutes / 60);
+  return `${hours}h${minutes % 60 ? ` ${minutes % 60}m` : ""}`;
+}
+
+function timestampSeconds(value: unknown): number | undefined {
+  if (typeof value !== "string") return undefined;
+  const time = Date.parse(value);
+  return Number.isFinite(time) ? time / 1000 : undefined;
+}
+
+function fleetNextCycle(fleet: FleetRef, mode: "mind" | "monitor", baseline: JsonObject | undefined): string {
+  if (mode === "mind" && state.loopRunning && state.nextCycleAt !== undefined) {
+    return `next ${formatDuration(state.nextCycleAt / 1000 - Date.now() / 1000)}`;
+  }
+  const lastCycle = timestampSeconds(baseline?.last_cycle_at);
+  if (lastCycle === undefined) return "next —";
+  return `next est ${formatDuration(lastCycle + configuredCycleInterval(fleet) - Date.now() / 1000)}`;
+}
+
+function fleetDetailRows(fleet: FleetRef, mode: "mind" | "monitor", theme: any): string[] {
+  const snapshot = mode === "mind" ? state.snapshots.get(fleet.root) : state.monitorSnapshots.get(fleet.root);
+  const baseline = mode === "mind" ? state.baselines.get(fleet.root) : state.monitorBaselines.get(fleet.root);
+  const event = mode === "monitor" ? state.monitorEvents.get(fleet.root) : undefined;
+  const posture = compactState((snapshot?.fleet_posture as JsonObject | undefined)?.mode ?? "unknown");
+  const cycle = baseline ? `cycle ${baselineCycle(baseline)}` : "cycle —";
+  const cyclePeriod = `${configuredCycleInterval(fleet)}s`;
+  const timing = fleetNextCycle(fleet, mode, baseline);
+  const modeText = mode === "mind" ? "Mind" : "Monitor";
+  const modeColor = mode === "mind" ? "accent" : "muted";
+  const external = mode === "mind" && state.externalLoops.get(fleet.root)?.running ? theme.fg("warning", " !ext") : "";
+  const lines = [
+    `  ${theme.fg("accent", "◈")} ${theme.bold(fleet.fleetId)} ${theme.fg(modeColor, modeText)} ${theme.fg(posture === "growth" ? "success" : "dim", posture)}  ${theme.fg("dim", `${cycle} · period ${cyclePeriod} · ${timing}`)}${external}`,
+  ];
+  if (!snapshot) {
+    lines.push(`    ${theme.fg("dim", "sensors=pending")}`);
+    return lines;
+  }
+  const { hands, heads } = { hands: Object.entries(snapshot.hands ?? {}), heads: Object.entries(snapshot.heads ?? {}) };
+  const handTokens = hands.map(([name, row]) => roleToken(name, row, false, theme)).join("  ");
+  const headTokens = heads.map(([name, row]) => roleToken(name, row, true, theme)).join("  ");
+  const counts = preflightCounts(snapshot);
+  const signalText = signalCount(snapshot) > 0 ? theme.fg("warning", `!${signalCount(snapshot)}`) : theme.fg("dim", "!0");
+  lines.push(`    ${theme.fg("muted", "Hand")} ${theme.fg("dim", `${hands.filter(([, row]) => ACTIVE_RUNTIME_STATES.has(roleGlyph(row).state)).length}/${hands.length}`)}  ${handTokens || theme.fg("dim", "idle")}`);
+  lines.push(`    ${theme.fg("muted", "Head")} ${theme.fg("dim", `${heads.filter(([, row]) => ACTIVE_RUNTIME_STATES.has(roleGlyph(row).state)).length}/${heads.length}`)}  ${headTokens || theme.fg("dim", "idle")}`);
+  lines.push(`    ${theme.fg("muted", "Vivi")} ${theme.fg("success", "●")} ${theme.fg("dim", `work ${counts.actionable}`)}  ${theme.fg("dim", `✉${counts.mail}`)}  ${theme.fg("dim", `⚑${counts.needs}`)}  ${theme.fg("dim", `↻${counts.rtm}`)}  ${signalText}`);
+  const summary = event
+    ? `${event.acted ? "acted" : "quiet"} · ${event.summary}`
+    : baselineSummary(baseline ?? {});
+  lines.push(`    ${theme.fg("dim", `last: ${summary}`)}`);
+  return lines;
+}
+
 class FleetPanel {
   constructor(private readonly theme: any) {}
 
@@ -448,58 +519,26 @@ class FleetPanel {
       )];
     }
 
-    const metrics = panelMetrics();
     const lines: string[] = [];
     if (fleets.length > 0) {
-      const loopGlyph = state.loopRunning ? this.theme.fg("success", "◎") : this.theme.fg("dim", "·");
-      const loopText = state.loopRunning ? `loop ${state.intervalSec}s` : "loop off";
-      const header = fleets.map((fleet) => {
-        const snapshot = state.snapshots.get(fleet.root);
-        const posture = compactState((snapshot?.fleet_posture as JsonObject | undefined)?.mode ?? "unknown");
-        const external = state.externalLoops.get(fleet.root)?.running ? this.theme.fg("warning", " !ext") : "";
-        return `${this.theme.fg("accent", "◈")} ${this.theme.bold(fleet.fleetId)} ${this.theme.fg(posture === "growth" ? "success" : "dim", posture)}${external}`;
-      }).join("  ");
-      lines.push(truncateToWidth(`${header}  ${loopGlyph} ${this.theme.fg("dim", loopText)}`, width, "…"));
-
-      const { hands, heads } = roleGroups();
-      const handTokens = hands.map(([name, row]) => roleToken(name, row, false, this.theme)).join("  ");
-      const headTokens = heads.map(([name, row]) => roleToken(name, row, true, this.theme)).join("  ");
-      lines.push(truncateToWidth(
-        `${this.theme.fg("muted", "Hand")} ${this.theme.fg("dim", `${metrics.activeHands}/${metrics.totalHands}`)}  ${handTokens || this.theme.fg("dim", "idle")}`,
-        width,
-        "…",
-      ));
-      lines.push(truncateToWidth(
-        `${this.theme.fg("muted", "Head")} ${this.theme.fg("dim", `${metrics.activeHeads}/${metrics.totalHeads}`)}  ${headTokens || this.theme.fg("dim", "idle")}`,
-        width,
-        "…",
-      ));
-      const viviState = state.snapshots.size > 0 ? this.theme.fg("success", "●") : this.theme.fg("dim", "○");
-      const signalText = metrics.signals > 0 ? this.theme.fg("warning", `!${metrics.signals}`) : this.theme.fg("dim", "!0");
-      lines.push(truncateToWidth(
-        `${this.theme.fg("muted", "Vivi")} ${viviState} ${this.theme.fg("dim", `work ${metrics.actionable}`)}  ${this.theme.fg("dim", `✉${metrics.mail}`)}  ${this.theme.fg("dim", `⚑${metrics.needs}`)}  ${this.theme.fg("dim", `↻${metrics.rtm}`)}  ${signalText}`,
-        width,
-        "…",
-      ));
+      const next = state.loopRunning && state.nextCycleAt !== undefined
+        ? `next ${formatDuration(state.nextCycleAt / 1000 - Date.now() / 1000)}`
+        : "next —";
+      const loopText = state.loopRunning ? `loop ${state.intervalSec}s · ${next}` : "loop off";
+      lines.push(truncateToWidth(`${this.theme.fg("accent", "◉")} ${this.theme.fg("muted", "Mind")} ${this.theme.fg("dim", loopText)}`, width, "…"));
+      for (const fleet of fleets) {
+        for (const line of fleetDetailRows(fleet, "mind", this.theme)) {
+          lines.push(truncateToWidth(line, width, "…"));
+        }
+      }
     }
     if (monitors.length > 0) {
       const monitorLoop = state.monitorTimer ? `watch ${state.monitorIntervalSec}s` : "watch off";
       lines.push(truncateToWidth(`${this.theme.fg("accent", "◌")} ${this.theme.fg("muted", "Monitor")} ${this.theme.fg("dim", monitorLoop)}  ${this.theme.fg("dim", `${monitors.length} fleet${monitors.length === 1 ? "" : "s"}`)}`, width, "…"));
       for (const fleet of monitors) {
-        const baseline = state.monitorBaselines.get(fleet.root);
-        const snapshot = state.monitorSnapshots.get(fleet.root);
-        const event = state.monitorEvents.get(fleet.root);
-        const cycle = baseline ? `cycle ${baselineCycle(baseline)}` : "cycle —";
-        const signalText = `!${signalCount(snapshot)}`;
-        const eventText = event
-          ? `${event.acted ? "acted" : "quiet"} · ${event.summary}`
-          : "watching";
-        const eventColor = event?.acted ? "success" : "dim";
-        lines.push(truncateToWidth(
-          `  ${this.theme.fg("accent", fleet.fleetId)} ${this.theme.fg("dim", cycle)}  ${this.theme.fg(eventColor, eventText)}  ${this.theme.fg("dim", signalText)}`,
-          width,
-          "…",
-        ));
+        for (const line of fleetDetailRows(fleet, "monitor", this.theme)) {
+          lines.push(truncateToWidth(line, width, "…"));
+        }
       }
     }
     if (state.lastError) {
@@ -586,9 +625,14 @@ async function readSnapshot(pi: ExtensionAPI, fleet: FleetRef, readOnly = false)
 }
 
 async function refreshFleet(pi: ExtensionAPI, fleet: FleetRef, wakeOnChange: boolean): Promise<Snapshot> {
-  const [snapshot, external] = await Promise.all([readSnapshot(pi, fleet), readExternalLoop(pi, fleet)]);
+  const [snapshot, external, baseline] = await Promise.all([
+    readSnapshot(pi, fleet),
+    readExternalLoop(pi, fleet),
+    readBaseline(pi, fleet),
+  ]);
   const previous = state.snapshots.get(fleet.root);
   state.snapshots.set(fleet.root, snapshot);
+  state.baselines.set(fleet.root, baseline);
   state.externalLoops.set(fleet.root, external);
   if (state.loopRunning && external.running !== false) {
     stopTimers();
@@ -669,26 +713,44 @@ function startMonitorTimer(pi: ExtensionAPI): void {
   }, state.monitorIntervalSec * 1000);
 }
 
+function startUiTimer(): void {
+  if (state.uiTimer) clearInterval(state.uiTimer);
+  state.uiTimer = setInterval(() => {
+    if (state.ctx && (state.loopRunning || state.monitors.size > 0)) renderWidget(state.ctx);
+  }, 1000);
+}
+
+function stopUiTimer(): void {
+  if (state.uiTimer) clearInterval(state.uiTimer);
+  state.uiTimer = undefined;
+}
+
 function stopTimers(): void {
   if (state.pollTimer) clearInterval(state.pollTimer);
   if (state.loopTimer) clearInterval(state.loopTimer);
   state.pollTimer = undefined;
   state.loopTimer = undefined;
   state.loopRunning = false;
+  state.nextCycleAt = undefined;
   state.cycleQueued = false;
 }
 
 function startTimers(pi: ExtensionAPI): void {
   stopTimers();
   state.loopRunning = true;
+  state.nextCycleAt = Date.now() + state.intervalSec * 1000;
   state.startedAt ??= new Date().toISOString();
   state.pollTimer = setInterval(() => {
     void refreshAll(pi, true);
   }, POLL_INTERVAL_MS);
   state.loopTimer = setInterval(() => {
+    state.nextCycleAt = Date.now() + state.intervalSec * 1000;
     // Refresh immediately before scheduled delivery so the preflight is not
     // merely the last 60-second poll snapshot.
-    void refreshAll(pi, false).then(() => queueCycle(pi, "scheduled cycle"));
+    void refreshAll(pi, false).then(() => {
+      queueCycle(pi, "scheduled cycle");
+      renderWidget(state.ctx);
+    });
   }, state.intervalSec * 1000);
   renderWidget(state.ctx!);
 }
@@ -820,6 +882,7 @@ async function detach(pi: ExtensionAPI, ctx: ExtensionContext, input: string): P
   ], undefined, 20_000);
   state.attachments.delete(fleet.root);
   state.snapshots.delete(fleet.root);
+  state.baselines.delete(fleet.root);
   state.externalLoops.delete(fleet.root);
   state.lastError = undefined;
   appendAttachmentEntry(pi, fleet, "detach");
@@ -1032,6 +1095,7 @@ export default function (pi: ExtensionAPI): void {
     state.monitorEvents.clear();
     state.externalLoops.clear();
     state.lastError = undefined;
+    startUiTimer();
     restoreAttachments(ctx);
     restoreMonitors(ctx);
     renderWidget(ctx);
@@ -1049,6 +1113,7 @@ export default function (pi: ExtensionAPI): void {
   pi.on("session_shutdown", () => {
     stopTimers();
     stopMonitorTimer();
+    stopUiTimer();
     state.ctx = undefined;
     state.snapshots.clear();
     state.monitorSnapshots.clear();

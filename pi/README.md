@@ -57,7 +57,10 @@ canonical external `fleet-loop.py` loop is already active.
 Monitor attachment is separate Pi-local state. It never claims `mind_session`,
 never writes `fleet.json` or `mind-baseline.json`, never emits `FLEET_CYCLE`, and
 uses `fleet-sensors.py --no-watch` for read-only observation. Multiple monitored
-fleets are aggregated in the human panel.
+fleets are aggregated in the human panel. Mind-attached and monitor-only fleets
+use the same detail rows: mode/posture/cycle timing, Hands, Heads, Vivi counts,
+and the last cycle summary. Mind-attached fleets show the internal loop
+countdown; monitor-only timing is estimated from the observed baseline cadence.
 
 The human-facing widget is intentionally denser than the model-facing tool
 output. It uses colored state glyphs for active/waiting/failed roles, compact
