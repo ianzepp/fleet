@@ -311,6 +311,10 @@ The same operations are available as human commands:
 /fleet stop
 ```
 
+The `/fleet` command provides argument autocomplete for its subcommands and
+cadence examples. Fleet-selecting commands dynamically suggest currently
+attached or monitored Fleet IDs.
+
 `/fleet attach --takeover` is never implied by a natural-language request to
 attach. Pi must receive the explicit takeover option and confirmation.
 

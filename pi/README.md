@@ -53,6 +53,10 @@ access, and this extension invokes Fleet's Python and shell helpers.
 /fleet stop            stop the internal loop
 ```
 
+Pi autocomplete suggests these subcommands as you type. Commands that select a
+Fleet (`focus`, `detach`, `preflight`, `prepare`, and monitor detach) also offer
+the currently attached or monitored Fleet IDs.
+
 Mind attachment is session-scoped and recorded in Pi custom session entries so
 a reload can restore it. A detected current-directory fleet is only a candidate;
 it is never attached automatically. A foreign Mind attachment is refused unless

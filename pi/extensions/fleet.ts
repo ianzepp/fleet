@@ -1177,9 +1177,52 @@ function attachedFleet(id: string | undefined): FleetRef[] {
   return fleet ? [fleet] : [];
 }
 
+type FleetCompletion = { value: string; label: string; description: string };
+
+function fleetArgumentCompletions(prefix: string): FleetCompletion[] | null {
+  const completions: FleetCompletion[] = [
+    { value: "status", label: "status", description: "Show attached fleets and loop state" },
+    { value: "list", label: "list", description: "List attached and monitored fleets" },
+    { value: "attach .", label: "attach .", description: "Attach the current Fleet as Mind" },
+    { value: "attach --monitor .", label: "attach --monitor .", description: "Monitor the current Fleet read-only" },
+    { value: "attach --takeover .", label: "attach --takeover .", description: "Request confirmed Mind takeover" },
+    { value: "monitor status", label: "monitor status", description: "Show read-only monitor state" },
+    { value: "monitor start 60s", label: "monitor start 60s", description: "Start monitor refreshes" },
+    { value: "monitor update 60s", label: "monitor update 60s", description: "Change monitor refresh cadence" },
+    { value: "monitor stop", label: "monitor stop", description: "Stop monitor refreshes" },
+    { value: "compact", label: "compact", description: "Show one summary line per Fleet" },
+    { value: "expand", label: "expand", description: "Expand every Fleet detail panel" },
+    { value: "refresh", label: "refresh", description: "Refresh canonical Fleet observations" },
+    { value: "start 5m", label: "start 5m", description: "Start the Pi-owned Mind loop" },
+    { value: "update 5m", label: "update 5m", description: "Change the Pi-owned loop cadence" },
+    { value: "stop", label: "stop", description: "Stop the Pi-owned Mind loop" },
+    { value: "loop status", label: "loop status", description: "Inspect the Pi-owned Mind loop" },
+    { value: "loop start 5m", label: "loop start 5m", description: "Start the Pi-owned Mind loop" },
+    { value: "loop update 5m", label: "loop update 5m", description: "Change the Pi-owned loop cadence" },
+    { value: "loop stop", label: "loop stop", description: "Stop the Pi-owned Mind loop" },
+  ];
+  const sessionFleetIds = [...new Set(sessionFleets().map(({ fleet }) => fleet.fleetId))].sort();
+  for (const fleetId of sessionFleetIds) {
+    completions.push(
+      { value: `focus ${fleetId}`, label: `focus ${fleetId}`, description: "Expand this Fleet and compact the rest" },
+      { value: `preflight ${fleetId}`, label: `preflight ${fleetId}`, description: "Run a read-only operational preflight" },
+      { value: `prepare ${fleetId}`, label: `prepare ${fleetId}`, description: "Prepare a read-only launch assessment" },
+    );
+  }
+  for (const fleet of [...state.attachments.values()].sort((a, b) => a.fleetId.localeCompare(b.fleetId))) {
+    completions.push({ value: `detach ${fleet.fleetId}`, label: `detach ${fleet.fleetId}`, description: "Detach this Mind Fleet" });
+  }
+  for (const fleet of [...state.monitors.values()].sort((a, b) => a.fleetId.localeCompare(b.fleetId))) {
+    completions.push({ value: `monitor detach ${fleet.fleetId}`, label: `monitor detach ${fleet.fleetId}`, description: "Stop monitoring this Fleet" });
+  }
+  const matches = completions.filter(({ value }) => value.startsWith(prefix));
+  return matches.length > 0 ? matches : null;
+}
+
 export default function (pi: ExtensionAPI): void {
   pi.registerCommand("fleet", {
     description: "Inspect and control explicitly attached Fleet roots",
+    getArgumentCompletions: fleetArgumentCompletions,
     handler: async (args, ctx) => {
       state.ctx = ctx;
       const parts = args.trim().split(/\s+/).filter(Boolean);
