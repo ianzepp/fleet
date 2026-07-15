@@ -18,6 +18,7 @@ const MIN_INTERVAL_SEC = 60;
 const POLL_INTERVAL_MS = 60_000;
 const ATTACHMENT_ENTRY = "pi-fleet-attachment";
 const MONITOR_ENTRY = "pi-fleet-monitor";
+const VIEW_ENTRY = "pi-fleet-view";
 const WIDGET_KEY = "pi-fleet";
 const STATUS_KEY = "pi-fleet";
 
@@ -69,6 +70,13 @@ type MonitorEvent = {
   signalCount: number;
 };
 
+type FleetViewMode = "compact" | "expanded" | "focus";
+
+type ViewEntry = {
+  mode: FleetViewMode;
+  fleetId?: string;
+};
+
 type State = {
   ctx?: ExtensionContext;
   candidate?: FleetRef;
@@ -90,6 +98,8 @@ type State = {
   loopRunning: boolean;
   intervalSec: number;
   monitorIntervalSec: number;
+  viewMode: FleetViewMode;
+  focusedFleetId?: string;
   startedAt?: string;
   lastCycleAt?: string;
   nextCycleAt?: number;
@@ -112,6 +122,7 @@ const state: State = {
   loopRunning: false,
   intervalSec: DEFAULT_INTERVAL_SEC,
   monitorIntervalSec: 60,
+  viewMode: "expanded",
 };
 
 function jsonFile(path: string): JsonObject | undefined {
@@ -210,6 +221,25 @@ function appendAttachmentEntry(pi: ExtensionAPI, fleet: FleetRef, action: "attac
 
 function appendMonitorEntry(pi: ExtensionAPI, fleet: FleetRef, action: "attach" | "detach"): void {
   pi.appendEntry(MONITOR_ENTRY, { action, root: fleet.root, fleetId: fleet.fleetId } satisfies MonitorEntry);
+}
+
+function restoreView(ctx: ExtensionContext): void {
+  state.viewMode = "expanded";
+  state.focusedFleetId = undefined;
+  for (const entry of ctx.sessionManager.getBranch()) {
+    if (entry.type !== "custom" || entry.customType !== VIEW_ENTRY) continue;
+    const data = entry.data as Partial<ViewEntry> | undefined;
+    if (data?.mode !== "compact" && data?.mode !== "expanded" && data?.mode !== "focus") continue;
+    state.viewMode = data.mode;
+    state.focusedFleetId = data.mode === "focus" && typeof data.fleetId === "string" ? data.fleetId : undefined;
+  }
+}
+
+function setView(pi: ExtensionAPI, mode: FleetViewMode, fleetId?: string): void {
+  state.viewMode = mode;
+  state.focusedFleetId = mode === "focus" ? fleetId : undefined;
+  pi.appendEntry(VIEW_ENTRY, { mode, fleetId: state.focusedFleetId } satisfies ViewEntry);
+  renderWidget(state.ctx);
 }
 
 function parseDuration(value: string | undefined): number {
@@ -482,9 +512,34 @@ function fleetNextCycle(fleet: FleetRef, mode: "mind" | "monitor", baseline: Jso
   return `next est ${formatDuration(lastCycle + configuredCycleInterval(fleet) - Date.now() / 1000)}`;
 }
 
+function fleetSnapshot(fleet: FleetRef, mode: "mind" | "monitor"): Snapshot | undefined {
+  return mode === "mind" ? state.snapshots.get(fleet.root) : state.monitorSnapshots.get(fleet.root);
+}
+
+function fleetBaseline(fleet: FleetRef, mode: "mind" | "monitor"): JsonObject | undefined {
+  return mode === "mind" ? state.baselines.get(fleet.root) : state.monitorBaselines.get(fleet.root);
+}
+
+function fleetCompactRow(fleet: FleetRef, mode: "mind" | "monitor", theme: any): string {
+  const snapshot = fleetSnapshot(fleet, mode);
+  const baseline = fleetBaseline(fleet, mode);
+  const posture = compactState((snapshot?.fleet_posture as JsonObject | undefined)?.mode ?? "unknown");
+  const modeText = mode === "mind" ? "Mind" : "Monitor";
+  const modeColor = mode === "mind" ? "accent" : "muted";
+  const hands = Object.values(snapshot?.hands ?? {});
+  const heads = Object.values(snapshot?.heads ?? {});
+  const activeHands = hands.filter((row) => ACTIVE_RUNTIME_STATES.has(roleGlyph(row).state)).length;
+  const activeHeads = heads.filter((row) => ACTIVE_RUNTIME_STATES.has(roleGlyph(row).state)).length;
+  const counts = snapshot ? preflightCounts(snapshot) : { actionable: 0, mail: 0, needs: 0, rtm: 0 };
+  const signals = signalCount(snapshot);
+  const signalText = signals > 0 ? theme.fg("warning", `!${signals}`) : theme.fg("dim", "!0");
+  const external = mode === "mind" && state.externalLoops.get(fleet.root)?.running ? theme.fg("warning", " !ext") : "";
+  return ` ${theme.fg("accent", "◈")} ${theme.bold(fleet.fleetId)} ${theme.fg(modeColor, modeText)} ${theme.fg(posture === "growth" ? "success" : "dim", posture)}  ${theme.fg("dim", `cycle ${baseline ? baselineCycle(baseline) : "—"}`)} · ${theme.fg("dim", `H${activeHands}/${hands.length}`)} · ${theme.fg("dim", `Hd${activeHeads}/${heads.length}`)} · ${theme.fg("dim", `work ${counts.actionable}`)} · ${theme.fg("dim", `✉${counts.mail}`)} · ${theme.fg("dim", `⚑${counts.needs}`)} · ${theme.fg("dim", `↻${counts.rtm}`)} · ${signalText} · ${theme.fg("dim", fleetNextCycle(fleet, mode, baseline))}${external}`;
+}
+
 function fleetDetailRows(fleet: FleetRef, mode: "mind" | "monitor", theme: any): string[] {
-  const snapshot = mode === "mind" ? state.snapshots.get(fleet.root) : state.monitorSnapshots.get(fleet.root);
-  const baseline = mode === "mind" ? state.baselines.get(fleet.root) : state.monitorBaselines.get(fleet.root);
+  const snapshot = fleetSnapshot(fleet, mode);
+  const baseline = fleetBaseline(fleet, mode);
   const event = mode === "monitor" ? state.monitorEvents.get(fleet.root) : undefined;
   const posture = compactState((snapshot?.fleet_posture as JsonObject | undefined)?.mode ?? "unknown");
   const cycle = baseline ? `cycle ${baselineCycle(baseline)}` : "cycle —";
@@ -532,18 +587,17 @@ class FleetPanel {
     }
 
     const lines: string[] = [];
-    for (const fleet of fleets) {
-      for (const line of fleetDetailRows(fleet, "mind", this.theme)) {
-        lines.push(truncateToWidth(line, width, "…"));
-      }
-      lines.push("");
-    }
-    for (const fleet of monitors) {
-      for (const line of fleetDetailRows(fleet, "monitor", this.theme)) {
-        lines.push(truncateToWidth(line, width, "…"));
-      }
-      lines.push("");
-    }
+    const renderFleet = (fleet: FleetRef, mode: "mind" | "monitor") => {
+      const expanded = state.viewMode === "expanded" ||
+        (state.viewMode === "focus" && state.focusedFleetId === fleet.fleetId);
+      const rows = expanded
+        ? fleetDetailRows(fleet, mode, this.theme)
+        : [fleetCompactRow(fleet, mode, this.theme)];
+      for (const line of rows) lines.push(truncateToWidth(line, width, "…"));
+      if (expanded) lines.push("");
+    };
+    for (const fleet of fleets) renderFleet(fleet, "mind");
+    for (const fleet of monitors) renderFleet(fleet, "monitor");
     if (state.lastError) {
       lines.push(truncateToWidth(`${this.theme.fg("error", "×")} ${this.theme.fg("error", state.lastError)}`, width, "…"));
     }
@@ -1112,6 +1166,22 @@ export default function (pi: ExtensionAPI): void {
           } else if (monitorAction === "status") await monitorStatus(pi, ctx);
           else throw new Error(`unknown monitor action: ${monitorAction}`);
         }
+        else if (action === "compact") {
+          setView(pi, "compact");
+          ctx.ui.notify("Fleet panel compacted", "info");
+        }
+        else if (action === "expand") {
+          setView(pi, "expanded");
+          ctx.ui.notify("Fleet panel expanded", "info");
+        }
+        else if (action === "focus") {
+          const fleetId = parts[0];
+          if (!fleetId) throw new Error("usage: /fleet focus <fleet-id>");
+          const fleet = sessionFleets(fleetId)[0];
+          if (!fleet) throw new Error(`fleet is not attached or monitored: ${fleetId}`);
+          setView(pi, "focus", fleet.fleet.fleetId);
+          ctx.ui.notify(`Focused ${fleet.fleet.fleetId}; other fleets compacted`, "info");
+        }
         else if (action === "preflight" || action === "prepare") {
           const records = await runPreflight(pi, parts[0]);
           ctx.ui.notify(`${action}:\n${preflightText(records)}`, "info");
@@ -1138,7 +1208,7 @@ export default function (pi: ExtensionAPI): void {
           else if (loopAction !== "status") throw new Error(`unknown loop action: ${loopAction}`);
           renderWidget(ctx);
         } else {
-          throw new Error(`unknown action: ${action}; use attach, detach, monitor, preflight, prepare, list, refresh, start, update, or stop`);
+          throw new Error(`unknown action: ${action}; use attach, detach, monitor, compact, expand, focus, preflight, prepare, list, refresh, start, update, or stop`);
         }
       } catch (error) {
         state.lastError = error instanceof Error ? error.message : String(error);
@@ -1319,6 +1389,7 @@ export default function (pi: ExtensionAPI): void {
     startUiTimer();
     restoreAttachments(ctx);
     restoreMonitors(ctx);
+    restoreView(ctx);
     renderWidget(ctx);
     if (state.attachments.size > 0) await refreshAll(pi, false);
     if (state.monitors.size > 0) {

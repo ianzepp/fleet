@@ -45,6 +45,9 @@ access, and this extension invokes Fleet's Python and shell helpers.
 /fleet prepare [id]    produce a read-only launch assessment
 /fleet detach <root>   detach an explicitly attached fleet
 /fleet refresh         refresh read-only sensor state
+/fleet compact         show one summary line per fleet
+/fleet expand          show full detail rows for every fleet
+/fleet focus <id>      expand one fleet and compact every other fleet
 /fleet start [5m]      start the Pi-owned internal loop
 /fleet update 10m      update the internal loop cadence
 /fleet stop            stop the internal loop
@@ -70,8 +73,11 @@ marker is unavailable, with low confidence preserved as a warning state.
 The human-facing widget is intentionally denser than the model-facing tool
 output. It uses colored state glyphs for active/waiting/failed roles, compact
 Hands (`H`) and Heads (`Hd`) rows, and a Vivi summary for work, mail, needs,
-pending RTM, and signal counts. The native Pi footer remains intact and carries
-a compact Fleet chip.
+pending RTM, and signal counts. `/fleet compact` reduces every fleet to one
+summary line, `/fleet expand` restores all detail rows, and `/fleet focus <id>`
+keeps the selected fleet expanded while compacting the rest. The view choice is
+Pi session-local presentation state and does not modify Fleet or Vivi state.
+The native Pi footer remains intact and carries a compact Fleet chip.
 
 Each scheduled `FLEET_CYCLE` now includes a fresh, sanitized sensor preflight
 from the extension. It contains role states, work/mail/need/RTM counts, and

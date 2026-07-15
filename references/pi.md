@@ -298,6 +298,9 @@ The same operations are available as human commands:
 /fleet preflight [fleet-id]
 /fleet prepare [fleet-id]
 /fleet refresh
+/fleet compact
+/fleet expand
+/fleet focus <fleet-id>
 /fleet detach /path/to/project
 /fleet start [5m]
 /fleet update 10m
@@ -309,9 +312,12 @@ attach. Pi must receive the explicit takeover option and confirmation.
 
 ## Human-facing Fleet summaries
 
-The extension adds a compact Fleet widget and status chip without replacing
-Pi's native footer. Token, cache, cost, context, provider, model, and working
-metadata remain Pi-owned.
+The extension adds a Fleet widget and status chip without replacing Pi's native
+footer. `/fleet compact` renders one summary line per fleet, `/fleet expand`
+renders the full detail panel for every fleet, and `/fleet focus <fleet-id>`
+expands the named fleet while compacting all others. This view mode is Pi-local
+session presentation state and does not alter Fleet/Vivi state. Token, cache,
+cost, context, provider, model, and working metadata remain Pi-owned.
 
 ### Candidate, not attached
 
