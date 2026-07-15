@@ -515,7 +515,7 @@ Baseline receipts are separate evidence state under `mind-baseline.json.disaster
 }
 ```
 
-No receipts plus an enabled policy makes analysis due first; sensors never schedule a meaningless freshness-only first pass. Freshness receipts never set restore proof. Sensor output includes compact policy/receipt/due state and signals (`head_due_coo_dr_freshness`, `head_due_coo_dr_analysis`, `head_due_coo_dr_restore_drill`, plus `head_overdue_*` after grace). Sensors do not page the operator, file COO assignments, perform restore work, or mutate baseline receipts. Existing COO DR assignments are reported as backpressure so Mind does not duplicate them.
+No receipts plus an enabled policy makes analysis due first; sensors never schedule a meaningless freshness-only first pass. Freshness receipts never set restore proof. Receipt timestamps materially in the future are invalid/unknown (no clock-skew tolerance is currently granted), not clamped to age zero or treated as fresh. Sensor output includes compact policy/receipt/due state and signals (`head_due_coo_dr_freshness`, `head_due_coo_dr_analysis`, `head_due_coo_dr_restore_drill`, plus `head_overdue_*` after grace). Sensors do not page the operator, file COO assignments, perform restore work, or mutate baseline receipts. Existing COO DR assignments are reported as backpressure so Mind does not duplicate them.
 
 **Executive cadence (optional, per head).** Opt-in block: `{enabled, every_n_loops?, sweep_mode?}`.
 When `enabled`, `fleet-sensors.py` surfaces `head_due_<role>` after the **cadence

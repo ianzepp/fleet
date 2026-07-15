@@ -142,6 +142,15 @@ class DisasterRecoveryCadenceTests(unittest.TestCase):
         self.assertIn("coo_dr_receipt_unknown", signals)
         self.assertIn("head_due_coo_dr_analysis", signals)
 
+        future_freshness, future_signals = self.evaluate(
+            fleet,
+            {"disaster_recovery": {"last_freshness_check_at": iso(datetime(2026, 7, 16)), "last_analysis_at": iso(datetime(2026, 7, 1))}},
+        )
+        self.assertEqual(future_freshness["status"], "unknown")
+        self.assertIn("future last_freshness_check_at", future_freshness["errors"])
+        self.assertNotEqual(future_freshness["due"]["freshness"]["days_since"], 0)
+        self.assertIn("head_due_coo_dr_freshness", future_signals)
+
 
 if __name__ == "__main__":
     unittest.main()
