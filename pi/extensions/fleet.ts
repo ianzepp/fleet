@@ -448,27 +448,58 @@ function roleGlyph(row: JsonObject | undefined): { glyph: string; color: string;
   return { glyph: "○", color: "dim", state: stateName };
 }
 
-function roleToken(name: string, row: JsonObject, head: boolean, theme: any): string {
+type RoleClass = "mind" | "hand" | "head";
+
+type ClassifiedRoles = {
+  minds: Array<[string, JsonObject]>;
+  hands: Array<[string, JsonObject]>;
+  heads: Array<[string, JsonObject]>;
+};
+
+function roleClass(fleet: FleetRef, name: string, sensorClass: "hand" | "head"): RoleClass {
+  if (sensorClass === "head") return "head";
+  const config = jsonFile(fleet.fleetFile);
+  const hands = config?.hands as Record<string, JsonObject> | undefined;
+  const hunters = config?.hunters as Record<string, JsonObject> | undefined;
+  const role = compactState(hands?.[name]?.role ?? hunters?.[name]?.role ?? "hand");
+  return role === "managed-mind" || role === "mind" ? "mind" : "hand";
+}
+
+function classifiedRoles(fleet: FleetRef, snapshot: Snapshot | undefined): ClassifiedRoles {
+  const roles: ClassifiedRoles = { minds: [], hands: [], heads: [] };
+  for (const [name, row] of Object.entries(snapshot?.hands ?? {})) {
+    roles[roleClass(fleet, name, "hand") === "mind" ? "minds" : "hands"].push([name, row]);
+  }
+  roles.heads.push(...Object.entries(snapshot?.heads ?? {}));
+  return roles;
+}
+
+function roleToken(name: string, row: JsonObject, roleClass: RoleClass, theme: any): string {
   const status = roleGlyph(row);
-  const shortName = head ? name.replace(/^head-/, "") : name.replace(/^hand-/, "h");
-  const metric = head
+  const shortName = roleClass === "head"
+    ? name.replace(/^head-/, "")
+    : roleClass === "mind"
+      ? name.replace(/^mind-/, "")
+      : name.replace(/^hand-/, "h");
+  const metric = roleClass === "head"
     ? row.sweep_due === true ? "due" : row.sweep_enabled === true ? "on" : "—"
     : String(numeric(row.actionable ?? row.tasks_open));
   const labelColor = status.state === "unknown" ? "dim" : "muted";
   return `${theme.fg(status.color, status.glyph)} ${theme.fg(labelColor, shortName)}${theme.fg("dim", `:${metric}`)}`;
 }
 
-function roleGroups(): { hands: Array<[string, JsonObject]>; heads: Array<[string, JsonObject]> } {
-  const hands: Array<[string, JsonObject]> = [];
-  const heads: Array<[string, JsonObject]> = [];
-  for (const snapshot of state.snapshots.values()) {
-    for (const [name, row] of Object.entries(snapshot.hands ?? {})) hands.push([name, row]);
-    for (const [name, row] of Object.entries(snapshot.heads ?? {})) heads.push([name, row]);
+function roleGroups(): ClassifiedRoles {
+  const roles: ClassifiedRoles = { minds: [], hands: [], heads: [] };
+  for (const fleet of state.attachments.values()) {
+    const classified = classifiedRoles(fleet, state.snapshots.get(fleet.root));
+    roles.minds.push(...classified.minds);
+    roles.hands.push(...classified.hands);
+    roles.heads.push(...classified.heads);
   }
-  return { hands, heads };
+  return roles;
 }
 
-function panelMetrics(): { activeHands: number; totalHands: number; activeHeads: number; totalHeads: number; mail: number; needs: number; rtm: number; signals: number; actionable: number } {
+function panelMetrics(): { activeMinds: number; totalMinds: number; activeHands: number; totalHands: number; activeHeads: number; totalHeads: number; mail: number; needs: number; rtm: number; signals: number; actionable: number } {
   let mail = 0;
   let needs = 0;
   let rtm = 0;
@@ -487,8 +518,10 @@ function panelMetrics(): { activeHands: number; totalHands: number; activeHeads:
       }
     }
   }
-  const { hands, heads } = roleGroups();
+  const { minds, hands, heads } = roleGroups();
   return {
+    activeMinds: minds.filter(([, row]) => ACTIVE_RUNTIME_STATES.has(roleGlyph(row).state)).length,
+    totalMinds: minds.length,
     activeHands: hands.filter(([, row]) => ACTIVE_RUNTIME_STATES.has(roleGlyph(row).state)).length,
     totalHands: hands.length,
     activeHeads: heads.filter(([, row]) => ACTIVE_RUNTIME_STATES.has(roleGlyph(row).state)).length,
@@ -549,15 +582,20 @@ function fleetCompactRow(fleet: FleetRef, mode: "mind" | "monitor", theme: any):
   const posture = compactState((snapshot?.fleet_posture as JsonObject | undefined)?.mode ?? "unknown");
   const modeText = mode === "mind" ? "Mind" : "Monitor";
   const modeColor = mode === "mind" ? "accent" : "muted";
-  const hands = Object.values(snapshot?.hands ?? {});
-  const heads = Object.values(snapshot?.heads ?? {});
-  const activeHands = hands.filter((row) => ACTIVE_RUNTIME_STATES.has(roleGlyph(row).state)).length;
-  const activeHeads = heads.filter((row) => ACTIVE_RUNTIME_STATES.has(roleGlyph(row).state)).length;
+  const { minds, hands, heads } = classifiedRoles(fleet, snapshot);
+  const activeMinds = minds.filter(([, row]) => ACTIVE_RUNTIME_STATES.has(roleGlyph(row).state)).length;
+  const activeHands = hands.filter(([, row]) => ACTIVE_RUNTIME_STATES.has(roleGlyph(row).state)).length;
+  const activeHeads = heads.filter(([, row]) => ACTIVE_RUNTIME_STATES.has(roleGlyph(row).state)).length;
   const counts = snapshot ? preflightCounts(snapshot) : { actionable: 0, mail: 0, needs: 0, rtm: 0 };
   const signals = signalCount(snapshot);
   const signalText = signals > 0 ? theme.fg("warning", `!${signals}`) : theme.fg("dim", "!0");
   const external = mode === "mind" && state.externalLoops.get(fleet.root)?.running ? theme.fg("warning", " !ext") : "";
-  return ` ${theme.fg("accent", "◈")} ${theme.bold(fleet.fleetId)} ${theme.fg(modeColor, modeText)} ${theme.fg(posture === "growth" ? "success" : "dim", posture)}  ${theme.fg("dim", `cycle ${baseline ? baselineCycle(baseline) : "—"}`)} · ${theme.fg("dim", `H${activeHands}/${hands.length}`)} · ${theme.fg("dim", `Hd${activeHeads}/${heads.length}`)} · ${theme.fg("dim", `work ${counts.actionable}`)} · ${theme.fg("dim", `✉${counts.mail}`)} · ${theme.fg("dim", `⚑${counts.needs}`)} · ${theme.fg("dim", `↻${counts.rtm}`)} · ${signalText} · ${theme.fg("dim", fleetNextCycle(fleet, mode, baseline))}${external}`;
+  const roleCounts = [
+    minds.length > 0 ? `M${activeMinds}/${minds.length}` : undefined,
+    hands.length > 0 ? `H${activeHands}/${hands.length}` : undefined,
+    heads.length > 0 ? `Hd${activeHeads}/${heads.length}` : undefined,
+  ].filter(Boolean).join(" · ");
+  return ` ${theme.fg("accent", "◈")} ${theme.bold(fleet.fleetId)} ${theme.fg(modeColor, modeText)} ${theme.fg(posture === "growth" ? "success" : "dim", posture)}  ${theme.fg("dim", `cycle ${baseline ? baselineCycle(baseline) : "—"}`)}${roleCounts ? ` · ${theme.fg("dim", roleCounts)}` : ""} · ${theme.fg("dim", `work ${counts.actionable}`)} · ${theme.fg("dim", `✉${counts.mail}`)} · ${theme.fg("dim", `⚑${counts.needs}`)} · ${theme.fg("dim", `↻${counts.rtm}`)} · ${signalText} · ${theme.fg("dim", fleetNextCycle(fleet, mode, baseline))}${external}`;
 }
 
 function fleetDetailRows(fleet: FleetRef, mode: "mind" | "monitor", theme: any): string[] {
@@ -578,13 +616,18 @@ function fleetDetailRows(fleet: FleetRef, mode: "mind" | "monitor", theme: any):
     lines.push(`   ${theme.fg("dim", "sensors=pending")}`);
     return lines;
   }
-  const { hands, heads } = { hands: Object.entries(snapshot.hands ?? {}), heads: Object.entries(snapshot.heads ?? {}) };
-  const handTokens = hands.map(([name, row]) => roleToken(name, row, false, theme)).join("  ");
-  const headTokens = heads.map(([name, row]) => roleToken(name, row, true, theme)).join("  ");
+  const { minds, hands, heads } = classifiedRoles(fleet, snapshot);
   const counts = preflightCounts(snapshot);
   const signalText = signalCount(snapshot) > 0 ? theme.fg("warning", `!${signalCount(snapshot)}`) : theme.fg("dim", "!0");
-  lines.push(`   ${theme.fg("muted", "Hand")} ${theme.fg("dim", `${hands.filter(([, row]) => ACTIVE_RUNTIME_STATES.has(roleGlyph(row).state)).length}/${hands.length}`)}  ${handTokens || theme.fg("dim", "idle")}`);
-  lines.push(`   ${theme.fg("muted", "Head")} ${theme.fg("dim", `${heads.filter(([, row]) => ACTIVE_RUNTIME_STATES.has(roleGlyph(row).state)).length}/${heads.length}`)}  ${headTokens || theme.fg("dim", "idle")}`);
+  const addRoleRow = (label: string, roles: Array<[string, JsonObject]>, roleClass: RoleClass) => {
+    if (roles.length === 0) return;
+    const active = roles.filter(([, row]) => ACTIVE_RUNTIME_STATES.has(roleGlyph(row).state)).length;
+    const tokens = roles.map(([name, row]) => roleToken(name, row, roleClass, theme)).join("  ");
+    lines.push(`   ${theme.fg("muted", label)} ${theme.fg("dim", `${active}/${roles.length}`)}  ${tokens}`);
+  };
+  addRoleRow("Mind", minds, "mind");
+  addRoleRow("Hand", hands, "hand");
+  addRoleRow("Head", heads, "head");
   lines.push(`   ${theme.fg("muted", "Vivi")} ${theme.fg("success", "●")} ${theme.fg("dim", `work ${counts.actionable}`)}  ${theme.fg("dim", `✉${counts.mail}`)}  ${theme.fg("dim", `⚑${counts.needs}`)}  ${theme.fg("dim", `↻${counts.rtm}`)}  ${signalText}`);
   const summary = event
     ? `${event.acted ? "acted" : "quiet"} · ${event.summary}`
@@ -645,7 +688,7 @@ function renderWidget(ctx?: ExtensionContext): void {
   ctx.ui.setStatus(
     STATUS_KEY,
     fleets.length > 0
-      ? `◈ ${fleets.map((fleet) => fleet.fleetId).join(",")} · H${metrics.activeHands}/${metrics.totalHands} · Hd${metrics.activeHeads}/${metrics.totalHeads} · ✉${metrics.mail} · !${metrics.signals}${monitors.length > 0 ? ` · M${monitors.length}` : ""}`
+      ? `◈ ${fleets.map((fleet) => fleet.fleetId).join(",")}${metrics.totalMinds > 0 ? ` · M${metrics.activeMinds}/${metrics.totalMinds}` : ""}${metrics.totalHands > 0 ? ` · H${metrics.activeHands}/${metrics.totalHands}` : ""}${metrics.totalHeads > 0 ? ` · Hd${metrics.activeHeads}/${metrics.totalHeads}` : ""} · ✉${metrics.mail} · !${metrics.signals}${monitors.length > 0 ? ` · Mon${monitors.length}` : ""}`
       : monitors.length > 0
         ? `◌ monitor:${monitors.map((fleet) => fleet.fleetId).join(",")} · M${monitors.length}`
         : `◇ candidate ${candidate?.fleetId}`,

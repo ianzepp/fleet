@@ -346,8 +346,11 @@ cost, context, provider, model, and working metadata remain Pi-owned.
 The glyphs summarize observed runtime state: `●` active, `○` waiting or
 inactive, `×` stopped/failed, `!` approval required, and `?` unknown. A
 warning-colored `●` indicates an active process whose runtime confidence is
-low, as commonly happens with Vivi PTY. Hand metrics show actionable work;
-Head metrics show sweep state.
+low, as commonly happens with Vivi PTY. Managed Mind roles (`role:
+managed-mind` or `role: mind`) render on a separate Mind row even when sensors
+carry them in the `hands` collection. Empty Mind, Hand, or Head classifications
+are omitted entirely. Mind and Hand metrics show actionable work; Head metrics
+show sweep state.
 
 ### Monitor-only Fleet
 

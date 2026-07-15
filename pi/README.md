@@ -78,9 +78,12 @@ Vivi PTY roles are shown from canonical `process_state` when their terminal
 marker is unavailable, with low confidence preserved as a warning state.
 
 The human-facing widget is intentionally denser than the model-facing tool
-output. It uses colored state glyphs for active/waiting/failed roles, compact
-Hands (`H`) and Heads (`Hd`) rows, and a Vivi summary for work, mail, needs,
-pending RTM, and signal counts. `/fleet compact` reduces every fleet to one
+output. It uses colored state glyphs for active/waiting/failed roles and
+separate managed Mind (`M`), Hand (`H`), and Head (`Hd`) classifications. Role
+rows with no configured instances are omitted. Managed Minds are identified by
+the configured `role: managed-mind` (or `role: mind`) even when the canonical
+sensor currently carries that runtime in its `hands` collection. The panel also
+includes a Vivi summary for work, mail, needs, pending RTM, and signal counts. `/fleet compact` reduces every fleet to one
 summary line, `/fleet expand` restores all detail rows, and `/fleet focus <id>`
 keeps the selected fleet expanded while compacting the rest. The view choice is
 Pi session-local presentation state and does not modify Fleet or Vivi state.
