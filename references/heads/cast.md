@@ -15,7 +15,7 @@ These seats continue the camp **strategist / correctness / purity** advisors. Th
 | **`head-cto`** | [`personas/cto.md`](personas/cto.md) | **Correctness:** code review / bugs on main + technical gate honesty | `correctness`, `head-correctness` |
 | **`head-cxo`** | [`personas/cxo.md`](personas/cxo.md) | **Purity:** unearned complexity / shape debt (incl. gates invented by coupling) | `purity`, `head-purity` |
 | **`head-cpo`** | [`personas/cpo.md`](personas/cpo.md) | Product direction, requirements (on demand) | Lazy |
-| **`head-coo`** | [`personas/coo.md`](personas/coo.md) | Ops readiness / verification lens (on demand) | Not Mind’s FLEET_CYCLE |
+| **`head-coo`** | [`personas/coo.md`](personas/coo.md) | Ops readiness / verification lens; optional maturity-triggered DR stewardship when `disaster_recovery` is enabled | Not Mind’s FLEET_CYCLE; never performs backup/restore |
 | **`head-cso`** | [`personas/cso.md`](personas/cso.md) | Security / privacy / abuse (on demand) | Lazy |
 | **`head-cfo`** | [`personas/cfo.md`](personas/cfo.md) | Cost, effort, sustainability (on demand) | Pairs with cost calibration |
 | **`head-cmo`** | [`personas/cmo.md`](personas/cmo.md) | Positioning / audience (on demand) | Lazy |

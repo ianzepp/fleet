@@ -49,6 +49,12 @@ misleading.
 | **standby** | Stewardship: priority/status/opt of **current** product | Correctness / reliability | Complexity that hurts on-call risk |
 | **dormant** | Rarely / assign-only | Rarely / assign-only | Rarely / assign-only |
 
+### head-coo disaster-recovery cadence (opt-in)
+
+Top-level `disaster_recovery` is default-off and independent of `executive_cadence.every_n_loops`. When enabled with tier `inventory`, `critical`, or `regulated_or_irreplaceable`, sensors may emit `head_due_coo_dr_freshness`, `head_due_coo_dr_analysis`, or `head_due_coo_dr_restore_drill` plus overdue variants after grace. Missing block, `enabled=false`, or `tier=off` is silent.
+
+COO DR assignments are report-only: evidence, gaps, RPO/RTO/coverage status, restore-proof status, and recommended safe next step. COO never performs backup, restore, secret access, provider setup, spend, external contact, or destructive/live recovery. Policy/config is not evidence; one Git remote or a successful backup job is never restore proof. Existing COO DR assignments suppress duplicate assignment recommendations without hiding due state. Dormant fleets with explicit critical/regulated policy keep the obligation visible but assignment may remain paused.
+
 ### Cadence spacing (configurable)
 
 `sweep_interval = every_n_loops × mind_loop.interval_sec` (default L=300s). `every_n_loops`

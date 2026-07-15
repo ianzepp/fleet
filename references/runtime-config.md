@@ -483,6 +483,40 @@ Recommended keys (extend freely; skill cares about meanings):
 
 Default **`300`** (5 minutes) when omitted. Alias: top-level `loop_interval_sec`.
 
+**Disaster recovery stewardship (optional, top-level).** Default-off; omitted, `enabled:false`, or `tier:"off"` is silent and produces no COO DR due signals.
+
+```json
+"disaster_recovery": {
+  "enabled": true,
+  "tier": "inventory|critical|regulated_or_irreplaceable|off",
+  "freshness_check_days": 30,
+  "analysis_days": 90,
+  "restore_drill_days": null,
+  "grace_days": 7
+}
+```
+
+Default cadences by tier: `inventory` freshness 30d, analysis 90d, no restore drill; `critical` freshness 14d, analysis 60d, restore drill 180d; `regulated_or_irreplaceable` freshness 7d, analysis 30d, restore drill 90d. `grace_days` defaults to 7. This cadence is calendar/maturity-triggered and independent of `executive_cadence.every_n_loops`.
+
+Baseline receipts are separate evidence state under `mind-baseline.json.disaster_recovery` and are never auto-derived from config, directories, repository size, remotes, or backup-job success:
+
+```json
+"disaster_recovery": {
+  "last_freshness_check_at": "2026-07-01T00:00:00Z",
+  "last_analysis_at": "2026-07-01T00:00:00Z",
+  "last_restore_drill_at": null,
+  "last_report_handle": "abc123",
+  "last_report_at": "2026-07-01T00:00:00Z",
+  "last_status": "partial|ok|unknown|contradicted",
+  "last_coverage": "summary only, no manifests",
+  "last_rpo": "unknown|...",
+  "last_rto": "unknown|...",
+  "last_restore_evidence": "none|receipt summary"
+}
+```
+
+No receipts plus an enabled policy makes analysis due first; sensors never schedule a meaningless freshness-only first pass. Freshness receipts never set restore proof. Sensor output includes compact policy/receipt/due state and signals (`head_due_coo_dr_freshness`, `head_due_coo_dr_analysis`, `head_due_coo_dr_restore_drill`, plus `head_overdue_*` after grace). Sensors do not page the operator, file COO assignments, perform restore work, or mutate baseline receipts. Existing COO DR assignments are reported as backpressure so Mind does not duplicate them.
+
 **Executive cadence (optional, per head).** Opt-in block: `{enabled, every_n_loops?, sweep_mode?}`.
 When `enabled`, `fleet-sensors.py` surfaces `head_due_<role>` after the **cadence
 interval** since last completion mail (pane not `running`). Completion = new mail

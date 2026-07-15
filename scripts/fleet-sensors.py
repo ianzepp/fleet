@@ -584,6 +584,22 @@ HEAD_CADENCE_DEFAULTS = {
     # dormant: no table — sweeps paused
 }
 
+DR_TIER_DEFAULTS = {
+    "inventory": {"freshness_check_days": 30, "analysis_days": 90, "restore_drill_days": None},
+    "critical": {"freshness_check_days": 14, "analysis_days": 60, "restore_drill_days": 180},
+    "regulated_or_irreplaceable": {"freshness_check_days": 7, "analysis_days": 30, "restore_drill_days": 90},
+}
+DR_DEFAULT_GRACE_DAYS = 7
+DR_RECEIPT_KEYS = (
+    "last_report_handle",
+    "last_report_at",
+    "last_status",
+    "last_coverage",
+    "last_rpo",
+    "last_rto",
+    "last_restore_evidence",
+)
+
 
 def mind_loop_interval_sec(fleet: dict) -> int:
     """Base FLEET_CYCLE / Mind loop tick in seconds (default 300 = 5m)."""
@@ -672,6 +688,175 @@ def resolve_posture(fleet: dict, baseline: dict) -> tuple:
             "mind_loop_interval_sec": loop_sec,
         },
     )
+
+
+def _strict_positive_int(value: Any, field: str, allow_null: bool = False) -> Optional[int]:
+    if value is None and allow_null:
+        return None
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise ValueError("%s must be a positive integer" % field)
+    if value <= 0:
+        raise ValueError("%s must be a positive integer" % field)
+    return value
+
+
+def disaster_recovery_policy(fleet: dict) -> Optional[dict]:
+    raw = fleet.get("disaster_recovery")
+    if raw is None:
+        return None
+    if not isinstance(raw, dict):
+        raise ValueError("disaster_recovery must be an object")
+    enabled_raw = raw.get("enabled", False)
+    if not isinstance(enabled_raw, bool):
+        raise ValueError("disaster_recovery.enabled must be boolean")
+    if not enabled_raw:
+        return None
+    if "tier" not in raw:
+        raise ValueError("disaster_recovery.tier is required when enabled")
+    tier_raw = raw.get("tier")
+    if not isinstance(tier_raw, str):
+        raise ValueError("disaster_recovery.tier must be a string")
+    tier = tier_raw
+    if tier == "off":
+        return None
+    if tier not in DR_TIER_DEFAULTS:
+        raise ValueError("disaster_recovery.tier must be off, inventory, critical, or regulated_or_irreplaceable")
+    defaults = DR_TIER_DEFAULTS[tier]
+    policy = {"enabled": True, "tier": tier}
+    for field in ("freshness_check_days", "analysis_days"):
+        policy[field] = _strict_positive_int(raw.get(field, defaults[field]), field)
+    restore_raw = raw.get("restore_drill_days", defaults["restore_drill_days"])
+    policy["restore_drill_days"] = _strict_positive_int(restore_raw, "restore_drill_days", allow_null=True)
+    policy["grace_days"] = _strict_positive_int(raw.get("grace_days", DR_DEFAULT_GRACE_DAYS), "grace_days")
+    return policy
+
+
+def _dr_receipts(baseline: dict) -> dict:
+    raw = baseline.get("disaster_recovery")
+    return raw if isinstance(raw, dict) else {}
+
+
+def _receipt_date(receipts: dict, field: str, errors: List[str]) -> Optional[datetime]:
+    value = receipts.get(field)
+    if value in (None, ""):
+        return None
+    parsed = _parse_iso(value)
+    if parsed is None:
+        errors.append("invalid %s" % field)
+    return parsed
+
+
+def _whole_days_since(moment: datetime, now_dt: datetime) -> int:
+    return max(0, int((now_dt - moment).total_seconds() // 86400))
+
+
+def _dr_due_state(last_at: Optional[datetime], cadence_days: Optional[int], grace_days: int, now_dt: datetime) -> dict:
+    if cadence_days is None:
+        return {"applicable": False, "due": False, "overdue": False, "days_since": None, "days_overdue": None}
+    if last_at is None:
+        return {"applicable": True, "due": True, "overdue": False, "days_since": None, "days_overdue": None}
+    days_since = _whole_days_since(last_at, now_dt)
+    days_overdue = max(0, days_since - cadence_days)
+    return {
+        "applicable": True,
+        "due": days_since > cadence_days,
+        "overdue": days_overdue > grace_days,
+        "days_since": days_since,
+        "days_overdue": days_overdue,
+    }
+
+
+def evaluate_disaster_recovery(
+    fleet: dict,
+    baseline: dict,
+    posture_mode: str,
+    now_dt: datetime,
+    coo_open_tasks: Optional[List[Dict[str, str]]] = None,
+) -> tuple:
+    """Return (state, signals) for opt-in COO disaster-recovery stewardship."""
+    try:
+        policy = disaster_recovery_policy(fleet)
+    except ValueError as exc:
+        return {"enabled": True, "status": "unknown", "error": str(exc)}, ["head_due_coo_dr_analysis"]
+    if policy is None:
+        return None, []
+
+    receipts = _dr_receipts(baseline)
+    errors = []  # type: List[str]
+    freshness_at = _receipt_date(receipts, "last_freshness_check_at", errors)
+    analysis_at = _receipt_date(receipts, "last_analysis_at", errors)
+    restore_at = _receipt_date(receipts, "last_restore_drill_at", errors)
+    receipt_pairs = [
+        ("last_freshness_check_at", freshness_at),
+        ("last_analysis_at", analysis_at),
+        ("last_restore_drill_at", restore_at),
+    ]
+    future_fields = {field for field, value in receipt_pairs if value is not None and value > now_dt}
+    if future_fields:
+        errors.extend("future %s" % field for field in sorted(future_fields))
+        if "last_freshness_check_at" in future_fields:
+            freshness_at = None
+        if "last_analysis_at" in future_fields:
+            analysis_at = None
+        if "last_restore_drill_at" in future_fields:
+            restore_at = None
+    any_valid_receipt = bool(freshness_at or analysis_at or restore_at)
+
+    due = {
+        "freshness": _dr_due_state(freshness_at, policy["freshness_check_days"], policy["grace_days"], now_dt),
+        "analysis": _dr_due_state(analysis_at, policy["analysis_days"], policy["grace_days"], now_dt),
+        "restore_drill": _dr_due_state(restore_at, policy["restore_drill_days"], policy["grace_days"], now_dt),
+    }
+    if not any_valid_receipt:
+        due["freshness"].update({"due": False, "overdue": False, "days_since": None, "days_overdue": None})
+        due["analysis"].update({"due": True, "overdue": False, "days_since": None, "days_overdue": None})
+        due["restore_drill"].update({"due": False, "overdue": False, "days_since": None, "days_overdue": None})
+    if errors:
+        due["analysis"].update({"due": True, "overdue": False, "unknown": True})
+
+    open_tasks = coo_open_tasks or []
+    dr_tasks = [task for task in open_tasks if re.search(r"\b(dr|disaster[- ]recovery|recoverability)\b", task.get("subject") or "", re.I)]
+    obligation_paused = posture_mode == "dormant" and policy["tier"] in ("critical", "regulated_or_irreplaceable")
+    assignment = {
+        "outstanding": bool(dr_tasks),
+        "outstanding_handles": [task.get("handle") for task in dr_tasks if task.get("handle")],
+        "duplicate_suppressed": bool(dr_tasks),
+        "paused_by_posture": obligation_paused,
+        "action": "suppress_duplicate_existing_assignment" if dr_tasks else "none",
+    }
+    receipt_state = {
+        "last_freshness_check_at": receipts.get("last_freshness_check_at"),
+        "last_analysis_at": receipts.get("last_analysis_at"),
+        "last_restore_drill_at": receipts.get("last_restore_drill_at"),
+        "restore_tested": bool(restore_at),
+    }
+    for key in DR_RECEIPT_KEYS:
+        if key in receipts and isinstance(receipts.get(key), (str, int, float, bool)):
+            receipt_state[key] = receipts.get(key)
+
+    signals = []
+    for key, signal in (
+        ("freshness", "head_due_coo_dr_freshness"),
+        ("analysis", "head_due_coo_dr_analysis"),
+        ("restore_drill", "head_due_coo_dr_restore_drill"),
+    ):
+        if due[key].get("due"):
+            signals.append(signal)
+        if due[key].get("overdue"):
+            signals.append(signal.replace("head_due", "head_overdue"))
+    if errors:
+        signals.append("coo_dr_receipt_unknown")
+
+    return {
+        "enabled": True,
+        "status": "unknown" if errors else "ok",
+        "policy": policy,
+        "receipts": receipt_state,
+        "due": due,
+        "assignment": assignment,
+        "errors": errors,
+        "false_assurance_bans": ["policy_is_not_evidence", "remote_is_not_restore_proof", "backup_job_is_not_restore_proof"],
+    }, signals
 
 
 def hand_is_paused(baseline: dict, name: str) -> bool:
@@ -1271,6 +1456,8 @@ def main() -> int:
         "memo_limit": args.memo_limit,
     }
 
+    now_dt = datetime.now(timezone.utc)
+
     # --- fleet posture (continuity vs sleep) ---
     (
         posture_mode,
@@ -1279,6 +1466,12 @@ def main() -> int:
         posture_out,
     ) = resolve_posture(fleet, baseline)
     out["fleet_posture"] = posture_out
+
+    coo_open_tasks = list_open_handles(vivi, str(project), "head-coo", "task") if vivi else []
+    dr_state, dr_signals = evaluate_disaster_recovery(fleet, baseline, posture_mode, now_dt, coo_open_tasks)
+    if dr_state is not None:
+        out["disaster_recovery"] = dr_state
+        out["signals"].extend(dr_signals)
 
     # --- hands panes + bag ---
     runtime_states = {}  # type: Dict[str, str]
@@ -1521,7 +1714,6 @@ def main() -> int:
     # Completion: new mail from head identity/legacy_aliases in head_report_inbox.
     # Durable last-report on baseline head-*; opt-in: executive_cadence.enabled=true.
     # interval_sec / min_seconds_between_sweeps are ignored (legacy) — set every_n_loops.
-    now_dt = datetime.now(timezone.utc)
     loop_sec = int(posture_out.get("mind_loop_interval_sec") or mind_loop_interval_sec(fleet))
     head_blocks = {}
     nested_heads = fleet.get("heads") if isinstance(fleet.get("heads"), dict) else {}
@@ -1714,6 +1906,14 @@ def main() -> int:
         head_row["runtime"] = runtime_observation
         head_row["model_provenance"] = model_provenance(block, observed_model, fleet, "head")
         out["heads"][key] = head_row
+
+    dr_state = out.get("disaster_recovery")
+    coo_runtime = ((out.get("heads") or {}).get("head-coo") or {}).get("runtime") or {}
+    if isinstance(dr_state, dict) and coo_runtime.get("state") in ("starting", "submitting", "running"):
+        assignment = dr_state.setdefault("assignment", {})
+        assignment["runtime_backpressure"] = True
+        if assignment.get("action") == "none":
+            assignment["action"] = "suppress_duplicate_runtime_busy"
 
     # steward block from fleet + baseline + optional pane
     st_cfg = fleet.get("steward") or {}

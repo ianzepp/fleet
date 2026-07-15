@@ -40,7 +40,7 @@ Reporting a blocker without acting, delegating, escalating, or recording a valid
 | **operator** | `operator@…` | none | Human only — [`operator-mail.md`](references/operator-mail.md) |
 | **steward** | optional opt-in | tmux runtime | Dead-man, not Mind — **off by default**; operator must enable+arm per fleet — [`dead-man.md`](references/dead-man.md) |
 | **hand-N** | `hand-N@…` | configured runtime | `hand-1` merges to main; helpers select the logical role and derive the configured backend binding |
-| **head-*** | `head-*@…` | configured runtime | ceo=strategist (map health/buckets); cto post-main+gates; cxo purity (not operator-facing); helpers select the logical role and derive the configured backend binding |
+| **head-*** | `head-*@…` | configured runtime | ceo=strategist (map health/buckets); cto post-main+gates; cxo purity; coo ops readiness + opt-in DR stewardship (not operator-facing); helpers select the logical role and derive the configured backend binding |
 
 | Layout | Binding |
 | --- | --- |
@@ -98,6 +98,7 @@ Canon for absorb/accept: [`mind-cycle.md`](references/mind-cycle.md) § Absorb v
 | Posture | Per-fleet `growth` \| `standby` \| `dormant` — switch atomically with `scripts/fleet-posture.py`; willing to sleep when charter says so — [`fleet-posture.md`](references/fleet-posture.md) |
 | Loop continuity | Before ending a turn with delegated Hand/Head work outstanding, ensure a Fleet loop is active to collect the result. Create one if absent; if an existing interval is too slow for new operator-requested work, tighten it. Never create a duplicate — [`mind-cycle.md`](references/mind-cycle.md#adaptive-scheduled-cadence) |
 | Cadence | Scheduled loops adapt: thin/unchanged results → lengthen; accumulated work faster than absorption → shorten; completion → cancel. Replace schedules without duplicates and preserve goal/limits/stop condition — [`mind-cycle.md`](references/mind-cycle.md#adaptive-scheduled-cadence) |
+| COO DR | Top-level `disaster_recovery` is default-off and calendar/maturity-triggered. COO reports recoverability evidence/gaps only; no backup, restore, secret/provider/spend/external action. Policy/config, one Git remote, or backup-job success is never restore proof. |
 | Stuck | Freeze fails — name, unstick, pivot. No status-only blocked cycles. Stuck ≠ “must invent work” |
 | Harness | **Default:** Mind, Hands, and Heads use Pi; provider/model diversity preserves advisor independence. **Fleet config exceptions win** (desktop Mind, compatibility harness, operator-recorded mixed) — [`roles-and-harness.md`](references/roles-and-harness.md) |
 | Quality | Hand ships unit quality; **head-cto** reviews **main after merge** — not Mind peer-review of every packet, and not a Head review task opened per Hand completion. Low-risk completions satisfy accept via the Hand's `done` evidence; route full Head review by **risk signal, security/auth/persistence change, or sampled audit** — never universally |
