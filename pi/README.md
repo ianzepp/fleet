@@ -58,7 +58,10 @@ a reload can restore it. A detected current-directory fleet is only a candidate;
 it is never attached automatically. A foreign Mind attachment is refused unless
 `--takeover` is supplied and the confirmation dialog approves that the other
 Mind is dead or has yielded. The extension refuses to start its loop when a
-canonical external `fleet-loop.py` loop is already active.
+canonical external `fleet-loop.py` loop is already active. Pi-owned loop intent
+and cadence are stored in Pi session entries. After `/reload`, an active loop is
+recreated with a fresh countdown at the saved cadence; the exact pre-reload
+next-fire time is not preserved. A stopped loop remains stopped.
 
 Monitor attachment is separate Pi-local state. It never claims `mind_session`,
 never writes `fleet.json` or `mind-baseline.json`, never emits `FLEET_CYCLE`, and

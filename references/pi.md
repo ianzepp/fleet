@@ -225,6 +225,10 @@ Inspect or control the Pi-owned internal Mind loop.
 - The tool never arms a steward.
 - Starting or changing the loop is an operational mutation and should follow
   explicit operator intent.
+- Pi records the internal loop's running/stopped intent and cadence in session
+  entries. `/reload` tears down the old JavaScript timers, then recreates an
+  active loop with a fresh countdown after attachments and external-loop state
+  are restored. The exact pre-reload next-fire time is not preserved.
 
 Each scheduled internal cycle refreshes a sanitized sensor preflight and queues
 one valid `FLEET_CYCLE` follow-up when Pi is busy rather than interrupting an

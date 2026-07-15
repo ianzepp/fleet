@@ -19,6 +19,7 @@ const POLL_INTERVAL_MS = 60_000;
 const ATTACHMENT_ENTRY = "pi-fleet-attachment";
 const MONITOR_ENTRY = "pi-fleet-monitor";
 const VIEW_ENTRY = "pi-fleet-view";
+const LOOP_ENTRY = "pi-fleet-loop";
 const WIDGET_KEY = "pi-fleet";
 const STATUS_KEY = "pi-fleet";
 
@@ -75,6 +76,11 @@ type FleetViewMode = "compact" | "expanded" | "focus";
 type ViewEntry = {
   mode: FleetViewMode;
   fleetId?: string;
+};
+
+type LoopEntry = {
+  running: boolean;
+  intervalSec: number;
 };
 
 type State = {
@@ -240,6 +246,23 @@ function setView(pi: ExtensionAPI, mode: FleetViewMode, fleetId?: string): void 
   state.focusedFleetId = mode === "focus" ? fleetId : undefined;
   pi.appendEntry(VIEW_ENTRY, { mode, fleetId: state.focusedFleetId } satisfies ViewEntry);
   renderWidget(state.ctx);
+}
+
+function restoreLoopIntent(ctx: ExtensionContext): LoopEntry | undefined {
+  let intent: LoopEntry | undefined;
+  for (const entry of ctx.sessionManager.getBranch()) {
+    if (entry.type !== "custom" || entry.customType !== LOOP_ENTRY) continue;
+    const data = entry.data as Partial<LoopEntry> | undefined;
+    if (typeof data?.running !== "boolean") continue;
+    const intervalSec = numeric(data.intervalSec);
+    if (intervalSec < MIN_INTERVAL_SEC) continue;
+    intent = { running: data.running, intervalSec };
+  }
+  return intent;
+}
+
+function saveLoopIntent(pi: ExtensionAPI, running: boolean): void {
+  pi.appendEntry(LOOP_ENTRY, { running, intervalSec: state.intervalSec } satisfies LoopEntry);
 }
 
 function parseDuration(value: string | undefined): number {
@@ -1078,9 +1101,27 @@ async function detach(pi: ExtensionAPI, ctx: ExtensionContext, input: string): P
   state.externalLoops.delete(fleet.root);
   state.lastError = undefined;
   appendAttachmentEntry(pi, fleet, "detach");
-  if (state.attachments.size === 0) stopTimers();
+  if (state.attachments.size === 0) {
+    stopTimers();
+    saveLoopIntent(pi, false);
+  }
   renderWidget(ctx);
   ctx.ui.notify(`Detached ${fleet.fleetId}`, "info");
+}
+
+async function resumeLoop(pi: ExtensionAPI, intent: LoopEntry | undefined): Promise<void> {
+  if (!intent?.running || state.attachments.size === 0) return;
+  const activeExternal = [...state.externalLoops.entries()].filter(([, loop]) => loop.running !== false);
+  if (activeExternal.length > 0) {
+    const uncertain = activeExternal.some(([, loop]) => loop.running !== true);
+    state.lastError = uncertain
+      ? `cannot restore internal loop: external fleet-loop.py state is uncertain for ${activeExternal.map(([root]) => root).join(", ")}`
+      : `internal loop not restored: external fleet-loop.py is running for ${activeExternal.map(([root]) => root).join(", ")}`;
+    return;
+  }
+  state.intervalSec = intent.intervalSec;
+  state.lastError = undefined;
+  startTimers(pi);
 }
 
 async function startLoop(pi: ExtensionAPI, interval?: string): Promise<void> {
@@ -1099,6 +1140,7 @@ async function startLoop(pi: ExtensionAPI, interval?: string): Promise<void> {
   state.intervalSec = requested;
   state.lastError = undefined;
   startTimers(pi);
+  saveLoopIntent(pi, true);
   queueCycle(pi, "loop start");
 }
 
@@ -1106,6 +1148,7 @@ async function updateLoop(pi: ExtensionAPI, interval: string): Promise<void> {
   if (!state.loopRunning) throw new Error("internal Fleet loop is not running");
   state.intervalSec = parseDuration(interval);
   startTimers(pi);
+  saveLoopIntent(pi, true);
   renderWidget(state.ctx!);
 }
 
@@ -1198,13 +1241,17 @@ export default function (pi: ExtensionAPI): void {
         else if (action === "update") await updateLoop(pi, parts[0] ?? "");
         else if (action === "stop") {
           stopTimers();
+          saveLoopIntent(pi, false);
           renderWidget(ctx);
           ctx.ui.notify("Internal Fleet loop stopped", "info");
         } else if (action === "loop") {
           const loopAction = parts.shift() ?? "status";
           if (loopAction === "start") await startLoop(pi, parts[0]);
           else if (loopAction === "update") await updateLoop(pi, parts[0] ?? "");
-          else if (loopAction === "stop") stopTimers();
+          else if (loopAction === "stop") {
+            stopTimers();
+            saveLoopIntent(pi, false);
+          }
           else if (loopAction !== "status") throw new Error(`unknown loop action: ${loopAction}`);
           renderWidget(ctx);
         } else {
@@ -1370,7 +1417,10 @@ export default function (pi: ExtensionAPI): void {
       state.ctx = ctx;
       if (params.action === "start") await startLoop(pi, params.interval);
       else if (params.action === "update") await updateLoop(pi, params.interval ?? "");
-      else if (params.action === "stop") stopTimers();
+      else if (params.action === "stop") {
+        stopTimers();
+        saveLoopIntent(pi, false);
+      }
       const details = await loopStatus(pi);
       renderWidget(state.ctx!);
       return summaryContent(`Fleet loop ${details.running ? "running" : "stopped"} interval=${details.interval_sec}s attached=${(details.attached as FleetRef[]).map((fleet) => fleet.fleetId).join(",") || "none"}`, details);
@@ -1390,8 +1440,12 @@ export default function (pi: ExtensionAPI): void {
     restoreAttachments(ctx);
     restoreMonitors(ctx);
     restoreView(ctx);
+    const loopIntent = restoreLoopIntent(ctx);
     renderWidget(ctx);
-    if (state.attachments.size > 0) await refreshAll(pi, false);
+    if (state.attachments.size > 0) {
+      await refreshAll(pi, false);
+      await resumeLoop(pi, loopIntent);
+    }
     if (state.monitors.size > 0) {
       await refreshMonitors(pi, false);
       startMonitorTimer(pi);
@@ -1403,6 +1457,7 @@ export default function (pi: ExtensionAPI): void {
   });
 
   pi.on("session_shutdown", () => {
+    if (state.loopRunning) saveLoopIntent(pi, true);
     stopTimers();
     stopMonitorTimer();
     stopUiTimer();
