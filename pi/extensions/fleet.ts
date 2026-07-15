@@ -1,4 +1,6 @@
-import { readFileSync, existsSync } from "node:fs";
+import { chmodSync, existsSync, readFileSync, statSync, unlinkSync } from "node:fs";
+import { createServer } from "node:net";
+import type { Server, Socket } from "node:net";
 import { hostname } from "node:os";
 import { dirname, resolve } from "node:path";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
@@ -20,12 +22,20 @@ const ATTACHMENT_ENTRY = "pi-fleet-attachment";
 const MONITOR_ENTRY = "pi-fleet-monitor";
 const VIEW_ENTRY = "pi-fleet-view";
 const LOOP_ENTRY = "pi-fleet-loop";
+const MAIL_WAKE_ENTRY = "pi-fleet-mail-wake";
+const MAIL_WAKE_SOCKET = "pi-fleet-wake.sock";
+const MAIL_WAKE_QUIET_MS = 60_000;
+const MAIL_WAKE_MAX_IDS = 50;
+const MAIL_WAKE_MAX_ID_LEN = 160;
+const MAIL_WAKE_MAX_ACCOUNT_LEN = 128;
+const MAIL_WAKE_MAX_LINE = 8192;
+const MAIL_WAKE_SEEN_LIMIT = 500;
 const WIDGET_KEY = "pi-fleet";
 const STATUS_KEY = "pi-fleet";
 
 type JsonObject = Record<string, unknown>;
 
-type FleetRef = {
+export type FleetRef = {
   root: string;
   fleetId: string;
   fleetFile: string;
@@ -83,6 +93,240 @@ type LoopEntry = {
   intervalSec: number;
 };
 
+type MailWakeStateEntry = {
+  version: 1;
+  seenIds: string[];
+  windowDeadlineAt?: string;
+  pendingIds: string[];
+};
+
+export type TrustedMailWakeEvent = {
+  kind: "trusted_mail";
+  account: string;
+  messageIds: string[];
+  timestamp: string;
+};
+
+export type MailWakeCycle = {
+  trigger: "leading" | "trailing" | "retry";
+  messageIds: string[];
+  count: number;
+};
+
+export type MailWakeSnapshot = {
+  seenIds: string[];
+  windowDeadlineMs?: number;
+  pendingIds: string[];
+};
+
+export class MailWakeCapacityError extends Error {
+  readonly retryable = true;
+
+  constructor(message: string) {
+    super(message);
+    this.name = "MailWakeCapacityError";
+  }
+}
+
+export class MailWakeDebouncer {
+  private readonly seenIds: string[];
+  private readonly seenSet: Set<string>;
+  private readonly pendingIds: string[];
+  private readonly pendingSet: Set<string>;
+  private windowDeadlineMs?: number;
+
+  constructor(
+    private readonly quietMs = MAIL_WAKE_QUIET_MS,
+    snapshot?: MailWakeSnapshot,
+    private readonly seenLimit = MAIL_WAKE_SEEN_LIMIT,
+  ) {
+    this.seenIds = [];
+    this.seenSet = new Set();
+    this.pendingIds = [];
+    this.pendingSet = new Set();
+    for (const id of snapshot?.seenIds ?? []) this.rememberSeen(id);
+    this.windowDeadlineMs = snapshot?.windowDeadlineMs;
+    this.assertPendingCapacity(snapshot?.pendingIds ?? []);
+    for (const id of snapshot?.pendingIds ?? []) this.rememberPending(id);
+  }
+
+  ingest(event: TrustedMailWakeEvent, nowMs: number): MailWakeCycle[] {
+    const newIds: string[] = [];
+    const eventSeen = new Set<string>();
+    for (const id of event.messageIds) {
+      if (eventSeen.has(id) || this.seenSet.has(id)) continue;
+      eventSeen.add(id);
+      newIds.push(id);
+    }
+    if (newIds.length === 0) return [];
+    if (newIds.length > MAIL_WAKE_MAX_IDS) {
+      throw new MailWakeCapacityError(`mail wake event capacity exceeded: max ${MAIL_WAKE_MAX_IDS} message IDs`);
+    }
+    if (this.windowDeadlineMs !== undefined) this.assertPendingCapacity(newIds);
+    for (const id of newIds) this.rememberSeen(id);
+    if (this.windowDeadlineMs === undefined) {
+      this.windowDeadlineMs = nowMs + this.quietMs;
+      return [{ trigger: "leading", messageIds: newIds, count: newIds.length }];
+    }
+    if (nowMs >= this.windowDeadlineMs) {
+      const duePending = [...this.pendingIds];
+      this.pendingIds.length = 0;
+      this.pendingSet.clear();
+      this.windowDeadlineMs = nowMs + this.quietMs;
+      const messageIds = [...duePending, ...newIds];
+      return [{ trigger: duePending.length > 0 ? "trailing" : "leading", messageIds, count: messageIds.length }];
+    }
+    for (const id of newIds) this.rememberPending(id);
+    this.windowDeadlineMs = nowMs + this.quietMs;
+    return [];
+  }
+
+  retainForRetry(cycle: MailWakeCycle, nowMs: number): void {
+    this.assertPendingCapacity(cycle.messageIds);
+    for (const id of cycle.messageIds) this.rememberPending(id);
+    if (this.pendingIds.length > 0) this.windowDeadlineMs = nowMs + this.quietMs;
+  }
+
+  due(nowMs: number): MailWakeCycle | undefined {
+    if (this.windowDeadlineMs === undefined || nowMs < this.windowDeadlineMs) return undefined;
+    this.windowDeadlineMs = undefined;
+    if (this.pendingIds.length === 0) return undefined;
+    const messageIds = [...this.pendingIds];
+    this.pendingIds.length = 0;
+    this.pendingSet.clear();
+    return { trigger: "trailing", messageIds, count: messageIds.length };
+  }
+
+  nextDeadlineMs(): number | undefined {
+    return this.windowDeadlineMs;
+  }
+
+  snapshot(): MailWakeSnapshot {
+    return {
+      seenIds: [...this.seenIds],
+      windowDeadlineMs: this.windowDeadlineMs,
+      pendingIds: [...this.pendingIds],
+    };
+  }
+
+  private rememberSeen(id: string): void {
+    if (this.seenSet.has(id)) return;
+    this.seenSet.add(id);
+    this.seenIds.push(id);
+    while (this.seenIds.length > this.seenLimit) {
+      const removed = this.seenIds.shift();
+      if (removed) this.seenSet.delete(removed);
+    }
+  }
+
+  private assertPendingCapacity(ids: string[]): void {
+    const additional = ids.filter((id) => !this.pendingSet.has(id));
+    if (this.pendingIds.length + additional.length > MAIL_WAKE_MAX_IDS) {
+      throw new MailWakeCapacityError(`mail wake pending capacity exceeded: max ${MAIL_WAKE_MAX_IDS} message IDs`);
+    }
+  }
+
+  private rememberPending(id: string): void {
+    if (this.pendingSet.has(id)) return;
+    this.pendingSet.add(id);
+    this.pendingIds.push(id);
+  }
+}
+
+export function applyMailWakeDispatchResults(
+  debouncer: MailWakeDebouncer,
+  cycles: MailWakeCycle[],
+  dispatch: (cycle: MailWakeCycle) => boolean,
+  nowMs: number,
+): { ok: boolean; accepted: boolean; new_cycles: string[]; error?: string; retryable?: boolean } {
+  let accepted = true;
+  let error: string | undefined;
+  let retryable: boolean | undefined;
+  for (const cycle of cycles) {
+    if (dispatch(cycle)) continue;
+    try {
+      debouncer.retainForRetry(cycle, nowMs);
+      error = "trusted mail wake queued for retry; active Fleet cycle was unavailable";
+      retryable = true;
+    } catch (caught) {
+      error = caught instanceof Error ? caught.message : String(caught);
+      retryable = caught instanceof MailWakeCapacityError ? caught.retryable : undefined;
+    }
+    accepted = false;
+  }
+  return {
+    ok: accepted,
+    accepted,
+    new_cycles: cycles.map((cycle) => cycle.trigger),
+    error,
+    retryable,
+  };
+}
+
+export function mailWakeDueOnLoopStart(loopRunning: boolean, debouncer: MailWakeDebouncer, nowMs: number): MailWakeCycle | undefined {
+  return loopRunning ? debouncer.due(nowMs) : undefined;
+}
+
+function hasForbiddenMailWakeKey(value: unknown): boolean {
+  if (!value || typeof value !== "object") return false;
+  if (Array.isArray(value)) return value.some(hasForbiddenMailWakeKey);
+  for (const [key, child] of Object.entries(value as JsonObject)) {
+    const normalized = key.toLowerCase();
+    if (["body", "body_text", "body_html", "html", "text", "content", "snippet", "preview", "subject"].includes(normalized)) return true;
+    if (hasForbiddenMailWakeKey(child)) return true;
+  }
+  return false;
+}
+
+function validWakeToken(value: unknown, maxLen: number): value is string {
+  return typeof value === "string" && value.length > 0 && value.length <= maxLen && !/[\s\x00-\x1f\x7f]/.test(value);
+}
+
+export function parseTrustedMailWakePayload(value: unknown): TrustedMailWakeEvent {
+  if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("mail wake event must be a JSON object");
+  if (hasForbiddenMailWakeKey(value)) throw new Error("mail wake event must not include message body or prompt fields");
+  const raw = value as JsonObject;
+  const allowed = new Set(["kind", "account", "message_ids", "messageIds", "count", "timestamp"]);
+  for (const key of Object.keys(raw)) {
+    if (!allowed.has(key)) throw new Error(`unsupported mail wake field: ${key}`);
+  }
+  if (raw.kind !== "trusted_mail") throw new Error("mail wake event kind must be trusted_mail");
+  if (!validWakeToken(raw.account, MAIL_WAKE_MAX_ACCOUNT_LEN)) throw new Error("invalid mail wake account");
+  const rawIds = raw.message_ids ?? raw.messageIds;
+  if (!Array.isArray(rawIds) || rawIds.length === 0 || rawIds.length > MAIL_WAKE_MAX_IDS) throw new Error("invalid mail wake message_ids");
+  const messageIds: string[] = [];
+  const seen = new Set<string>();
+  for (const id of rawIds) {
+    if (!validWakeToken(id, MAIL_WAKE_MAX_ID_LEN)) throw new Error("invalid mail wake message_id");
+    if (!seen.has(id)) {
+      seen.add(id);
+      messageIds.push(id);
+    }
+  }
+  if (typeof raw.count !== "number" || !Number.isInteger(raw.count) || raw.count < messageIds.length || raw.count > MAIL_WAKE_MAX_IDS) {
+    throw new Error("invalid mail wake count");
+  }
+  if (typeof raw.timestamp !== "string" || !Number.isFinite(Date.parse(raw.timestamp))) throw new Error("invalid mail wake timestamp");
+  return { kind: "trusted_mail", account: raw.account, messageIds, timestamp: raw.timestamp };
+}
+
+function mailWakeEntryFromSnapshot(snapshot: MailWakeSnapshot): MailWakeStateEntry {
+  return {
+    version: 1,
+    seenIds: snapshot.seenIds.slice(-MAIL_WAKE_SEEN_LIMIT),
+    windowDeadlineAt: snapshot.windowDeadlineMs === undefined ? undefined : new Date(snapshot.windowDeadlineMs).toISOString(),
+    pendingIds: snapshot.pendingIds.slice(0, MAIL_WAKE_MAX_IDS),
+  };
+}
+
+function mailWakeSnapshotFromEntry(entry: Partial<MailWakeStateEntry> | undefined): MailWakeSnapshot | undefined {
+  if (entry?.version !== 1 || !Array.isArray(entry.seenIds) || !Array.isArray(entry.pendingIds)) return undefined;
+  const seenIds = entry.seenIds.filter((id) => validWakeToken(id, MAIL_WAKE_MAX_ID_LEN)).slice(-MAIL_WAKE_SEEN_LIMIT);
+  const pendingIds = entry.pendingIds.filter((id) => validWakeToken(id, MAIL_WAKE_MAX_ID_LEN)).slice(0, MAIL_WAKE_MAX_IDS);
+  const deadline = typeof entry.windowDeadlineAt === "string" ? Date.parse(entry.windowDeadlineAt) : undefined;
+  return { seenIds, pendingIds, windowDeadlineMs: Number.isFinite(deadline) ? deadline : undefined };
+}
+
 type State = {
   ctx?: ExtensionContext;
   candidate?: FleetRef;
@@ -98,6 +342,9 @@ type State = {
   monitorTimer?: ReturnType<typeof setInterval>;
   loopTimer?: ReturnType<typeof setInterval>;
   uiTimer?: ReturnType<typeof setInterval>;
+  mailWakeTimer?: ReturnType<typeof setTimeout>;
+  mailWakeSockets: Map<string, Server>;
+  mailWakeDebouncer: MailWakeDebouncer;
   pollInFlight: boolean;
   cycleInFlight: boolean;
   cycleQueued: boolean;
@@ -122,6 +369,8 @@ const state: State = {
   monitorBaselines: new Map(),
   monitorEvents: new Map(),
   externalLoops: new Map(),
+  mailWakeSockets: new Map(),
+  mailWakeDebouncer: new MailWakeDebouncer(),
   pollInFlight: false,
   cycleInFlight: false,
   cycleQueued: false,
@@ -146,6 +395,35 @@ function fleetIdOf(config: JsonObject, root: string): string {
     if (typeof value === "string" && value.trim()) return value.trim();
   }
   return resolve(root).split(/[\\/]/).filter(Boolean).pop() ?? "fleet";
+}
+
+export function fleetConfigHasMailWakeCapability(config: Record<string, unknown> | undefined): boolean {
+  const bridge = config?.ops_bridge;
+  return !!bridge && typeof bridge === "object" && !Array.isArray(bridge);
+}
+
+export function selectMailWakeOwner(
+  fleets: FleetRef[],
+  configForFleet: (fleet: FleetRef) => Record<string, unknown> | undefined,
+): { fleet?: FleetRef; error?: string } {
+  const capable = fleets.filter((fleet) => fleetConfigHasMailWakeCapability(configForFleet(fleet)));
+  if (capable.length === 0) return {};
+  if (capable.length === 1) return { fleet: capable[0] };
+  return { error: `multiple Ops-capable Fleet wake owners attached: ${capable.map((fleet) => fleet.fleetId).join(", ")}` };
+}
+
+export function mailWakeEndpointPlan(
+  loopRunning: boolean,
+  fleets: FleetRef[],
+  configForFleet: (fleet: FleetRef) => Record<string, unknown> | undefined,
+): { fleet?: FleetRef; error?: string } {
+  if (!loopRunning) return {};
+  return selectMailWakeOwner(fleets, configForFleet);
+}
+
+export function clearMailWakeTimerHandle(timer: ReturnType<typeof setTimeout> | undefined): undefined {
+  if (timer) clearTimeout(timer);
+  return undefined;
 }
 
 function inspectFleet(input: string): FleetRef | undefined {
@@ -859,6 +1137,8 @@ function stopTimers(): void {
   if (state.loopTimer) clearInterval(state.loopTimer);
   state.pollTimer = undefined;
   state.loopTimer = undefined;
+  stopMailWakeSockets();
+  state.mailWakeTimer = clearMailWakeTimerHandle(state.mailWakeTimer);
   state.loopRunning = false;
   state.nextCycleAt = undefined;
   state.cycleQueued = false;
@@ -881,13 +1161,21 @@ function startTimers(pi: ExtensionAPI): void {
       renderWidget(state.ctx);
     });
   }, state.intervalSec * 1000);
+  startConfiguredMailWakeSocket(pi);
+  const now = Date.now();
+  const dueCycle = mailWakeDueOnLoopStart(state.loopRunning, state.mailWakeDebouncer, now);
+  if (dueCycle) {
+    applyMailWakeDispatchResults(state.mailWakeDebouncer, [dueCycle], (cycle) => dispatchMailWakeCycle(pi, cycle), now);
+  }
+  saveMailWakeState(pi);
+  scheduleMailWakeTimer(pi);
   renderWidget(state.ctx!);
 }
 
-function queueCycle(pi: ExtensionAPI, reason: string): void {
-  if (!state.loopRunning || state.attachments.size === 0 || state.cycleQueued || state.cycleInFlight) return;
+function queueCycle(pi: ExtensionAPI, reason: string, allowBusyFollowUp = false): boolean {
+  if (!state.loopRunning || state.attachments.size === 0 || state.cycleQueued || (state.cycleInFlight && !allowBusyFollowUp)) return false;
   const ctx = state.ctx;
-  if (!ctx) return;
+  if (!ctx) return false;
   state.cycleQueued = true;
   try {
     const payload = `${cyclePayload()}\n\nReason: ${reason}`;
@@ -895,10 +1183,146 @@ function queueCycle(pi: ExtensionAPI, reason: string): void {
     pi.sendUserMessage(payload, delivery ? { deliverAs: delivery } : undefined);
     state.lastCycleAt = new Date().toISOString();
     state.cycleInFlight = true;
+    return true;
   } catch (error) {
     state.lastError = error instanceof Error ? error.message : String(error);
+    return false;
   } finally {
     state.cycleQueued = false;
+  }
+}
+
+function mailWakeReason(cycle: MailWakeCycle): string {
+  return `trusted mail ${cycle.trigger}: count=${cycle.count} message_ids=${cycle.messageIds.join(",")}`;
+}
+
+function saveMailWakeState(pi: ExtensionAPI): void {
+  pi.appendEntry(MAIL_WAKE_ENTRY, mailWakeEntryFromSnapshot(state.mailWakeDebouncer.snapshot()));
+}
+
+function dispatchMailWakeCycle(pi: ExtensionAPI, cycle: MailWakeCycle): boolean {
+  const sent = queueCycle(pi, mailWakeReason(cycle), true);
+  if (!sent) state.lastError = "trusted mail wake queued for retry; active Fleet cycle was unavailable";
+  renderWidget(state.ctx);
+  return sent;
+}
+
+function scheduleMailWakeTimer(pi: ExtensionAPI): void {
+  state.mailWakeTimer = clearMailWakeTimerHandle(state.mailWakeTimer);
+  const deadline = state.mailWakeDebouncer.nextDeadlineMs();
+  if (deadline === undefined) return;
+  const delay = Math.max(0, deadline - Date.now());
+  state.mailWakeTimer = setTimeout(() => {
+    const now = Date.now();
+    const cycle = state.mailWakeDebouncer.due(now);
+    if (cycle) {
+      applyMailWakeDispatchResults(state.mailWakeDebouncer, [cycle], (dueCycle) => dispatchMailWakeCycle(pi, dueCycle), now);
+    }
+    saveMailWakeState(pi);
+    scheduleMailWakeTimer(pi);
+  }, delay);
+}
+
+function restoreMailWakeState(ctx: ExtensionContext): void {
+  let snapshot: MailWakeSnapshot | undefined;
+  for (const entry of ctx.sessionManager.getBranch()) {
+    if (entry.type !== "custom" || entry.customType !== MAIL_WAKE_ENTRY) continue;
+    snapshot = mailWakeSnapshotFromEntry(entry.data as Partial<MailWakeStateEntry> | undefined) ?? snapshot;
+  }
+  state.mailWakeDebouncer = new MailWakeDebouncer(MAIL_WAKE_QUIET_MS, snapshot);
+}
+
+function acceptMailWakeEvent(pi: ExtensionAPI, payload: unknown): JsonObject {
+  const event = parseTrustedMailWakePayload(payload);
+  const now = Date.now();
+  const cycles = state.mailWakeDebouncer.ingest(event, now);
+  const result = applyMailWakeDispatchResults(state.mailWakeDebouncer, cycles, (cycle) => dispatchMailWakeCycle(pi, cycle), now);
+  saveMailWakeState(pi);
+  scheduleMailWakeTimer(pi);
+  return { ...result, message_count: event.messageIds.length };
+}
+
+function wakeSocketPath(fleet: FleetRef): string {
+  return resolve(fleet.root, ".vivi", MAIL_WAKE_SOCKET);
+}
+
+function stopMailWakeSocket(fleet: FleetRef): void {
+  const server = state.mailWakeSockets.get(fleet.root);
+  state.mailWakeSockets.delete(fleet.root);
+  if (server) server.close();
+  const path = wakeSocketPath(fleet);
+  try {
+    if (existsSync(path) && statSync(path).isSocket()) unlinkSync(path);
+  } catch {
+    // Best-effort cleanup only; stale sockets are handled on next start.
+  }
+}
+
+function stopMailWakeSockets(): void {
+  for (const fleet of state.attachments.values()) stopMailWakeSocket(fleet);
+}
+
+function startConfiguredMailWakeSocket(pi: ExtensionAPI): void {
+  stopMailWakeSockets();
+  const selection = mailWakeEndpointPlan(
+    state.loopRunning,
+    [...state.attachments.values()],
+    (fleet) => jsonFile(fleet.fleetFile),
+  );
+  if (selection.error) {
+    state.lastError = selection.error;
+    renderWidget(state.ctx);
+    return;
+  }
+  if (selection.fleet) startMailWakeSocket(pi, selection.fleet);
+}
+
+function handleMailWakeSocket(pi: ExtensionAPI, socket: Socket): void {
+  let buffer = "";
+  socket.setEncoding("utf8");
+  socket.on("data", (chunk: string) => {
+    buffer += chunk;
+    if (buffer.length > MAIL_WAKE_MAX_LINE) {
+      socket.end(JSON.stringify({ ok: false, error: "mail wake event too large" }) + "\n");
+      return;
+    }
+    const index = buffer.indexOf("\n");
+    if (index < 0) return;
+    const line = buffer.slice(0, index);
+    try {
+      const result = acceptMailWakeEvent(pi, JSON.parse(line));
+      socket.end(JSON.stringify(result) + "\n");
+    } catch (error) {
+      socket.end(JSON.stringify({
+        ok: false,
+        accepted: false,
+        retryable: error instanceof MailWakeCapacityError ? error.retryable : undefined,
+        error: error instanceof Error ? error.message : String(error),
+      }) + "\n");
+    }
+  });
+}
+
+function startMailWakeSocket(pi: ExtensionAPI, fleet: FleetRef): void {
+  if (state.mailWakeSockets.has(fleet.root)) return;
+  const path = wakeSocketPath(fleet);
+  try {
+    if (existsSync(path)) {
+      const existing = statSync(path);
+      if (existing.isSocket()) unlinkSync(path);
+      else throw new Error(`mail wake endpoint exists and is not a socket: ${path}`);
+    }
+    const server = createServer((socket) => handleMailWakeSocket(pi, socket));
+    server.on("error", (error) => {
+      state.lastError = `mail wake socket ${fleet.fleetId}: ${error instanceof Error ? error.message : String(error)}`;
+      renderWidget(state.ctx);
+    });
+    server.listen(path, () => {
+      chmodSync(path, 0o600);
+    });
+    state.mailWakeSockets.set(fleet.root, server);
+  } catch (error) {
+    state.lastError = `mail wake socket ${fleet.fleetId}: ${error instanceof Error ? error.message : String(error)}`;
   }
 }
 
@@ -935,6 +1359,7 @@ async function attach(pi: ExtensionAPI, ctx: ExtensionContext, input: string, ta
   state.candidate = undefined;
   state.lastError = undefined;
   appendAttachmentEntry(pi, fleet, "attach");
+  if (state.loopRunning) startConfiguredMailWakeSocket(pi);
   await refreshFleet(pi, fleet, false);
   renderWidget(ctx);
   ctx.ui.notify(`Attached ${fleet.fleetId}`, "info");
@@ -1138,6 +1563,7 @@ async function detach(pi: ExtensionAPI, ctx: ExtensionContext, input: string): P
     BASELINE_SCRIPT, "bump", "--project", fleet.root, "--fleet", fleet.fleetId,
     "--summary", `pi fleet detach: ${label}`, "--acted", "--detach",
   ], undefined, 20_000);
+  stopMailWakeSocket(fleet);
   state.attachments.delete(fleet.root);
   state.snapshots.delete(fleet.root);
   state.baselines.delete(fleet.root);
@@ -1147,6 +1573,8 @@ async function detach(pi: ExtensionAPI, ctx: ExtensionContext, input: string): P
   if (state.attachments.size === 0) {
     stopTimers();
     saveLoopIntent(pi, false);
+  } else if (state.loopRunning) {
+    startConfiguredMailWakeSocket(pi);
   }
   renderWidget(ctx);
   ctx.ui.notify(`Detached ${fleet.fleetId}`, "info");
@@ -1526,6 +1954,7 @@ export default function (pi: ExtensionAPI): void {
     restoreAttachments(ctx);
     restoreMonitors(ctx);
     restoreView(ctx);
+    restoreMailWakeState(ctx);
     const loopIntent = restoreLoopIntent(ctx);
     renderWidget(ctx);
     if (state.attachments.size > 0) {
@@ -1546,6 +1975,8 @@ export default function (pi: ExtensionAPI): void {
     if (state.loopRunning) saveLoopIntent(pi, true);
     stopTimers();
     stopMonitorTimer();
+    stopMailWakeSockets();
+    state.mailWakeTimer = clearMailWakeTimerHandle(state.mailWakeTimer);
     stopUiTimer();
     state.ctx = undefined;
     state.snapshots.clear();
