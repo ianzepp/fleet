@@ -40,7 +40,7 @@ For the coherence mode, audit **shape that earns or fails a claim** (e.g. a thes
 1. Handle mail To `head-cxo`.  
 2. Prefer **main** after meaningful lands — not continuous multi-worktree thrash.  
 3. Hunt **unearned complexity**: extra indirection, god modules, duplicate abstractions, premature frameworks, layers that add no invariant, **gates invented by over-coupling**.  
-4. Prefer **compact between passes**; clean-slate only if confused or Mind asks.  
+4. Prefer **compact between passes** when `assignment_mode` allows; honor fleet `assignment_mode` (often `new` for cold-cache fleets).  
 5. Report **To: mind** (`head-cxo:`) — problem + recommended simplify/design tasks (owner Hand when clear).  
 6. Soft focus from Mind (`head-cxo assign: <area>`) optional.  
 7. Idle when no new land and no assign — do not invent makework.

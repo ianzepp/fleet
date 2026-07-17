@@ -96,6 +96,7 @@ Canon for absorb/accept: [`mind-cycle.md`](references/mind-cycle.md) § Absorb v
 | Growth liveness | In `growth`, an idle product Hand with no queued unit is **not** a quiet cycle: trigger an executive refill sweep immediately; do not wait for the normal Head cadence. |
 | Wake on mail | Each Mind cycle is the debounce: new board mail addressed to a process role wakes that role when idle. Executive cadence governs unsolicited sweeps, never addressed work. Running panes are not interrupted; the next cycle retries after they become idle. |
 | Posture | Per-fleet `growth` \| `standby` \| `dormant` — switch atomically with `scripts/fleet-posture.py`; willing to sleep when charter says so — [`fleet-posture.md`](references/fleet-posture.md) |
+| Assignment mode | Per Hand/Head `assignment_mode`: `new` \| `compact` \| `continue` \| `restart` — session prep on each **new** work item ([`runtime-config.md`](references/runtime-config.md)); legacy `clean_slate_per_assignment: true` ≡ `new` |
 | Loop continuity | Before ending a turn with delegated Hand/Head work outstanding, ensure a Fleet loop is active to collect the result. Create one if absent; if an existing interval is too slow for new operator-requested work, tighten it. Never create a duplicate — [`mind-cycle.md`](references/mind-cycle.md#adaptive-scheduled-cadence) |
 | Cadence | Scheduled loops adapt: thin/unchanged results → lengthen; accumulated work faster than absorption → shorten; completion → cancel. Replace schedules without duplicates and preserve goal/limits/stop condition — [`mind-cycle.md`](references/mind-cycle.md#adaptive-scheduled-cadence) |
 | COO DR | Top-level `disaster_recovery` is default-off and calendar/maturity-triggered. COO reports recoverability evidence/gaps only; no backup, restore, secret/provider/spend/external action. Policy/config, one Git remote, or backup-job success is never restore proof. |
@@ -390,6 +391,13 @@ Vivi = work truth. The configured tmux or `vivi_pty` runtime = process truth. Se
 | `approval_required` | Resolve the approval boundary; do not stack input |
 | `failed` / `stopped` | Diagnose, rebind, or recreate |
 | `unknown` | Use evidence and stability; never claim false certainty |
+
+**`assignment_mode`** (per Hand/Head in `fleet.json`): how Mind prepares the
+agent session for each **new** work item — `new` | `compact` | `continue` |
+`restart`. Resolved via `fleet-resolve.py` (`assignment_mode` field). Legacy
+`clean_slate_per_assignment: true` ≡ `new`. Full table:
+[`runtime-config.md`](references/runtime-config.md) § assignment_mode. Do not
+pointer-only into a cold-cache fleet that is configured for `new`.
 
 Pointers go through the configured runtime; done-when stays in Vivi. CLI: [`vivi.md`](references/vivi.md). Watch/thread: [`dual-channel.md`](references/dual-channel.md). Remote: [`ssh-remote.md`](references/ssh-remote.md).
 

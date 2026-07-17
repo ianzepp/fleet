@@ -274,6 +274,37 @@ def _tmux_parts(target: str) -> Tuple[str, str, str]:
     return match.group(1), match.group(2), match.group(3) or ""
 
 
+# How Mind prepares a Hand/Head agent session when starting a *new* work item.
+# See references/runtime-config.md § assignment_mode.
+ASSIGNMENT_MODES = frozenset({"new", "compact", "continue", "restart"})
+
+
+def resolve_assignment_mode(slot: Dict[str, Any]) -> str:
+    """Resolve per-role session policy for a new assignment.
+
+    Canonical field: ``assignment_mode`` ∈ {new, compact, continue, restart}.
+
+    Legacy: ``clean_slate_per_assignment: true`` → ``new``;
+    ``false`` → ``continue``. Unset defaults to ``continue`` (pointer into the
+    existing session; historical Hand default).
+    """
+    raw = slot.get("assignment_mode")
+    if raw is not None and str(raw).strip() != "":
+        mode = str(raw).strip().lower()
+        if mode not in ASSIGNMENT_MODES:
+            raise FleetScopeError(
+                "assignment_mode must be one of %s, got %r"
+                % (sorted(ASSIGNMENT_MODES), raw)
+            )
+        return mode
+    legacy = slot.get("clean_slate_per_assignment")
+    if legacy is True:
+        return "new"
+    if legacy is False:
+        return "continue"
+    return "continue"
+
+
 def resolve_runtime_binding(
     fleet: Dict[str, Any],
     role: str,
@@ -292,6 +323,7 @@ def resolve_runtime_binding(
     if isinstance(slot.get("packet"), dict):
         packet = slot["packet"]
         cwd = str(packet.get("worker_cwd") or packet.get("root") or cwd)
+    assignment_mode = resolve_assignment_mode(slot if isinstance(slot, dict) else {})
 
     if kind == "vivi_pty":
         session_id = str(runtime.get("session_id") or mail_identity or name)
@@ -320,6 +352,7 @@ def resolve_runtime_binding(
                 180 if slot.get("min_seconds_between_wakes") is None
                 else slot.get("min_seconds_between_wakes")
             ),
+            "assignment_mode": assignment_mode,
         }
 
     configured_target = slot.get("tmux_target")
@@ -356,4 +389,5 @@ def resolve_runtime_binding(
             180 if slot.get("min_seconds_between_wakes") is None
             else slot.get("min_seconds_between_wakes")
         ),
+        "assignment_mode": assignment_mode,
     }

@@ -311,11 +311,24 @@ tmux has-session -t hand-N || \
 
 Record restarts in baseline when useful. Product state lives in Vivi; process rehome ≠ bag event unless you also file/clear targets.
 
-## Theme switch: compact then continue
+## New assignment: honor `assignment_mode`
 
-For the next theme in the same Pi session, use `/compact` when useful and then send a pointer wake. Start a new session only when the pane is down, provider/model flags change, context remains confused after compaction, or the operator requests a clean slate.
+When filing or waking a **new** task/need handle, Mind must apply the role’s
+`assignment_mode` (`new` | `compact` | `continue` | `restart`) before the boot
+pointer. Full table: [`runtime-config.md`](runtime-config.md) § `assignment_mode`.
 
-**Codex:** after unit with next target, doorbell first; reinit only if stale/stuck or changing to a clean slate.
+| Mode | Before doorbell |
+| --- | --- |
+| `new` | Fresh agent session (`/new` or recreate); then boot with handle |
+| `compact` | Idle → `/compact` → idle → pointer with handle |
+| `continue` | Pointer only (healthy process) |
+| `restart` | Kill/relaunch runtime (`fleet-runtime.py restart`), then boot |
+
+Do not re-apply mode on same-handle rewakes while the agent is still working.
+
+### Theme switch when mode is `compact` (or unset defaults to continue)
+
+Historical “theme switch” path maps to **`assignment_mode: compact`**:
 
 1. File next task/need first so handle exists
 2. Require `waiting_for_input`, send `/compact` alone, wait for idle again
@@ -323,7 +336,7 @@ For the next theme in the same Pi session, use `/compact` when useful and then s
 4. Send: `HAND WAKE hand-N. Compact done. Show <handle>. Continue.`
 5. Record compact/wake in baseline when useful
 
-Never combine `/compact` and new assignment in one keystroke or compact without next target. High TUI context usage is a hint only, not a control-plane field.
+Never combine `/compact` and new assignment in one keystroke or compact without next target. High TUI context usage is a hint only, not a control-plane field. If the role is `assignment_mode: new` or `restart`, do not theme-switch via compact — start clean.
 
 ## Completion mail (optional; preferred when turn succeeds)
 

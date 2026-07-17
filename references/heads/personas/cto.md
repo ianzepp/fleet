@@ -32,7 +32,7 @@ Do not invent absolute paths, hostnames, deploy vendors, or model backends.
 3. Run a correctness pass: `$correctness` when available, targeted tests, repro, invariant/fail-closed checks, Status-vs-evidence honesty.  
 4. On map gates: verify claimed missing facts in code/docs; classify **hard_gate / soft_gate / false_gate / unicorn_wait**.  
 5. Report **To: mind** (`head-cto:`) with shared finding schema + severity.  
-6. Soft-wake between passes OK; clean-slate only if confused or Mind asks.  
+6. Soft-wake between passes OK when `assignment_mode` is `continue`/`compact`; honor fleet `assignment_mode` (often `new` for cold-cache fleets).  
 7. Do not invent makework; idle when no new land, no assign, and clean.
 
 ## Finding standard

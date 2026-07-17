@@ -335,6 +335,53 @@ completed | failed | stopped | unknown
 
 No backend-specific state aliases (`idle_prompt`, `done_idle`, `trust_prompt`, `down`) or flat locator fields (`runtime_target`, `runtime_state`, `tmux_target`) appear in sensor rows. `runtime_states` is the role→state summary persisted in the baseline. Wake records store the same nested locator subset: `runtime.kind`, `runtime.target`, and optional `runtime.socket`.
 
+## `assignment_mode` (Hand + Head session policy)
+
+Per-role field on every Hand and Head. Controls how Mind prepares the agent
+session when starting a **new work item** (new task/need handle), not mid-unit
+progress wakes.
+
+| Value | Meaning | Typical use |
+| --- | --- | --- |
+| **`new`** | Fresh agent session for this assignment (`/new` in-pane, or recreate session leaving shell/cwd). Drop prior chat context. | Cold-cache fleets; high context cost; CEO-style one-shot analysis; default when operator wants no transcript carry-over |
+| **`compact`** | Same process; send `/compact` (or harness equivalent), then pointer doorbell with the new handle | Theme switch same cwd when context is still coherent |
+| **`continue`** | Same session; pointer doorbell only (no compact, no recreate) | Cheap follow-ups; sticky multi-step units that intentionally share context |
+| **`restart`** | Kill the agent process (or whole runtime slot) and relaunch via `agent_launch` / `fleet-runtime.py restart` before the assignment boot | Stuck harness; model/provider flag change; dirty process that `/new` cannot clear |
+
+**Resolved by:** `fleet_common.resolve_assignment_mode` / `fleet-resolve.py`
+(`assignment_mode` on the binding JSON and `RESOLVED_ASSIGNMENT_MODE` in shell).
+
+**Default when unset:** `continue` (historical Hand behavior: pointer into the
+existing pane).
+
+**Legacy:** `clean_slate_per_assignment: true` → `new`; `false` → `continue`.
+If both are set, **`assignment_mode` wins**. Prefer the new field; do not add
+`clean_slate_per_assignment` on new fleets.
+
+**Mind duty (not optional when set):**
+
+1. On filing/waking a **new** handle for a role, read that role’s
+   `assignment_mode` (via resolve or fleet.json).
+2. Apply the mode **before** the assignment boot/doorbell:
+   - `new` → fresh session, then boot with handle
+   - `compact` → idle → `/compact` → idle → pointer
+   - `continue` → pointer only (if process healthy)
+   - `restart` → `fleet-runtime.py … restart` (or kill+launch), then boot
+3. Same-handle rewake / “still Working” cycles do **not** re-apply mode.
+4. Durable context for `new`/`restart` seats: Heads use **vivi memos**; Hands
+   re-read the task/need and mail To mind@ — not prior chat.
+
+**Not the same as:**
+
+| Field | Concern |
+| --- | --- |
+| `assignment_sticky` | Lane/packet ownership stickiness |
+| `runtime_sticky` | Runtime binding stickiness |
+| `reinit_after_kill` / `codex_reinit_after_kill` | Recovery after process death |
+
+Helpers may later auto-apply modes; until then Mind must honor the field
+explicitly. `verify-fleet-json.py` rejects unknown mode strings.
+
 ## Fleet config schema
 
 Recommended keys (extend freely; skill cares about meanings):
@@ -427,6 +474,7 @@ Recommended keys (extend freely; skill cares about meanings):
       "merges_to_main": true,
       "assignment_sticky": true,
       "runtime_sticky": false,
+      "assignment_mode": "new",
       "wake_mode": "tmux_send_keys",
       "min_seconds_between_wakes": 180
     },
@@ -442,6 +490,7 @@ Recommended keys (extend freely; skill cares about meanings):
       "wake_mode": "tmux_send_keys_via_ssh",
       "merges_to_main": false,
       "assignment_sticky": false,
+      "assignment_mode": "continue",
       "packet": { "slug": "…", "branch": "…", "state": "assigned" }
     }
   },
@@ -451,7 +500,7 @@ Recommended keys (extend freely; skill cares about meanings):
     "agent_model": "glm-5.2",
     "thinking": "high",
     "agent_launch": "pi --provider zai --model glm-5.2 --thinking high",
-    "clean_slate_per_assignment": true,
+    "assignment_mode": "new",
     "role_prompt": "<fleet-path>/head-ceo-role-prompt.txt",
     "executive_cadence": {
       "enabled": false,

@@ -174,8 +174,9 @@ For each configured Head:
    - cadence enabled and due: run the configured sweep;
    - self-directed: begin its bounded advisory lane;
    - lazy/on-demand: answer addressed work, then remain available;
-   - clean-slate per assignment: recreate or reset context through the documented
-     harness path before a new question.
+   - `assignment_mode` (`new`/`compact`/`continue`/`restart`): prepare the
+     session for a new assignment per [`runtime-config.md`](runtime-config.md)
+     (legacy `clean_slate_per_assignment: true` ≡ `new`).
 5. Require reports to the configured Mind inbox. Heads do not file Hand work,
    merge, or create approval gates.
 

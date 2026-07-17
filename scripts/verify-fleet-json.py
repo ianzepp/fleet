@@ -118,6 +118,33 @@ def _check_tmux_target(report: Report, where: str, entry: Dict[str, Any], requir
         report.err(where, "tmux_session must be a string")
 
 
+ASSIGNMENT_MODES = frozenset({"new", "compact", "continue", "restart"})
+
+
+def _check_assignment_mode(report: Report, where: str, entry: dict) -> None:
+    """Validate assignment_mode (and legacy clean_slate_per_assignment)."""
+    mode = entry.get("assignment_mode")
+    if mode is not None:
+        if not isinstance(mode, str) or mode.strip().lower() not in ASSIGNMENT_MODES:
+            report.err(
+                where,
+                "assignment_mode must be one of %s, got %r"
+                % (sorted(ASSIGNMENT_MODES), mode),
+            )
+    legacy = entry.get("clean_slate_per_assignment")
+    if legacy is not None and not isinstance(legacy, bool):
+        report.err(
+            where,
+            "clean_slate_per_assignment must be boolean (legacy; prefer assignment_mode), got %r"
+            % (legacy,),
+        )
+    if mode is not None and legacy is not None:
+        report.warn(
+            where,
+            "both assignment_mode and clean_slate_per_assignment set; assignment_mode wins",
+        )
+
+
 def _check_inbox_key(report: Report, where: str, val: Any) -> None:
     if val is None:
         return
@@ -247,6 +274,7 @@ def validate(fleet: Dict[str, Any], fleet_path: Path, path_checks: bool) -> Repo
         pkt = h.get("packet")
         if pkt is not None and not isinstance(pkt, dict):
             report.warn(where, "packet must be an object or null (unassigned)")
+        _check_assignment_mode(report, where, h)
         _check_path(report, where, "role_prompt", h.get("role_prompt"), path_checks)
         _check_path(report, where, "persona", h.get("persona"), path_checks)
 
@@ -268,6 +296,7 @@ def validate(fleet: Dict[str, Any], fleet_path: Path, path_checks: bool) -> Repo
         la = block.get("legacy_aliases")
         if la is not None and not isinstance(la, list):
             report.warn(where, "legacy_aliases should be a list, got %r" % (type(la).__name__,))
+        _check_assignment_mode(report, where, block)
         _check_executive_cadence(report, where, block)
         _check_path(report, where, "role_prompt", block.get("role_prompt"), path_checks)
         _check_path(report, where, "persona", block.get("persona"), path_checks)

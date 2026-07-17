@@ -14,6 +14,7 @@ sys.path.insert(0, str(SCRIPTS))
 
 from fleet_common import (  # noqa: E402
     FleetScopeError,
+    resolve_assignment_mode,
     resolve_fleet_file,
     resolve_runtime_binding,
 )
@@ -77,6 +78,37 @@ class FleetResolverTests(unittest.TestCase):
         self.assertEqual(binding["target"], "hand-1")
         self.assertEqual(binding["driver"], "grok")
         self.assertEqual(binding["runtime_command"], ["grok", "--model", "model-x"])
+
+    def test_assignment_mode_defaults_and_legacy(self) -> None:
+        self.assertEqual(resolve_assignment_mode({}), "continue")
+        self.assertEqual(resolve_assignment_mode({"assignment_mode": "new"}), "new")
+        self.assertEqual(resolve_assignment_mode({"assignment_mode": "RESTART"}), "restart")
+        self.assertEqual(
+            resolve_assignment_mode({"clean_slate_per_assignment": True}), "new"
+        )
+        self.assertEqual(
+            resolve_assignment_mode({"clean_slate_per_assignment": False}), "continue"
+        )
+        # canonical field wins over legacy
+        self.assertEqual(
+            resolve_assignment_mode(
+                {"assignment_mode": "compact", "clean_slate_per_assignment": True}
+            ),
+            "compact",
+        )
+        with self.assertRaises(FleetScopeError):
+            resolve_assignment_mode({"assignment_mode": "always"})
+
+    def test_binding_includes_assignment_mode(self) -> None:
+        fleet = {
+            "fleet_id": "example",
+            "hands": {"hand-1": {"assignment_mode": "new"}},
+            "head-ceo": {"clean_slate_per_assignment": True},
+        }
+        hand = resolve_runtime_binding(fleet, "hand-1", project="/tmp/example")
+        ceo = resolve_runtime_binding(fleet, "head-ceo", project="/tmp/example")
+        self.assertEqual(hand["assignment_mode"], "new")
+        self.assertEqual(ceo["assignment_mode"], "new")
 
     def test_fleet_id_is_validated(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

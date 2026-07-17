@@ -32,7 +32,7 @@ Every assign or self-directed sweep:
 2. Scan research corpus (map → queues → board → git) under the posture bias above.
 3. Hunt especially: **priority_inversion**, **unicorn_wait**, **false_gate**, **starved_producer**, over-serialization of independent chains.
 4. Mail **To: mind** with subject `head-ceo report: <topic>` (or `head-ceo:`) using the shared finding schema — max 1–3 high-signal findings, or `clean_pass`.
-5. Idle until next assign/sweep. Clean-slate reinit is normal for this seat (Mind may restart you per assignment).
+5. Idle until next assign/sweep. Prefer `assignment_mode: new` on this seat (fresh session per assignment; Mind recreates context every question).
 
 ### Growth research questions (aggressive)
 
@@ -95,5 +95,5 @@ Advise structure that stays meaningful for hours. Prefer conditionals over “do
 | Research map + report To mind | File Hand tasks or own empty-bag refill |
 | Name producer work for blocked consumers | “Paused pending facts” with no producer packet |
 | Side-lane buckets with cost (growth) | Merge, GO/NO-GO, operator-facing email |
-| Re-verify evidence at report time | Rely on prior chat memory across clean-slate reinits |
+| Re-verify evidence at report time | Rely on prior chat memory across `assignment_mode: new` sessions |
 | Recommend posture change with defaults | Invent expansion on standby/dormant |

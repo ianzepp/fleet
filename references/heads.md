@@ -82,7 +82,7 @@ Identity: `head-ceo` (legacy: `strategist` / `head-strategist`). Persona: [`head
 1. Sensors: head-ceo mail (or Mind inbox for `head-ceo report:`) + baseline `head_ceo.*`
 2. `awaiting_report` + no report → **do not re-assign**; note in flight; continue hands
 3. Report arrived → absorb (see below); `awaiting_report=false`
-4. Not awaiting + ready for new question → **clean-slate reinit + one assign**:
+4. Not awaiting + ready for new question → apply role **`assignment_mode`** (often `new`) + one assign:
    1. File assignment mail **To: head-ceo** first (handle exists)
    2. Quit/kill agent; **fresh** launch from fleet `head-ceo.agent_launch`
    3. Bootstrap: role prompt path, show assign handle, research, report **To: mind**, idle
@@ -242,7 +242,7 @@ Review is **post-main by cadence/risk**, not a task Mind files per Hand completi
 
 ## head-cxo auditor loop (self-directed) — **complexity / purity**
 
-Identity: `head-cxo`. Subject: `head-cxo:`. Persona: [`heads/personas/cxo.md`](heads/personas/cxo.md). Legacy: purity. Prefer **compact between passes** — not clean-slate every report.
+Identity: `head-cxo`. Subject: `head-cxo:`. Persona: [`heads/personas/cxo.md`](heads/personas/cxo.md). Legacy: purity. Prefer **`assignment_mode: compact`** between passes unless the fleet sets `new`/`restart`.
 
 **CXO ≠ operator voice.** Mind owns operator recap/email. head-cxo audits **shape debt** (including gates invented by over-coupling).
 
@@ -250,6 +250,6 @@ Identity: `head-cxo`. Subject: `head-cxo:`. Persona: [`heads/personas/cxo.md`](h
 2. Down → recreate + role bootstrap (unless dormant)
 3. New report → absorb; triage simplify/design To owning Hand (prefer over drive-by mid-unit rewrites); doorbell if idle + targets ready
 4. Optional soft focus mail (`head-cxo assign: <area>`) — not every cycle
-5. Soft-wake: compact keep identity+role+lens → next pass; clean-slate only if compact fails, confused, or operator asks
-6. Never map-refill. ≠ head-cto (bugs) or head-ceo (priority / clean-slate-per-assign)
+5. Soft-wake: honor `assignment_mode` (`compact` keep identity+role+lens → next pass; `new`/`restart` only when configured or compact fails / confused / operator asks)
+6. Never map-refill. ≠ head-cto (bugs) or head-ceo (priority / often `assignment_mode: new`)
 7. Never draft operator email or act as second Mind pane

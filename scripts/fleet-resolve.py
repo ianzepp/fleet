@@ -36,7 +36,7 @@ def shell_output(binding: dict) -> str:
     scalar_names = (
         "fleet_id", "role", "group", "kind", "mail_identity", "cwd", "target",
         "session", "window", "pane", "socket", "agent", "driver", "model", "launch",
-        "min_seconds_between_wakes",
+        "min_seconds_between_wakes", "assignment_mode",
     )
     for name in scalar_names:
         lines.append("RESOLVED_%s=%s" % (name.upper(), shlex.quote(str(binding.get(name, "")))))
