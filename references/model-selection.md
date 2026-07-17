@@ -48,6 +48,13 @@ vendor provider id such as `zai` — never assume the default codex/openai
 provider). A model string without the matching `provider` / `agent_launch`
 flag is a misconfiguration.
 
+**Native harness vs provider.** Some design-class tools are **full harnesses**
+(own CLI/agent loop), not a provider behind Pi. If the project overlay says a
+slot runs **Kimi** (or another standalone coding agent), that means
+`agent: kimi` (or the matching harness id) and the **vendor binary** — not
+`agent: pi` with a Moonshot/Kimi model id. Do not fold a native agent into Pi
+for roster uniformity.
+
 ---
 
 ## Unit tags (Mind labels when filing)
