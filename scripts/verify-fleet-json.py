@@ -239,6 +239,28 @@ def _check_sensor_log(report: Report, value: Any) -> None:
         report.err(where + ".retention_cycles", "must be a positive integer")
 
 
+def _check_lane_lifecycle(report: Report, value: Any) -> None:
+    if value is None:
+        return
+    where = "$.lane_lifecycle"
+    if not isinstance(value, dict):
+        report.err(where, "must be an object")
+        return
+    for key, minimum in (
+        ("stale_after_cycles", 1),
+        ("resume_stale_after_hours", 0),
+        ("release_grace_cycles", 0),
+    ):
+        raw = value.get(key)
+        if raw is not None and (
+            not isinstance(raw, int) or isinstance(raw, bool) or raw < minimum
+        ):
+            report.err("%s.%s" % (where, key), "must be an integer >= %d" % minimum)
+    cleanup = value.get("worktree_cleanup", "manual")
+    if cleanup != "manual":
+        report.err(where + ".worktree_cleanup", "must be 'manual'; lane release never deletes worktrees")
+
+
 def validate(fleet: Dict[str, Any], fleet_path: Path, path_checks: bool) -> Report:
     report = Report()
     if not isinstance(fleet, dict):
@@ -251,6 +273,7 @@ def validate(fleet: Dict[str, Any], fleet_path: Path, path_checks: bool) -> Repo
     if "version" in fleet and not isinstance(fleet.get("version"), int):
         report.warn("$.version", "version should be an integer, got %r" % (fleet.get("version"),))
     _check_sensor_log(report, fleet.get("sensor_log"))
+    _check_lane_lifecycle(report, fleet.get("lane_lifecycle"))
 
     # --- default_hand cross-reference (hands may be keyed as 'hunters' in legacy fleets) ---
     hands = ensure_dict(fleet.get("hands") or fleet.get("hunters"))
@@ -301,6 +324,17 @@ def validate(fleet: Dict[str, Any], fleet_path: Path, path_checks: bool) -> Repo
         pkt = h.get("packet")
         if pkt is not None and not isinstance(pkt, dict):
             report.warn(where, "packet must be an object or null (unassigned)")
+        lane = h.get("lane")
+        if lane is not None and not isinstance(lane, dict):
+            report.err(where + ".lane", "must be an object or null")
+        elif isinstance(lane, dict):
+            lane_state = str(lane.get("state") or "").lower()
+            wake_trigger = lane.get("wake_trigger") or lane.get("wake_triggers")
+            if lane_state in ("parked", "deferred", "blocked", "hold") and not wake_trigger:
+                report.warn(
+                    where + ".lane",
+                    "parked/deferred/blocked lane needs a wake trigger or remains a reconciliation candidate",
+                )
         _check_assignment_mode(report, where, h)
         _check_path(report, where, "role_prompt", h.get("role_prompt"), path_checks)
         _check_path(report, where, "persona", h.get("persona"), path_checks)

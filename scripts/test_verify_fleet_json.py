@@ -72,5 +72,58 @@ class AuditorHandValidationTest(unittest.TestCase):
         )
 
 
+class LaneLifecycleValidationTest(unittest.TestCase):
+    def validate(self, policy):
+        fleet = {"fleet_id": "test", "hands": {}, "lane_lifecycle": policy}
+        return validator.validate(fleet, Path("/tmp/.vivi/fleet.json"), path_checks=False)
+
+    def test_accepts_canonical_lane_policy(self):
+        report = self.validate({
+            "stale_after_cycles": 5,
+            "resume_stale_after_hours": 24,
+            "release_grace_cycles": 2,
+            "worktree_cleanup": "manual",
+        })
+        self.assertEqual(report.errors, [])
+
+    def test_rejects_automatic_worktree_cleanup(self):
+        report = self.validate({"worktree_cleanup": "automatic"})
+        self.assertIn(
+            (
+                "$.lane_lifecycle.worktree_cleanup",
+                "must be 'manual'; lane release never deletes worktrees",
+            ),
+            report.errors,
+        )
+
+    def test_rejects_invalid_lane_thresholds(self):
+        report = self.validate({
+            "stale_after_cycles": 0,
+            "resume_stale_after_hours": -1,
+            "release_grace_cycles": -1,
+        })
+        self.assertEqual(len(report.errors), 3)
+
+    def test_warns_when_parked_lane_has_no_wake_trigger(self):
+        fleet = {
+            "fleet_id": "test",
+            "hands": {
+                "hand-2": {
+                    "mail_identity": "hand-2",
+                    "tmux_target": "test:hand-2.1",
+                    "lane": {"state": "parked", "campaign": "docs/CAMPAIGN.md"},
+                }
+            },
+        }
+        report = validator.validate(fleet, Path("/tmp/.vivi/fleet.json"), path_checks=False)
+        self.assertIn(
+            (
+                "hands.hand-2.lane",
+                "parked/deferred/blocked lane needs a wake trigger or remains a reconciliation candidate",
+            ),
+            report.warnings,
+        )
+
+
 if __name__ == "__main__":
     unittest.main()

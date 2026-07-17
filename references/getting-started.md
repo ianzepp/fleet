@@ -336,6 +336,7 @@ python3 "$SK/fleet-sensors.py" --project "$ROOT" --text
 | Baseline `mind_loop.state` / `wound_up` | Prior wind-down or mid-run |
 | Baseline `mind_session` set | Another Mind may already be attached (advisory) |
 | Baseline `steward.tripped` | Dead-man fired — recover before normal cycles |
+| `lane_reconcile_candidate_<hand>` | Old dedicated binding needs campaign/task/Git truth reconciliation before wake or release |
 
 ### 3.2 Load process (this session)
 
@@ -347,6 +348,9 @@ Attaching Mind to fleet project=$ROOT
 ```
 
 3. **You are Mind** for this fleet until detach / wind-down / session end.
+4. Before waking stopped dedicated lanes, disposition any lane reconciliation
+   candidates through [`mind-cycle.md`](mind-cycle.md) § Campaign truth and lane
+   lifecycle. Resume does not make an old open task current again.
 
 ### 3.3 Advisory `mind_session` lock
 

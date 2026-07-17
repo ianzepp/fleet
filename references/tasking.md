@@ -78,6 +78,23 @@ Empty floater + no non-overlapping candidates and no map side track → operatio
 
 **Estimates = head-ceo-owned; calibration = Mind-owned.** Hands do not invent token math. Optional: Hand turn-end notes harness usage **if the TUI surfaces it**. **Codex TUI** often has no reliable token counter → Mind writes `actual_source=unavailable` (or `mind_estimate`) — never fabricated `actual_tokens`.
 
+## Stale task disposition
+
+An old open task is not durable lane memory. When lane reconciliation proves it
+no longer describes executable work, Mind must choose one explicit disposition:
+
+| Reality | Board action |
+| --- | --- |
+| Work remains and is unblocked | Close/supersede the stale task with evidence; file a fresh bounded task and wake/rebind |
+| Human/authority decision blocks work | File/link a `need`; close the executable task with the blocker handle in its note |
+| Work is intentionally deferred | File/link a `want`; close the task as superseded by that want |
+| Work completed | Mark done with commit/validation/integration evidence |
+| Task premise is false or obsolete | Mark done with `obsolete`/`superseded` note and the authoritative replacement |
+
+Never leave a task open merely to remember that a campaign or lane once
+existed. Campaign/factory artifacts hold map truth; baseline holds lane state;
+Vivi tasks hold currently executable work.
+
 ## Fleet priorities (main vs packet)
 
 | Slot | Workspace role | Merge to main? |

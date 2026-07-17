@@ -270,6 +270,94 @@ def list_open_handles(vivi: str, project: str, identity: str, kind: str = "task"
     return handles
 
 
+def lane_binding(hand: dict) -> Optional[dict]:
+    """Return the durable campaign/packet binding that makes a Hand a lane."""
+    lane = hand.get("lane")
+    if isinstance(lane, dict) and lane:
+        return {**lane, "binding_kind": "lane"}
+    packet = hand.get("packet")
+    if isinstance(packet, dict) and packet:
+        return {**packet, "binding_kind": "packet"}
+    return None
+
+
+def lane_progress_signature(
+    binding: dict,
+    open_tasks: List[Dict[str, str]],
+    open_needs: List[Dict[str, str]],
+    mail_top_handle: Optional[str],
+    git_state: dict,
+) -> str:
+    """Hash product evidence; runtime chrome is deliberately excluded."""
+    payload = {
+        "binding": binding,
+        "tasks": sorted(x.get("handle") for x in open_tasks if x.get("handle")),
+        "needs": sorted(x.get("handle") for x in open_needs if x.get("handle")),
+        "mail_top": mail_top_handle,
+        "git": git_state,
+    }
+    raw = json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+    return hashlib.sha256(raw.encode("utf-8")).hexdigest()[:20]
+
+
+def lane_git_state(cwd: str, remote: bool = False) -> dict:
+    """Read a local lane's Git identity without changing its worktree."""
+    if remote:
+        return {"available": False, "reason": "remote"}
+    path = Path(cwd)
+    if not path.is_dir():
+        return {"available": False, "reason": "missing_cwd"}
+    rc, head = run(["git", "-C", str(path), "rev-parse", "HEAD"], timeout=8)
+    if rc != 0:
+        return {"available": False, "reason": "not_git"}
+    rc, status = run(["git", "-C", str(path), "status", "--porcelain=v1", "--untracked-files=normal"], timeout=12)
+    if rc != 0:
+        return {"available": False, "reason": "status_failed", "head": head.strip()}
+    return {
+        "available": True,
+        "head": head.strip(),
+        "dirty": bool(status),
+        "status_hash": hashlib.sha256(status.encode("utf-8")).hexdigest()[:20],
+    }
+
+
+def lane_progress_observation(
+    previous: dict,
+    signature: str,
+    now: datetime,
+    stale_after_cycles: int,
+    resume_stale_after_hours: int,
+    runtime_state: str,
+    has_open_work: bool,
+    intentionally_parked: bool,
+) -> dict:
+    """Classify a bound lane for Mind review; never authorize teardown."""
+    same = previous.get("signature") == signature
+    unchanged_cycles = int(previous.get("unchanged_cycles") or 0) + 1 if same else 0
+    last_progress_at = previous.get("last_progress_at") if same else now.isoformat()
+    resume_stale = False
+    if same and last_progress_at and resume_stale_after_hours > 0:
+        then = _parse_iso(last_progress_at)
+        if then is not None:
+            resume_stale = (now - then.astimezone(timezone.utc)).total_seconds() >= resume_stale_after_hours * 3600
+    idle = runtime_state in ("waiting_for_input", "completed", "stopped", "unknown")
+    candidate = idle and not intentionally_parked and (
+        unchanged_cycles >= stale_after_cycles or resume_stale
+    )
+    reason = None
+    if candidate:
+        reason = "resume_stale" if resume_stale else ("stale_bound" if has_open_work else "empty_retained")
+    return {
+        "signature": signature,
+        "unchanged_cycles": unchanged_cycles,
+        "last_progress_at": last_progress_at,
+        "candidate": candidate,
+        "reason": reason,
+        "runtime_idle": idle,
+        "intentionally_parked": intentionally_parked,
+    }
+
+
 def _parse_mail_line(line):
     """Parse one `vivi mail list` row into (handle, date, from, subject) or None.
 
@@ -1281,14 +1369,17 @@ def format_text_summary(out: dict, fp: dict, git_main: dict) -> str:
     for name, h in (out.get("hands") or {}).items():
         stall_n = int(h.get("cycles_unchanged") or 0)
         stall_lab = " stall=%s" % stall_n if stall_n > 0 else ""
+        lane = h.get("lane_progress") if isinstance(h.get("lane_progress"), dict) else {}
+        lane_lab = " lane=%s" % lane.get("reason") if lane.get("candidate") else ""
         lines.append(
-            "  %s: bag=%s next=%s state=%s%s target=%s"
+            "  %s: bag=%s next=%s state=%s%s%s target=%s"
             % (
                 name,
                 h.get("actionable"),
                 h.get("next_handle"),
                 (h.get("runtime") or {}).get("state"),
                 stall_lab,
+                lane_lab,
                 (h.get("runtime") or {}).get("target"),
             )
         )
@@ -1540,6 +1631,18 @@ def main() -> int:
     prev_hand_progress = _php if isinstance(_php, dict) else {}
     stall_floor = int(fleet.get("stall_risk_cycles_floor") or 3)
     hand_progress = {}  # type: Dict[str, Dict[str, Any]]
+    lane_policy = fleet.get("lane_lifecycle") if isinstance(fleet.get("lane_lifecycle"), dict) else {}
+    try:
+        lane_stale_floor = max(1, int(lane_policy.get("stale_after_cycles") or 5))
+    except (TypeError, ValueError):
+        lane_stale_floor = 5
+    try:
+        lane_resume_hours = max(0, int(lane_policy.get("resume_stale_after_hours") or 24))
+    except (TypeError, ValueError):
+        lane_resume_hours = 24
+    _plp = baseline.get("lane_progress")
+    prev_lane_progress = _plp if isinstance(_plp, dict) else {}
+    lane_progress = {}  # type: Dict[str, Dict[str, Any]]
     if tmux and (Path(tmux).is_file() or shutil.which(tmux)):
         tmux_bin = tmux if Path(tmux).is_file() else (shutil.which(tmux) or tmux)
     else:
@@ -1723,11 +1826,47 @@ def main() -> int:
         hand_row["model_provenance"] = model_provenance(h, observed_model, fleet, "hand")
         out["hands"][name] = hand_row
 
+        binding = lane_binding(h)
+        if binding:
+            host = str(h.get("host") or "local").lower()
+            remote = host not in ("", "local") or bool(h.get("ssh"))
+            git_state = lane_git_state(cwd, remote=remote)
+            binding_state = str(binding.get("state") or "").lower()
+            wake_trigger = binding.get("wake_trigger") or binding.get("wake_triggers")
+            intentionally_parked = binding_state in ("parked", "deferred", "blocked", "hold") and bool(wake_trigger)
+            signature = lane_progress_signature(
+                binding,
+                open_tasks,
+                open_needs,
+                mail_top_handle,
+                git_state,
+            )
+            progress = lane_progress_observation(
+                prev_lane_progress.get(name) if isinstance(prev_lane_progress.get(name), dict) else {},
+                signature,
+                now_dt,
+                lane_stale_floor,
+                lane_resume_hours,
+                pclass,
+                bool(bag_open),
+                intentionally_parked,
+            )
+            progress.update({
+                "binding": binding,
+                "git": git_state,
+                "has_open_work": bool(bag_open),
+            })
+            lane_progress[name] = progress
+            hand_row["lane_progress"] = progress
+            if progress["candidate"]:
+                out["signals"].append(f"lane_reconcile_candidate_{name}")
+
         # git for main hand (walk up from cwd; container fleets scan children / git.main_cwd)
         if h.get("merges_to_main") or name == fleet.get("default_hand"):
             out["git"]["main"] = git_tip(Path(cwd), fleet)
 
     out["hand_progress"] = hand_progress
+    out["lane_progress"] = lane_progress
 
     # RTM is mail rather than an open bag item. Surface unmerged RTM mail so
     # empty Hand bags cannot masquerade as honest product starvation.

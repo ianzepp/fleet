@@ -30,7 +30,7 @@ Every assign or self-directed sweep:
 
 1. Read posture + any assign mail body (re-verify live evidence; correct stale premises in one line).
 2. Scan research corpus (map → queues → board → git) under the posture bias above.
-3. Hunt especially: **priority_inversion**, **unicorn_wait**, **false_gate**, **starved_producer**, over-serialization of independent chains.
+3. Hunt especially: **priority_inversion**, **unicorn_wait**, **false_gate**, **control_plane_drift**, **starved_producer**, over-serialization of independent chains.
 4. Mail **To: mind** with subject `head-ceo report: <topic>` (or `head-ceo:`) using the shared finding schema — max 1–3 high-signal findings, or `clean_pass`.
 5. Idle until next assign/sweep. Prefer `assignment_mode: new` on this seat (fresh session per assignment; Mind recreates context every question).
 
@@ -41,6 +41,34 @@ Every assign or self-directed sweep:
 3. What **second/third chain** can run in parallel without thrashing hand-1?
 4. What **expansion_candidate** is under-served relative to capacity and charter?
 5. Side-lane bucket for hand-2+ when multi-hand: candidates with effort + est_tokens + est_basis.
+
+## Campaign And Factory Truth
+
+Campaign and factory documents are control-plane claims, not authority over
+landed reality. During normal cadence, and whenever Mind asks about a stale lane,
+compare only the bounded active artifacts against Git, completed Vivi tasks,
+validation, releases, and deployment evidence.
+
+Prioritize artifacts referenced by active lane bindings, open tasks, campaign
+indexes, and factory goal indexes. Do not recursively inventory every planning
+document or rewrite prose yourself.
+
+Report drift as:
+
+```text
+kind: control_plane_drift
+artifact: <campaign or factory goal>
+claimed_state: draft | ready | active | complete | blocked | deferred
+evidenced_state: <state supported by live evidence>
+evidence: <commits, task handles, validation, release/deploy receipts>
+repair: <exact status/evidence/next-stage changes>
+lane_effect: keep | park | release_candidate
+```
+
+`release_candidate` is advice, never runtime authority. Mind verifies dirty and
+unmerged work, pending integration, blockers, and wake triggers before changing
+a lane. Maximum 1–3 high-signal drift findings per sweep; `clean_pass` when the
+bounded control plane is honest.
 
 ### Standby research questions (stewardship)
 
@@ -96,4 +124,5 @@ Advise structure that stays meaningful for hours. Prefer conditionals over “do
 | Name producer work for blocked consumers | “Paused pending facts” with no producer packet |
 | Side-lane buckets with cost (growth) | Merge, GO/NO-GO, operator-facing email |
 | Re-verify evidence at report time | Rely on prior chat memory across `assignment_mode: new` sessions |
+| Audit campaign/factory truth and recommend lane effect | Edit artifacts, close tasks, stop panes, or delete worktrees |
 | Recommend posture change with defaults | Invent expansion on standby/dormant |

@@ -413,6 +413,12 @@ Recommended keys (extend freely; skill cares about meanings):
     "wake_triggers": ["operator product task", "operator@ need"],
     "ceo_continuity_min_hours": 6
   },
+  "lane_lifecycle": {
+    "stale_after_cycles": 5,
+    "resume_stale_after_hours": 24,
+    "release_grace_cycles": 2,
+    "worktree_cleanup": "manual"
+  },
   "mind_inbox": "mind",
   "operator_inbox": "operator",
   "operator_inbox_note": "Human escalations only (problems/blockers/guidance). Not status. No tmux.",
@@ -519,6 +525,22 @@ Recommended keys (extend freely; skill cares about meanings):
       "wake_mode": "tmux_send_keys",
       "min_seconds_between_wakes": 180,
       "note": "review Hand; assignments explicitly invoke $auditor; reports To mind"
+    },
+    "hand-3": {
+      "mail_identity": "hand-3",
+      "tmux_session": "hand-3",
+      "tmux_target": "hand-3:1.1",
+      "cwd": "/path/to/campaign-worktree",
+      "agent": "pi",
+      "merges_to_main": false,
+      "assignment_mode": "continue",
+      "lane": {
+        "campaign": "docs/CAMPAIGN.md",
+        "goal": "factory/goals/example.md",
+        "branch": "campaign/example",
+        "state": "active",
+        "wake_trigger": null
+      }
     }
   },
   "head-ceo": {
@@ -673,6 +695,14 @@ last_actionable_fingerprint
 pending_reviews[]
 pending_merges[]
 active_packets{} or active_lanes{}
+lane_progress{}
+  # hand -> {signature, unchanged_cycles, last_progress_at, candidate,
+  #          reason stale_bound|empty_retained|resume_stale,
+  #          binding, git, has_open_work}
+lane_lifecycle{}
+  # hand -> {state active|stale_candidate|reconciling|parked|cooldown|released,
+  #          reason, truth_report_handle?, blocker_handle?, wake_trigger?,
+  #          cooldown_since_cycle?, release_after_cycle?}
 last_thorough_cycle, last_thorough_fingerprint
 fleet_mirror / runtime_states
 last_hand_wake                     # nested runtime locator + per-role by_hand records
@@ -716,6 +746,11 @@ Ignore-lists may live in baseline (`ignore_bag_handles`, `ignore_subjects_prefix
 **Polish advisory:** after main lands, Mind runs `$polish`’s `suggest-polish-files.py` (read-only). Score ≥ threshold → one bounded polish **task**. Defaults: `mind-cycle.md`.
 
 **Housekeeping advisory:** file `$housekeeping` only at **major inflection** (campaign end / large merge / stage closeout / operator). Never every land. Procedure: `mind-cycle.md`.
+
+**Lane lifecycle:** sensors persist `lane_progress`; Mind owns the separate
+disposition state. Candidate signals trigger reconciliation, not teardown.
+`worktree_cleanup` is fixed to `manual`; lane release only clears assignment and
+runtime capacity. Procedure: `mind-cycle.md`.
 
 ```json
 "polish_advisory": {

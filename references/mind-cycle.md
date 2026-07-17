@@ -354,6 +354,7 @@ Even **sleep** interactive uses this shape. **Not required:** full mail dumps, f
 | Main tip moved (merge / feature land / spine unit) | Mind | **Post-main polish advisory** |
 | **Major inflection** on main | Mind | **Housekeeping task** (expensive; not every land) |
 | Same dirty paths block spine ≥2 cycles, no A/B/C note | Mind | **Open the diff**; classify; file; pivot |
+| `lane_reconcile_candidate_<hand>` | Mind + `head-ceo` when map truth is unclear | Reconcile campaign/task/Git truth; continue, park, cooldown, or release |
 | Map Status mtime changed | Either | skim Status; then bag |
 | Tasking empty + next package selected | Hand / Mind | start or **refill** + wake/reinit |
 | Head-role report mail | Mind | absorb; triage to hand-N when actionable |
@@ -493,6 +494,78 @@ No polish history ⇒ very high scores. Raise threshold, scope `--path`, or one-
 | Full factory goal | Very high | Map selection |
 
 If unsure merge is “large,” **default no housekeeping**; file need with default “defer until campaign end.”
+
+## Campaign truth and lane lifecycle
+
+Dedicated campaign Hands are retained for continuity, not indefinitely. A
+`lane_reconcile_candidate_<hand>` signal starts investigation; it never
+authorizes task closure, pane shutdown, config deletion, or worktree removal.
+
+### Progress and candidate classes
+
+`fleet-sensors.py` tracks `lane_progress` separately from pane-tail stall risk.
+Its fingerprint covers the durable lane/packet binding, open task and need
+handles, newest addressed mail, and local Git HEAD/status. Runtime chrome is
+excluded: starting or stopping a pane is not product progress.
+
+| Candidate | Meaning |
+| --- | --- |
+| `stale_bound` | Same bound lane and open work, idle with no product progress for the configured cycles |
+| `empty_retained` | Campaign/packet binding remains but its executable bag is empty |
+| `resume_stale` | Same stopped/idle binding exceeds the offline-resume age |
+
+Default: `stale_after_cycles=5`, `resume_stale_after_hours=24`. A deliberately
+parked lane suppresses the signal only when it has an explicit wake trigger.
+Remote or unreadable Git lowers evidence confidence; it does not make release
+safe.
+
+### Reconciliation order
+
+1. **Freeze the lane identity:** Hand, lane/packet binding, campaign/factory
+   artifacts, open task/need handles, branch/worktree, pending review/merge.
+2. **Check live work:** dirty state, unmerged/unpushed commits, running turn, RTM,
+   review debt, deploy/rollback observation. Any unresolved item preserves the lane.
+3. **Check map truth:** if campaign/factory status disagrees with evidence, ask
+   `head-ceo` for a bounded truth consult and file one `$zombie-docs` repair task.
+   Do not decide from stale prose.
+4. **Disposition stale board work:** fresh task for real next work; linked `need`
+   for authority; linked `want` for deferral; done/superseded note for completed
+   or obsolete work. Never leave an open task as lane memory.
+5. **Choose state:** `active` when a real next unit exists; `parked` for an
+   explicit blocker/defer; `cooldown` when release gates pass; `released` after
+   the configured grace.
+
+### Release gates
+
+All must hold:
+
+- campaign/factory status reconciled against implementation evidence
+- no running turn, foreign/unfinished dirt, or unknown worktree ownership
+- branch work merged, integrated, or explicitly archived/preserved
+- no pending RTM, merge, review, need, deploy, or rollback observation
+- stale task dispositioned with evidence and cross-references
+- no unblocked next stage and no operator retention instruction
+- `release_grace_cycles` elapsed after entering cooldown
+
+Release means: close/clear executable assignment, clear active packet/lane
+baseline state, and stop the runtime when idle. Keep the roster entry available
+for later reassignment unless operator/config policy removes it.
+
+**Worktree law:** runtime release and worktree cleanup are separate decisions.
+Never automatically run `git worktree remove`, delete a branch, discard dirt,
+or clean files. Manual cleanup requires clean/integrated/archive proof and the
+workspace ownership rules.
+
+### Head and Mind ownership
+
+- `head-ceo`: read-only campaign/factory truth audit; reports
+  `control_plane_drift` and `keep | park | release_candidate` advice.
+- Mind: board disposition, repair tasking, lane state, runtime stop/rebind.
+- Hand: bounded `$zombie-docs` repair or executable product work.
+
+Audit on normal CEO cadence, campaign/factory completion claims, continuity
+consults, cold attach, and lane candidates. Do not scan every planning document
+every cycle or shut a Hand down immediately when one stage closes.
 
 ## Residual scan (Mind) — not peer code review
 

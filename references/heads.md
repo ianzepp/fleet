@@ -219,6 +219,24 @@ Bands = **routing hints**. Prefer ranges; uncertain → estimate high. **Do not 
 
 **Stale assign duty:** re-read live evidence; one-line correction; answer structural question anyway.
 
+### Campaign truth and lane-retention consult
+
+At normal `head-ceo` cadence, or when Mind presents a
+`lane_reconcile_candidate_<hand>` signal, audit the bounded campaign/factory
+artifacts named by that lane. Compare claimed status to Git, board completion,
+validation, release, and deploy evidence. Report `control_plane_drift` using the
+CEO persona schema and recommend `keep | park | release_candidate`.
+
+Mind absorbs the report as follows:
+
+1. Honest map + remaining stage → fresh task/rebind; no doc churn.
+2. Stale map → one bounded `$zombie-docs` repair task to an implementation Hand.
+3. Complete map + no residual → run lane release gates in `mind-cycle.md`.
+4. Valid blocker/defer → park with owner, wake trigger, and review condition.
+
+The Head never edits control-plane documents, dispositions Vivi tasks, stops a
+runtime, or removes a worktree.
+
 ---
 
 ## head-cto advisor loop (self-directed) — **gate honesty + architecture**

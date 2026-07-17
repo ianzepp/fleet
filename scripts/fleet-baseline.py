@@ -165,6 +165,8 @@ def apply_sensors_blob(b: dict, sensors: dict, args: argparse.Namespace) -> dict
         b["runtime_states"] = sensors["runtime_states"]
     if sensors.get("hand_progress"):
         b["hand_progress"] = sensors["hand_progress"]
+    if isinstance(sensors.get("lane_progress"), dict):
+        b["lane_progress"] = sensors["lane_progress"]
     if sensors.get("steward"):
         st = ensure_dict(b.get("steward"))
         st["armed"] = sensors["steward"].get("armed", st.get("armed"))

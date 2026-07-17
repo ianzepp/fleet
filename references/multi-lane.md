@@ -65,6 +65,31 @@ Side-lane workers **never** merge to main. Mind owns integration clock. Long con
 
 Between themes: worker keeps committing; main free for spine; side lane must **periodically absorb green main**.
 
+## Dedicated lane lifecycle
+
+A long campaign may bind one Hand to a worktree through `hands.<name>.lane` (or
+legacy `packet`). Binding preserves ownership while work is active; it is not a
+permanent reservation after the map closes.
+
+```text
+active -> stale_candidate -> reconciling -> active | parked | cooldown -> released
+```
+
+- `stale_candidate`: deterministic sensor threshold reached; investigate only.
+- `reconciling`: Mind checks campaign/factory truth, task state, Git, and integration debt.
+- `parked`: valid blocker/defer with owner, wake trigger, and next review condition.
+- `cooldown`: work appears complete; release gates passed; short retention grace remains.
+- `released`: assignment/packet cleared and runtime capacity returned.
+
+Default candidate threshold is five successful Mind cycles without product
+progress, or the configured offline-resume age. Candidate classes:
+`stale_bound` (old open work), `empty_retained` (binding without work), and
+`resume_stale` (old stopped binding after downtime).
+
+Lane release never deletes a branch or worktree. Worktree cleanup is a separate
+manual operation after clean/integrated/archive proof; destructive cleanup is
+never part of lifecycle automation.
+
 ## Integration modes
 
 | Mode | Rule |

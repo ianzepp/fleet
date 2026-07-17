@@ -46,6 +46,19 @@ checkpoint*.
 6. **Surviving live state** — exported tasks/needs if any, outstanding operator
    mail.
 
+### Bound lanes after downtime
+
+Before waking an old dedicated Hand, reconcile each surviving `lane`/`packet`
+binding against its campaign/factory artifact, open task, branch/worktree, and
+pending integration state. A stopped lane whose product fingerprint predates
+the configured resume threshold is a **reconciliation candidate**, not proof
+that work is complete or abandoned.
+
+Disposition through `mind-cycle.md` lane lifecycle: continue with a fresh task,
+park behind an explicit wake trigger, or release the runtime after all gates.
+Do not manufacture five successful cycles from offline elapsed time, revive a
+stale task blindly, or remove a worktree during cold boot.
+
 ## The seed memo set (mind)
 
 Write **one memo per durable fact**, each a checklist line, not a paragraph:
