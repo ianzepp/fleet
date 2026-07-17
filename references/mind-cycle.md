@@ -672,6 +672,12 @@ Fail-fast is required, but the interval should adapt in both directions. Mind ow
 | 6–10 | 4× / ~20–30m |
 | 11+ | ~1h or stop when no continuing observation duty exists |
 
+**Sensors assist (not a second control plane):** `fleet-sensors.py` emits
+`cadence_hint` from bag/runtime signals already collected (`recommended_interval_sec`,
+`action` shorten|lengthen|hold, `reasons`, counts). Mind still owns applying the
+hint by replacing the harness scheduler. Temporary until a true Fleet host owns
+wake/refill. Base is commonly **5m**; floor **3m** for normal supervision.
+
 Use judgment rather than changing cadence on one anomalous fire. When adapting a scheduler: create the replacement with the same goal, roots, authority limits, and stop condition; cancel the superseded scheduler immediately; never leave duplicate loops active; record the new scheduler id and reason in the cycle summary and baseline. Do not shorten below 3 minutes for normal Fleet supervision. An urgent addressed-mail or runtime event is handled in the current cycle, not by waiting for a cadence adjustment.
 
 Reset `quiet_streak` on real progress: new/changed tasking, HEAD move, Status absorb, filed residual, completed unit, successful wake, or ops intervention.

@@ -1094,6 +1094,143 @@ def quiet_hint_from(fp: dict, prev: dict, signals: list, steward: dict) -> bool:
     return fp_cmp == prev_cmp and not hard and not steward.get("tripped")
 
 
+def cadence_hint_from(
+    out: dict,
+    baseline: dict,
+    quiet_hint: bool,
+    signals: list,
+) -> dict:
+    """Recommend Mind-loop interval from board/runtime signals already collected.
+
+    Portable temporary supervision until a true Fleet host owns wake/refill.
+    Mind applies by replacing the harness scheduler; sensors only advise.
+    Ladder (seconds): 180, 300, 600, 900, 1200, 3600. Floor 180 (3m).
+    """
+    ladder = (180, 300, 600, 900, 1200, 3600)
+    mind_loop = {}
+    if isinstance(baseline, dict):
+        mind_loop = baseline.get("mind_loop") if isinstance(baseline.get("mind_loop"), dict) else {}
+    fleet_loop = (out.get("fleet") or {}) if isinstance(out.get("fleet"), dict) else {}
+    # fleet.json mind_loop may be on out via fleet_posture only — read baseline first
+    configured = mind_loop.get("interval_sec")
+    if not isinstance(configured, int) or configured <= 0:
+        configured = 300  # temporary base: 5m
+    # snap configured to ladder for "current" display
+    current = min(ladder, key=lambda x: abs(x - int(configured)))
+
+    sigs = list(signals or [])
+    starve = sum(1 for s in sigs if str(s).startswith("starvation_candidate_"))
+    wake = sum(1 for s in sigs if "wake_candidate" in str(s))
+    runtime_bad = sum(
+        1
+        for s in sigs
+        if str(s).startswith("runtime_")
+        and any(x in str(s) for x in ("_stopped", "_failed", "approval_required"))
+    )
+    board = "board_event" in sigs
+    head_due = any(str(s).startswith("head_due") for s in sigs)
+    operator = "operator_to_mind" in sigs or "operator_mail" in sigs
+
+    hands = out.get("hands") or {}
+    open_bags = 0
+    idle_open = 0
+    running_open = 0
+    empty_idle = 0
+    for _name, h in hands.items() if isinstance(hands, dict) else []:
+        if not isinstance(h, dict):
+            continue
+        act = int(h.get("actionable") or h.get("tasks_open") or 0)
+        state = str((h.get("runtime") or {}).get("state") or h.get("state") or "")
+        proc = str((h.get("runtime") or {}).get("process_state") or "")
+        idle = state in ("waiting_for_input", "completed", "stopped", "unknown") or proc == "stopped"
+        if act > 0:
+            open_bags += 1
+            if idle:
+                idle_open += 1
+            else:
+                running_open += 1
+        elif idle:
+            empty_idle += 1
+
+    quiet_streak = 0
+    if isinstance(baseline, dict):
+        try:
+            quiet_streak = int(baseline.get("quiet_streak") or 0)
+        except (TypeError, ValueError):
+            quiet_streak = 0
+
+    posture = ((out.get("fleet_posture") or {}) if isinstance(out.get("fleet_posture"), dict) else {}).get(
+        "mode"
+    ) or "growth"
+
+    reasons = []
+    target = current
+
+    # Demand: empty bags in growth, starvation, idle with open work, runtime repair
+    if posture == "growth" and (starve > 0 or empty_idle > 0):
+        target = 300
+        reasons.append("growth_empty_or_starvation→5m")
+    if idle_open > 0 or wake >= 2:
+        target = min(target, 300)
+        reasons.append("idle_open_or_multi_wake→≤5m")
+    if runtime_bad > 0 or operator:
+        target = min(target, 300)
+        reasons.append("runtime_or_operator→≤5m")
+    if board and (wake > 0 or starve > 0 or idle_open > 0):
+        target = min(target, 180)
+        reasons.append("board+refill_pressure→3m")
+
+    # Backoff: quiet fingerprint / long-running healthy work
+    if quiet_hint and quiet_streak >= 3:
+        # map streak to ladder step up from base 300
+        if quiet_streak >= 11:
+            target = 3600
+        elif quiet_streak >= 6:
+            target = 1200
+        else:
+            target = 600
+        reasons.append("quiet_streak=%s→backoff" % quiet_streak)
+    elif running_open > 0 and open_bags == running_open and starve == 0 and idle_open == 0 and not board:
+        # all open work is mid-run; avoid thrashing
+        target = max(target, 600)
+        reasons.append("all_open_running→≥10m")
+
+    if posture in ("standby", "dormant") and quiet_hint:
+        target = max(target, 1200 if posture == "standby" else 3600)
+        reasons.append("posture_%s_quiet" % posture)
+
+    # snap to ladder
+    if target not in ladder:
+        target = min(ladder, key=lambda x: abs(x - target))
+
+    action = "hold"
+    if target < current:
+        action = "shorten"
+    elif target > current:
+        action = "lengthen"
+
+    return {
+        "current_interval_sec": current,
+        "recommended_interval_sec": target,
+        "action": action,
+        "base_interval_sec": 300,
+        "min_interval_sec": 180,
+        "ladder_sec": list(ladder),
+        "reasons": reasons or ["hold"],
+        "counts": {
+            "open_bags": open_bags,
+            "idle_open": idle_open,
+            "running_open": running_open,
+            "empty_idle": empty_idle,
+            "starvation": starve,
+            "wake_candidates": wake,
+            "runtime_bad": runtime_bad,
+            "quiet_streak": quiet_streak,
+        },
+        "note": "Mind applies by replacing the FLEET_CYCLE scheduler; temporary until Fleet host owns refill.",
+    }
+
+
 def _configured_model_fields(config: Any) -> Dict[str, Any]:
     if not isinstance(config, dict):
         return {}
@@ -1365,6 +1502,17 @@ def format_text_summary(out: dict, fp: dict, git_main: dict) -> str:
         ),
         "quiet_hint=%s signals=%s" % (out.get("quiet_hint"), out.get("signals")),
     ]
+    ch = out.get("cadence_hint") or {}
+    if ch:
+        lines.append(
+            "cadence: action=%s current=%ss recommend=%ss reasons=%s"
+            % (
+                ch.get("action"),
+                ch.get("current_interval_sec"),
+                ch.get("recommended_interval_sec"),
+                ",".join(ch.get("reasons") or [])[:120],
+            )
+        )
     memos = (out.get("mind") or {}).get("memos") or []
     if memos:
         lines.append("mind_memos:")
@@ -2203,6 +2351,7 @@ def main() -> int:
     out["fingerprint"] = fp
     out["runtime_states"] = runtime_states
     out["quiet_hint"] = quiet_hint_from(fp, prev, out["signals"], out["steward"])
+    out["cadence_hint"] = cadence_hint_from(out, baseline, out["quiet_hint"], out["signals"])
     out["baseline_last_cycle"] = baseline.get("last_cycle")
     out["baseline_mind_mode"] = baseline.get("mind_mode")
     out["partial"] = partial
