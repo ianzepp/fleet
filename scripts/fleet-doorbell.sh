@@ -22,7 +22,10 @@
 # Rate limit (min_seconds_between_wakes): only if this Hand has prior wake
 # count >= 1 in baseline last_hand_wake.by_hand.<name>. First wake never limited.
 #
-# Exit: 0 sent · 1 refused (running / rate-limit / missing / prepare fail) · 2 usage/config error
+# Exit: 0 sent · 1 refused (running / unready shell / rate-limit / missing / prepare fail) · 2 usage/config error
+#
+# Safety: tmux classify is FAIL-CLOSED. Only positive agent chrome → send-keys+Enter.
+# Bare zsh/bash (or unknown screens) → state=unready → refuse (never type HAND WAKE into a shell).
 set -euo pipefail
 
 _FLEET_SCRIPT_DIR="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
@@ -196,30 +199,67 @@ tmux_session_exact() {
 }
 
 # Classify pane quickly (subset of fleet-sensors heuristics; BSD+GNU grep -Eiq).
+#
+# FAIL-CLOSED: only positive agent chrome → waiting_for_input / completed.
+# Bare shells and unrecognized screens → unready (never default to "ready").
+# Doorbell must not send-keys+Enter into zsh/bash (treats HAND as a command).
+classify_tmux_text() {
+  local t=$1
+  # Order matters: first match wins.
+  if printf '%s\n' "$t" | grep -Eiq \
+    'Working \(|esc to interrupt|Waiting for response|Responding|Working\.\.\.|Thinking…|Thinking\.\.\.|⬝'; then
+    echo running
+    return 0
+  fi
+  if printf '%s\n' "$t" | grep -Eiq \
+    'Yes, continue|Do you trust|trust this workspace|Always allow|Allow always|Allow once|until OpenCode is restarted|No, quit|Press enter to continue'; then
+    echo approval_required
+    return 0
+  fi
+  if printf '%s\n' "$t" | grep -Eiq \
+    'over capacity|rate limit|usage limit'; then
+    echo failed
+    return 0
+  fi
+  # Positive agent-idle markers only (do not treat shell %/$ as ready).
+  if printf '%s\n' "$t" | grep -Eiq \
+    '›|codex ›|\$0\.|openai-codex|Ask anything|OpenCode Zen|Build ·|ctrl\+p commands|always-approve|Shift\+Tab|Idle until|Board empty|bag empty|Turn completed|actionable: 0|╰─|pi-lite|Grok  |Grok$'; then
+    if printf '%s\n' "$t" | grep -Eiq \
+      'bag empty|standing by|turn end|Turn completed|ready-to-merge|Idle until|Board empty|actionable: 0'; then
+      echo completed
+      return 0
+    fi
+    echo waiting_for_input
+    return 0
+  fi
+  # Explicit shell / non-agent errors — refuse doorbell (keystroke injection risk).
+  if printf '%s\n' "$t" | grep -Eiq 'command not found:|^zsh:|^bash:|^fish:'; then
+    echo unready
+    return 0
+  fi
+  # Last non-empty line looks like a classic shell prompt (%, $, #) without agent chrome.
+  local last
+  last="$(printf '%s\n' "$t" | awk 'NF { line = $0 } END { print line }')"
+  if printf '%s\n' "$last" | grep -Eq '^[[:space:]]*[%$#]([[:space:]]|$)'; then
+    echo unready
+    return 0
+  fi
+  # Unrecognized screen — fail closed (historical bug: defaulted waiting_for_input).
+  echo unready
+  return 0
+}
+
 classify() {
   local target=$1
   local session_exact
   session_exact="$(tmux_session_exact "$target")"
-  local t class
+  local t
   if ! "$TMUX_BIN" has-session -t "$session_exact" 2>/dev/null; then
     echo stopped
     return 0
   fi
   t="$("$TMUX_BIN" capture-pane -t "$target" -p -S -20 2>/dev/null || true)"
-  # Order matters: first match wins.
-  for class in \
-    'running|Working \(|esc to interrupt|Waiting for response|Responding|Working\.\.\.' \
-    'approval_required|Yes, continue|Do you trust|trust this workspace|Always allow|Allow always|Allow once|until OpenCode is restarted' \
-    'waiting_for_input|›|codex ›|\$0\.|openai-codex|gpt-' \
-    'failed|over capacity|rate limit|usage limit'
-  do
-    if printf '%s\n' "$t" | grep -Eiq "${class#*|}"; then
-      echo "${class%%|*}"
-      return 0
-    fi
-  done
-  echo waiting_for_input
-  return 0
+  classify_tmux_text "$t"
 }
 
 # Read vivi-pty's canonical harness state; the driver owns PTY classification.
@@ -282,7 +322,16 @@ send_line() {
   fi
 }
 
+# True when it is safe to type a pointer (or /new|/compact) into the pane.
+agent_accepts_input() {
+  case "$1" in
+    waiting_for_input|completed) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
 # Wait until agent looks idle enough for input (or timeout).
+# Fail closed: unknown/unready never count as ready (shells must not pass).
 wait_ready() {
   local timeout=${1:-$PREPARE_TIMEOUT}
   local i=0
@@ -291,15 +340,18 @@ wait_ready() {
   while [[ "$i" -lt "$timeout" ]]; do
     state="$(classify_runtime)"
     case "$state" in
-      waiting_for_input|completed|unknown)
+      waiting_for_input|completed)
         CLASS="$state"
         return 0
         ;;
-      stopped)
-        CLASS=stopped
-        return 1
+      stopped|unready|unknown|failed|approval_required)
+        CLASS="$state"
+        # unready/unknown: keep waiting briefly in case chrome is late after start
+        if [[ "$state" == "stopped" || "$state" == "failed" || "$state" == "approval_required" ]]; then
+          return 1
+        fi
         ;;
-      running|starting|submitting|approval_required|failed)
+      running|starting|submitting)
         ;;
     esac
     sleep 1
@@ -336,8 +388,13 @@ prepare_assignment() {
           return 1
         fi
       fi
-      if [[ "$(classify_runtime)" =~ ^(starting|submitting|running|approval_required)$ ]]; then
-        echo "refused: assignment_mode=compact needs idle runtime, state=$(classify_runtime)" >&2
+      CLASS="$(classify_runtime)"
+      if [[ "$CLASS" =~ ^(starting|submitting|running|approval_required)$ ]]; then
+        echo "refused: assignment_mode=compact needs idle runtime, state=$CLASS" >&2
+        return 1
+      fi
+      if ! agent_accepts_input "$CLASS"; then
+        echo "refused: assignment_mode=compact pane is not an agent prompt (state=$CLASS) — will not type into shell" >&2
         return 1
       fi
       echo "prepare: compact on $RESOLVED_TARGET" >&2
@@ -361,8 +418,13 @@ prepare_assignment() {
         # Fresh process already has empty context — skip /new.
         return 0
       fi
-      if [[ "$(classify_runtime)" =~ ^(starting|submitting|running|approval_required)$ ]]; then
-        echo "refused: assignment_mode=new needs idle runtime, state=$(classify_runtime)" >&2
+      CLASS="$(classify_runtime)"
+      if [[ "$CLASS" =~ ^(starting|submitting|running|approval_required)$ ]]; then
+        echo "refused: assignment_mode=new needs idle runtime, state=$CLASS" >&2
+        return 1
+      fi
+      if ! agent_accepts_input "$CLASS"; then
+        echo "refused: assignment_mode=new pane is not an agent prompt (state=$CLASS) — will not type into shell" >&2
         return 1
       fi
       echo "prepare: new session on $RESOLVED_TARGET" >&2
@@ -494,13 +556,21 @@ elif [[ "$CLASS" == "stopped" ]]; then
   fi
 fi
 
-if [[ "$FORCE" -ne 1 && "$CLASS" =~ ^(starting|submitting|running|approval_required|failed)$ ]]; then
-  echo "refused: runtime $RESOLVED_TARGET state=$CLASS" >&2
-  exit 1
-fi
+# Fail closed: only agent idle/completed may receive keystrokes (+ Enter).
+# Bare shell / unmatched pane classifies as unready — never send HAND WAKE into zsh.
 if [[ "$CLASS" == "stopped" ]]; then
   echo "refused: no runtime session for $RESOLVED_TARGET" >&2
   exit 1
+fi
+if [[ "$FORCE" -ne 1 ]]; then
+  if [[ "$CLASS" =~ ^(starting|submitting|running|approval_required|failed)$ ]]; then
+    echo "refused: runtime $RESOLVED_TARGET state=$CLASS" >&2
+    exit 1
+  fi
+  if ! agent_accepts_input "$CLASS"; then
+    echo "refused: runtime $RESOLVED_TARGET state=$CLASS (not an agent input prompt; refuse shell/keystroke injection)" >&2
+    exit 1
+  fi
 fi
 
 # Rate limit only when this Hand has a prior successful doorbell (count>=1 + last_at).

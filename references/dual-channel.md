@@ -179,6 +179,8 @@ is `waiting_for_input`, not `failed`.
 
 Rate-limit wakes (`min_seconds_between_wakes`) **only when that Hand already has a prior doorbell** (`last_hand_wake.by_hand.<name>.count ≥ 1`). **No last wake / count 0 → never rate-limit** (cold attach, first wake after recreate). Never `send-keys` into `running` unless operator allows cancel+replace. Prefer project **classify script** over ad-hoc greps (avoids false `failed` with connection detail from tool text like `timeout 1800 ./script`).
 
+**Doorbell fail-closed (tmux):** `fleet-doorbell.sh` only types into panes with **positive agent chrome** (`waiting_for_input` / `completed`). Unmatched screens and bare shells classify as **`unready`** and are **refused** — never inject a pointer into zsh/bash (keystroke+Enter is not a conversation API). vivi_pty uses harness diagnostics; still refuse non-input harness states.
+
 | Situation | Action |
 | --- | --- |
 | `waiting_for_input`/`completed` + open tasking | Pointer doorbell |
