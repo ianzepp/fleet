@@ -50,6 +50,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from fleet_common import (  # noqa: E402
     FleetScopeError,
     ensure_dict,
+    exact_tmux_session,
+    exact_tmux_target,
     load_json,
     now_iso as _now_iso,
     require_python,
@@ -247,10 +249,13 @@ def _snapshot_tmux(project: Path, identity: str, slot: dict, fleet: Optional[dic
     target = _binding_for_slot(project, identity, slot, fleet)["target"]
     session = target.split(":")[0]
     tmux = shutil.which("tmux") or "tmux"
-    rc, _ = run_cmd([tmux, "has-session", "-t", session], timeout=5)
+    rc, _ = run_cmd([tmux, "has-session", "-t", exact_tmux_session(session)], timeout=5)
     if rc != 0:
         return {"kind": "tmux", "target": target, "state": "stopped", "session": session}
-    rc2, text = run_cmd([tmux, "capture-pane", "-t", target, "-p", "-S", "-20"], timeout=5)
+    rc2, text = run_cmd(
+        [tmux, "capture-pane", "-t", exact_tmux_target(target), "-p", "-S", "-20"],
+        timeout=5,
+    )
     tail = text if rc2 == 0 else ""
     state = _classify_tail(tail)
     return {"kind": "tmux", "target": target, "state": state, "session": session, "tail": tail}
@@ -309,12 +314,13 @@ def _classify_tail(text: str) -> str:
 def _stop_tmux(target: str, session: str) -> Tuple[bool, str]:
     """Stop a tmux pane. Returns (ok, message)."""
     tmux = shutil.which("tmux") or "tmux"
-    rc, _ = run_cmd([tmux, "has-session", "-t", session], timeout=5)
+    target_t = exact_tmux_target(target)
+    rc, _ = run_cmd([tmux, "has-session", "-t", exact_tmux_session(session)], timeout=5)
     if rc != 0:
         return True, "already stopped"
-    rc2, out = run_cmd([tmux, "send-keys", "-t", target, "C-c"], timeout=5)
+    rc2, out = run_cmd([tmux, "send-keys", "-t", target_t, "C-c"], timeout=5)
     time.sleep(0.3)
-    rc3, _ = run_cmd([tmux, "send-keys", "-t", target, "C-c"], timeout=5)
+    rc3, _ = run_cmd([tmux, "send-keys", "-t", target_t, "C-c"], timeout=5)
     time.sleep(0.2)
     return rc2 == 0 or rc3 == 0, out if rc2 != 0 else ""
 
@@ -341,7 +347,8 @@ def _start_tmux(slot: dict, identity: str, cwd: Optional[str],
     session = target.split(":")[0]
     launch = (slot.get("agent_launch") or "").strip()
     tmux = shutil.which("tmux") or "tmux"
-    rc, _ = run_cmd([tmux, "has-session", "-t", session], timeout=5)
+    target_t = exact_tmux_target(target)
+    rc, _ = run_cmd([tmux, "has-session", "-t", exact_tmux_session(session)], timeout=5)
     if rc == 0:
         if restart and launch:
             work_dir = cwd or "."
@@ -351,7 +358,7 @@ def _start_tmux(slot: dict, identity: str, cwd: Optional[str],
                 parts = [launch]
             full_cmd = " ".join(shlex.quote(p) for p in parts)
             rc2, out = run_cmd(
-                [tmux, "send-keys", "-t", target, full_cmd, "Enter"],
+                [tmux, "send-keys", "-t", target_t, full_cmd, "Enter"],
                 timeout=10,
             )
             return rc2 == 0, out
@@ -364,6 +371,7 @@ def _start_tmux(slot: dict, identity: str, cwd: Optional[str],
     except ValueError:
         parts = [launch]
     full_cmd = " ".join(shlex.quote(p) for p in parts)
+    # -s takes the literal session name (no = exact-match prefix).
     rc2, out = run_cmd(
         [tmux, "new-session", "-d", "-s", session, "-c", work_dir, full_cmd],
         timeout=10,

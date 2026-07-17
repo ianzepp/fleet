@@ -192,10 +192,29 @@ PY
 }
 
 # Exact tmux session name (avoid prefix match: swarm vs swarm-cli).
+# Bare names are prefixes on tmux 3.x — "swarm" matches "swarm-cli".
 tmux_session_exact() {
   local target=$1
   local session=${target%%:*}
+  session=${session#=}
   printf '%s\n' "=${session}"
+}
+
+# Exact full target (session:window.pane) for capture/send-keys.
+tmux_target_exact() {
+  local target=$1
+  local session rest
+  if [[ "$target" == =* ]]; then
+    printf '%s\n' "$target"
+    return 0
+  fi
+  if [[ "$target" == *:* ]]; then
+    session=${target%%:*}
+    rest=${target#*:}
+    printf '%s\n' "=${session}:${rest}"
+  else
+    printf '%s\n' "=${target}"
+  fi
 }
 
 # Classify pane quickly (subset of fleet-sensors heuristics; BSD+GNU grep -Eiq).
@@ -251,18 +270,21 @@ classify_tmux_text() {
 
 classify() {
   local target=$1
-  local session_exact
+  local session_exact target_exact
   session_exact="$(tmux_session_exact "$target")"
+  target_exact="$(tmux_target_exact "$target")"
   local t
   if ! "$TMUX_BIN" has-session -t "$session_exact" 2>/dev/null; then
     echo stopped
     return 0
   fi
-  t="$("$TMUX_BIN" capture-pane -t "$target" -p -S -20 2>/dev/null || true)"
+  t="$("$TMUX_BIN" capture-pane -t "$target_exact" -p -S -20 2>/dev/null || true)"
   classify_tmux_text "$t"
 }
 
-# Read vivi-pty's canonical harness state; the driver owns PTY classification.
+# Read vivi-pty harness state; when driver reports unknown/unready, fall back to
+# the same positive-chrome heuristics as classify_tmux_text (terminal contents).
+# Fail-closed still applies for bare shells — only agent-idle markers pass.
 classify_vivi_pty() {
   local session_id=$1
   local socket=$2
@@ -272,11 +294,59 @@ classify_vivi_pty() {
     return 0
   fi
   printf '%s\n' "$diag" | "$PYTHON_BIN" -c '
-import json, sys
+import json, re, sys
+
+def classify_text(t: str) -> str:
+    if re.search(
+        r"Working \(|esc to interrupt|Waiting for response|Responding|Working\.\.\.|Thinking…|Thinking\.\.\.|⬝",
+        t,
+        re.I,
+    ):
+        return "running"
+    if re.search(
+        r"Yes, continue|Do you trust|trust this workspace|Always allow|Allow always|Allow once|until OpenCode is restarted|No, quit|Press enter to continue",
+        t,
+        re.I,
+    ):
+        return "approval_required"
+    if re.search(r"over capacity|rate limit|usage limit", t, re.I):
+        return "failed"
+    if re.search(
+        r"›|codex ›|\$0\.|openai-codex|Ask anything|OpenCode Zen|Build ·|ctrl\+p commands|always-approve|Shift\+Tab|Idle until|Board empty|bag empty|Turn completed|actionable: 0|╰─|pi-lite|Grok  |Grok$|◇ candidate",
+        t,
+        re.I,
+    ):
+        if re.search(
+            r"bag empty|standing by|turn end|Turn completed|ready-to-merge|Idle until|Board empty|actionable: 0",
+            t,
+            re.I,
+        ):
+            return "completed"
+        return "waiting_for_input"
+    if re.search(r"command not found:|^zsh:|^bash:|^fish:", t, re.I | re.M):
+        return "unready"
+    lines = [ln for ln in t.splitlines() if ln.strip()]
+    last = lines[-1] if lines else ""
+    if re.match(r"^[\s]*[%$#]([\s]|$)", last):
+        return "unready"
+    return "unready"
+
 try:
     data = json.load(sys.stdin)
     process = data.get("process_state") or data.get("session", {}).get("state")
-    print("stopped" if process in ("exited", "stopped") else data.get("harness_state", "unknown"))
+    if process in ("exited", "stopped"):
+        print("stopped")
+        raise SystemExit(0)
+    harness = data.get("harness_state") or "unknown"
+    # Canonical driver states when present and decisive.
+    if harness in ("running", "waiting_for_input", "completed", "approval_required", "failed", "stopped"):
+        print(harness)
+        raise SystemExit(0)
+    # unknown/unready/empty: classify terminal contents (fail-closed).
+    term = (data.get("terminal") or {}).get("contents") or ""
+    print(classify_text(term))
+except SystemExit:
+    raise
 except Exception:
     print("unknown")
 '
@@ -316,9 +386,11 @@ send_line() {
     "$VIVI_PTY_BIN" terminal write "$RESOLVED_TARGET" "$text" --enter --socket "$SOCKET"
     sleep "$delay"
   else
-    "$TMUX_BIN" send-keys -t "$RESOLVED_TARGET" -l -- "$text"
+    local target_exact
+    target_exact="$(tmux_target_exact "$RESOLVED_TARGET")"
+    "$TMUX_BIN" send-keys -t "$target_exact" -l -- "$text"
     sleep "$delay"
-    "$TMUX_BIN" send-keys -t "$RESOLVED_TARGET" Enter
+    "$TMUX_BIN" send-keys -t "$target_exact" Enter
   fi
 }
 

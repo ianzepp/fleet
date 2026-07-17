@@ -269,10 +269,40 @@ def resolve_role(fleet: Dict[str, Any], role: str) -> Tuple[str, Dict[str, Any],
 
 def _tmux_parts(target: str) -> Tuple[str, str, str]:
     """Split a tmux target into session, window, and pane components."""
-    match = re.match(r"^([^:]+):([^\.]+)(?:\.(.+))?$", target)
+    # Strip a leading exact-match marker if present (tmux `=session`).
+    cleaned = target[1:] if target.startswith("=") else target
+    match = re.match(r"^([^:]+):([^\.]+)(?:\.(.+))?$", cleaned)
     if not match:
-        return target, "", ""
+        return cleaned, "", ""
     return match.group(1), match.group(2), match.group(3) or ""
+
+
+def exact_tmux_session(session: str) -> str:
+    """Return a tmux session token that matches only that name.
+
+    tmux treats bare session names as prefixes, so ``swarm`` matches
+    ``swarm-cli``. Prefix with ``=`` for exact match (tmux 2.1+).
+    Do **not** use this for ``new-session -s`` (that sets the name).
+    """
+    name = str(session or "").strip()
+    if not name:
+        return name
+    if name.startswith("="):
+        return name
+    return "=" + name
+
+
+def exact_tmux_target(target: str) -> str:
+    """Exact-match the session portion of a ``session:window.pane`` target."""
+    t = str(target or "").strip()
+    if not t:
+        return t
+    if t.startswith("="):
+        return t
+    if ":" in t:
+        session, rest = t.split(":", 1)
+        return "%s:%s" % (exact_tmux_session(session), rest)
+    return exact_tmux_session(t)
 
 
 # How Mind prepares a Hand/Head agent session when starting a *new* work item.

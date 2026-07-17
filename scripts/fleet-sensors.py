@@ -28,6 +28,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from fleet_common import (  # noqa: E402
     FleetScopeError,
     add_fleet_scope_arguments,
+    exact_tmux_session,
+    exact_tmux_target,
     load_json as _load_json,
     now_iso,
     require_python,
@@ -1709,11 +1711,22 @@ def main() -> int:
                 if not sess_ok and not tail:
                     partial = True
         elif tmux_bin:
-            rc, _ = run([tmux_bin, "has-session", "-t", session], timeout=5)
+            rc, _ = run(
+                [tmux_bin, "has-session", "-t", exact_tmux_session(session)],
+                timeout=5,
+            )
             sess_ok = rc == 0
             if sess_ok:
                 rc, tail = run(
-                    [tmux_bin, "capture-pane", "-t", target, "-p", "-S", "-%d" % args.tail],
+                    [
+                        tmux_bin,
+                        "capture-pane",
+                        "-t",
+                        exact_tmux_target(target),
+                        "-p",
+                        "-S",
+                        "-%d" % args.tail,
+                    ],
                     timeout=5,
                 )
                 if rc != 0:
@@ -1958,11 +1971,22 @@ def main() -> int:
                 runtime_evidence = captured["evidence"]
                 observed_model = captured.get("model") or {}
         elif tmux_bin:
-            rc, _ = run([tmux_bin, "has-session", "-t", session], timeout=5)
+            rc, _ = run(
+                [tmux_bin, "has-session", "-t", exact_tmux_session(session)],
+                timeout=5,
+            )
             sess_ok = rc == 0
             if sess_ok:
                 _, tail = run(
-                    [tmux_bin, "capture-pane", "-t", target, "-p", "-S", "-%d" % min(args.tail, 12)],
+                    [
+                        tmux_bin,
+                        "capture-pane",
+                        "-t",
+                        exact_tmux_target(target),
+                        "-p",
+                        "-S",
+                        "-%d" % min(args.tail, 12),
+                    ],
                     timeout=5,
                 )
         pclass = (
@@ -2118,11 +2142,22 @@ def main() -> int:
     st_sess_ok = False
     st_tail = ""
     if tmux_bin:
-        rc, _ = run([tmux_bin, "has-session", "-t", st_session], timeout=5)
+        rc, _ = run(
+            [tmux_bin, "has-session", "-t", exact_tmux_session(st_session)],
+            timeout=5,
+        )
         st_sess_ok = rc == 0
         if st_sess_ok:
             _, st_tail = run(
-                [tmux_bin, "capture-pane", "-t", st_target, "-p", "-S", "-8"],
+                [
+                    tmux_bin,
+                    "capture-pane",
+                    "-t",
+                    exact_tmux_target(st_target),
+                    "-p",
+                    "-S",
+                    "-8",
+                ],
                 timeout=5,
             )
     st_class = classify_terminal(st_tail, st_sess_ok)

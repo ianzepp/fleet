@@ -14,6 +14,8 @@ sys.path.insert(0, str(SCRIPTS))
 
 from fleet_common import (  # noqa: E402
     FleetScopeError,
+    exact_tmux_session,
+    exact_tmux_target,
     resolve_assignment_mode,
     resolve_fleet_file,
     resolve_runtime_binding,
@@ -57,6 +59,14 @@ class FleetResolverTests(unittest.TestCase):
         self.assertEqual(binding["session"], "custom")
         self.assertEqual(binding["window"], "window")
         self.assertEqual(binding["pane"], "2")
+
+    def test_exact_tmux_session_avoids_prefix_collision(self) -> None:
+        self.assertEqual(exact_tmux_session("swarm"), "=swarm")
+        self.assertEqual(exact_tmux_session("=swarm"), "=swarm")
+        self.assertEqual(exact_tmux_session(""), "")
+        self.assertEqual(exact_tmux_target("swarm:hand-1.1"), "=swarm:hand-1.1")
+        self.assertEqual(exact_tmux_target("=swarm:hand-1.1"), "=swarm:hand-1.1")
+        self.assertEqual(exact_tmux_target("swarm"), "=swarm")
 
     def test_vivi_pty_binding_keeps_backend_specific_session(self) -> None:
         fleet = {

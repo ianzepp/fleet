@@ -19,6 +19,8 @@ from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 from fleet_common import (
     FleetScopeError,
+    exact_tmux_session,
+    exact_tmux_target,
     require_python,
     resolve_fleet_file,
     resolve_role,
@@ -295,7 +297,10 @@ def boot_vivi(fleet: Dict[str, Any], binding: Dict[str, Any], boot: str) -> Tupl
 
 
 def tmux_target_exists(tmux: str, target: str) -> bool:
-    rc, _ = run_cmd([tmux, "display-message", "-p", "-t", target, "#{pane_id}"], timeout=5)
+    rc, _ = run_cmd(
+        [tmux, "display-message", "-p", "-t", exact_tmux_target(target), "#{pane_id}"],
+        timeout=5,
+    )
     return rc == 0
 
 
@@ -303,12 +308,16 @@ def tmux_status(fleet: Dict[str, Any], binding: Dict[str, Any]) -> Dict[str, Any
     tmux = _tmux_bin(fleet)
     session = str(binding.get("session") or "")
     target = str(binding.get("target") or "")
-    rc, _ = run_cmd([tmux, "has-session", "-t", session], timeout=5)
+    # Exact session: bare "swarm" prefix-matches "swarm-cli" on tmux 3.x.
+    rc, _ = run_cmd([tmux, "has-session", "-t", exact_tmux_session(session)], timeout=5)
     if rc != 0:
         return {"state": "stopped", "exists": False}
     if not tmux_target_exists(tmux, target):
         return {"state": "stopped", "exists": False, "detail": "target missing"}
-    rc2, tail = run_cmd([tmux, "capture-pane", "-t", target, "-p", "-S", "-12"], timeout=5)
+    rc2, tail = run_cmd(
+        [tmux, "capture-pane", "-t", exact_tmux_target(target), "-p", "-S", "-12"],
+        timeout=5,
+    )
     return {"state": "present" if rc2 == 0 else "unknown", "exists": True, "tail": tail[-1000:]}
 
 
@@ -317,8 +326,10 @@ def ensure_tmux_topology(fleet: Dict[str, Any], binding: Dict[str, Any]) -> Tupl
     session = str(binding.get("session") or "")
     window = str(binding.get("window") or "")
     cwd = str(binding.get("cwd") or ".")
-    rc, _ = run_cmd([tmux, "has-session", "-t", session], timeout=5)
+    sess_t = exact_tmux_session(session)
+    rc, _ = run_cmd([tmux, "has-session", "-t", sess_t], timeout=5)
     if rc != 0:
+        # -s takes the literal name (no = prefix).
         args = [tmux, "new-session", "-d", "-s", session]
         if window:
             args.extend(["-n", window])
@@ -326,9 +337,15 @@ def ensure_tmux_topology(fleet: Dict[str, Any], binding: Dict[str, Any]) -> Tupl
         rc2, out = run_cmd(args, timeout=10)
         return rc2 == 0, out or "session created"
     if window:
-        rcw, windows = run_cmd([tmux, "list-windows", "-t", session, "-F", "#{window_name}"], timeout=5)
+        rcw, windows = run_cmd(
+            [tmux, "list-windows", "-t", sess_t, "-F", "#{window_name}"],
+            timeout=5,
+        )
         if rcw == 0 and window not in set(windows.splitlines()):
-            rc2, out = run_cmd([tmux, "new-window", "-d", "-t", session, "-n", window, "-c", cwd], timeout=10)
+            rc2, out = run_cmd(
+                [tmux, "new-window", "-d", "-t", sess_t, "-n", window, "-c", cwd],
+                timeout=10,
+            )
             return rc2 == 0, out or "window created"
     return True, "topology present"
 
@@ -340,6 +357,7 @@ def start_tmux(fleet: Dict[str, Any], binding: Dict[str, Any], slot: Dict[str, A
     if not ok:
         return False, msg
     target = str(binding.get("target") or "")
+    target_t = exact_tmux_target(target)
     if not tmux_target_exists(tmux, target):
         return False, "target missing after topology create: %s" % target
     argv = _launch_argv(slot, binding)
@@ -348,10 +366,10 @@ def start_tmux(fleet: Dict[str, Any], binding: Dict[str, Any], slot: Dict[str, A
     if existed_before and not force:
         # We cannot portably know whether a shell already hosts an agent; do not stack.
         return True, "target exists; launch not stacked (use --force to send command)"
-    rc, out = run_cmd([tmux, "send-keys", "-t", target, "-l", "--", _render_cmd(argv)], timeout=10)
+    rc, out = run_cmd([tmux, "send-keys", "-t", target_t, "-l", "--", _render_cmd(argv)], timeout=10)
     if rc != 0:
         return False, out
-    rc2, out2 = run_cmd([tmux, "send-keys", "-t", target, "Enter"], timeout=10)
+    rc2, out2 = run_cmd([tmux, "send-keys", "-t", target_t, "Enter"], timeout=10)
     return rc2 == 0, out2 or "launch sent"
 
 
@@ -359,15 +377,17 @@ def stop_tmux(fleet: Dict[str, Any], binding: Dict[str, Any]) -> Tuple[bool, str
     tmux = _tmux_bin(fleet)
     session = str(binding.get("session") or "")
     window = str(binding.get("window") or "")
+    sess_t = exact_tmux_session(session)
     target = "%s:%s" % (session, window) if window else session
-    rc, out = run_cmd([tmux, "has-session", "-t", session], timeout=5)
+    target_t = exact_tmux_target(target)
+    rc, out = run_cmd([tmux, "has-session", "-t", sess_t], timeout=5)
     if rc != 0:
         return True, "already stopped"
     if window:
-        rc2, out2 = run_cmd([tmux, "kill-window", "-t", target], timeout=10)
+        rc2, out2 = run_cmd([tmux, "kill-window", "-t", target_t], timeout=10)
         if rc2 == 0:
             return True, out2 or "window stopped"
-    rc3, out3 = run_cmd([tmux, "kill-session", "-t", session], timeout=10)
+    rc3, out3 = run_cmd([tmux, "kill-session", "-t", sess_t], timeout=10)
     return rc3 == 0, out3 or "session stopped"
 
 
@@ -375,11 +395,11 @@ def boot_tmux(fleet: Dict[str, Any], binding: Dict[str, Any], boot: str) -> Tupl
     if not boot:
         return True, "no boot"
     tmux = _tmux_bin(fleet)
-    target = str(binding.get("target") or "")
-    rc, out = run_cmd([tmux, "send-keys", "-t", target, "-l", "--", boot], timeout=10)
+    target_t = exact_tmux_target(str(binding.get("target") or ""))
+    rc, out = run_cmd([tmux, "send-keys", "-t", target_t, "-l", "--", boot], timeout=10)
     if rc != 0:
         return False, out
-    rc2, out2 = run_cmd([tmux, "send-keys", "-t", target, "Enter"], timeout=10)
+    rc2, out2 = run_cmd([tmux, "send-keys", "-t", target_t, "Enter"], timeout=10)
     return rc2 == 0, out2 or "boot sent"
 
 
