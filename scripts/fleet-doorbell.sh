@@ -226,18 +226,26 @@ classify_tmux_text() {
   local t=$1
   # Order matters: first match wins.
   if printf '%s\n' "$t" | grep -Eiq \
-    'Working \(|esc to interrupt|Waiting for response|Responding|Working\.\.\.|Thinking…|Thinking\.\.\.|⬝'; then
+    'Working \(|esc to interrupt|Waiting for response|Responding|Working\.\.\.|Thinking…|Thinking\.\.\.|⬝|(🌑|🌒|🌓|🌔|🌕|🌖|🌗|🌘)[[:space:]]*·[[:space:]]*Tip:'; then
     echo running
     return 0
   fi
   if printf '%s\n' "$t" | grep -Eiq \
-    'Yes, continue|Do you trust|trust this workspace|Always allow|Allow always|Allow once|until OpenCode is restarted|No, quit|Press enter to continue'; then
+    'Yes, continue|Do you trust|trust this workspace|Always allow|Allow always|Allow once|until OpenCode is restarted|No, quit|Press enter to continue|Approve once|Approve for this session|Reject with feedback|Write this file\?|↵ confirm'; then
     echo approval_required
     return 0
   fi
   if printf '%s\n' "$t" | grep -Eiq \
     'over capacity|rate limit|usage limit'; then
     echo failed
+    return 0
+  fi
+  # Kimi ready chrome must be current at the bottom, not stale scrollback.
+  local bottom
+  bottom="$(printf '%s\n' "$t" | awk 'NF { lines[++n] = $0 } END { start = n > 6 ? n - 5 : 1; for (i = start; i <= n; i++) print lines[i] }')"
+  if printf '%s\n' "$bottom" | awk 'NF { line = $0 } END { print line }' | grep -Eiq 'context:[[:space:]]*[0-9]+%' && \
+     printf '%s\n' "$bottom" | grep -Eq '│[[:space:]]*>[[:space:]]*'; then
+    echo waiting_for_input
     return 0
   fi
   # Positive agent-idle markers only (do not treat shell %/$ as ready).
@@ -297,20 +305,24 @@ classify_vivi_pty() {
 import json, re, sys
 
 def classify_text(t: str) -> str:
+    lines = [ln for ln in t.splitlines() if ln.strip()]
+    bottom = "\n".join(lines[-6:]) if lines else ""
     if re.search(
-        r"Working \(|esc to interrupt|Waiting for response|Responding|Working\.\.\.|Thinking…|Thinking\.\.\.|⬝",
+        r"Working \(|esc to interrupt|Waiting for response|Responding|Working\.\.\.|Thinking…|Thinking\.\.\.|⬝|[🌑🌒🌓🌔🌕🌖🌗🌘]\s*·\s*Tip:",
         t,
         re.I,
     ):
         return "running"
     if re.search(
-        r"Yes, continue|Do you trust|trust this workspace|Always allow|Allow always|Allow once|until OpenCode is restarted|No, quit|Press enter to continue",
+        r"Yes, continue|Do you trust|trust this workspace|Always allow|Allow always|Allow once|until OpenCode is restarted|No, quit|Press enter to continue|Approve once|Approve for this session|Reject with feedback|Write this file\?|↵ confirm",
         t,
         re.I,
     ):
         return "approval_required"
     if re.search(r"over capacity|rate limit|usage limit", t, re.I):
         return "failed"
+    if lines and re.search(r"context:\s*\d+%", lines[-1]) and re.search(r"│\s*>\s*", bottom):
+        return "waiting_for_input"
     if re.search(
         r"›|codex ›|\$0\.|openai-codex|Ask anything|OpenCode Zen|Build ·|ctrl\+p commands|always-approve|Shift\+Tab|Idle until|Board empty|bag empty|Turn completed|actionable: 0|╰─|pi-lite|Grok  |Grok$|◇ candidate",
         t,
@@ -325,7 +337,6 @@ def classify_text(t: str) -> str:
         return "waiting_for_input"
     if re.search(r"command not found:|^zsh:|^bash:|^fish:", t, re.I | re.M):
         return "unready"
-    lines = [ln for ln in t.splitlines() if ln.strip()]
     last = lines[-1] if lines else ""
     if re.match(r"^[\s]*[%$#]([\s]|$)", last):
         return "unready"
@@ -371,6 +382,7 @@ submit_delay_default() {
   fi
   case "$AGENT" in
     codex) printf '0.8\n' ;;
+    kimi) printf '3.0\n' ;;
     grok|pi|opencode) printf '0.05\n' ;;
     *) printf '0.05\n' ;;
   esac

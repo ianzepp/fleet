@@ -263,6 +263,35 @@ opencode run --model opencode/gpt-5.5 --attach http://localhost:4096 "task"
 opencode --model opencode/gpt-5.5 --auto
 ```
 
+### Kimi Code CLI (explicit compatibility exception)
+
+Binary: `kimi`. Documentation: [Kimi Code CLI](https://moonshotai.github.io/kimi-code/).
+Kimi uses a persistent TUI with `/new`, `/compact`, `/yolo`, `/auto`, and
+`/permission` controls. Fleet uses `agent_launch` as the source of truth and a
+longer tmux submit-settle delay because rapid injected text can otherwise leave
+Enter in the multiline composer.
+
+| Flag | Purpose | Fleet use |
+| --- | --- | --- |
+| `-m` / `--model <MODEL>` | Model alias | Set `agent_model` |
+| `-y` / `--yolo` | Skip regular tool approvals | Unattended Hands only |
+| `--auto` | Automatically handle approvals/questions | Alternative operator-selected automation mode |
+| `-S` / `--session [ID]` | Resume a session | Manual recovery; normal Fleet continuity keeps the TUI resident |
+| `-c` / `--continue` | Continue the cwd's prior session | Explicit recovery only |
+| `-p` / `--prompt <TEXT>` | Non-interactive one-shot | Advisory or diagnostic use, not a resident Hand |
+
+**Typical Hand startup (in tmux):**
+
+```bash
+kimi --yolo
+```
+
+Kimi pane evidence used by Fleet:
+
+- idle: boxed `> ` composer with `K<n> thinking:` and `context:` status;
+- running: rotating moon phase followed by `· Tip:`;
+- approval: approve/reject candidate list and `↵ confirm`.
+
 ### Vivi (mailspace) CLI
 
 Binary: `vivi` (Rust CLI, typically at `~/.cargo/bin/vivi`). Config: defined by
@@ -302,6 +331,12 @@ list the default search paths (“`~`” resolves to the current user’s home d
 | `~/.config/opencode/opencode.jsonc` | Shell, basic preferences |
 | `<project>/AGENTS.md` | Project-level agent rules |
 
+**Kimi:**
+| File / Dir | Purpose |
+| --- | --- |
+| `~/.kimi-code/` | Default Kimi Code configuration, sessions, logs, and update cache |
+| `<project>/.kimi-code/` | Optional project-local Kimi settings |
+
 **Vivi:**
 | File / Dir | Purpose |
 | --- | --- |
@@ -314,6 +349,7 @@ list the default search paths (“`~`” resolves to the current user’s home d
 | **Codex** | Config file (`~/.codex/config.toml` `model` key) | Single default; profiles for alternates |
 | **Pi** | `pi --list-models [<provider>]` | Provider-filtered table with context, max-out, thinking support, images |
 | **opencode** | `opencode models [<provider>]` | Provider-filtered model list |
+| **Kimi** | `kimi --help` and `/model` in the TUI | Configured aliases and interactive model selection |
 
 ## Hand does
 

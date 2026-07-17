@@ -275,6 +275,10 @@ class LaunchGenerationTests(unittest.TestCase):
         self.assertIn("gpt-5.6-sol", launch)
         self.assertIn("--auto", launch)
 
+    def test_kimi_launch(self):
+        launch = rebind._build_launch("kimi", "kimi-k3", None, None, None)
+        self.assertEqual(launch, "kimi --model kimi-k3 --yolo")
+
     def test_unknown_harness_returns_none(self):
         launch = rebind._build_launch("unknown-harness", "model-x", None, None, None)
         self.assertIsNone(launch)
@@ -299,7 +303,13 @@ class RuntimeCommandUpdateTests(unittest.TestCase):
     def test_vivi_pty_command_pi(self):
         runtime = {"kind": "vivi_pty", "command": ["pi"]}
         updated = rebind._update_runtime_command(runtime, "pi", "glm-5.2", "zai", "high", None)
-        self.assertEqual(updated["command"], ["pi", "--provider", "zai", "--model", "glm-5.2", "--thinking", "high", "--approve"])
+        self.assertTrue(updated["command"][0].endswith("/pi-hand"))
+        self.assertEqual(updated["command"][1:], ["--provider", "zai", "--model", "glm-5.2", "--thinking", "high", "--approve"])
+
+    def test_vivi_pty_command_kimi(self):
+        runtime = {"kind": "vivi_pty", "command": ["kimi"]}
+        updated = rebind._update_runtime_command(runtime, "kimi", "kimi-k3", None, None, None)
+        self.assertEqual(updated["command"], ["kimi", "--model", "kimi-k3", "--yolo"])
 
     def test_vivi_pty_command_unknown_preserves(self):
         runtime = {"kind": "vivi_pty", "command": ["custom-agent"]}
@@ -355,6 +365,17 @@ class ClassifyTests(unittest.TestCase):
 
     def test_opencode(self):
         self.assertEqual(rebind._classify_tail("OpenCode Zen Build ·"), "waiting_for_input")
+
+    def test_kimi(self):
+        idle = "│ >  │\nK3 thinking: low  context: 9% (22.5k/256k)"
+        self.assertEqual(rebind._classify_tail(idle), "waiting_for_input")
+        self.assertEqual(rebind._classify_tail("🌒 · Tip: ctrl-s to steer"), "running")
+        self.assertEqual(
+            rebind._classify_tail("Write this file?\n1. Approve once\n↵ confirm"),
+            "approval_required",
+        )
+        stale = "Welcome to Kimi Code!\n│ >  │\nK3 thinking: low context: 0%\nexited\n% "
+        self.assertEqual(rebind._classify_tail(stale), "unknown")
 
     def test_unknown(self):
         self.assertEqual(rebind._classify_tail("some random text"), "unknown")

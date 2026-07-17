@@ -183,11 +183,19 @@ def classify_terminal(text: str, session_exists: bool) -> str:
     if not session_exists:
         return "stopped"
     t = text or ""
-    if re.search(r"Working \(|esc to interrupt|Waiting for response|Responding…|Responding\.\.\.|Thinking…", t, re.I):
+    last_lines = [x for x in (t.splitlines() or []) if x.strip()]
+    bottom = "\n".join(last_lines[-6:]) if last_lines else ""
+    if re.search(
+        r"Working \(|esc to interrupt|Waiting for response|Responding…|Responding\.\.\.|Thinking…"
+        r"|[🌑🌒🌓🌔🌕🌖🌗🌘]\s*·\s*Tip:",
+        t,
+        re.I,
+    ):
         return "running"
     if re.search(
         r"Yes, continue|Do you trust|trust this workspace|No, quit|Press enter to continue"
-        r"|Always allow|Allow always|Allow once|until OpenCode is restarted",
+        r"|Always allow|Allow always|Allow once|until OpenCode is restarted"
+        r"|Approve once|Approve for this session|Reject with feedback|Write this file\?|↵ confirm",
         t,
         re.I,
     ):
@@ -213,9 +221,12 @@ def classify_terminal(text: str, session_exists: bool) -> str:
         return "waiting_for_input"
     if re.search(r"❯\s*$|╰─.*Grok|codex ›|^\s*›\s*$", t, re.M):
         return "waiting_for_input"
+    # Kimi Code TUI — boxed composer plus model/context status chrome.
+    if last_lines and re.search(r"context:\s*\d+%", last_lines[-1]):
+        if re.search(r"│\s*>\s*", bottom):
+            return "waiting_for_input"
     # opencode TUI — status bar markers like "OpenCode Zen" / "Build ·" / "ctrl+p commands"
     if re.search(r"OpenCode Zen|Build auto|Build ·|ctrl\+p commands", t):
-        last_lines = [x for x in (t.splitlines() or []) if x.strip()]
         bottom = "\n".join(last_lines[-6:]) if last_lines else ""
         if re.search(r"Ask anything\.\.\.", bottom):
             return "waiting_for_input"

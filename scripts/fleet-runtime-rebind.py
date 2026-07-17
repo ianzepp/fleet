@@ -21,7 +21,7 @@ plan (dry-run) and apply subcommands.
 Selectors: --heads all, --hands all or comma names, repeatable --role.
 Model fields: --agent, --provider, --model, plus --thinking or --reasoning.
 Preserves identity, assignment, backend, and topology.
-Generates canonical agent_launch for pi, grok, codex, opencode.
+Generates canonical agent_launch for pi, grok, codex, opencode, kimi.
 Updates runtime.command for vivi_pty roles.
 Default: refuses active/running roles unless --force-running.
 Backend-aware stop/start/readiness for tmux and vivi_pty.
@@ -63,7 +63,7 @@ from fleet_common import (  # noqa: E402
 
 require_python()
 
-HARNESS_LAUNCHERS = ("grok", "codex", "pi", "opencode")
+HARNESS_LAUNCHERS = ("grok", "codex", "pi", "opencode", "kimi")
 CANONICAL_STATES_FOR_RESTART = (
     "waiting_for_input",
     "completed",
@@ -161,6 +161,14 @@ def _build_launch(agent: str, agent_model: Optional[str], provider: Optional[str
             args.append("--auto")
         return " ".join(shlex.quote(a) for a in args)
 
+    if agent_lower == "kimi":
+        args = ["kimi"]
+        if model:
+            args += ["--model", model]
+        if approve:
+            args.append("--yolo")
+        return " ".join(shlex.quote(a) for a in args)
+
     return None  # unknown harness — caller uses existing agent_launch
 
 
@@ -195,6 +203,11 @@ def _update_runtime_command(runtime: dict, agent: str, agent_model: Optional[str
         if effort:
             cmd += ["--variant", effort]
         cmd.append("--auto")
+    elif agent_lower == "kimi":
+        cmd = ["kimi"]
+        if model:
+            cmd += ["--model", model]
+        cmd.append("--yolo")
     else:
         return runtime  # preserve existing
 
@@ -292,9 +305,21 @@ def _snapshot_vivi_pty(project: Path, identity: str, slot: dict) -> Optional[dic
 
 def _classify_tail(text: str) -> str:
     t = text or ""
-    if re.search(r"Working \(|esc to interrupt|Waiting for response|Responding|Thinking…", t, re.I):
+    last_lines = [line for line in t.splitlines() if line.strip()]
+    bottom = "\n".join(last_lines[-6:]) if last_lines else ""
+    if re.search(
+        r"Working \(|esc to interrupt|Waiting for response|Responding|Thinking…"
+        r"|[🌑🌒🌓🌔🌕🌖🌗🌘]\s*·\s*Tip:",
+        t,
+        re.I,
+    ):
         return "running"
-    if re.search(r"Yes, continue|Do you trust|trust this workspace|Always allow|Allow once", t, re.I):
+    if re.search(
+        r"Yes, continue|Do you trust|trust this workspace|Always allow|Allow once"
+        r"|Approve once|Approve for this session|Reject with feedback|Write this file\?|↵ confirm",
+        t,
+        re.I,
+    ):
         return "approval_required"
     if re.search(r"over capacity|rate limit|[^0-9]429[^0-9]|usage limit hard|try again later", t, re.I):
         return "failed"
@@ -308,6 +333,9 @@ def _classify_tail(text: str) -> str:
         return "waiting_for_input"
     if "OpenCode Zen" in t or "Build ·" in t:
         return "waiting_for_input"
+    if last_lines and re.search(r"context:\s*\d+%", last_lines[-1]):
+        if re.search(r"│\s*>\s*", bottom):
+            return "waiting_for_input"
     return "unknown"
 
 
@@ -837,7 +865,7 @@ def parser() -> argparse.ArgumentParser:
                         help='"all" or comma-separated hand identities (hand-1,hand-2,…)')
         sp.add_argument("--role", action="append", default=None,
                         help="repeatable: select individual roles by identity")
-        sp.add_argument("--agent", default=None, help="agent harness (grok, codex, pi, opencode)")
+        sp.add_argument("--agent", default=None, help="agent harness (grok, codex, pi, opencode, kimi)")
         sp.add_argument("--provider", default=None, help="provider name (zai, openai-codex, etc.)")
         sp.add_argument("--model", default=None, help="model identifier")
         sp.add_argument("--thinking", default=None, help="thinking/reasoning effort level")

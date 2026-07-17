@@ -177,6 +177,16 @@ is `waiting_for_input`, not `failed`.
 - `running`: progress bar `⬝` or `esc interrupt` in last ~6 lines
 - Post-response done: `▣` completion marker visible, no progress, normalizes to `completed` or `waiting_for_input`
 
+**Kimi:** pane classification is current-state first:
+- `waiting_for_input`: boxed `> ` composer plus `K<n> thinking:` / `context:` status chrome;
+- `running`: rotating moon phase (`🌑`…`🌕`) followed by `· Tip:`;
+- `approval_required`: approve/reject candidate list with `↵ confirm`.
+
+Kimi tmux injection uses a longer submit-settle delay (default 3 seconds) so
+rapid literal text is no longer interpreted as multiline input when Enter
+arrives. Override only with measured evidence via
+`FLEET_DOORBELL_SUBMIT_DELAY_SEC`.
+
 Rate-limit wakes (`min_seconds_between_wakes`) **only when that Hand already has a prior doorbell** (`last_hand_wake.by_hand.<name>.count ≥ 1`). **No last wake / count 0 → never rate-limit** (cold attach, first wake after recreate). Never `send-keys` into `running` unless operator allows cancel+replace. Prefer project **classify script** over ad-hoc greps (avoids false `failed` with connection detail from tool text like `timeout 1800 ./script`).
 
 **Doorbell fail-closed (tmux):** `fleet-doorbell.sh` only types into panes with **positive agent chrome** (`waiting_for_input` / `completed`). Unmatched screens and bare shells classify as **`unready`** and are **refused** — never inject a pointer into zsh/bash (keystroke+Enter is not a conversation API). vivi_pty uses harness diagnostics; still refuse non-input harness states.
@@ -204,12 +214,12 @@ This deliberately uses the Mind cycle as the debounce period: multiple messages 
 
 Mind, Hands, and Heads default to Pi. Provider/model diversity is allowed without changing harness.
 
-| | **Pi** (`agent=pi`) | **Codex compatibility exception** (`agent=codex`) | **opencode compatibility exception** (`agent=opencode`) |
-| --- | --- | --- | --- |
-| After unit + open tasking | Pointer **doorbell** | Pointer **doorbell** with submit-settle delay | Pointer **doorbell** with explicit lifecycle commands |
-| Theme switch same cwd | `/compact` then pointer | Pointer; reinit only for stale/stuck sessions | Pointer; include context because version may scroll away |
-| Launch | Use the role's Pi `agent_launch` | Plain `codex …`; never `exec codex` | Plain `opencode`; `--auto` only when explicitly approved |
-| Bootstrap | Pointer: identity, handle, `vivi --for` | Same short bootstrap as first user message | Pointer: identity, handle, exact Vivi lifecycle commands |
+| | **Pi** (`agent=pi`) | **Codex** (`agent=codex`) | **opencode** (`agent=opencode`) | **Kimi** (`agent=kimi`) |
+| --- | --- | --- | --- | --- |
+| After unit + open tasking | Pointer **doorbell** | Pointer with submit-settle | Pointer with explicit lifecycle commands | Pointer with 3s submit-settle |
+| Theme switch same cwd | `/compact` then pointer | Pointer; reinit only if stale/stuck | Pointer; repeat context as needed | `/compact` then pointer |
+| Launch | Role `agent_launch` | Plain `codex …`; never `exec codex` | Plain `opencode`; `--auto` only when approved | Plain `kimi`; `--yolo` only when approved |
+| Bootstrap | Identity + handle + bag pointer | Same short first message | Identity + exact Vivi lifecycle commands | Identity + handle + bag pointer |
 
 ## Codex doorbell + reinit fallback
 
@@ -254,6 +264,8 @@ tmux send-keys -t '<tmux_target>' Enter
 **Codex:** use the same helper; it applies a small submit-settle delay before Enter.  
 **Pi Hands:** plain pointer doorbell through `tmux send-keys`; keep the session resident.
 **opencode compatibility:** plain `tmux send-keys` with no submit-settle delay; include explicit lifecycle commands in the pointer.
+**Kimi compatibility:** use the helper's longer submit-settle delay; do not
+hand-stack Enter when injected text remains in the composer.
 
 ### Channel split (mandatory)
 

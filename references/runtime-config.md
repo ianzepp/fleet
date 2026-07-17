@@ -465,6 +465,7 @@ Recommended keys (extend freely; skill cares about meanings):
     "pi": { "binary": "/abs/path/to/pi" },
     "codex": { "binary": "/abs/path/to/codex" },
     "opencode": { "binary": "/abs/path/to/opencode" },
+    "kimi": { "binary": "/abs/path/to/kimi" },
     "vivi": { "binary": "/abs/path/to/vivi" }
   },
   "runtime_fallback": {
