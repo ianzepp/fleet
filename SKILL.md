@@ -105,7 +105,8 @@ Canon for absorb/accept: [`mind-cycle.md`](references/mind-cycle.md) § Absorb v
 | COO DR | Top-level `disaster_recovery` is default-off and calendar/maturity-triggered. COO reports recoverability evidence/gaps only; no backup, restore, secret/provider/spend/external action. Policy/config, one Git remote, or backup-job success is never restore proof. |
 | Stuck | Freeze fails — name, unstick, pivot. No status-only blocked cycles. Stuck ≠ “must invent work” |
 | Harness | **Default:** Mind, Hands, and Heads use Pi; provider/model diversity preserves advisor independence. **Fleet config exceptions win** (desktop Mind, Kimi/Codex/OpenCode compatibility harness, operator-recorded mixed) — [`roles-and-harness.md`](references/roles-and-harness.md) |
-| Quality | Product Hands ship unit quality. **Code review** is a **Hand duty** on **`auditor-1` / `auditor-2`** (same category as other hands; skill **`$auditor`**) — **not** head-cto by default. Mind decides: low-risk → accept from implementer `done` evidence; **risk / auth-persistence / sample** → task an auditor Hand. **Never** universal review on every completion. **head-cto** = gate honesty / architecture only |
+| Models | **Cheap well-scoped implement → strong independent audit → cheap repair.** Tag units (`mechanical` / `design` / `sensitive` / `ambiguous` / `repair`); route Hands by shape; auditors on **review-class @ high**; do not put the scarcest high-judgment model on every implementer unit. Live strings: `fleet.json`. Process: [`model-selection.md`](references/model-selection.md) |
+| Quality | Product Hands ship unit quality. **Code review** is a **Hand duty** on **`auditor-1` / `auditor-2`** (same category as other hands; skill **`$auditor`**) — **not** head-cto by default. Mind decides: low-risk → accept from implementer `done` evidence; **risk / auth-persistence / sample** → task an auditor Hand. **Never** universal review on every completion. Green self-authored tests ≠ ready. **head-cto** = gate honesty / architecture only |
 | Head backpressure | A Head that refuses or does not run is **`deferred-valid`**: record once in baseline, retry on cadence. Do **not** re-dispatch to it this cycle and do **not** memo the stall. Dispatch/refuse churn is a failed cycle, not a disposition |
 | Mind mail hygiene | The loop does not narrate itself into mail. Self-addressed mail (`mind@` → `mind@`) and reply-thread echoes are not a memory substitute — a cycle's record lives in baseline / `mind_loop` state, same as memos. Mail To `mind@` is routing/triage and deliberation, not an append-only audit sink. `mail absorb` marks mail read (the consume lifecycle) and is not a memory mechanism — durable context belongs in `memo` |
 | Peer communication | Heads and Hands may send advisory **mail** to one another. They may not assign or reroute peer tasks, needs, or wants; transfer ownership; authorize merges; or create gates. Material peer mail must remain visible to Mind. |
@@ -154,6 +155,7 @@ Core process here; detail in `references/` + `scripts/`.
 | Dormant → fully launched | [`launch.md`](references/launch.md) |
 | Vocab / shape (cold) | [`fleet-guide.md`](references/fleet-guide.md) |
 | Roles / harness / models | [`roles-and-harness.md`](references/roles-and-harness.md) |
+| Model selection (unit shape + role classes) | [`model-selection.md`](references/model-selection.md) |
 | Filing / starvation | [`tasking.md`](references/tasking.md) |
 | Board CLI | [`vivi.md`](references/vivi.md) |
 | Panes / wake / reinit | [`dual-channel.md`](references/dual-channel.md) |
@@ -478,8 +480,10 @@ Desktop Mind OK; Hands stay terminal/tmux. Schema: [`runtime-config.md`](referen
 - **Process:** mail-only or pane-only truth; tmux policy; mixed Hand harnesses;
   stacked wakes; wrong-host tmux; IMAP bag sensing; unbounded watch; standby-fleet
   busywork; per-cycle dispatch memos; universal completion review; route review to
-  `head-cto` instead of auditors; dispatch/refuse churn; narration mail;
-  completion hidden in replies.
+  `head-cto` instead of auditors; put review-class models on every mechanical Hand
+  unit; dump ambiguous design on volume implementers without forge; accept green
+  self-tests as readiness; dispatch/refuse churn; narration mail; completion hidden
+  in replies.
 - **Integration:** equate packet-green with consumer-green; label integration lag
   a compiler residual; merge red themes; let Mind merge packets; treat absorb as
   accept.

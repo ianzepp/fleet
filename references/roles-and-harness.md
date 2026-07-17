@@ -90,20 +90,27 @@ remain project configuration (`provider`, `agent_model`, `agent_launch`, thinkin
 flags). Capacity ladders change Pi provider/model without inventing permanent
 Hand identity from model strings.
 
+**Unit-shape routing and capability classes** (volume implement vs design vs
+review/audit vs repair loop): see **[`model-selection.md`](model-selection.md)**.
+That reference is the portable process law. The tables below are harness
+defaults and examples — not “everyone on one high-end model.”
+
 ### Product plane (Mind + Hands)
 
 | Harness | Role | Preferred provider/model | Effort / thinking |
 | --- | --- | --- | --- |
 | **Pi** | **Mind** | operator-selected capable model | **medium** or higher |
-| **Pi** | **Hand** | task-appropriate provider/model | **medium** or higher |
-| **Pi** | **Hand** (local/discrete units) | `llama-router` / `ornith-35b-q8` | reasoning off |
+| **Pi** | **Hand** (implementer) | **task-shape appropriate** — volume class for `mechanical`/`repair`; design class for `design`/`sensitive`/hard `ambiguous` | **low–medium** (volume); **high** (design) — see [`model-selection.md`](model-selection.md) |
+| **Pi** | **Hand** (auditor-*) | **review / honesty class** (independent of implementer when risk is high) | **high** default |
+| **Pi** | **Hand** (local/discrete units) | `llama-router` / local draft class | reasoning off; strong audit when risk is real |
 
 | Note | Detail |
 | --- | --- |
-| Alignment | Mind and Hands use Pi; provider/model may differ by role or capacity. |
+| Alignment | Mind and Hands use Pi; provider/model may differ by role, unit shape, or capacity. |
 | Desktop Mind | When the interactive Mind is desktop-only, managed tmux Hands still use Pi. |
 | Heads | Use Pi; vary provider, model, prompt, and role to preserve independent review. |
 | Capacity | Step provider/model entries in `runtime_fallback`; do not change harness first. |
+| Thesis | Cheap well-scoped implement → strong independent audit → cheap repair. Do not default every implementer to the scarce review-class model. |
 
 ### Pi local Hands
 
@@ -126,14 +133,14 @@ pi --provider llama-router --model ornith-35b-q8 --print --no-session "<task>"
 
 ### Advisor plane (Heads — Pi harness, role-dependent models)
 
-| Role | Harness | Preferred model | Effort / thinking |
+| Role | Harness | Preferred class | Effort / thinking |
 | --- | --- | --- | --- |
-| **head-ceo** (strategist) | **Pi**, zai | GLM 5.2 | **high** or **xhigh** |
-| **head-cto** (gate honesty, architecture) | **Pi**, zai | GLM 5.2 | **high** or **xhigh** |
-| **head-cxo** (complexity, purity) | **Pi**, zai | GLM 5.2 | **high** or **xhigh** |
-| Other Heads (CPO, COO, CSO, CFO, CMO) | **Pi**, zai | GLM 5.2 | **high** or **xhigh** |
+| **head-ceo** (strategist) | **Pi** | Design / high-judgment when chapter is product taste; volume OK for mechanical map hygiene | **medium–high** |
+| **head-cto** (gate honesty, architecture) | **Pi** | Review / honesty for claim-gates; design class when residual is structure/taste | **high** when used |
+| **head-cxo** (complexity, purity) | **Pi** | Volume often enough; design class when purity is structural feel | **medium–high** |
+| Other Heads (CPO, COO, CSO, CFO, CMO) | **Pi** | Role-fit; project overlay names models | **medium–high** |
 
-Advisors are largely one-shot (assign → report). Use Pi with a deliberately distinct provider/model when independent review benefits from diversity.
+Advisors are largely one-shot (assign → report). Use Pi with a deliberately distinct provider/model when independent review benefits from diversity. Concrete model strings are project overlay (`fleet.json` + optional `.vivi/model-selection.md`), not Hand identity.
 
 ```text
 pi --provider zai --model glm-5.2 --thinking high   # or xhigh
