@@ -177,18 +177,20 @@ For each configured Head:
    - `assignment_mode` (`new`/`compact`/`continue`/`restart`): prepare the
      session for a new assignment per [`runtime-config.md`](runtime-config.md)
      (legacy `clean_slate_per_assignment: true` ≡ `new`).
+   - Head schedule: `executive_cadence.every_n_loops` — **0** on-call, **N≥1**
+     scheduled (`N × mind_loop.interval_sec`). No separate `enabled` /
+     `self_directed`.
 5. Require reports to the configured Mind inbox. Heads do not file Hand work,
    merge, or create approval gates.
 
-Cadence is calculated from:
+Cadence (when scheduled):
 
 ```text
-executive_cadence.every_n_loops × mind_loop.interval_sec
+every_n_loops × mind_loop.interval_sec     # every_n_loops == 0 → never due
 ```
 
-A launch may run the first due sweep immediately. It must not convert every
-available Head into a perpetual sweep or disregard `enabled`, `self_directed`,
-and `lazy` policy.
+A launch may run the first due sweep immediately for Heads with N≥1. It must
+not invent perpetual sweeps for on-call Heads (N=0).
 
 If a Head’s terminal layout normalizes to `unknown`, inspect process existence,
 pane output, and activity directly. `unknown` is evidence debt, not permission

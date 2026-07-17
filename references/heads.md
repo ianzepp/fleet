@@ -57,17 +57,22 @@ COO DR assignments are report-only: evidence, gaps, RPO/RTO/coverage status, res
 
 ### Cadence spacing (configurable)
 
-`sweep_interval = every_n_loops × mind_loop.interval_sec` (default L=300s). `every_n_loops`
-is **configurable per head** via `executive_cadence.every_n_loops`; when unset, the posture
-default table applies:
+**One dial:** `executive_cadence.every_n_loops` (default L = `mind_loop.interval_sec` = 300s).
 
-| Mode | CTO | CXO | CEO |
-| --- | --- | --- | --- |
-| growth | ×6 | ×12 | ×36 |
-| standby | ×18 | ×36 | ×72 |
-| dormant | off | off | off |
+| Value | Mode |
+| --- | --- |
+| **0** | On-call — no scheduled `head_due_*`; explicit Mind tasks only |
+| **N ≥ 1** | Scheduled — due every `N × L` seconds |
 
-Opt-in: `executive_cadence.enabled`. Sensors: executive sweeps **pause on dormant only**. Full table + override semantics: [`fleet-posture.md`](fleet-posture.md).
+Posture defaults when N omitted under legacy `enabled: true` (prefer explicit N):
+
+| Mode | CTO | CXO | CEO | others |
+| --- | --- | --- | --- | --- |
+| growth | ×6 | ×12 | ×36 | 0 |
+| standby | ×18 | ×36 | ×72 | 0 |
+| dormant | paused | paused | paused | paused |
+
+No `enabled` / `self_directed` peer knobs. Sensors pause scheduled sweeps on **dormant** only. Full semantics: [`fleet-posture.md`](fleet-posture.md).
 
 ---
 
@@ -92,7 +97,7 @@ Identity: `head-ceo` (legacy: `strategist` / `head-strategist`). Persona: [`head
 
 ### Map-health / cadence sweep (self-directed when due)
 
-When sensors emit `head_due_ceo` (executive_cadence enabled) and posture allows:
+When sensors emit `head_due_ceo` (`every_n_loops >= 1` and interval elapsed) and posture allows:
 
 | Posture | Assign flavor |
 | --- | --- |

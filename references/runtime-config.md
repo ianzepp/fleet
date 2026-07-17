@@ -512,26 +512,48 @@ Recommended keys (extend freely; skill cares about meanings):
     "assignment_mode": "new",
     "role_prompt": "<fleet-path>/head-ceo-role-prompt.txt",
     "executive_cadence": {
-      "enabled": false,
-      "sweep_mode": "expansion",
-      "every_n_loops": 12
+      "every_n_loops": 36,
+      "sweep_mode": "expansion"
     }
   },
   "head-cto": {
     "mail_identity": "head-cto",
     "agent": "pi",
     "agent_model": "glm-5.2",
-    "thinking": "high"
+    "thinking": "high",
+    "executive_cadence": { "every_n_loops": 6 }
   },
   "head-cxo": {
     "mail_identity": "head-cxo",
     "tmux_session": "head-cxo",
     "agent": "pi",
     "agent_model": "glm-5.2",
-    "thinking": "high"
+    "thinking": "high",
+    "executive_cadence": { "every_n_loops": 12 }
+  },
+  "head-cso": {
+    "mail_identity": "head-cso",
+    "agent": "pi",
+    "executive_cadence": { "every_n_loops": 0, "sweep_mode": "security" }
   }
 }
 ```
+
+### Head schedule (`executive_cadence.every_n_loops`)
+
+Single dial — no `enabled`, no `self_directed`:
+
+| Value | Meaning |
+| --- | --- |
+| **0** | **On-call** — sensors never emit scheduled `head_due_*`; Mind files explicit tasks when needed |
+| **N ≥ 1** | **Scheduled** — due every `N × mind_loop.interval_sec`; Mind should wake a sweep with persona/posture charter |
+
+```text
+sweep_interval_sec = every_n_loops × mind_loop.interval_sec   # only when N >= 1
+```
+
+Prefer **explicit** `every_n_loops` on every Head. Legacy: `enabled: false` ≡ 0;
+`enabled: true` without N uses posture×role defaults (CTO/CXO/CEO only).
 
 **Mind loop tick (optional).** Base FLEET_CYCLE spacing for Head cadence math:
 

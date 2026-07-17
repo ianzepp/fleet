@@ -169,6 +169,13 @@ def _register_mail_identity(
 
 
 def _check_executive_cadence(report: Report, where: str, block: Dict[str, Any]) -> None:
+    """Validate Head schedule dial: every_n_loops (0 = on-call, N>=1 = scheduled)."""
+    if "self_directed" in block:
+        report.warn(
+            where + ".self_directed",
+            "ignored/removed: Head schedule is only executive_cadence.every_n_loops "
+            "(0=on-call, N>=1=scheduled); wake charter comes from persona+posture",
+        )
     cad = block.get("executive_cadence")
     if cad is None:
         return
@@ -176,15 +183,25 @@ def _check_executive_cadence(report: Report, where: str, block: Dict[str, Any]) 
     if not isinstance(cad, dict):
         report.err(cwhere, "must be an object")
         return
-    en = cad.get("enabled")
-    if not isinstance(en, bool):
-        report.err("%s.enabled" % cwhere, "must be boolean, got %r" % (en,))
-    # every_n_loops (sweep multiplier) is the configurable knob:
-    # sweep_interval = every_n_loops × mind_loop.interval_sec.
+    # Canonical dial: every_n_loops (0 = on-call; N >= 1 = scheduled)
     enl = cad.get("every_n_loops")
     if enl is not None:
-        if not isinstance(enl, int) or isinstance(enl, bool) or enl < 1:
-            report.err("%s.every_n_loops" % cwhere, "must be a positive integer, got %r" % (enl,))
+        if not isinstance(enl, int) or isinstance(enl, bool) or enl < 0:
+            report.err(
+                "%s.every_n_loops" % cwhere,
+                "must be an integer >= 0 (0=on-call, N>=1=scheduled), got %r" % (enl,),
+            )
+    en = cad.get("enabled")
+    if en is not None:
+        if not isinstance(en, bool):
+            report.err("%s.enabled" % cwhere, "must be boolean if present (legacy), got %r" % (en,))
+        else:
+            report.warn(
+                "%s.enabled" % cwhere,
+                "legacy: prefer every_n_loops only (0=on-call; omit enabled). "
+                "enabled:false ≡ every_n_loops:0; enabled:true without every_n_loops "
+                "uses posture×role default",
+            )
     # interval_sec / min_seconds_between_sweeps are legacy/ignored — warn if present.
     for legacy_key in ("interval_sec", "min_seconds_between_sweeps"):
         if legacy_key in cad:

@@ -575,13 +575,13 @@ def resolve_tmux_bin(tooling: Optional[Dict[str, Any]] = None) -> str:
 # Override the base tick via fleet.json mind_loop.interval_sec (or loop_interval_sec).
 MIND_LOOP_DEFAULT_SEC = 300
 
-# Default every_n_loops (Head sweep multiplier) by posture × role. Each is
-# overridable per head via executive_cadence.every_n_loops in fleet.json.
-# sweep_interval = every_n_loops × mind_loop.interval_sec. Dormant pauses sweeps.
+# Default every_n_loops (Head sweep multiplier) by posture × role when the head
+# does not set executive_cadence.every_n_loops. 0 = on-call (no schedule).
+# N >= 1 = scheduled: due every N × mind_loop.interval_sec. Dormant pauses all.
 HEAD_CADENCE_DEFAULTS = {
     "growth": {"head-cto": 6, "head-cxo": 12, "head-ceo": 36},   # @5m: 30m / 1h / 3h
     "standby": {"head-cto": 18, "head-cxo": 36, "head-ceo": 72},  # @5m: 1.5h / 3h / 6h
-    # dormant: no table — sweeps paused
+    # dormant: no table — sweeps paused; heads without a default stay on-call (0)
 }
 
 DR_TIER_DEFAULTS = {
@@ -616,39 +616,96 @@ def mind_loop_interval_sec(fleet: dict) -> int:
     return sec
 
 
-def head_cadence_every_n_loops(posture_mode: str, head_key: str, override: Any = None) -> Optional[int]:
-    """Head sweep multiplier (every_n_loops).
+def head_cadence_default_every_n_loops(posture_mode: str, head_key: str) -> int:
+    """Posture×role default multiplier. 0 if no schedule for this head/posture."""
+    table = HEAD_CADENCE_DEFAULTS.get(posture_mode)
+    if not isinstance(table, dict):
+        return 0
+    n = table.get(head_key)
+    if n is None:
+        return 0
+    try:
+        return max(0, int(n))
+    except (TypeError, ValueError):
+        return 0
 
-    Order: explicit executive_cadence.every_n_loops wins; else the posture×role
-    default table; else None (caller falls back conservatively / dormant pauses).
+
+def resolve_head_every_n_loops(
+    posture_mode: str,
+    head_key: str,
+    cad: Any = None,
+) -> int:
+    """Resolve Head schedule multiplier (every_n_loops).
+
+    Single dial for Head scheduling:
+
+    - **0** — on-call: no ``head_due_*``; only explicit Mind tasks wake the Head
+    - **N >= 1** — scheduled: Mind should wake a sweep every N × mind_loop ticks
+
+    Resolution order:
+
+    1. Explicit ``executive_cadence.every_n_loops`` (including 0) wins.
+    2. Legacy ``enabled: false`` without every_n_loops → 0 (on-call).
+    3. Legacy ``enabled: true`` without every_n_loops → posture×role default
+       (or 0 if that head has no default).
+    4. No cadence block → posture×role default (or 0).
+
+    ``self_directed`` is ignored (removed as a peer knob).
+    """
+    if not isinstance(cad, dict):
+        cad = {}
+    raw = cad.get("every_n_loops")
+    if raw is not None:
+        try:
+            n = int(raw)
+        except (TypeError, ValueError):
+            n = 0
+        return max(0, n)
+    # Legacy enable flag only when every_n_loops omitted
+    if cad.get("enabled") is False:
+        return 0
+    if cad.get("enabled") is True:
+        # Legacy: schedule on using posture×role default (or 0 if no default)
+        return head_cadence_default_every_n_loops(posture_mode, head_key)
+    # No cadence block, empty block, or enabled omitted → on-call (0).
+    # To schedule: set every_n_loops >= 1 (or legacy enabled: true).
+    return 0
+
+
+def head_cadence_every_n_loops(posture_mode: str, head_key: str, override: Any = None) -> int:
+    """Compatibility wrapper: override alone, or posture default.
+
+    Prefer :func:`resolve_head_every_n_loops` when a cadence block is available.
     """
     if override is not None:
         try:
-            return max(1, int(override))
+            return max(0, int(override))
         except (TypeError, ValueError):
-            pass
-    table = HEAD_CADENCE_DEFAULTS.get(posture_mode)
-    if not isinstance(table, dict):
-        return None
-    n = table.get(head_key)
-    if n is None:
-        return None
-    try:
-        return max(1, int(n))
-    except (TypeError, ValueError):
-        return None
+            return 0
+    return head_cadence_default_every_n_loops(posture_mode, head_key)
 
 
-def head_sweep_interval_sec(fleet: dict, posture_mode: str, head_key: str, override: Any = None) -> int:
+def head_sweep_interval_sec(
+    fleet: dict,
+    posture_mode: str,
+    head_key: str,
+    every_n: Any = None,
+) -> int:
     """Seconds between Head sweeps: every_n_loops × mind_loop.interval_sec.
 
-    every_n_loops comes from executive_cadence.every_n_loops when set, else the
-    posture×role default table. Unknown head / no default → loop tick (conservative).
+    When every_n is 0 (on-call), returns a large sentinel interval; callers should
+    treat every_n == 0 as not due rather than relying on this alone.
     """
     loop = mind_loop_interval_sec(fleet)
-    n = head_cadence_every_n_loops(posture_mode, head_key, override)
-    if n is None:
-        return loop
+    try:
+        n = int(every_n) if every_n is not None else head_cadence_default_every_n_loops(
+            posture_mode, head_key
+        )
+    except (TypeError, ValueError):
+        n = 0
+    n = max(0, n)
+    if n <= 0:
+        return loop  # unused when on-call; keep positive for arithmetic
     return max(n * loop, loop)
 
 
@@ -658,8 +715,8 @@ def resolve_posture(fleet: dict, baseline: dict) -> tuple:
     Hands: standby+dormant suppress starvation refill (quiet Hands is success).
     Heads: only dormant pauses default executive cadence; standby allows
     stewardship sweeps (not expansion). Cadence spacing = every_n_loops ×
-    mind_loop.interval_sec; every_n_loops configurable per head, else posture×role
-    default. See fleet-posture.md.
+    mind_loop.interval_sec when every_n_loops >= 1; every_n_loops 0 = on-call.
+    See fleet-posture.md.
     """
     posture_block = fleet.get("fleet_posture") if isinstance(fleet.get("fleet_posture"), dict) else {}
     if not posture_block and isinstance(baseline.get("fleet_posture"), dict):
@@ -1708,12 +1765,12 @@ def main() -> int:
         out["signals"].append("integration_lag")
 
     # heads (optional pane scan) + executive cadence.
-    # Interval = every_n_loops × mind_loop.interval_sec (default 5m tick).
-    # every_n_loops: executive_cadence.every_n_loops when set, else posture×role default.
-    # Due when that interval elapsed since last completion mail AND pane not mid-pass.
+    # Single dial: executive_cadence.every_n_loops
+    #   0     = on-call (no head_due_* from schedule)
+    #   N>=1  = scheduled every N × mind_loop.interval_sec
+    # Due when scheduled, interval elapsed since last report, pane not mid-pass.
     # Completion: new mail from head identity/legacy_aliases in head_report_inbox.
-    # Durable last-report on baseline head-*; opt-in: executive_cadence.enabled=true.
-    # interval_sec / min_seconds_between_sweeps are ignored (legacy) — set every_n_loops.
+    # Legacy enabled true/false folded into every_n_loops resolution; self_directed ignored.
     loop_sec = int(posture_out.get("mind_loop_interval_sec") or mind_loop_interval_sec(fleet))
     head_blocks = {}
     nested_heads = fleet.get("heads") if isinstance(fleet.get("heads"), dict) else {}
@@ -1796,11 +1853,10 @@ def main() -> int:
         )
 
         cad = block.get("executive_cadence") if isinstance(block.get("executive_cadence"), dict) else {}
-        sweep_enabled = bool(cad.get("enabled", False))
-        # every_n_loops is primary (configurable via executive_cadence.every_n_loops);
-        # sweep_interval = every_n_loops × mind_loop.interval_sec.
-        every_n = head_cadence_every_n_loops(posture_mode, key, cad.get("every_n_loops"))
-        sweep_interval = head_sweep_interval_sec(fleet, posture_mode, key, cad.get("every_n_loops"))
+        every_n = resolve_head_every_n_loops(posture_mode, key, cad)
+        # 0 = on-call; N>=1 = scheduled for Mind to wake when due
+        sweep_enabled = every_n >= 1
+        sweep_interval = head_sweep_interval_sec(fleet, posture_mode, key, every_n)
         # Explicit config wins for mode string; else posture default.
         sweep_mode = cad.get("sweep_mode") or posture_out.get("default_head_sweep_mode")
         sender_tokens = [block.get("mail_identity") or key]

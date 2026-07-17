@@ -14,9 +14,9 @@ These seats continue the camp **strategist / correctness / purity** advisors. Th
 | **`head-ceo`** | [`personas/ceo.md`](personas/ceo.md) | **Strategist:** map health, misprioritization, gate honesty, expansion (growth) / stewardship (standby), **side-lane buckets** (+ effort/est_tokens) | `strategist`, `head-strategist` |
 | **`head-cto`** | [`personas/cto.md`](personas/cto.md) | **Correctness:** code review / bugs on main + technical gate honesty | `correctness`, `head-correctness` |
 | **`head-cxo`** | [`personas/cxo.md`](personas/cxo.md) | **Purity:** unearned complexity / shape debt (incl. gates invented by coupling) | `purity`, `head-purity` |
-| **`head-cpo`** | [`personas/cpo.md`](personas/cpo.md) | Product direction, requirements (on demand) | Lazy |
-| **`head-coo`** | [`personas/coo.md`](personas/coo.md) | Ops readiness / verification lens; optional maturity-triggered DR stewardship when `disaster_recovery` is enabled | Not Mind’s FLEET_CYCLE; never performs backup/restore |
-| **`head-cso`** | [`personas/cso.md`](personas/cso.md) | Security / privacy / abuse (on demand) | Lazy |
+| **`head-cpo`** | [`personas/cpo.md`](personas/cpo.md) | Product direction, requirements | Usually on-call (`every_n_loops: 0`) |
+| **`head-coo`** | [`personas/coo.md`](personas/coo.md) | Ops readiness / verification; optional DR stewardship when `disaster_recovery` enabled | Usually on-call; never performs backup/restore |
+| **`head-cso`** | [`personas/cso.md`](personas/cso.md) | Security / privacy / abuse | Usually on-call (`every_n_loops: 0`); schedule or task during deploy windows |
 | **`head-cfo`** | [`personas/cfo.md`](personas/cfo.md) | Cost, effort, sustainability (on demand) | Pairs with cost calibration |
 | **`head-cmo`** | [`personas/cmo.md`](personas/cmo.md) | Positioning / audience (on demand) | Lazy |
 

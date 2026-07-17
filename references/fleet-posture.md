@@ -106,34 +106,41 @@ Hygiene remains: Hand end-of-unit polish; post-main polish advisory **once per t
 
 | Mode | head-ceo | head-cto | head-cxo | Cadence sweeps |
 | --- | --- | --- | --- | --- |
-| **growth** | Map-health + **expansion**; priority inversions; side-lane buckets | Bugs + technical gate honesty | Shape debt that blocks expansion | Due when `executive_cadence` enabled |
+| **growth** | Map-health + **expansion**; priority inversions; side-lane buckets | Bugs + technical gate honesty | Shape debt that blocks expansion | Due when head `every_n_loops >= 1` |
 | **standby** | Stewardship only (priority/status/opt/correctness of current product) | Reliability / correctness of current product | Complexity that hurts on-call risk | Allowed (stewardship lens); not expansion |
 | **dormant** | Assign-only | Assign-only | Assign-only | **Paused** by sensors |
 
-### Executive cadence = every_n_loops × Mind loop tick
+### Executive cadence = one dial (`every_n_loops`)
 
-One base tick: **`mind_loop.interval_sec`** (default **300** = 5m FLEET_CYCLE).  
-Head spacing = `every_n_loops × mind_loop.interval_sec`. `every_n_loops` is
-**configurable per head** via `executive_cadence.every_n_loops`; when unset it
-defaults from the posture × role table below (overridable default ladder):
+One base tick: **`mind_loop.interval_sec`** (default **300** = 5m FLEET_CYCLE).
+
+| `executive_cadence.every_n_loops` | Meaning |
+| --- | --- |
+| **`0`** | **On-call** — no `head_due_*` from schedule; Mind wakes only with an explicit task |
+| **`N >= 1`** | **Scheduled** — sensors emit `head_due_*` every `N × mind_loop.interval_sec` |
 
 ```text
-sweep_interval_sec = every_n_loops × mind_loop.interval_sec
+sweep_interval_sec = every_n_loops × mind_loop.interval_sec   # when every_n_loops >= 1
 ```
 
-| Posture \ Head | head-cto | head-cxo | head-ceo |
-| --- | --- | --- | --- |
-| **growth** | ×6 | ×12 | ×36 |
-| **standby** | ×18 | ×36 | ×72 |
-| **dormant** | off | off | off |
+There is **no** separate `enabled` or `self_directed` flag. On-call vs scheduled **is** `every_n_loops`. When Mind wakes a scheduled Head, the assign is already “review/sweep mode” (persona + posture charter).
+
+**Defaults** when `every_n_loops` is omitted and legacy `enabled: true` is set (or when migrating):
+
+| Posture \ Head | head-cto | head-cxo | head-ceo | other heads |
+| --- | --- | --- | --- | --- |
+| **growth** | ×6 | ×12 | ×36 | on-call (0) |
+| **standby** | ×18 | ×36 | ×72 | on-call (0) |
+| **dormant** | paused | paused | paused | paused |
 
 At default L=5m: growth ≈ **30m / 1h / 3h**; standby ≈ **1.5h / 3h / 6h**.
 
-- Change **how often the camp ticks** → set `mind_loop.interval_sec` (all Heads scale).  
-- Change **intensity class** → change `fleet_posture.mode` (default table switches).  
-- Pin **one head's cadence** regardless of posture → set `executive_cadence.every_n_loops` (overrides the posture default for that head only).  
-- Opt-in per head: `executive_cadence.enabled: true`. Legacy `interval_sec` / `min_seconds_between_sweeps` ignored — use `every_n_loops`.  
-- Sensors emit `sweep_every_n_loops`, `mind_loop_interval_sec`, `sweep_interval` on each head.
+- Change **how often Mind ticks** → `mind_loop.interval_sec`.  
+- Change **one Head’s schedule** → set that head’s `every_n_loops` (0 or N).  
+- Prefer **explicit** `every_n_loops` on every Head in `fleet.json` so posture defaults are not a surprise.  
+- Legacy `enabled: false` ≡ `every_n_loops: 0`. Legacy `enabled: true` without N uses the table above.  
+- Legacy `self_directed` is **ignored** — remove it from overlays.  
+- Sensors emit `sweep_every_n_loops`, `mind_loop_interval_sec`, `sweep_interval`, `sweep_enabled` (`every_n_loops >= 1`).
 
 **Ban:** expansion candidates or new campaign surface while posture is standby/dormant.  
 **Ban:** “paused pending facts” CEO reports with no named producer packet (unicorn ban — shared rules).
