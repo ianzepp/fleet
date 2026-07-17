@@ -81,21 +81,37 @@ def _tmux_bin(fleet: Dict[str, Any]) -> str:
 
 
 def _launch_argv(slot: Dict[str, Any], binding: Dict[str, Any]) -> List[str]:
+    """Desired process argv for a role.
+
+    Canonical order:
+      1. ``agent_launch`` when set (wrappers like pi-hand/pi-head live here)
+      2. ``runtime.command`` for vivi_pty when agent_launch is absent
+
+    Preferring agent_launch prevents reinit from reusing a stale plain-``pi``
+    runtime.command after fleet.json launch policy was updated.
+    """
+    launch = str(slot.get("agent_launch") or "").strip()
+    if launch:
+        try:
+            return shlex.split(launch)
+        except ValueError:
+            return [launch]
     runtime = slot.get("runtime") if isinstance(slot.get("runtime"), dict) else {}
     command = runtime.get("command")
     if binding.get("kind") == "vivi_pty" and isinstance(command, list) and command:
         return [str(part) for part in command]
-    launch = str(slot.get("agent_launch") or "").strip()
-    if not launch:
-        return []
-    try:
-        return shlex.split(launch)
-    except ValueError:
-        return [launch]
+    return []
 
 
 def _render_cmd(argv: Sequence[str]) -> str:
     return " ".join(shlex.quote(str(part)) for part in argv)
+
+
+def _session_command(inspect_payload: Dict[str, Any]) -> List[str]:
+    cmd = inspect_payload.get("command")
+    if isinstance(cmd, list):
+        return [str(part) for part in cmd]
+    return []
 
 
 def vivi_status(fleet: Dict[str, Any], binding: Dict[str, Any]) -> Dict[str, Any]:
@@ -155,24 +171,14 @@ def ensure_vivi_daemon(fleet: Dict[str, Any], project: Path, socket: str) -> Tup
     return False, "daemon failed to start"
 
 
-def start_vivi(fleet: Dict[str, Any], project: Path, role: str, binding: Dict[str, Any], slot: Dict[str, Any]) -> Tuple[bool, str]:
-    bin_path = _vivi_pty_bin(fleet)
-    socket = str(binding.get("socket") or project / ".vivi" / "vivi-pty.sock")
-    session_id = str(binding.get("session") or binding.get("target") or role)
-    ok, msg = ensure_vivi_daemon(fleet, project, socket)
-    if not ok:
-        return False, msg
-    status = vivi_status(fleet, binding)
-    if status.get("exists"):
-        return True, "already running"
-    argv = _launch_argv(slot, binding)
-    if not argv:
-        return False, "missing runtime.command/agent_launch"
-    # If a stopped tombstone exists, restart preserves the stored binding.
-    rc_i, _ = run_cmd([bin_path, "session", "inspect", session_id, "--socket", socket], timeout=5)
-    if rc_i == 0:
-        rc, out = run_cmd([bin_path, "session", "restart", session_id, "--socket", socket], timeout=15)
-        return rc == 0, "restarted" if rc == 0 else out
+def _vivi_start_args(
+    bin_path: str,
+    binding: Dict[str, Any],
+    project: Path,
+    session_id: str,
+    socket: str,
+    argv: Sequence[str],
+) -> List[str]:
     args = [
         bin_path,
         "session",
@@ -186,9 +192,88 @@ def start_vivi(fleet: Dict[str, Any], project: Path, role: str, binding: Dict[st
         socket,
         "--",
     ]
-    args.extend(argv)
+    args.extend(list(argv))
+    return args
+
+
+def remove_vivi(fleet: Dict[str, Any], binding: Dict[str, Any]) -> Tuple[bool, str]:
+    """Drop a vivi_pty session id (stop + no tombstone). Requires session.remove."""
+    bin_path = _vivi_pty_bin(fleet)
+    session_id = str(binding.get("session") or binding.get("target") or "")
+    socket = str(binding.get("socket") or "")
+    if not session_id:
+        return False, "missing session id"
+    # Prefer remove; fall back to stop-only when binary is older.
+    rc, out = run_cmd([bin_path, "session", "remove", session_id, "--socket", socket], timeout=10)
+    if rc == 0:
+        return True, "removed"
+    # Older vivi-pty: no session.remove subcommand.
+    if "unrecognized" in (out or "").lower() or "unexpected" in (out or "").lower() or "error:" in (out or "").lower():
+        rc2, out2 = run_cmd([bin_path, "session", "stop", session_id, "--socket", socket], timeout=10)
+        if rc2 == 0:
+            return False, "remove unsupported; stopped only (tombstone remains — upgrade vivi-pty)"
+        return False, out or out2 or "remove failed"
+    # Not found is ok for reinit.
+    if "unknown session" in (out or "").lower() or "not found" in (out or "").lower():
+        return True, "absent"
+    return False, out or "remove failed"
+
+
+def start_vivi(
+    fleet: Dict[str, Any],
+    project: Path,
+    role: str,
+    binding: Dict[str, Any],
+    slot: Dict[str, Any],
+    *,
+    rebind: bool = False,
+) -> Tuple[bool, str]:
+    bin_path = _vivi_pty_bin(fleet)
+    socket = str(binding.get("socket") or project / ".vivi" / "vivi-pty.sock")
+    session_id = str(binding.get("session") or binding.get("target") or role)
+    ok, msg = ensure_vivi_daemon(fleet, project, socket)
+    if not ok:
+        return False, msg
+    argv = _launch_argv(slot, binding)
+    if not argv:
+        return False, "missing agent_launch/runtime.command"
+
+    status = vivi_status(fleet, binding)
+    if status.get("exists") and not rebind:
+        return True, "already running"
+
+    rc_i, inspect_out = run_cmd([bin_path, "session", "inspect", session_id, "--socket", socket], timeout=5)
+    stored: List[str] = []
+    if rc_i == 0:
+        try:
+            stored = _session_command(json.loads(inspect_out))
+        except Exception:
+            stored = []
+
+    # Running or stopped tombstone with matching argv → restart preserves binding.
+    if rc_i == 0 and stored == argv and not rebind:
+        rc, out = run_cmd([bin_path, "session", "restart", session_id, "--socket", socket], timeout=15)
+        return rc == 0, "restarted" if rc == 0 else out
+
+    # Need a clean start with desired argv: drop id when present.
+    if rc_i == 0:
+        ok_rm, rm_msg = remove_vivi(fleet, binding)
+        if not ok_rm:
+            # Last resort: restart only works if command is unchanged.
+            if stored == argv:
+                rc, out = run_cmd([bin_path, "session", "restart", session_id, "--socket", socket], timeout=15)
+                return rc == 0, "restarted (remove unavailable)" if rc == 0 else out
+            return False, (
+                "cannot rebind session command (session.remove unavailable or failed: %s); "
+                "upgrade vivi-pty or recycle the daemon" % rm_msg
+            )
+
+    args = _vivi_start_args(bin_path, binding, project, session_id, socket, argv)
     rc, out = run_cmd(args, timeout=15)
-    return rc == 0, out or "started"
+    if rc != 0:
+        return False, out or "start failed"
+    label = "rebound" if rebind or (stored and stored != argv) else "started"
+    return True, label
 
 
 def stop_vivi(fleet: Dict[str, Any], binding: Dict[str, Any]) -> Tuple[bool, str]:
@@ -314,16 +399,45 @@ def act_on_role(fleet: Dict[str, Any], project: Path, role: str, action: str, bo
     ok = True
     msg = ""
     if action == "status":
-        return role_status(fleet, project, role)
+        status = role_status(fleet, project, role)
+        # Surface launch drift for operators (doctor/status).
+        if kind == "vivi_pty":
+            desired = _launch_argv(slot, binding)
+            status["desired_command"] = desired
+            bin_path = _vivi_pty_bin(fleet)
+            session_id = str(binding.get("session") or binding.get("target") or "")
+            socket = str(binding.get("socket") or "")
+            rc, inspect_out = run_cmd(
+                [bin_path, "session", "inspect", session_id, "--socket", socket], timeout=5
+            )
+            if rc == 0:
+                try:
+                    stored = _session_command(json.loads(inspect_out))
+                except Exception:
+                    stored = []
+                status["stored_command"] = stored
+                if desired and stored and desired != stored:
+                    status["command_drift"] = True
+                    status["ok"] = False
+                    status["message"] = "command drift: reinit to rebind agent_launch"
+        return status
     if action == "start":
-        ok, msg = start_vivi(fleet, project, role, binding, slot) if kind == "vivi_pty" else start_tmux(fleet, binding, slot, force=force)
+        ok, msg = (
+            start_vivi(fleet, project, role, binding, slot, rebind=False)
+            if kind == "vivi_pty"
+            else start_tmux(fleet, binding, slot, force=force)
+        )
     elif action == "stop":
         ok, msg = stop_vivi(fleet, binding) if kind == "vivi_pty" else stop_tmux(fleet, binding)
     elif action in ("restart", "reinit"):
+        # reinit always rebinds to agent_launch; restart reuses session when argv matches.
+        rebind = action == "reinit" or force
         if kind == "vivi_pty":
-            ok, msg = stop_vivi(fleet, binding)
-            if ok:
-                ok, msg = start_vivi(fleet, project, role, binding, slot)
+            ok, msg = start_vivi(fleet, project, role, binding, slot, rebind=rebind)
+            if not ok and rebind:
+                # Explicit stop+rebind path if start_vivi could not replace a live session.
+                stop_vivi(fleet, binding)
+                ok, msg = start_vivi(fleet, project, role, binding, slot, rebind=True)
         else:
             ok, msg = stop_tmux(fleet, binding)
             if ok:

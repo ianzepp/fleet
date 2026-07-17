@@ -8,6 +8,7 @@ import json
 import os
 import argparse
 import re
+import shlex
 import shutil
 import subprocess
 import sys
@@ -305,6 +306,20 @@ def resolve_assignment_mode(slot: Dict[str, Any]) -> str:
     return "continue"
 
 
+def _desired_runtime_command(slot: Dict[str, Any], runtime: Dict[str, Any]) -> List[str]:
+    """Argv for vivi_pty: agent_launch wins over runtime.command when set."""
+    launch = str(slot.get("agent_launch") or "").strip()
+    if launch:
+        try:
+            return shlex.split(launch)
+        except ValueError:
+            return [launch]
+    command = runtime.get("command")
+    if isinstance(command, list) and command:
+        return [str(part) for part in command]
+    return []
+
+
 def resolve_runtime_binding(
     fleet: Dict[str, Any],
     role: str,
@@ -347,7 +362,9 @@ def resolve_runtime_binding(
             "driver": str(runtime.get("driver") or slot.get("agent") or "generic"),
             "model": str(slot.get("agent_model") or ""),
             "launch": str(slot.get("agent_launch") or ""),
-            "runtime_command": runtime.get("command") if isinstance(runtime.get("command"), list) else [],
+            # Prefer agent_launch argv (pi-hand/pi-head wrappers). Stale
+            # runtime.command arrays historically re-bound Heads to plain pi.
+            "runtime_command": _desired_runtime_command(slot, runtime),
             "min_seconds_between_wakes": int(
                 180 if slot.get("min_seconds_between_wakes") is None
                 else slot.get("min_seconds_between_wakes")

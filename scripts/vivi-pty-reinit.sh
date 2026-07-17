@@ -265,6 +265,18 @@ cmd_heal() {
   return "$fail"
 }
 
+remove_session() {
+  local session_id=$1
+  local socket=$2
+  # Prefer session.remove (no tombstone) so reinit can rebind agent_launch.
+  if "$VIVI_PTY_BIN" session remove "$session_id" --socket "$socket" >/dev/null 2>&1; then
+    return 0
+  fi
+  # Older vivi-pty: stop only leaves a tombstone — restart would keep old argv.
+  stop_session "$session_id" "$socket"
+  return 1
+}
+
 cmd_reinit() {
   local name=$1
   [[ -n "$name" ]] || { echo "usage: reinit <role>" >&2; exit 1; }
@@ -272,8 +284,16 @@ cmd_reinit() {
   if ! daemon_running "$ROLE_socket"; then
     start_daemon "$ROLE_socket"
   fi
+  # Always drop + start with fleet.json command (agent_launch / runtime.command).
+  # Never session.restart here — restart preserves the stored argv and was the
+  # root cause of plain-pi Head sessions ignoring pi-head agent_launch.
   if session_exists "$ROLE_session_id" "$ROLE_socket"; then
-    restart_session "$ROLE_session_id" "$ROLE_socket"
+    if ! remove_session "$ROLE_session_id" "$ROLE_socket"; then
+      echo "warn: session.remove unavailable; restart may keep old command — upgrade vivi-pty" >&2
+      restart_session "$ROLE_session_id" "$ROLE_socket" || true
+    else
+      start_session "$ROLE_session_id" "$ROLE_socket" "$ROLE_cwd" "$ROLE_driver" "${ROLE_command_args[@]}"
+    fi
   else
     start_session "$ROLE_session_id" "$ROLE_socket" "$ROLE_cwd" "$ROLE_driver" "${ROLE_command_args[@]}"
   fi

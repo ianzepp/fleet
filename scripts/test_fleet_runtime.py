@@ -62,11 +62,24 @@ if [[ "$1" == "session" && "$2" == "inspect" ]]; then
   sid="$3"; f="$TMPDIR/fake-vivi-pty-state-$sid"
   [[ -f "$f" ]] || exit 1
   st=$(cat "$f")
-  echo "{\"state\":\"$st\"}"
+  cmd_f="$TMPDIR/fake-vivi-pty-cmd-$sid"
+  if [[ -f "$cmd_f" ]]; then cmd=$(cat "$cmd_f"); else cmd='["pi","--model","fake"]'; fi
+  echo "{\"state\":\"$st\",\"command\":$cmd}"
   exit 0
 fi
 if [[ "$1" == "session" && "$2" == "start" ]]; then
-  echo running > "$TMPDIR/fake-vivi-pty-state-$3"
+  sid="$3"
+  echo running > "$TMPDIR/fake-vivi-pty-state-$sid"
+  # Capture argv after the first bare "--" separator.
+  python3 - "$sid" "$@" <<'PY'
+import json, sys
+sid = sys.argv[1]
+args = sys.argv[2:]
+cmd = []
+if "--" in args:
+    cmd = args[args.index("--") + 1 :]
+open(__import__("os").environ["TMPDIR"] + f"/fake-vivi-pty-cmd-{sid}", "w").write(json.dumps(cmd))
+PY
   exit 0
 fi
 if [[ "$1" == "session" && "$2" == "restart" ]]; then
@@ -75,6 +88,10 @@ if [[ "$1" == "session" && "$2" == "restart" ]]; then
 fi
 if [[ "$1" == "session" && "$2" == "stop" ]]; then
   echo stopped > "$TMPDIR/fake-vivi-pty-state-$3"
+  exit 0
+fi
+if [[ "$1" == "session" && "$2" == "remove" ]]; then
+  rm -f "$TMPDIR/fake-vivi-pty-state-$3" "$TMPDIR/fake-vivi-pty-cmd-$3"
   exit 0
 fi
 if [[ "$1" == "terminal" && "$2" == "write" ]]; then
@@ -163,6 +180,69 @@ exit 0
         rc = self.run_helper("--role", "head-cxo", "doctor")
         self.assertEqual(rc.returncode, 1)
         self.assertIn("stopped", rc.stdout)
+
+    def test_agent_launch_preferred_over_stale_runtime_command(self):
+        """agent_launch wins so reinit cannot rebind plain pi from stale command."""
+        self.install_fake_vivi_pty()
+        wrapper = self.bin / "pi-head"
+        wrapper.write_text("#!/usr/bin/env bash\nexec true\n", encoding="utf-8")
+        wrapper.chmod(0o755)
+        self.write_fleet({
+            "fleet_id": "test",
+            "head-ceo": {
+                "agent": "pi",
+                "mail_identity": "head-ceo",
+                "cwd": str(self.root),
+                "agent_launch": "%s --model good --approve" % wrapper,
+                "runtime": {
+                    "kind": "vivi_pty",
+                    "session_id": "test-head-ceo",
+                    "socket": str(self.root / ".vivi" / "vivi-pty.sock"),
+                    "driver": "pi",
+                    # Stale plain pi — must NOT be used when agent_launch is set
+                    "command": ["pi", "--model", "stale"],
+                },
+            },
+        })
+        rc = self.run_helper("--role", "head-ceo", "start")
+        self.assertEqual(rc.returncode, 0, rc.stderr + rc.stdout)
+        cmd_path = Path(os.environ.get("TMPDIR", "/tmp")) / "fake-vivi-pty-cmd-test-head-ceo"
+        stored = json.loads(cmd_path.read_text(encoding="utf-8"))
+        self.assertEqual(stored[0], str(wrapper))
+        self.assertIn("good", stored)
+        self.assertNotIn("stale", stored)
+
+    def test_reinit_removes_then_starts_with_desired_argv(self):
+        self.install_fake_vivi_pty()
+        self.write_fleet({
+            "fleet_id": "test",
+            "head-cto": {
+                "agent": "pi",
+                "agent_launch": "pi --model new --approve",
+                "runtime": {
+                    "kind": "vivi_pty",
+                    "session_id": "test-head-cto",
+                    "socket": str(self.root / ".vivi" / "vivi-pty.sock"),
+                    "command": ["pi", "--model", "old"],
+                },
+            },
+        })
+        # Seed a running session with old command
+        Path(os.environ.get("TMPDIR", "/tmp") + "/fake-vivi-pty-state-test-head-cto").write_text(
+            "running", encoding="utf-8"
+        )
+        Path(os.environ.get("TMPDIR", "/tmp") + "/fake-vivi-pty-cmd-test-head-cto").write_text(
+            '["pi","--model","old"]', encoding="utf-8"
+        )
+        rc = self.run_helper("--role", "head-cto", "reinit")
+        self.assertEqual(rc.returncode, 0, rc.stderr + rc.stdout)
+        stored = json.loads(
+            Path(os.environ.get("TMPDIR", "/tmp") + "/fake-vivi-pty-cmd-test-head-cto").read_text(
+                encoding="utf-8"
+            )
+        )
+        self.assertIn("new", stored)
+        self.assertNotIn("old", stored)
 
 
 if __name__ == "__main__":

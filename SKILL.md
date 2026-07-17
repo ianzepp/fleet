@@ -168,6 +168,7 @@ Core process here; detail in `references/` + `scripts/`.
 | Schema / ladders / wind-down | [`runtime-config.md`](references/runtime-config.md) |
 | Missing companions | [`companion-fallbacks.md`](references/companion-fallbacks.md) |
 | Pi Mind extension | [`pi.md`](references/pi.md) |
+| Pi Hand/Head wrappers (`pi-hand` / `pi-head`) | [`pi-role-wrappers.md`](references/pi-role-wrappers.md) |
 | Sensors / baseline / doorbell | [`fleet-sensors.py`](scripts/fleet-sensors.py), [`fleet-baseline.py`](scripts/fleet-baseline.py), [`fleet-doorbell.sh`](scripts/fleet-doorbell.sh), [`fleet-resolve.py`](scripts/fleet-resolve.py). Doorbell records `last_hand_wake`; sensors cover RTM/integration lag, Git drift, dirt, and lane reconciliation. |
 | Mind loop fallback | [`scripts/fleet-loop.py`](scripts/fleet-loop.py). tmux-backed `FLEET_CYCLE` injector for Mind harnesses without native scheduled loops. Records `.vivi/fleet-loop.json`; `start`, `status`, `stop`; loop ≠ steward and never runs sensors itself. |
 | Runtime lifecycle | [`scripts/fleet-runtime.py`](scripts/fleet-runtime.py). Backend-neutral start/stop/restart/status for configured Hand/Head runtimes; use before doorbell when a role is stopped. |

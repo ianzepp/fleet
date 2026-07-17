@@ -82,13 +82,47 @@ def now_iso() -> str:
     return _now_iso()
 
 
+def _pi_wrapper_path(role_group: str) -> str:
+    """Absolute path to fleet skill pi-hand / pi-head (falls back to bare name)."""
+    scripts = Path(__file__).resolve().parent
+    name = "pi-head" if role_group == "head" else "pi-hand"
+    candidate = scripts / name
+    return str(candidate) if candidate.is_file() else name
+
+
+def _build_pi_argv(
+    role_group: str,
+    agent_model: Optional[str],
+    provider: Optional[str],
+    effort: Optional[str],
+    approve: bool,
+    *,
+    name: Optional[str] = None,
+) -> List[str]:
+    """Pi argv via role wrapper so Fleet Mind extension never loads in workers."""
+    args: List[str] = [_pi_wrapper_path(role_group)]
+    if provider:
+        args += ["--provider", provider]
+    if agent_model:
+        args += ["--model", agent_model]
+    if effort:
+        args += ["--thinking", effort]
+    if name:
+        args += ["--name", name]
+    if approve:
+        args.append("--approve")
+    return args
+
+
 def _build_launch(agent: str, agent_model: Optional[str], provider: Optional[str],
                   thinking: Optional[str], reasoning: Optional[str],
-                  approve: bool = True) -> Optional[str]:
+                  approve: bool = True, role_group: str = "hand",
+                  launch_name: Optional[str] = None) -> Optional[str]:
     """Build a canonical agent_launch argv string for the given harness.
 
     Returns a single-quoted shell command string, or None if the harness is
     unknown.  Uses shlex.quote on each component to avoid eval-style flattening.
+    Pi Hands/Heads use fleet skill wrappers (pi-hand / pi-head).
     """
     effort = thinking or reasoning
     agent_lower = agent.lower() if agent else ""
@@ -112,15 +146,7 @@ def _build_launch(agent: str, agent_model: Optional[str], provider: Optional[str
         return " ".join(shlex.quote(a) for a in args)
 
     if agent_lower == "pi":
-        args = ["pi"]
-        if provider:
-            args += ["--provider", provider]
-        if model:
-            args += ["--model", model]
-        if effort:
-            args += ["--thinking", effort]
-        if approve:
-            args += ["--approve"]
+        args = _build_pi_argv(role_group, model, provider, effort, approve, name=launch_name)
         return " ".join(shlex.quote(a) for a in args)
 
     if agent_lower == "opencode":
@@ -138,8 +164,10 @@ def _build_launch(agent: str, agent_model: Optional[str], provider: Optional[str
 
 def _update_runtime_command(runtime: dict, agent: str, agent_model: Optional[str],
                              provider: Optional[str], thinking: Optional[str],
-                             reasoning: Optional[str]) -> dict:
-    """For vivi_pty roles, produce a new runtime.command list."""
+                             reasoning: Optional[str],
+                             role_group: str = "hand",
+                             launch_name: Optional[str] = None) -> dict:
+    """For vivi_pty roles, produce a new runtime.command list (must match agent_launch)."""
     effort = thinking or reasoning
     agent_lower = agent.lower() if agent else ""
     model = agent_model or ""
@@ -157,14 +185,7 @@ def _update_runtime_command(runtime: dict, agent: str, agent_model: Optional[str
             cmd += ["-c", "model_reasoning_effort=%s" % effort]
         cmd += ["-s", "danger-full-access"]
     elif agent_lower == "pi":
-        cmd = ["pi"]
-        if provider:
-            cmd += ["--provider", provider]
-        if model:
-            cmd += ["--model", model]
-        if effort:
-            cmd += ["--thinking", effort]
-        cmd.append("--approve")
+        cmd = _build_pi_argv(role_group, model, provider, effort, True, name=launch_name)
     elif agent_lower == "opencode":
         cmd = ["opencode"]
         if model:
@@ -515,18 +536,36 @@ def _build_change_plan(
         new_provider = provider or entry.get("provider")
         new_effort = thinking or reasoning
 
-        # Generate canonical launch
-        launch = _build_launch(new_agent, new_model, new_provider, thinking, reasoning)
+        role_group = "head" if is_head else "hand"
+        # Preserve --name from existing launch when present (pane labels).
+        launch_name = None
+        existing_launch = str(entry.get("agent_launch") or "")
+        if existing_launch:
+            try:
+                existing_argv = shlex.split(existing_launch)
+            except ValueError:
+                existing_argv = []
+            for i, tok in enumerate(existing_argv):
+                if tok == "--name" and i + 1 < len(existing_argv):
+                    launch_name = existing_argv[i + 1]
+                    break
+
+        # Generate canonical launch (pi → pi-hand / pi-head wrappers)
+        launch = _build_launch(
+            new_agent, new_model, new_provider, thinking, reasoning,
+            role_group=role_group, launch_name=launch_name,
+        )
         if launch is not None:
             after["agent_launch"] = launch
         elif entry.get("agent_launch"):
             # If agent is changing but we can't generate a launch, warn
             pass  # keep existing launch
 
-        # Update vivi_pty runtime.command
+        # Update vivi_pty runtime.command — must match agent_launch
         if runtime_kind == "vivi_pty":
             updated_runtime = _update_runtime_command(
-                runtime, new_agent, new_model, new_provider, thinking, reasoning
+                runtime, new_agent, new_model, new_provider, thinking, reasoning,
+                role_group=role_group, launch_name=launch_name,
             )
             after["runtime"] = updated_runtime
 

@@ -27,6 +27,7 @@ from __future__ import annotations
 import argparse
 import json
 import re
+import shlex
 import sys
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
@@ -94,10 +95,33 @@ def _check_tmux_target(report: Report, where: str, entry: Dict[str, Any], requir
             report.err(where, "runtime must be an object for vivi_pty")
             return
         command = runtime.get("command")
+        launch = entry.get("agent_launch")
+        has_launch = isinstance(launch, str) and launch.strip()
         if not isinstance(command, list) or not command:
-            report.err(where, "vivi_pty runtime requires a non-empty command array")
+            # agent_launch alone is enough for fleet-runtime (preferred); still
+            # prefer a stored runtime.command for vivi-pty-reinit and older tools.
+            if has_launch:
+                report.warn(
+                    where,
+                    "vivi_pty runtime.command missing; fleet-runtime will use agent_launch — "
+                    "sync runtime.command to agent_launch argv to avoid reinit drift",
+                )
+            else:
+                report.err(where, "vivi_pty runtime requires a non-empty command array (or agent_launch)")
         elif not all(isinstance(c, str) for c in command):
             report.err(where, "vivi_pty runtime.command must be an array of strings")
+        elif has_launch:
+            try:
+                launch_argv = shlex.split(launch.strip())
+            except ValueError:
+                launch_argv = None
+            if launch_argv is not None and list(command) != launch_argv:
+                report.err(
+                    where,
+                    "agent_launch and runtime.command disagree — "
+                    "agent_launch is canonical; update runtime.command to match "
+                    "(stale runtime.command used to rebind heads to plain pi)",
+                )
         for tmux_key in ("tmux_target", "tmux_session", "tmux_window"):
             if tmux_key in entry:
                 report.err(where, "vivi_pty role cannot also define %s" % tmux_key)

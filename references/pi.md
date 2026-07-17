@@ -7,7 +7,7 @@ Fleet policy in this skill or create a second Fleet control plane.
 
 ## Activation
 
-The extension must be loaded in Pi:
+The extension must be loaded in Pi **Mind** sessions only:
 
 ```bash
 pi -e /Users/ianzepp/work/ianzepp/fleet/pi/extensions/fleet.ts
@@ -18,6 +18,14 @@ Or install the Fleet package:
 ```bash
 pi install /Users/ianzepp/work/ianzepp/fleet
 ```
+
+**Hands and Heads must not load this extension.** Use the Fleet skill wrappers:
+
+| Role | Wrapper | See |
+| --- | --- | --- |
+| Hand | `scripts/pi-hand` (`--no-extensions`) | [`pi-role-wrappers.md`](pi-role-wrappers.md) |
+| Head | `scripts/pi-head` (`--no-extensions` + deny `edit,write`) | [`pi-role-wrappers.md`](pi-role-wrappers.md) |
+| Mind | full `pi` **with** extension (or Grok / other Mind harness) | this file |
 
 A detected `.vivi/fleet.json` in the current directory is only a **candidate**.
 Pi never becomes Mind automatically. The operator or the user must explicitly
