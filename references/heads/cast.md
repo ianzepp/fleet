@@ -19,8 +19,10 @@ These seats continue the camp **strategist / correctness / purity** advisors. Th
 | **`head-cso`** | [`personas/cso.md`](personas/cso.md) | Security / privacy / abuse | Usually on-call (`every_n_loops: 0`); schedule or task during deploy windows |
 | **`head-cfo`** | [`personas/cfo.md`](personas/cfo.md) | Cost, effort, sustainability (on demand) | Pairs with cost calibration |
 | **`head-cmo`** | [`personas/cmo.md`](personas/cmo.md) | Positioning / audience (on demand) | Lazy |
+| **`head-founders`** | [`personas/founders.md`](personas/founders.md) | **Founders Council** portfolio sponsor: experiment series health; continue/reshape/park/kill; parent-cycle clock | Label: `founders-council`; mail often `founders-council@` |
 
 **Default armed Heads** (coding fleet): `head-ceo` + `head-cto` + optional **`head-cxo`**.  
+When the workspace runs experiment series under `experiments/`, also arm **`head-founders`** (`every_n_loops: 4` sponsor force-check).  
 **Code-review Hands** (under `hands`, not a new class): **`auditor-1` / `auditor-2`** + `$auditor`.  
 Other Heads: mail identity + pane only when Mind assigns them.
 
