@@ -42,6 +42,12 @@ persistence, packaging law) — not “does the suite pass?”
 Mind maps project-configured models onto these classes. Multiple providers may
 satisfy one class; **fleet.json** records which.
 
+**Provider is part of the binding.** Project overlays must pair each model with
+its correct provider (example: volume GLM-class models often require a specific
+vendor provider id such as `zai` — never assume the default codex/openai
+provider). A model string without the matching `provider` / `agent_launch`
+flag is a misconfiguration.
+
 ---
 
 ## Unit tags (Mind labels when filing)
