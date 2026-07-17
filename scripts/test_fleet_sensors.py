@@ -52,7 +52,7 @@ Welcome to Kimi Code!
 │ >  │
 K3 thinking: low  context: 0% (0/256k)
 exited
-% 
+%
 """
         self.assertEqual(fleet_sensors.classify_terminal(tail, True), "unknown")
 
