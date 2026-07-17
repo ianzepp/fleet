@@ -218,6 +218,20 @@ new repo families, copied overlays, and multi-fleet hosts from colliding.
       "merges_to_main": true,
       "wake_mode": "tmux_send_keys",
       "min_seconds_between_wakes": 180
+    },
+    "auditor-1": {
+      "mail_identity": "auditor-1",
+      "tmux_session": "myfleet",
+      "tmux_window": "auditor-1",
+      "tmux_target": "myfleet:auditor-1.1",
+      "cwd": "/path/to/your/project",
+      "agent": "pi",
+      "agent_launch": "pi --provider openai-codex --model gpt-5.5 --thinking high --approve",
+      "merges_to_main": false,
+      "assignment_mode": "new",
+      "wake_mode": "tmux_send_keys",
+      "min_seconds_between_wakes": 180,
+      "note": "review Hand; assignments explicitly invoke $auditor; reports To mind"
     }
   },
   "fleet_posture": {

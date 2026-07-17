@@ -8,8 +8,8 @@
   verify-fleet-json.py --project <root> --no-path-checks # skip on-disk path refs
 
 Checks JSON parse, required-for-function keys, cross-reference meaning
-(default_hand resolves; mail_identity unique within the mailspace; merges_to_main
-only on a hand), executive_cadence / wake-field well-formedness, and that
+(default_hand resolves; mail_identity unique within the mailspace; auditor Hands
+cannot merge and use fresh assignments), executive_cadence / wake-field well-formedness, and that
 referenced absolute paths (role_prompt, persona, tooling binaries) exist.
 
 The schema is intentionally permissive ("Recommended keys — extend freely; skill
@@ -43,6 +43,7 @@ from fleet_common import (  # noqa: E402
 require_python()
 
 HEAD_KEYS = ("head-ceo", "head-cto", "head-cxo")
+AUDITOR_HAND_RE = re.compile(r"^auditor-[1-9][0-9]*$")
 TMUX_TARGET_RE = re.compile(r"^[^:\s]+:[^:\s]+(?:\.\d+)?$")
 ABS_PLACEHOLDER_RE = re.compile(r"[<>]")
 
@@ -288,6 +289,15 @@ def validate(fleet: Dict[str, Any], fleet_path: Path, path_checks: bool) -> Repo
                 report.warn(where, "cwd does not exist locally: %s" % cwd)
         if "merges_to_main" in h and not isinstance(h.get("merges_to_main"), bool):
             report.err(where, "merges_to_main must be boolean, got %r" % (h.get("merges_to_main"),))
+        if name.startswith("auditor-") and not AUDITOR_HAND_RE.match(name):
+            report.err(where, "auditor Hand name must match auditor-N with N >= 1")
+        if AUDITOR_HAND_RE.match(name):
+            if h.get("mail_identity") != name:
+                report.err(where, "auditor mail_identity must match role name %r" % name)
+            if h.get("merges_to_main") is not False:
+                report.err(where, "auditor Hand requires merges_to_main=false")
+            if h.get("assignment_mode") != "new":
+                report.err(where, "auditor Hand requires assignment_mode='new' for independent review")
         pkt = h.get("packet")
         if pkt is not None and not isinstance(pkt, dict):
             report.warn(where, "packet must be an object or null (unassigned)")

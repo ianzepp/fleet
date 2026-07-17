@@ -80,7 +80,7 @@ python3 scripts/verify-fleet-json.py --project <root> --no-path-checks # skip on
 ```
 
 Validates fleet.json shape, cross-references (`default_hand` resolves,
-`mail_identity` unique, `merges_to_main` only on a hand), `executive_cadence` /
+`mail_identity` unique, auditor Hands cannot merge and use fresh assignments), `executive_cadence` /
 wake-field well-formedness, and that referenced absolute paths (`role_prompt`,
 `persona`, `tooling` binaries) exist, and validates `sensor_log` level/path/retention shape. The schema is permissive ("extend freely;
 skill cares about meanings") — unknown keys are NOT rejected. Exit `0` ok ·
@@ -501,6 +501,24 @@ Recommended keys (extend freely; skill cares about meanings):
       "assignment_sticky": false,
       "assignment_mode": "continue",
       "packet": { "slug": "…", "branch": "…", "state": "assigned" }
+    },
+    "auditor-1": {
+      "mail_identity": "auditor-1",
+      "host": "local",
+      "tmux_session": "auditor-1",
+      "tmux_target": "auditor-1:1.1",
+      "cwd": "/path/to/main",
+      "agent": "pi",
+      "provider": "openai-codex",
+      "agent_model": "gpt-5.5",
+      "thinking": "high",
+      "agent_launch": "pi --provider openai-codex --model gpt-5.5 --thinking high --approve",
+      "merges_to_main": false,
+      "assignment_sticky": false,
+      "assignment_mode": "new",
+      "wake_mode": "tmux_send_keys",
+      "min_seconds_between_wakes": 180,
+      "note": "review Hand; assignments explicitly invoke $auditor; reports To mind"
     }
   },
   "head-ceo": {
@@ -670,7 +688,7 @@ cost_calibration[] optional
   # {id, title, head_ceo_effort, est_tokens, actual_tokens?, actual_source,
   #  delta_ratio?, head_ceo_model, hand_model, closed_at, notes}
   # Codex TUI: often actual_source=unavailable — never invent actual_tokens
-head-cto.{last_report_handle, last_report_at, …}   # cadence + auditor absorb
+head-cto.{last_report_handle, last_report_at, …}   # gate-honesty / architecture cadence
 head-cxo.{last_report_handle, last_report_at, …}
 mind_loop.{state, handoff, mechanism, …}
 half_dead[] optional              # path, class A/B/C, age_cycles, note

@@ -129,7 +129,7 @@ pi --provider llama-router --model ornith-35b-q8 --print --no-session "<task>"
 | Role | Harness | Preferred model | Effort / thinking |
 | --- | --- | --- | --- |
 | **head-ceo** (strategist) | **Pi**, zai | GLM 5.2 | **high** or **xhigh** |
-| **head-cto** (code review, gate honesty) | **Pi**, zai | GLM 5.2 | **high** or **xhigh** |
+| **head-cto** (gate honesty, architecture) | **Pi**, zai | GLM 5.2 | **high** or **xhigh** |
 | **head-cxo** (complexity, purity) | **Pi**, zai | GLM 5.2 | **high** or **xhigh** |
 | Other Heads (CPO, COO, CSO, CFO, CMO) | **Pi**, zai | GLM 5.2 | **high** or **xhigh** |
 
@@ -349,7 +349,7 @@ list the default search paths (“`~`” resolves to the current user’s home d
 
 - Issue stage start/closeout GO/NO-GO as binding protocol
 - Require multi-round mail before next map square
-- **Own fleet code-review quality** (**head-cto on main after merge**)
+- Perform deep code review itself; triage and assign **`auditor-N` Hands + `$auditor`**
 - Run full `$polish` or `$housekeeping` itself; thrash polish every quiet cycle; fire housekeeping on routine main lands
 - Steal Hand’s unit or rewrite WIP mid-flight (raise; don’t hijack unless operator asks)
 - Treat status-only dirty as multi-cycle freeze without classification

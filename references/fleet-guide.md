@@ -132,7 +132,7 @@ Leaving hand-2 empty while map has a second unblocked track = Mind starvation of
 **To:** `hand-N`=work; `mind`=fleet board; `operator`=human escalations only.
 
 Kind ≠ severity. Critical defects are still **tasks**.  
-**Absorb** = bookkeeping when something moved. **Accept** = clear review debt or queue merge — not full code review (head-cto on main).
+**Absorb** = bookkeeping when something moved. **Accept** = clear review debt or queue merge — not full code review (assigned `auditor-N` Hand + `$auditor`).
 
 ## Fleet files
 

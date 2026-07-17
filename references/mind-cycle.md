@@ -132,7 +132,7 @@ else:
 | Still | Does not |
 | --- | --- |
 | Cheap sensors + pane scan | Deep-plan “because the model can” |
-| Refill starvation; doorbells/reinits | Post-merge **code audit** (**head-cto on main**) |
+| Refill starvation; doorbells/reinits | Perform post-merge code audit itself (file an **auditor Hand** task when triage requires one) |
 | Absorb moved HEADs; residual **tasks** | Wait multi-cycle on head-ceo when safe default exists |
 | **needs** for real decision holds (default + options) | Freeze on class A dirt without opening diff |
 | Update **operator_recap** | Dump status into **operator@** |

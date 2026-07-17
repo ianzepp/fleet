@@ -57,7 +57,7 @@ Side-lane workers **never** merge to main. Mind owns integration clock. Long con
 1. Worker signals **theme ready-to-merge** (name + tip + evidence) **or** Mind judges done after review  
 2. **Absorb** tip; light residual/evidence since last main merge (not GO stamp; not full code review)  
 3. **Integration accept** → `pending_merges` (slug, tip, base, theme, `queued_for_hand1`) **or** residual To worker  
-   (Deep review = **head-cto on main after** hand-1 merges)  
+   (Deep review = assigned **`auditor-N` Hand + `$auditor`** on main after hand-1 merges)
 4. File **one merge task To: hand-1** (slug, branch, base, tip, theme, validation, **watch-scope drift**)  
 5. Wake/reinit h1 only at **clean breakpoint**. Mid-spine → **queue**  
 6. After h1 merges: **absorb** main; **accept** merge; clear/update `pending_merges`; next unit/theme To worker (or reassign)  

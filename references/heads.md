@@ -221,19 +221,19 @@ Bands = **routing hints**. Prefer ranges; uncertain → estimate high. **Do not 
 
 ---
 
-## head-cto auditor loop (self-directed) — **code review + gate honesty**
+## head-cto advisor loop (self-directed) — **gate honesty + architecture**
 
 > **Model note:** head-cto uses **Pi + zai + GLM 5.2** (high or xhigh), same
-> as all Heads. The unified advisor plane keeps harness coherence. Code review
-> depth comes from thinking effort, not model divergence.
+> as all Heads. The unified advisor plane keeps harness coherence. Dedicated
+> code review runs on `auditor-N` Hands with `$auditor`.
 
 Identity: `head-cto`. Subject: `head-cto:`. Persona: [`heads/personas/cto.md`](heads/personas/cto.md). Legacy: correctness.
 
-Fleet **code-review** Head + **technical gate honesty**. Mind does **not** peer-review every Hand WIP. Hands own ship quality.
+Fleet **technical gate-honesty and architecture** Head. Mind does **not** peer-review every Hand WIP. Implementer Hands own ship quality; auditor Hands own assigned code review.
 
-**Surface: main after merge** (not continuous multi-worktree juggling). Cross-theme bugs often appear only on shared main. Bugs on main → task To owning Hand.
+**Surface: claimed gates, producer facts, architectural boundaries, and technical sequencing.** Findings → advisory report To Mind; product work remains To owning Hands.
 
-Review is **post-main by cadence/risk**, not a task Mind files per Hand completion: low-risk `done` evidence satisfies accept, and head-cto reviews by risk signal or sample. If head-cto refuses or is not running, that is `deferred-valid` — Mind records it once and retries on cadence; it does not re-dispatch or open fresh review tasks each cycle.
+Code review is **not** this cadence. Low-risk `done` evidence may satisfy accept; risk or sampling causes Mind to file an `auditor-N` Hand task. If head-cto refuses or is not running, that is `deferred-valid` for gate/architecture advice only — Mind records it once and retries on cadence.
 
 1. Sensors: has-session; pane class; Mind inbox for reports; cadence `head_due_cto` (gate honesty — code review is **Hand auditor-*** not this seat)
 2. Session **down** → recreate + role-prompt bootstrap (unless operator/dormant paused)
