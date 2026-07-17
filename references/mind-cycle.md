@@ -200,7 +200,7 @@ python3 scripts/fleet-baseline.py bump -p <ROOT> -s '<summary>' \
 
 Progress = **successful cycle completion for that fleet**, not inject or turn start. Multi-fleet: baseline bump **each** mini-cycled fleet; rearm only fleets with steward armed. [`dead-man.md`](dead-man.md), [`multi-fleet.md`](multi-fleet.md).
 
-Thorough/superficial cadence still applies (`cycle % N == 0`). Autonomous thorough = residual-shaped — **not** peer review of every packet. **head-cto** reviews main after merge. **Review triage:** do not open a Head review task per Hand completion — low-risk `done` evidence satisfies accept; full review is post-main, by risk signal, security/auth/persistence change, or sampled audit. Universal per-completion review is an anti-pattern.
+Thorough/superficial cadence still applies (`cycle % N == 0`). Autonomous thorough = residual-shaped — **not** peer review of every packet. **Code review** is a **Hand** duty on **`auditor-1` / `auditor-2`** (configured under `hands`, skill `$auditor`) — not head-cto by default. **Review triage:** do not open a review task per implementer completion — low-risk `done` evidence satisfies accept; file an **auditor Hand** task when risk signal, security/auth/persistence change, or sampled audit. Security-critical → auditor Hand and/or **head-cso** / `$black-hat`. **head-cto** = gate honesty / architecture only. Universal per-completion review is an anti-pattern.
 
 ## Fail-fast wake (context budget)
 
@@ -348,9 +348,9 @@ Even **sleep** interactive uses this shape. **Not required:** full mail dumps, f
 | Signal | Who | Action |
 | --- | --- | --- |
 | New/changed open task/need | Hand | show handle → work |
-| Git tip / dirty product moved | Mind | bounded residual / Status-honesty (not full code review) |
+| Git tip / dirty product moved | Mind | bounded residual / Status-honesty; optional **auditor** if risk |
 | Hand mid-flight dirty | Mind | cheap red-flag; residuals → Vivi + pointer |
-| Main tip moved after merge | Correctness / **head-cto** | post-main code review / bug hunt |
+| Main tip moved after merge | **Hand** `auditor-1/2` (`$auditor`) | code review / bug hunt on range |
 | Main tip moved (merge / feature land / spine unit) | Mind | **Post-main polish advisory** |
 | **Major inflection** on main | Mind | **Housekeeping task** (expensive; not every land) |
 | Same dirty paths block spine ≥2 cycles, no A/B/C note | Mind | **Open the diff**; classify; file; pivot |
@@ -450,12 +450,12 @@ No polish history ⇒ very high scores. Raise threshold, scope `--path`, or one-
 
 | Is | Is not |
 | --- | --- |
-| Cheap git-history metric + optional task | Mind peer-review or full `$polish` by Mind |
+| Cheap git-history metric + optional **auditor Hand** task | Mind peer-review or full `$polish` by Mind |
 | Backstop when Hand polish slipped | Replacement for Hand end-of-unit polish |
 | One bounded list after main moves | Every-cycle repo-wide thrash |
 | Score = churn-since-polish routing | “High score means bug” |
 
-**head-cto** = post-main **bugs**. **head-cxo** = excess-layer audits. Polish advisory = hygiene only.
+**Hand auditor-1/2** = code review / post-land **bugs** (`$auditor`). **head-cto** = gate honesty / architecture. **head-cxo** = excess-layer audits. Polish advisory = hygiene only.
 
 ## Major-inflection housekeeping (Mind — expensive, rare)
 
@@ -496,7 +496,7 @@ If unsure merge is “large,” **default no housekeeping**; file need with defa
 
 ## Residual scan (Mind) — not peer code review
 
-Hands: throughput + **own ship quality**. Mind: **bag honesty, Status honesty, integration**. Deep **code review** = **head-cto on main after merge**.
+Implementer Hands: throughput + **own ship quality**. Mind: **bag honesty, Status honesty, integration**, and **whether to file an auditor Hand**. Deep **code review** = Hands **`auditor-1` / `auditor-2`** + **`$auditor`** — same Mind/Hand machinery, different duty — not the CTO Head by default.
 
 **When (bounded):** thorough (`cycle % N == 0` / paid), **or** superficial if new HEAD / dirty product / Status flip without evidence. Autonomous: residual-shaped, short; **decide now**; no head-ceo wait for reversible defaults.
 
@@ -519,16 +519,17 @@ Other skill files only **link** here; do not invent alternate meanings.
 | --- | --- | --- | --- |
 | **Absorb** | Reconcile sensors into baseline/bag awareness (“something moved”) | Every cycle when product/board/pane signal moved | Low — bookkeeping honesty |
 | **Accept** | Integration bar: unit/packet good enough to clear review debt, close map square, or **queue merge** | Thorough or opportunistic residual with honest evidence | Medium — tests/claims/scope honesty — **not** full code review |
-| **Code review** | **head-cto** on **main after merge** | After land on main | High — bugs, fail-closed, multi-theme interactions |
+| **Code review** | **Hand** `auditor-1/2` + `$auditor` on assigned range | When Mind triages risk / sample / operator ask | High — bugs, fail-closed, multi-theme interactions |
 
 | Role | Says… |
 | --- | --- |
-| **Hand** | Delivered / task **done** (evidence) — never “absorb” or “accept” |
-| **Mind** | **Absorb** when moved; **integration accept** when evidence honest enough |
-| **head-cto** | Post-main findings → Mind triages to tasks |
+| **Hand (implementer)** | Delivered / task **done** (evidence) — never “absorb” or “accept” |
+| **Hand (auditor)** | Audit report To mind → Mind triages residuals To implementer Hands |
+| **Mind** | **Absorb** when moved; **integration accept** when evidence honest enough; **file auditor Hand** when review needed |
+| **head-cto** | Gate honesty / architecture (not the code-review Hand queue) |
 | **Operator** | May force priority |
 
-**Anti-pattern:** treat absorb as accept; Mind multi-page code review of every packet while head-cto idles.
+**Anti-pattern:** treat absorb as accept; Mind multi-page code review of every packet; routing code review to head-cto instead of auditor Hands.
 
 **Fixed phrase for other docs:** *absorb = bookkeeping when something moved; accept = integration bar (not code review) — mind-cycle.*
 

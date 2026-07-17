@@ -12,7 +12,7 @@ These seats continue the camp **strategist / correctness / purity** advisors. Th
 | Identity | Persona file | Primary loop | Legacy |
 | --- | --- | --- | --- |
 | **`head-ceo`** | [`personas/ceo.md`](personas/ceo.md) | **Strategist:** map health, misprioritization, gate honesty, expansion (growth) / stewardship (standby), **side-lane buckets** (+ effort/est_tokens) | `strategist`, `head-strategist` |
-| **`head-cto`** | [`personas/cto.md`](personas/cto.md) | **Correctness:** code review / bugs on main + technical gate honesty | `correctness`, `head-correctness` |
+| **`head-cto`** | [`personas/cto.md`](personas/cto.md) | **Gate honesty / architecture** (not default code-review queue — that is **Hand** `auditor-1/2` + `$auditor`) | `correctness`, `head-correctness` |
 | **`head-cxo`** | [`personas/cxo.md`](personas/cxo.md) | **Purity:** unearned complexity / shape debt (incl. gates invented by coupling) | `purity`, `head-purity` |
 | **`head-cpo`** | [`personas/cpo.md`](personas/cpo.md) | Product direction, requirements | Usually on-call (`every_n_loops: 0`) |
 | **`head-coo`** | [`personas/coo.md`](personas/coo.md) | Ops readiness / verification; optional DR stewardship when `disaster_recovery` enabled | Usually on-call; never performs backup/restore |
@@ -21,7 +21,8 @@ These seats continue the camp **strategist / correctness / purity** advisors. Th
 | **`head-cmo`** | [`personas/cmo.md`](personas/cmo.md) | Positioning / audience (on demand) | Lazy |
 
 **Default armed Heads** (coding fleet): `head-ceo` + `head-cto` + optional **`head-cxo`**.  
-Others: mail identity + pane only when Mind assigns them.
+**Code-review Hands** (under `hands`, not a new class): **`auditor-1` / `auditor-2`** + `$auditor`.  
+Other Heads: mail identity + pane only when Mind assigns them.
 
 ### CEO = strategist (not org-chart CEO)
 

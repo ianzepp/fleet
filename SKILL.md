@@ -14,7 +14,7 @@ Abbot **Mind / Head / Hand** roles on a **multi-session fleet** (Vivi board + tm
 | **Mind** | Tasking, integrate, pane ops, cycles | Operator TUI + board **`mind@…`** (no tmux) |
 | **Operator mail** | Human escalations | Board **`operator@…`** (no tmux) |
 | **Head** | Advise / report — not bag drain | **`head-ceo` / `head-cto` / `head-cxo`** (+ optional org Heads) |
-| **Hand** | Execute one target | **`hand-1`…`hand-N`** |
+| **Hand** | Execute work (implement **or** audit) | **`hand-1`…`hand-N`**, **`auditor-1` / `auditor-2`** (Hands with review duty; **`$auditor`**) |
 
 ## Prime directive: Mind owns liveness
 
@@ -39,8 +39,9 @@ Reporting a blocker without acting, delegating, escalating, or recording a valid
 | **mind** | `mind@…` | none | Board To: Mind; process = this chat |
 | **operator** | `operator@…` | none | Human only — [`operator-mail.md`](references/operator-mail.md) |
 | **steward** | optional opt-in | tmux runtime | Dead-man, not Mind — **off by default**; operator must enable+arm per fleet — [`dead-man.md`](references/dead-man.md) |
-| **hand-N** | `hand-N@…` | configured runtime | `hand-1` merges to main; helpers select the logical role and derive the configured backend binding |
-| **head-*** | `head-*@…` | configured runtime | ceo=strategist (map health/buckets); cto post-main+gates; cxo purity; coo ops readiness + opt-in DR stewardship (not operator-facing); helpers select the logical role and derive the configured backend binding |
+| **hand-N** | `hand-N@…` | configured runtime | `hand-1` merges to main; product implementers |
+| **auditor-N** | `auditor-N@…` | configured runtime | **Still a Hand** (same bag/wake machinery under `hands`); code-review duty; load **`$auditor`**; no merge; report To mind |
+| **head-*** | `head-*@…` | configured runtime | ceo=strategist; cto **gate honesty / architecture** (not default code-review queue); cxo purity; cso security; coo ops |
 
 | Layout | Binding |
 | --- | --- |
@@ -81,7 +82,7 @@ but use these meanings when they do.
 | **packet** | hand-2+ worktree/branch (not main) | Main checkout |
 | **RTM** | ready-to-merge (mail signal for a packet/theme) | Done on main |
 | **absorb** | Bookkeeping when something moved | Integration bar |
-| **accept** | Integration bar (clear review debt / queue merge) — not code review | absorb; head-cto audit |
+| **accept** | Integration bar (clear review debt / queue merge) — not code review | absorb; auditor residual |
 | **GO stamp** | Forbidden stage license / approval gate | Residual tasking |
 
 Canon for absorb/accept: [`mind-cycle.md`](references/mind-cycle.md) § Absorb vs accept. Do not invent a third meaning.
@@ -102,7 +103,7 @@ Canon for absorb/accept: [`mind-cycle.md`](references/mind-cycle.md) § Absorb v
 | COO DR | Top-level `disaster_recovery` is default-off and calendar/maturity-triggered. COO reports recoverability evidence/gaps only; no backup, restore, secret/provider/spend/external action. Policy/config, one Git remote, or backup-job success is never restore proof. |
 | Stuck | Freeze fails — name, unstick, pivot. No status-only blocked cycles. Stuck ≠ “must invent work” |
 | Harness | **Default:** Mind, Hands, and Heads use Pi; provider/model diversity preserves advisor independence. **Fleet config exceptions win** (desktop Mind, compatibility harness, operator-recorded mixed) — [`roles-and-harness.md`](references/roles-and-harness.md) |
-| Quality | Hand ships unit quality; **head-cto** reviews **main after merge** — not Mind peer-review of every packet, and not a Head review task opened per Hand completion. Low-risk completions satisfy accept via the Hand's `done` evidence; route full Head review by **risk signal, security/auth/persistence change, or sampled audit** — never universally |
+| Quality | Product Hands ship unit quality. **Code review** is a **Hand duty** on **`auditor-1` / `auditor-2`** (same category as other hands; skill **`$auditor`**) — **not** head-cto by default. Mind decides: low-risk → accept from implementer `done` evidence; **risk / auth-persistence / sample** → task an auditor Hand. **Never** universal review on every completion. **head-cto** = gate honesty / architecture only |
 | Head backpressure | A Head that refuses or does not run is **`deferred-valid`**: record once in baseline, retry on cadence. Do **not** re-dispatch to it this cycle and do **not** memo the stall. Dispatch/refuse churn is a failed cycle, not a disposition |
 | Mind mail hygiene | The loop does not narrate itself into mail. Self-addressed mail (`mind@` → `mind@`) and reply-thread echoes are not a memory substitute — a cycle's record lives in baseline / `mind_loop` state, same as memos. Mail To `mind@` is routing/triage and deliberation, not an append-only audit sink. `mail absorb` marks mail read (the consume lifecycle) and is not a memory mechanism — durable context belongs in `memo` |
 | Peer communication | Heads and Hands may send advisory **mail** to one another. They may not assign or reroute peer tasks, needs, or wants; transfer ownership; authorize merges; or create gates. Material peer mail must remain visible to Mind. |
@@ -250,10 +251,11 @@ Hand: A same turn; B need+pivot; C own hunks. Mind: ≥2 cycles blocked unclassi
 
 | Role | Does | Does not |
 | --- | --- | --- |
-| Hand | Drain bag; validate; polish unit; ship quality | Wait for GO; merge to main (hand-2+); erase foreign WIP |
-| Mind | File/wake/integrate/starve-refill; operator mail | GO stamps; steal unit; deep code review; mind/operator tmux |
+| Hand (implementer) | Drain product bag; validate; polish unit; ship | Wait for GO; erase foreign WIP; hand-2+ merge |
+| Hand (auditor-N) | Drain **review** bag; `$auditor`; report To mind | Product implement; merge; GO stamp |
+| Mind | File/wake/integrate; **triage whether to file auditor Hand**; operator mail | GO stamps; deep code review itself |
 | operator@ | Human escalations | Status; bag drain |
-| head-cto | Post-main review + technical gate honesty | Own product bag; GO stamp |
+| head-cto | Technical **gate honesty** + architecture | Default code-review queue (use auditor Hands) |
 | head-ceo | **Strategist:** map health, misprioritization, gate honesty; side-lane buckets; continuity consult; posture-scaled proactivity | File Hand tasks; merge; invent polish |
 | head-cxo | Complexity/purity (gates invented by shape) | Product bag; operator mail |
 
@@ -436,7 +438,7 @@ python3 <skill>/scripts/suggest-polish-files.py --repo <main> --json --limit 15
 
 ## Fail-fast
 
-Exit in seconds on sensors/ops. Mode first → sensors → sleep if quiet. Autonomous: thin ops + compact report. Interactive: fail-fast ops + **rich** report. No unbounded watch. **absorb ≠ accept** (bookkeeping vs integration bar) — [`mind-cycle.md`](references/mind-cycle.md). **head-cto** post-main code review.
+Exit in seconds on sensors/ops. Mode first → sensors → sleep if quiet. Autonomous: thin ops + compact report. Interactive: fail-fast ops + **rich** report. No unbounded watch. **absorb ≠ accept** — [`mind-cycle.md`](references/mind-cycle.md). Code review → Hand roles **auditor-1/2** + `$auditor`; head-cto for gate honesty only.
 
 ## Shared workspace
 
@@ -479,7 +481,7 @@ Desktop Mind OK; Hands stay terminal/tmux. Schema: [`runtime-config.md`](referen
 ## Anti-patterns
 
 **Bag:** GO warden; severity-as-kind; sleep while map has **product** work; sleep in growth without an executive refill sweep; invent work to avoid sleep; dual Mind; Heads own bags; hand-2..hand-4 idle while non-overlapping repo work exists; floaters assigned to overlapping write scopes without an explicit serialize/defer decision; wait on scheduled Head cadence; wait on head-ceo for obvious spine; buckets without cost ballparks.
-**Process:** mail-only or pane-only truth; policy via tmux; mixed Hand harness; back-to-back wake stacks; wrong-host tmux; IMAP as bag sensor; unbounded watch; multi-fleet “fairness” busywork on standby fleets; **per-cycle dispatch memos** (loop narrating itself to memory); **universal per-completion Head review tasks**; **dispatch-refuse churn** (re-dispatching + re-memoing a refused reviewer every cycle); **self-narration into mail** (Mind self-mail / reply-thread echo as a memory substitute); **completion buried in reply threads** (no structured `done` signal).
+**Process:** mail-only or pane-only truth; policy via tmux; mixed Hand harness; back-to-back wake stacks; wrong-host tmux; IMAP as bag sensor; unbounded watch; multi-fleet “fairness” busywork on standby fleets; **per-cycle dispatch memos**; **universal per-completion review**; **routing code review to head-cto instead of auditor Hands**; **dispatch-refuse churn**; **self-narration into mail**; **completion buried in reply threads**.
 **Integrate:** packet-green≠consumer-green; “compiler residual” when integration lag; red theme merge; Mind merges packets; absorb-as-accept.  
 **Hygiene/workspace:** skip unit polish / polish foreign; Mind runs polish/HK; **polish thrash for continuity**; HK every land; score as merge gate; destructive dirt cleanup; status-only dirt; topic monogamy; deep-plan every autonomous cycle; interactive forever; **FLEET_CYCLE ⇒ force autonomous**; **FLEET_CYCLE ⇒ force turns=0 every fire**; hand-edit silence after `baseline bump`; compact report while interactive; novel autonomous reports; head-ceo permission freeze; missing FLEET_CYCLE prefix; status→operator@; skip operator present-on-return; arm steward without operator ask; leave steward armed after stop-loop; steward as Mind; heartbeat that does not cause a real Mind cycle; global roster scan; hardcode session=role when `tmux_target` set.
 

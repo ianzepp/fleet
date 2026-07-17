@@ -235,7 +235,7 @@ Fleet **code-review** Head + **technical gate honesty**. Mind does **not** peer-
 
 Review is **post-main by cadence/risk**, not a task Mind files per Hand completion: low-risk `done` evidence satisfies accept, and head-cto reviews by risk signal or sample. If head-cto refuses or is not running, that is `deferred-valid` — Mind records it once and retries on cadence; it does not re-dispatch or open fresh review tasks each cycle.
 
-1. Sensors: has-session; pane class; Mind inbox for reports; **main HEAD/dirty**; cadence `head_due_cto`
+1. Sensors: has-session; pane class; Mind inbox for reports; cadence `head_due_cto` (gate honesty — code review is **Hand auditor-*** not this seat)
 2. Session **down** → recreate + role-prompt bootstrap (unless operator/dormant paused)
 3. New report → absorb; triage task/need **To owning Hand**; doorbell if idle; baseline `head_cto.last_report_*`
 4. On map-gate findings: if `false_gate` / named producer fact, feed hand-1 or CEO map-health — do not freeze merges for a stamp

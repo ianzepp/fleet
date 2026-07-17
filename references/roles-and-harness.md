@@ -6,15 +6,15 @@ Arming a fleet, rebinding runtimes, Mind/Hand/Head duties.
 
 | Role | Typical identity | Job | Output |
 | --- | --- | --- | --- |
-| **Hand** | `hand-1`…`hand-N` | Take a **selected target** and finish it | Done tasks/needs + evidence; optional turn-end mail To `mind` |
-| **Mind** | Board **`mind@…`** — **no tmux**; process = operator TUI | Survey product; **dole out** tasking; integrate; fleet ops; pick from head-ceo buckets; **track est vs actual cost**; file/present **operator mail** | Open tasks/needs; pane scan; wake/reinit; merge queue; `cost_calibration` |
-| **Operator mail** | Board **`operator@…` only** — **no tmux** | Accrue human escalations while autonomous | Need/mail To human; presented on return — **not** status |
-| **Steward** | tmux **`steward`** (not Mind) | Dead-man: watch successful cycle ticks; trip → hold + page | `steward.sh`; operator@ + optional external email |
-| **head-ceo** (Head) | `head-ceo` | **Strategist:** map health, misprioritization, gate honesty, sequencing; **hand-2+ buckets with effort + est_tokens** (growth expansion / standby stewardship) | Mail `head-ceo report:` To `mind` |
-| **head-cto** (Head) | `head-cto` | **Code review / bug hunt on main after merge** | Mail `head-cto:` To `mind` |
-| **head-cxo** (Head) | `head-cxo` | Self-directed complexity / purity audit (**not** operator voice) | Mail `head-cxo:` To `mind` |
+| **Hand** | `hand-1`…`hand-N`, **`auditor-1` / `auditor-2`** | Implement product **or** run code review — same Hand category; duty differs by identity | Done + evidence, or `auditor-N report:` To `mind` |
+| **Mind** | Board **`mind@…`** — **no tmux**; process = operator TUI | Survey product; **dole out** tasking; integrate; **triage audit need**; fleet ops; operator mail | Open tasks/needs; wake Hands (incl. auditors); merge queue |
+| **Operator mail** | Board **`operator@…` only** — **no tmux** | Accrue human escalations while autonomous | Need/mail To human — **not** status |
+| **Steward** | tmux **`steward`** (not Mind) | Dead-man: watch successful cycle ticks; trip → hold + page | `steward.sh` |
+| **head-ceo** (Head) | `head-ceo` | **Strategist:** map health, sequencing, side-lane buckets | Mail To `mind` |
+| **head-cto** (Head) | `head-cto` | **Gate honesty / architecture** — not the code-review Hand queue | Mail To `mind` |
+| **head-cxo** (Head) | `head-cxo` | Complexity / purity | Mail To `mind` |
 
-One Mind owns the tasking bag and integration clock: **Mind files and wakes; Heads advise.** Heads never merge, never keep product tasking “full,” never stamp GO/NO-GO. **head-ceo** proposes **what hand-2+ could work on**; Mind decides when to bind a packet and file. Reports To: **mind**; Mind triages into hand-N tasks/needs.
+**CTO is a kind of Head; auditor is a kind of Hand** — not a fourth top-level class. Configure `auditor-1` / `auditor-2` under **`hands`** in `fleet.json` (`merges_to_main: false`, skill **`$auditor`**). Mind files and wakes; Heads advise; implementer Hands ship; auditor Hands review when assigned.
 
 Prefer numbered hands (`hand-N`) over harness-named identities. Keep the product plane on Pi by default; Heads may use different Pi providers or models for independent review.
 
@@ -61,7 +61,8 @@ recorded, and removed when the constraint clears.
 | --- | --- | --- |
 | **Mind** | Source of truth for product harness *unless* fleet records a Hand exception | May change for capacity; Hands follow when aligned |
 | **Hand** | **Same harness as Mind** by default | May differ within that harness (ladder) |
-| **Head** | **Pi with a distinct provider and/or model when useful** | Independent review without changing harness |
+| **Head** | **Pi with a distinct provider and/or model when useful** | Independent advice without changing harness |
+| **Hand (auditor-*)** | **Same harness as other Hands / Mind** | May use higher thinking; process is still `$auditor` |
 
 Pi-aligned roles keep one wake/reinit/bootstrap surface. Heads diversify through provider, model, prompt, and role—not by changing the default harness.
 

@@ -54,7 +54,7 @@ python3 <path-to-this-skill>/scripts/suggest-polish-files.py --repo <main> --jso
 
 **Thesis:** Behavioral bugs — invariants, races, data-loss, fail-closed. Not style.
 
-**Fleet:** Hands + **head-cto**. head-cto owns post-main review; Hands ship best unit they can.
+**Fleet:** Implementer Hands ship; **Hand auditor-1/2** (`$auditor`) for code review when Mind triages risk/sample. **head-cto** for gate honesty only.
 
 **Fallback:** name invariant → failing test/repro → fix root cause (no weaken tests) → regression if feasible → residual risk if partial.
 
