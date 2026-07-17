@@ -311,20 +311,31 @@ tmux has-session -t hand-N || \
 
 Record restarts in baseline when useful. Product state lives in Vivi; process rehome ≠ bag event unless you also file/clear targets.
 
-## New assignment: honor `assignment_mode`
+## New assignment: `assignment_mode` (doorbell applies it)
 
-When filing or waking a **new** task/need handle, Mind must apply the role’s
-`assignment_mode` (`new` | `compact` | `continue` | `restart`) before the boot
+When waking a **new** task/need handle, `fleet-doorbell.sh` applies the role’s
+`assignment_mode` (`new` | `compact` | `continue` | `restart`) **before** the
 pointer. Full table: [`runtime-config.md`](runtime-config.md) § `assignment_mode`.
 
-| Mode | Before doorbell |
-| --- | --- |
-| `new` | Fresh agent session (`/new` or recreate); then boot with handle |
-| `compact` | Idle → `/compact` → idle → pointer with handle |
-| `continue` | Pointer only (healthy process) |
-| `restart` | Kill/relaunch runtime (`fleet-runtime.py restart`), then boot |
+```bash
+# New handle → auto prepare per fleet.json assignment_mode, then pointer
+scripts/fleet-doorbell.sh --project <root> --role hand-1 --handle <hex>
 
-Do not re-apply mode on same-handle rewakes while the agent is still working.
+# Overrides
+scripts/fleet-doorbell.sh … --mode restart
+scripts/fleet-doorbell.sh … --no-prepare          # pointer only
+scripts/fleet-doorbell.sh … --force-prepare       # re-apply mode even same handle
+```
+
+| Mode | Before pointer |
+| --- | --- |
+| `new` | Idle → `/new` → idle (or start if stopped) |
+| `compact` | Idle → `/compact` → idle |
+| `continue` | Pointer only (auto-start if stopped) |
+| `restart` | `fleet-runtime.py restart --force` → idle |
+
+Same-handle rewakes skip prepare. Do not stack wakes into `running` panes
+(doorbell still refuses unless `--force`).
 
 ### Theme switch when mode is `compact` (or unset defaults to continue)
 

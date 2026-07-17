@@ -358,18 +358,28 @@ existing pane).
 If both are set, **`assignment_mode` wins**. Prefer the new field; do not add
 `clean_slate_per_assignment` on new fleets.
 
-**Mind duty (not optional when set):**
+**Doorbell applies modes automatically** (`scripts/fleet-doorbell.sh`):
 
-1. On filing/waking a **new** handle for a role, read that role’s
-   `assignment_mode` (via resolve or fleet.json).
-2. Apply the mode **before** the assignment boot/doorbell:
-   - `new` → fresh session, then boot with handle
-   - `compact` → idle → `/compact` → idle → pointer
-   - `continue` → pointer only (if process healthy)
-   - `restart` → `fleet-runtime.py … restart` (or kill+launch), then boot
-3. Same-handle rewake / “still Working” cycles do **not** re-apply mode.
-4. Durable context for `new`/`restart` seats: Heads use **vivi memos**; Hands
-   re-read the task/need and mail To mind@ — not prior chat.
+| When | Behavior |
+| --- | --- |
+| New `--handle` (≠ last wake handle for that role) | Apply role `assignment_mode` before pointer |
+| Same `--handle` rewake | Skip prepare; pointer only (still refuses if running) |
+| `--no-prepare` | Force pointer-only |
+| `--force-prepare` | Apply mode even on same handle |
+| `--mode <m>` | Override fleet.json for this call |
+| Stopped runtime | Start (or restart) before pointer when needed |
+
+Prepare steps:
+
+- `new` — idle → send `/new` → wait idle → pointer (or start fresh process if stopped)
+- `compact` — idle → `/compact` → wait idle → pointer
+- `continue` — pointer only (auto-start if stopped)
+- `restart` — `fleet-runtime.py restart --force` → wait idle → pointer
+
+Same-handle rewakes and mid-unit progress do **not** re-apply mode. Durable
+context for `new`/`restart` seats: Heads use **vivi memos**; Hands re-read the
+task/need and mail To mind@ — not prior chat. Prefer calling doorbell with the
+new handle rather than hand-rolling `/new` + pointer.
 
 **Not the same as:**
 
@@ -379,8 +389,7 @@ If both are set, **`assignment_mode` wins**. Prefer the new field; do not add
 | `runtime_sticky` | Runtime binding stickiness |
 | `reinit_after_kill` / `codex_reinit_after_kill` | Recovery after process death |
 
-Helpers may later auto-apply modes; until then Mind must honor the field
-explicitly. `verify-fleet-json.py` rejects unknown mode strings.
+`verify-fleet-json.py` rejects unknown mode strings.
 
 ## Fleet config schema
 

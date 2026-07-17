@@ -392,12 +392,13 @@ Vivi = work truth. The configured tmux or `vivi_pty` runtime = process truth. Se
 | `failed` / `stopped` | Diagnose, rebind, or recreate |
 | `unknown` | Use evidence and stability; never claim false certainty |
 
-**`assignment_mode`** (per Hand/Head in `fleet.json`): how Mind prepares the
-agent session for each **new** work item — `new` | `compact` | `continue` |
-`restart`. Resolved via `fleet-resolve.py` (`assignment_mode` field). Legacy
-`clean_slate_per_assignment: true` ≡ `new`. Full table:
-[`runtime-config.md`](references/runtime-config.md) § assignment_mode. Do not
-pointer-only into a cold-cache fleet that is configured for `new`.
+**`assignment_mode`** (per Hand/Head in `fleet.json`): how sessions are prepared
+for each **new** work item — `new` | `compact` | `continue` | `restart`.
+`fleet-doorbell.sh` applies this automatically when `--handle` differs from the
+last wake handle (override with `--mode` / `--no-prepare` / `--force-prepare`).
+Resolved via `fleet-resolve.py`. Legacy `clean_slate_per_assignment: true` ≡
+`new`. Full table: [`runtime-config.md`](references/runtime-config.md) §
+assignment_mode.
 
 Pointers go through the configured runtime; done-when stays in Vivi. CLI: [`vivi.md`](references/vivi.md). Watch/thread: [`dual-channel.md`](references/dual-channel.md). Remote: [`ssh-remote.md`](references/ssh-remote.md).
 
