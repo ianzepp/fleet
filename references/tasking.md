@@ -95,6 +95,14 @@ Never leave a task open merely to remember that a campaign or lane once
 existed. Campaign/factory artifacts hold map truth; baseline holds lane state;
 Vivi tasks hold currently executable work.
 
+Vivi has no separate `superseded` task state. Close explicitly and preserve the
+replacement in the event ledger:
+
+```bash
+vivi task done --project "$ROOT" --for <hand> <handle> \
+  --note 'superseded by <task|need|want handle>: <reason and evidence>'
+```
+
 ## Fleet priorities (main vs packet)
 
 | Slot | Workspace role | Merge to main? |

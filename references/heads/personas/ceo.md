@@ -49,6 +49,11 @@ landed reality. During normal cadence, and whenever Mind asks about a stale lane
 compare only the bounded active artifacts against Git, completed Vivi tasks,
 validation, releases, and deployment evidence.
 
+Evidence order: release/deploy and validation receipts → Git state → Vivi task
+history → campaign/factory prose. A later source in that list cannot overrule an
+earlier concrete receipt. Missing evidence remains `unknown`; do not upgrade a
+stage or campaign merely because its likely implementation exists.
+
 Prioritize artifacts referenced by active lane bindings, open tasks, campaign
 indexes, and factory goal indexes. Do not recursively inventory every planning
 document or rewrite prose yourself.

@@ -129,6 +129,7 @@ Do not expand product surface or invent campaigns. Report To mind@.
 | **priority_inversion** / **starved_producer** | Elevate producer packet same cycle when posture allows | Stewardship fix only if on-call relevant |
 | **unicorn_wait** | File decision/selector packet or demote gate | Same if risk is live |
 | **false_gate** | Reopen consumer with bounded unit | Prefer leave quiet unless value clear |
+| **control_plane_drift** | Reconcile map; file bounded doc repair; evaluate lane gates | Repair current-product truth only; no expansion |
 | **expansion_candidate** | File or park with cost | **Ignore** (wrong posture) |
 | **stewardship** | Optional | Prefer act if cheap and real |
 | **side_lane bucket** | Absorb `side_lane_candidates[]` | Usually skip new parallel product |
@@ -164,23 +165,8 @@ Standby/dormant fleets: **no** continuity spam — quiet is success. Detail: [`f
 
 ### Side-lane / hand-2+ capacity bucket
 
-When hand-2+ exists and posture is **growth**, reports should routinely include:
-
-```text
-## Side-lane candidates (hand-2+ if available)
-- [ ] <bounded package / theme>
-      why off-main: …
-      seams vs hand-1 spine: …
-      packet scope: …
-      effort: S|M|L|XL
-      est_tokens: ~N
-      est_basis: one line
-- [ ] …
-## Do not parallelize
-- <items that must stay on hand-1 / main>
-## If all Hands busy
-- hold / next priority after current spine
-```
+When hand-2+ exists and posture is **growth**, use the canonical report shape in
+[`heads/personas/ceo.md`](heads/personas/ceo.md) § Side-lane / hand-2+ bucket.
 
 | `effort` | Shape | Rough `est_tokens` |
 | --- | --- | --- |
@@ -221,21 +207,11 @@ Bands = **routing hints**. Prefer ranges; uncertain → estimate high. **Do not 
 
 ### Campaign truth and lane-retention consult
 
-At normal `head-ceo` cadence, or when Mind presents a
-`lane_reconcile_candidate_<hand>` signal, audit the bounded campaign/factory
-artifacts named by that lane. Compare claimed status to Git, board completion,
-validation, release, and deploy evidence. Report `control_plane_drift` using the
-CEO persona schema and recommend `keep | park | release_candidate`.
-
-Mind absorbs the report as follows:
-
-1. Honest map + remaining stage → fresh task/rebind; no doc churn.
-2. Stale map → one bounded `$zombie-docs` repair task to an implementation Hand.
-3. Complete map + no residual → run lane release gates in `mind-cycle.md`.
-4. Valid blocker/defer → park with owner, wake trigger, and review condition.
-
-The Head never edits control-plane documents, dispositions Vivi tasks, stops a
-runtime, or removes a worktree.
+On `lane_reconcile_candidate_<hand>` or normal cadence, use the CEO persona's
+`control_plane_drift` schema against only the named campaign/factory artifacts.
+Mind applies the absorb-table action above, then follows the canonical
+reconciliation and release gates in [`mind-cycle.md`](mind-cycle.md). The Head
+advises; it never edits docs, closes tasks, stops runtimes, or removes worktrees.
 
 ---
 

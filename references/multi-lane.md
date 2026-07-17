@@ -75,20 +75,13 @@ permanent reservation after the map closes.
 active -> stale_candidate -> reconciling -> active | parked | cooldown -> released
 ```
 
-- `stale_candidate`: deterministic sensor threshold reached; investigate only.
-- `reconciling`: Mind checks campaign/factory truth, task state, Git, and integration debt.
-- `parked`: valid blocker/defer with owner, wake trigger, and next review condition.
-- `cooldown`: work appears complete; release gates passed; short retention grace remains.
-- `released`: assignment/packet cleared and runtime capacity returned.
+Sensors nominate `stale_bound`, `empty_retained`, or `resume_stale`; Mind alone
+dispositions the lane. `parked` requires an owner and wake trigger. `released`
+returns runtime capacity but never deletes a branch or worktree.
 
-Default candidate threshold is five successful Mind cycles without product
-progress, or the configured offline-resume age. Candidate classes:
-`stale_bound` (old open work), `empty_retained` (binding without work), and
-`resume_stale` (old stopped binding after downtime).
-
-Lane release never deletes a branch or worktree. Worktree cleanup is a separate
-manual operation after clean/integrated/archive proof; destructive cleanup is
-never part of lifecycle automation.
+Canonical thresholds, evidence order, release gates, and worktree law:
+[`mind-cycle.md`](mind-cycle.md) § Campaign truth and lane lifecycle. Config and
+baseline fields: [`runtime-config.md`](runtime-config.md).
 
 ## Integration modes
 

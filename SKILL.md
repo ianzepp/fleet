@@ -137,26 +137,13 @@ Multi-agent project loops, factory/campaign residual+implementer, fail-fast 5–
 
 **Decide now:** reversible default → take it. Human-only → `operator@` need/mail (default+options) + pivot.
 
-## Critical reads
-
-These are the references a Mind session should load before executing fleet commands:
-
-| Read first | Why |
-| --- | --- |
-| [`vivi.md`](references/vivi.md) | Command semantics for `status`, `list`, `show`, `watch`, `done`, and mailbox/task routing |
-| [`mind-cycle.md`](references/mind-cycle.md) | How Mind runs basic cycles, resolves mode, scans sensors, updates baselines, and reports status |
-| [`multi-fleet.md`](references/multi-fleet.md) | Required when supervising more than one fleet; attached-set cycles, per-fleet status, and cross-fleet recap |
-| [`pi.md`](references/pi.md) | Required when the Mind is running inside Pi; attachment, monitor isolation, preflight, loop tools, and human summaries |
-
-If you are only attaching to one fleet, `vivi.md` and `mind-cycle.md` are the mandatory pair. If the attached set contains more than one fleet, read `multi-fleet.md` before touching shared-cycle commands or trying to report the status of all assigned fleets.
-
-## References
+## Loading map
 
 Core process here; detail in `references/` + `scripts/`.
 
-| Context | Load |
+| Session context | Required reading |
 | --- | --- |
-| **Cold attach** (new session, empty context, post-`/compact` without recap) | **Order:** (1) this file (2) [`vivi.md`](references/vivi.md) (3) [`mind-cycle.md`](references/mind-cycle.md) (4) [`multi-fleet.md`](references/multi-fleet.md) if supervising >1 fleet (5) [`fleet-guide.md`](references/fleet-guide.md) once for vocab (6) [`getting-started.md`](references/getting-started.md) — **§0** if no fleet visible, else **§3** attach steps (7) [`cold-boot.md`](references/cold-boot.md) if memos are empty/thin or the repo has history but no prior fleet memory |
+| **Cold attach** (new session, empty context, or compact without recap) | This file → [`vivi.md`](references/vivi.md) → [`mind-cycle.md`](references/mind-cycle.md). Add [`getting-started.md`](references/getting-started.md) §3 for attach, [`multi-fleet.md`](references/multi-fleet.md) before multi-fleet commands, [`pi.md`](references/pi.md) inside Pi, [`fleet-guide.md`](references/fleet-guide.md) only when vocabulary is cold, and [`cold-boot.md`](references/cold-boot.md) only when durable memory is missing. |
 | **Hot cycle** (mode/counters/state already in context) | This file alone if quiet; open a ref when that surface hits |
 | **Arm / first Mind turn on a live fleet** | This file + refs for surfaces you will touch this turn |
 
@@ -175,13 +162,13 @@ Core process here; detail in `references/` + `scripts/`.
 | Steward | [`dead-man.md`](references/dead-man.md), [`scripts/steward.sh`](scripts/steward.sh) |
 | Multi-fleet | [`multi-fleet.md`](references/multi-fleet.md) |
 | Posture / sleep vs continuity | [`fleet-posture.md`](references/fleet-posture.md) |
-| Side lanes / merge | [`multi-lane.md`](references/multi-lane.md) |
+| Side lanes / lane lifecycle / merge | [`multi-lane.md`](references/multi-lane.md); canonical disposition gates in [`mind-cycle.md`](references/mind-cycle.md) |
 | Heads | [`heads.md`](references/heads.md), [`heads/cast.md`](references/heads/cast.md) |
 | Remote | [`ssh-remote.md`](references/ssh-remote.md) |
 | Schema / ladders / wind-down | [`runtime-config.md`](references/runtime-config.md) |
 | Missing companions | [`companion-fallbacks.md`](references/companion-fallbacks.md) |
 | Pi Mind extension | [`pi.md`](references/pi.md) |
-| Sensors / baseline / doorbell | [`scripts/fleet-sensors.py`](scripts/fleet-sensors.py), [`fleet-baseline.py`](scripts/fleet-baseline.py), [`fleet-doorbell.sh`](scripts/fleet-doorbell.sh), [`fleet-resolve.py`](scripts/fleet-resolve.py). `fleet-doorbell.sh` atomically records successful wake status in `last_hand_wake`; no duplicate helper is needed. Sensors include pending RTM/integration lag, ahead/behind, and bounded dirty paths. |
+| Sensors / baseline / doorbell | [`fleet-sensors.py`](scripts/fleet-sensors.py), [`fleet-baseline.py`](scripts/fleet-baseline.py), [`fleet-doorbell.sh`](scripts/fleet-doorbell.sh), [`fleet-resolve.py`](scripts/fleet-resolve.py). Doorbell records `last_hand_wake`; sensors cover RTM/integration lag, Git drift, dirt, and lane reconciliation. |
 | Mind loop fallback | [`scripts/fleet-loop.py`](scripts/fleet-loop.py). tmux-backed `FLEET_CYCLE` injector for Mind harnesses without native scheduled loops. Records `.vivi/fleet-loop.json`; `start`, `status`, `stop`; loop ≠ steward and never runs sensors itself. |
 | Runtime lifecycle | [`scripts/fleet-runtime.py`](scripts/fleet-runtime.py). Backend-neutral start/stop/restart/status for configured Hand/Head runtimes; use before doorbell when a role is stopped. |
 | Runtime rebind | [`scripts/fleet-runtime-rebind.py`](scripts/fleet-runtime-rebind.py). Plan/apply atomic runtime config changes across Heads and Hands. |
@@ -482,10 +469,29 @@ Desktop Mind OK; Hands stay terminal/tmux. Schema: [`runtime-config.md`](referen
 
 ## Anti-patterns
 
-**Bag:** GO warden; severity-as-kind; sleep while map has **product** work; sleep in growth without an executive refill sweep; invent work to avoid sleep; dual Mind; Heads own bags; hand-2..hand-4 idle while non-overlapping repo work exists; zombie campaign lanes with stale tasks; retiring a lane from idle time alone; floaters assigned to overlapping write scopes without an explicit serialize/defer decision; wait on scheduled Head cadence; wait on head-ceo for obvious spine; buckets without cost ballparks.
-**Process:** mail-only or pane-only truth; policy via tmux; mixed Hand harness; back-to-back wake stacks; wrong-host tmux; IMAP as bag sensor; unbounded watch; multi-fleet “fairness” busywork on standby fleets; **per-cycle dispatch memos**; **universal per-completion review**; **routing code review to head-cto instead of auditor Hands**; **dispatch-refuse churn**; **self-narration into mail**; **completion buried in reply threads**.
-**Integrate:** packet-green≠consumer-green; “compiler residual” when integration lag; red theme merge; Mind merges packets; absorb-as-accept.  
-**Hygiene/workspace:** skip unit polish / polish foreign; Mind runs polish/HK; **polish thrash for continuity**; HK every land; score as merge gate; destructive dirt cleanup; status-only dirt; topic monogamy; deep-plan every autonomous cycle; interactive forever; **FLEET_CYCLE ⇒ force autonomous**; **FLEET_CYCLE ⇒ force turns=0 every fire**; hand-edit silence after `baseline bump`; compact report while interactive; novel autonomous reports; head-ceo permission freeze; missing FLEET_CYCLE prefix; status→operator@; skip operator present-on-return; arm steward without operator ask; leave steward armed after stop-loop; steward as Mind; heartbeat that does not cause a real Mind cycle; global roster scan; hardcode session=role when `tmux_target` set.
+- **Bag:** GO warden; severity-as-kind; sleep with product work; sleep in growth
+  before an executive refill sweep; invent continuity work; dual Mind; Heads own
+  bags; idle floaters despite safe parallel work; zombie campaign lanes; retire
+  from idle alone; overlap write scopes without serialize/defer; wait on Head
+  cadence or CEO permission for obvious spine work; omit bucket costs.
+- **Process:** mail-only or pane-only truth; tmux policy; mixed Hand harnesses;
+  stacked wakes; wrong-host tmux; IMAP bag sensing; unbounded watch; standby-fleet
+  busywork; per-cycle dispatch memos; universal completion review; route review to
+  `head-cto` instead of auditors; dispatch/refuse churn; narration mail;
+  completion hidden in replies.
+- **Integration:** equate packet-green with consumer-green; label integration lag
+  a compiler residual; merge red themes; let Mind merge packets; treat absorb as
+  accept.
+- **Hygiene/workspace:** skip unit polish; polish foreign work; Mind runs polish or
+  housekeeping; polish for continuity; housekeeping every land; score as merge
+  gate; destructive or status-only dirt handling; topic monogamy; deep-plan every
+  autonomous cycle; stay interactive forever; let `FLEET_CYCLE` force autonomous
+  mode or zero turns; hand-edit silence after baseline bump; compact while
+  interactive; invent autonomous report formats; freeze on CEO permission; omit
+  the `FLEET_CYCLE` prefix; send status to `operator@`; skip present-on-return;
+  arm steward without operator authority; leave it armed after stop-loop; use it
+  as Mind; count heartbeat without a real cycle; scan global rosters; ignore
+  configured `tmux_target` mappings.
 
 ## Companions / first exposure
 

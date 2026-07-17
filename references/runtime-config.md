@@ -747,10 +747,11 @@ Ignore-lists may live in baseline (`ignore_bag_handles`, `ignore_subjects_prefix
 
 **Housekeeping advisory:** file `$housekeeping` only at **major inflection** (campaign end / large merge / stage closeout / operator). Never every land. Procedure: `mind-cycle.md`.
 
-**Lane lifecycle:** sensors persist `lane_progress`; Mind owns the separate
-disposition state. Candidate signals trigger reconciliation, not teardown.
-`worktree_cleanup` is fixed to `manual`; lane release only clears assignment and
-runtime capacity. Procedure: `mind-cycle.md`.
+**Lane lifecycle:** sensors persist evidence in `lane_progress`; Mind owns
+disposition in the separate `lane_lifecycle` baseline block. Candidate signals
+trigger reconciliation, never teardown. `worktree_cleanup` is fixed to
+`manual`; release clears assignment/runtime capacity only. Procedure:
+`mind-cycle.md`.
 
 ```json
 "polish_advisory": {
