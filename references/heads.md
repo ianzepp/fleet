@@ -14,8 +14,15 @@ Load persona only when assigning that Head for depth — not every FLEET_CYCLE.
 | Harness | Prefer **Pi** harness, model by role (CEO/CXO → GLM 5.2, CTO → Codex 5.5) — one-shot assign→report |
 | Identity | `head-*` (mail + tmux when armed) |
 | Reports | **To: mind** (board only) |
+| **Lowering seat** | When Mind assigns **lower**: one Head (default **head-ceo**) runs goal-forge → `$goal-check` READY → `$delivery` docs. Planning-artifact write scope only — not product code, not Hand filing. Detail: [`lowering.md`](lowering.md) |
 
 See `roles-and-harness.md`. Shared finding schema: [`heads/personas/shared-operating-rules.md`](heads/personas/shared-operating-rules.md).
+
+### Lowering vs advisory
+
+Cadence sweeps stay report-only. **Lowering is assign-only** and produces durable
+goal + delivery documents Mind files from. Do not conflate map-health mail with
+a READY delivery graph.
 
 ## Cold-boot recovery / exec warm-up
 

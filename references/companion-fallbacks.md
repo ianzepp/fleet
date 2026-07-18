@@ -73,23 +73,33 @@ python3 <path-to-this-skill>/scripts/suggest-polish-files.py --repo <main> --jso
 | Term | Meaning |
 | --- | --- |
 | Campaign artifact | Top-level routing document |
-| Campaign stage | Lowers to delivery/factory — not a code task |
+| Campaign stage | **Must be lowered** (Head: goal-check → delivery) before Hand implement — not a code task |
 
-**Fallback:** treat `factory/` or goal docs as **map** (current stage, next unblocked unit, stop conditions). Mind files Hand tasks. No invent GO/NO-GO.
+**Fallback:** treat `factory/` or goal docs as **map** (current stage, next unblocked unit, stop conditions). Mind files Hand tasks **only from lowered units**. No invent GO/NO-GO.
+
+## Goal check (`$goal-check`) / goal-forge (`$goal-forge`)
+
+**Thesis:** Prove a goal is mid-tier implementable (READY) before delivery/factory. Forge freezes fuzzy intent first.
+
+**Fleet:** **Lowering Head** (default head-ceo) owns this on assign — not the product Hand. See [`lowering.md`](lowering.md).
+
+**Fallback:** durable goal markdown with end state, architecture locks, non-goals, acceptance, validation, first touch path; explicit READY/NOT READY.
 
 ## Delivery (`$delivery`)
 
 **Thesis:** Compile intake into a **delivery spec** (plan only). Does not implement.
 
-**Fallback:** task done-when + context = mini-spec. Include: where, done-when, validation, out of scope. Mind writes into Vivi task bodies.
+**Fleet:** produced by the **lowering Head** after goal-check READY. Mind files Hands from delivery **unit ids**, not from raw campaign prose.
+
+**Fallback (single residual only):** task done-when + context = mini-spec (where, done-when, validation, out of scope). **Not** a substitute for multi-unit stage lowering.
 
 ## Factory (`$factory`)
 
-**Thesis:** plan → implement → verify → review → commit; bounded autonomy + subagents when useful.
+**Thesis:** plan → implement → verify → review → commit **inside one already-scoped delivery unit**; bounded autonomy + subagents when useful.
 
 **Hand fallback (one open task):** show task → implement in scope → targeted validate → end-of-unit polish → mark done + evidence To mind → next bag item or idle for doorbell.
 
-Mind owns bag refill, integration clock, multi-hand packing — not a separate factory supervisor.
+Hands do **not** re-open campaign-level architecture or invent a delivery graph for an unlowered goal. Mind owns bag refill, integration clock, multi-hand packing — not a separate factory supervisor.
 
 ## Map / goal docs
 
@@ -97,12 +107,13 @@ Mind owns bag refill, integration clock, multi-hand packing — not a separate f
 factory/INDEX.md
 factory/goals/*.md
 GOAL.md, ROADMAP.md, docs/goals/
+docs/factory/*  (delivery specs after lowering)
 ```
 
-**Mind:** pick unblocked next unit; file task; absorb Status when criteria hold.  
+**Mind:** if next stage unlowered → assign **lower** To Head; if delivery unit exists → file Hand task citing path/id.  
 **Hand:** update goal checkboxes/Status only for what this unit proved.
 
-No map → file from operator intent or head-ceo sequencing as concrete tasks with done-when.
+No map → Head lowers from operator intent, or Mind files only if a single well-defined residual already meets the mini-spec bar.
 
 ## Optional companions
 

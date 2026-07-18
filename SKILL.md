@@ -90,6 +90,7 @@ Canon for absorb/accept: [`mind-cycle.md`](references/mind-cycle.md) § Absorb v
 | Invariant | Rule |
 | --- | --- |
 | Process | Mind fills bag; Hand empties. Progress = open tasking + map — not GO stamps |
+| Lowering | **Campaign goal → Head lowers** (`goal-forge` → `$goal-check` READY → `$delivery` docs) → Mind files Hands from those units. Hands do **not** lower raw goals via factory. — [`lowering.md`](references/lowering.md) |
 | Mind memory | Use **mind memos** as atomic durable checklist facts that would otherwise live only in chat: current thesis, lane ownership, intentional defers, operator policy, invariants, and next likely moves. Tasks route work; mail reports events; baseline tracks counters; memos preserve cold-boot context. **Durability test:** would this fact still matter after a reinit, or in a week? If not — cycle dispatch, wake/queue state, per-commit status, pane state — it is **loop state** (baseline / `mind_loop` state), not a memo. |
 | Multi-hand | Mind files/wakes/merges clock; head-ceo side-lane bucket (`effort`+`est_tokens`); Mind calibrates est vs actual |
 | Campaign truth | `head-ceo` periodically audits campaign/factory status against Git, board, validation, release, and deploy evidence; Mind files bounded `$zombie-docs` repair when prose lies |
@@ -105,7 +106,7 @@ Canon for absorb/accept: [`mind-cycle.md`](references/mind-cycle.md) § Absorb v
 | COO DR | Top-level `disaster_recovery` is default-off and calendar/maturity-triggered. COO reports recoverability evidence/gaps only; no backup, restore, secret/provider/spend/external action. Policy/config, one Git remote, or backup-job success is never restore proof. |
 | Stuck | Freeze fails — name, unstick, pivot. No status-only blocked cycles. Stuck ≠ “must invent work” |
 | Harness | **Default:** Mind, Hands, and Heads use Pi; provider/model diversity preserves advisor independence. **Fleet config exceptions win** (desktop Mind, Kimi/Codex/OpenCode compatibility harness, operator-recorded mixed) — [`roles-and-harness.md`](references/roles-and-harness.md) |
-| Models | **Cheap well-scoped implement → strong independent audit → cheap repair.** Tag units (`mechanical` / `design` / `sensitive` / `ambiguous` / `repair`); route Hands by shape; auditors on **review-class @ high**; do not put the scarcest high-judgment model on every implementer unit. Live strings: `fleet.json`. Process: [`model-selection.md`](references/model-selection.md) |
+| Models | **Cheap well-scoped implement → strong independent audit → cheap repair.** Volume implement only **after** Head lowering (or existing delivery unit / repair list). Tag units; route Hands by shape; auditors on **review-class @ high**. Live strings: `fleet.json`. Process: [`model-selection.md`](references/model-selection.md), [`lowering.md`](references/lowering.md) |
 | Quality | Product Hands ship unit quality. **Code review** is a **Hand duty** on **`auditor-1` / `auditor-2`** (same category as other hands; skill **`$auditor`**) — **not** head-cto by default. Mind decides: low-risk → accept from implementer `done` evidence; **risk / auth-persistence / sample** → task an auditor Hand. **Never** universal review on every completion. Green self-authored tests ≠ ready. **head-cto** = gate honesty / architecture only |
 | Head backpressure | A Head that refuses or does not run is **`deferred-valid`**: record once in baseline, retry on cadence. Do **not** re-dispatch to it this cycle and do **not** memo the stall. Dispatch/refuse churn is a failed cycle, not a disposition |
 | Mind mail hygiene | The loop does not narrate itself into mail. Self-addressed mail (`mind@` → `mind@`) and reply-thread echoes are not a memory substitute — a cycle's record lives in baseline / `mind_loop` state, same as memos. Mail To `mind@` is routing/triage and deliberation, not an append-only audit sink. `mail absorb` marks mail read (the consume lifecycle) and is not a memory mechanism — durable context belongs in `memo` |
@@ -156,6 +157,7 @@ Core process here; detail in `references/` + `scripts/`.
 | Vocab / shape (cold) | [`fleet-guide.md`](references/fleet-guide.md) |
 | Roles / harness / models | [`roles-and-harness.md`](references/roles-and-harness.md) |
 | Model selection (unit shape + role classes) | [`model-selection.md`](references/model-selection.md) |
+| Goal lowering (Head → delivery → Hand) | [`lowering.md`](references/lowering.md) |
 | Filing / starvation | [`tasking.md`](references/tasking.md) |
 | Board CLI | [`vivi.md`](references/vivi.md) |
 | Panes / wake / reinit | [`dual-channel.md`](references/dual-channel.md) |
@@ -248,7 +250,7 @@ Hand: A same turn; B need+pivot; C own hunks. Mind: ≥2 cycles blocked unclassi
 | Mind | File/wake/integrate; **triage whether to file auditor Hand**; operator mail | GO stamps; deep code review itself |
 | operator@ | Human escalations | Status; bag drain |
 | head-cto | Technical **gate honesty** + architecture | Default code-review queue (use auditor Hands) |
-| head-ceo | **Strategist:** map health, misprioritization, gate honesty; side-lane buckets; continuity consult; posture-scaled proactivity | File Hand tasks; merge; invent polish |
+| head-ceo | **Strategist + default lowering seat:** map health; **when assigned**, lower one goal/stage through goal-check → delivery docs; side-lane buckets | File Hand tasks; merge; invent polish; product code |
 | head-cxo | Complexity/purity (gates invented by shape) | Product bag; operator mail |
 
 Identity ≠ assignment ≠ runtime. Detail: [`roles-and-harness.md`](references/roles-and-harness.md).
@@ -338,7 +340,7 @@ Report tracks **mode**, not acted/sleep alone. Templates: [`mind-cycle.md`](refe
 Kind ≠ severity. Hard stop = open tasks/needs. Not a stop = missing GO mail.  
 hand-1 = main + merges; hand-2+ = packets, never main merge; unit done → refill; theme done → RTM mail.  
 Recommended multi-repo layout: **hand-1** stays dedicated to the main/integration lane, while **hand-2..hand-4** are floaters. Mind may reassign floaters across repos/worktrees and run them in parallel only when write scopes do not overlap; if scopes collide, serialize or choose a different repo. This is a suggested operating shape, not a hard schema requirement.
-Starvation: empty product bag + **product** map unit → file+wake. Not polish theater. Posture: [`fleet-posture.md`](references/fleet-posture.md). [`tasking.md`](references/tasking.md)
+Starvation: empty product bag + **product** map unit → file+wake. If the next map item is **unlowered**, assign **lower** To the Head seat — do **not** dump the raw goal on a Hand. [`lowering.md`](references/lowering.md) · [`tasking.md`](references/tasking.md)
 
 ## Role memory (memos)
 
@@ -476,7 +478,9 @@ Desktop Mind OK; Hands stay terminal/tmux. Schema: [`runtime-config.md`](referen
   before an executive refill sweep; invent continuity work; dual Mind; Heads own
   bags; idle floaters despite safe parallel work; zombie campaign lanes; retire
   from idle alone; overlap write scopes without serialize/defer; wait on Head
-  cadence or CEO permission for obvious spine work; omit bucket costs.
+  cadence or CEO permission for obvious spine work; omit bucket costs;
+  **campaign goal → Hand** without Head lowering (goal-check → delivery);
+  Hand invents factory/delivery for an unlowered stage.
 - **Process:** mail-only or pane-only truth; tmux policy; mixed Hand harnesses;
   stacked wakes; wrong-host tmux; IMAP bag sensing; unbounded watch; standby-fleet
   busywork; per-cycle dispatch memos; universal completion review; route review to

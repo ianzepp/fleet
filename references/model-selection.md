@@ -69,12 +69,18 @@ Tag each unit in the task body (or Mind memo) with one primary shape:
 | **`ambiguous`** | Cannot yet freeze mid-tier contract without research | **Design / high-judgment** *or* Mind/forge first — do not dump raw ambiguity on volume |
 | **`repair`** | Closed list of auditor findings + regression tests | **Same class as original implement** (usually volume) |
 
-**Well-defined** means Mind (or forge/delivery) already paid for thinking:
+**Well-defined** means **Head lowering** (or an existing delivery unit / repair
+list) already paid for thinking — not the implementer Hand inventing it:
 
 - done-when + non-goals  
 - exact write scope (repos/paths)  
 - invariants (esp. data safety, packaging law)  
 - validation commands  
+- for multi-unit stages: durable `$delivery` doc + `$goal-check` READY parent goal  
+
+**Law:** campaign goal → **Head lowers** (`goal-forge` → `$goal-check` →
+`$delivery`) → Mind files Hands. Hands do not lower raw goals through factory.
+Full pipeline: [`lowering.md`](lowering.md).
 
 Volume implementers at low thinking **only** pay off when that packet quality
 is real. Loose tickets recreate “green tests, high-severity miss.”
@@ -88,7 +94,7 @@ is real. Loose tickets recreate “green tests, high-severity miss.”
 | **Implementer Hand** | Volume for `mechanical` / `repair`; design class for `design` / `sensitive` / hard `ambiguous` | Low–medium (volume); high (design) | Identity (`hand-N`) ≠ model. Rebind per unit when shape changes. |
 | **Auditor Hand** | **Review / honesty** | **High** (default) | Spend quality budget here. Same harness as product Hands when alignment requires it; prefer model **independence** from the implementer when risk is high. Process remains **`$auditor`**. |
 | **head-cto** | Review / honesty for claim-gates and architecture truth; design class when residual is taste/structure | High when used | **Not** the default code-review queue (auditors own that). |
-| **head-ceo** | Design class for chapter/vision/prioritization; volume OK for mechanical map hygiene | Medium–high | Advisory only. |
+| **head-ceo** | Design class for chapter/vision/**goal lowering**; volume OK for mechanical map hygiene | Medium–high | Default **lowering seat** when assigned (`goal-check` → delivery); advisory on cadence. |
 | **head-cxo** / other Heads | Volume often enough; design class when purity is structural feel | Medium–high | Cadence-bound; not bag drain. |
 | **Mind** | Operator-selected capable control-plane model | Medium+ | Tasking quality matters more than Hand brand. |
 

@@ -54,9 +54,23 @@ During iterative review, consolidate findings from the same root cause + accepta
 | stage closeout GO/NO-GO | tasking empty of stage residuals; Status reflects reality |
 | “NO-GO next stage” | next stage not selected / no package — file charting work or leave planned |
 | dual approval thrash | one tasking bag; Hand drains; Mind refills |
+| Hand “does factory on the goal” | **Head lowers** first — [`lowering.md`](lowering.md) |
 
 Hard stop for Hand: open tasks/needs for current assignment.  
 Not a hard stop: missing Mind congratulations or “GO” mail.
+
+### Product units require lowered specs
+
+| Map state | Mind files To | Not |
+| --- | --- | --- |
+| Campaign goal/stage **unlowered** | **Head** assign: `lower` (goal-check → delivery) | Product Hand |
+| Delivery unit ready on disk | **Hand** task citing unit path/id + done-when | Raw campaign bullet |
+| Auditor findings closed list | **Hand** `repair` | New goal-forge unless redesign |
+| Merge / maid / HK | **hand-1** (or owner) as usual | Lowering |
+
+Starvation refill follows the same table: empty Hand + unlowered next stage →
+wake **lowering Head**, not invent an implement task that forces the Hand to
+lower.
 
 ## Multi-hand bags
 
