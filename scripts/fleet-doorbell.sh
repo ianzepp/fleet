@@ -397,9 +397,12 @@ submit_delay_default() {
     return 0
   fi
   case "$AGENT" in
-    codex) printf '0.8\n' ;;
+    # codex and pi need paste settling before Enter on a fresh runtime; a
+    # too-short paste->Enter gap leaves the wake pointer sitting unsent in
+    # the composer (observed on pi assignment_mode=new). kimi needs longer.
+    codex|pi) printf '0.8\n' ;;
     kimi) printf '3.0\n' ;;
-    grok|pi|opencode) printf '0.05\n' ;;
+    grok|opencode) printf '0.05\n' ;;
     *) printf '0.05\n' ;;
   esac
 }
