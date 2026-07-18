@@ -59,13 +59,14 @@ TRANSITION_TIMEOUT="${FLEET_DOORBELL_TRANSITION_TIMEOUT_SEC:-8}"
 # Bounded window for a submitted pointer to be acknowledged (runtime leaves
 # idle/completed and enters running/submitting/approval).
 SUBMIT_ACK_TIMEOUT="${FLEET_DOORBELL_SUBMIT_ACK_TIMEOUT_SEC:-5}"
-# Bounded post-recreate readiness stabilization window. A freshly recreated
-# runtime (Pi assignment_mode=new) can paint idle agent chrome before its input
-# handling is wired: the pane classifies as waiting_for_input yet a pasted
-# pointer is dropped / Enter ignored until readiness matures (a paste->Enter
-# delay cannot recover a paste delivered before readiness). wait_stable_input
-# dwells this window (polling ~10Hz, aborting on regression) before send_line,
-# so delivery starts after readiness. Runs only after a recreate; overridable.
+# Bounded fresh-runtime readiness stabilization window. A freshly started or
+# recreated runtime (Pi assignment_mode=new, cold start, restart) can paint
+# idle agent chrome before its input handling is wired: the pane classifies as
+# waiting_for_input yet a pasted pointer is dropped / Enter ignored until
+# readiness matures (a paste->Enter delay cannot recover a paste delivered
+# before readiness). wait_stable_input dwells this window (polling ~10Hz,
+# aborting on regression) before send_line, so delivery starts after readiness.
+# Runs only after a fresh-runtime bring-up (DID_FRESH); overridable.
 STABLE_WINDOW="${FLEET_DOORBELL_STABLE_WINDOW_SEC:-1.0}"
 
 if ! PYTHON_BIN="$(fleet_find_python3)"; then
@@ -448,6 +449,14 @@ verify_pointer_submission_started() {
   if [[ "$DID_PREPARE" -ne 1 ]]; then
     [[ "$WAKE_MODE" == "vivi_pty" && "$AGENT" == "kimi" ]] || return 0
   fi
+  # The ack must be a transition FROM a known input-accepting pre-send state,
+  # not a pre-existing running state that predates the pointer. CLASS is the
+  # pre-send baseline (recaptured right before send_line on fresh-runtime
+  # paths); a non-input-accepting baseline cannot yield a valid transition.
+  if [[ "$FORCE" -ne 1 ]] && ! agent_accepts_input "$CLASS"; then
+    echo "refused: pointer ack requires input-accepting pre-send state, got $CLASS (not a transition from known idle)" >&2
+    return 1
+  fi
   local i=0
   local state
   local budget=$((SUBMIT_ACK_TIMEOUT * 10))
@@ -510,7 +519,8 @@ wait_ready() {
 # first idle sample; this dwell confirms readiness by surviving a bounded window
 # in an input-accepting state, aborting (refuse) if the runtime regresses.
 # Readiness is reached by surviving the window, not by a lone pane sample or a
-# paste->Enter gap. Runs only after a recreate (DID_RECREATE), before send_line.
+# paste->Enter gap. Runs only after a fresh-runtime bring-up (DID_FRESH), before
+# send_line.
 wait_stable_input() {
   local window=${1:-$STABLE_WINDOW}
   local i=0
@@ -603,6 +613,7 @@ prepare_assignment() {
           echo "refused: assignment_mode=compact runtime not ready after start ($CLASS)" >&2
           return 1
         fi
+        DID_FRESH=1
       fi
       CLASS="$(classify_runtime)"
       if [[ "$CLASS" =~ ^(starting|submitting|running|approval_required)$ ]]; then
@@ -637,7 +648,9 @@ prepare_assignment() {
           echo "refused: assignment_mode=new runtime not ready after start ($CLASS)" >&2
           return 1
         fi
-        # Fresh process already has empty context — skip /new.
+        # Fresh process already has empty context — skip /new. It is still a
+        # fresh-runtime bring-up, so readiness stabilization applies.
+        DID_FRESH=1
         return 0
       fi
       CLASS="$(classify_runtime)"
@@ -665,7 +678,7 @@ prepare_assignment() {
           echo "refused: assignment_mode=new pi runtime not ready after recreate ($CLASS)" >&2
           return 1
         fi
-        DID_RECREATE=1
+        DID_FRESH=1
         return 0
       fi
       echo "prepare: new session on $RESOLVED_TARGET" >&2
@@ -694,6 +707,7 @@ prepare_assignment() {
         echo "refused: assignment_mode=restart runtime not ready ($CLASS)" >&2
         return 1
       fi
+      DID_FRESH=1
       return 0
       ;;
     *)
@@ -783,7 +797,7 @@ fi
 # and succeeded, separate from APPLY_PREPARE eligibility. It gates forced
 # pointer acknowledgement below (continue-mode new handle stays pointer-only).
 DID_PREPARE=0
-DID_RECREATE=0
+DID_FRESH=0
 if [[ "$APPLY_PREPARE" -eq 1 && "$ASSIGNMENT_MODE" != "continue" ]]; then
   if ! prepare_assignment "$ASSIGNMENT_MODE"; then
     exit 1
@@ -803,6 +817,7 @@ elif [[ "$CLASS" == "stopped" ]]; then
       exit 1
     fi
     CLASS="$(classify_runtime)"
+    DID_FRESH=1
   else
     echo "refused: no runtime session for $RESOLVED_TARGET" >&2
     exit 1
@@ -869,17 +884,26 @@ fi
 # strip newlines / CRs from pointer (portable tr)
 MESSAGE="$(printf '%s' "$MESSAGE" | tr '\n\r' '  ')"
 
-# Pre-send post-recreate readiness stabilization: a freshly recreated runtime
-# can look idle before it can accept a pasted pointer (idle chrome paints
-# before input handling is wired). Dwell a bounded window (confirmed stable)
-# before any keystrokes so the paste lands on a ready composer. Delivery starts
-# after readiness; this is not a paste->Enter delay.
-if [[ "$DID_RECREATE" -eq 1 ]]; then
+# Pre-send fresh-runtime readiness stabilization: a freshly started or
+# recreated runtime can look idle before it can accept a pasted pointer (idle
+# chrome paints before input handling is wired). Dwell a bounded window
+# (confirmed stable) before any keystrokes so the paste lands on a ready
+# composer. Delivery starts after readiness; this is not a paste->Enter delay.
+if [[ "$DID_FRESH" -eq 1 ]]; then
   if ! wait_stable_input "$STABLE_WINDOW"; then
-    echo "refused: post-recreate runtime did not stabilize (regressed during readiness window) $RESOLVED_TARGET" >&2
+    echo "refused: fresh-runtime did not stabilize (regressed during readiness window) $RESOLVED_TARGET" >&2
     exit 1
   fi
+  # Final fail-closed recapture right before send: the pre-send state must be
+  # input-accepting. A regression to running/submitting/approval/failed/unready
+  # between the readiness window and delivery must refuse BEFORE typing HAND
+  # WAKE and record nothing (auditor-1 P1). This CLASS is also the known idle
+  # baseline for the pointer ack transition check.
   CLASS="$(classify_runtime)"
+  if [[ "$FORCE" -ne 1 ]] && ! agent_accepts_input "$CLASS"; then
+    echo "refused: runtime $RESOLVED_TARGET state=$CLASS at pre-send (regressed after readiness; not an agent input prompt)" >&2
+    exit 1
+  fi
 fi
 
 send_line "$MESSAGE"

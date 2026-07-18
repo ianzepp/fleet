@@ -13,6 +13,8 @@
 #   8. pi new recreate failure                            => refuse, no record
 #   9. pi pointer delivered before recreate readiness   => composer UNSETTLED
 #  10. pi pre-send dwell delivers after readiness        => composer SETTLED
+#  11. pi post-stable recapture regressed to running    => refuse, no record
+#  12. stopped cold start gets fresh-runtime readiness  => success, recorded
 #
 # Scenarios 1-4 exercise the transition-aware /new path on a non-Pi agent
 # (codex), because assignment_mode=new for Pi now recreates the role runtime
@@ -22,11 +24,14 @@
 # general Pi pointer needs no acknowledgement. Scenario 6 proves the prepared
 # ack gate still holds for compact. Scenarios 7-8 cover the Pi recreate path
 # (success and failure) via the FLEET_RUNTIME_PY test seam.
-# Scenarios 9-10 exercise the post-recreate readiness seam with a behavioral
-# fake-tmux model: a pointer delivered before the recreate readiness window
-# matures is UNSETTLED (paste dropped / Enter ignored); the bounded pre-send
-# stabilization dwell delivers after readiness -> SETTLED. The fix is delivery
-# after readiness, not a paste->Enter delay (submit delay stays at 0.05s).
+# Scenarios 9-10 exercise the fresh-runtime readiness seam with a behavioral
+# fake-tmux model: a pointer delivered before the readiness window matures is
+# UNSETTLED (paste dropped / Enter ignored); the bounded pre-send dwell
+# delivers after readiness -> SETTLED. Scenario 11 is the auditor-1 P1
+# regression: a post-stable pre-send recapture regressed to running must refuse
+# BEFORE typing HAND WAKE and record nothing. Scenario 12 generalizes
+# readiness to start-or-recreate: a stopped cold start (assignment_mode=
+# continue, stopped) is a fresh runtime and gets the pre-send dwell too.
 #
 # Injection: the script zeros TMUX_BIN at startup, so we place a fake `tmux`
 # on PATH (found via `command -v tmux`); PYTHON_BIN is honored from env.
@@ -52,10 +57,12 @@ BASELINE="$TMP/project/.vivi/mind-baseline.json"
 SENT="$TMP/sent.log"
 TAPE="$TMP/tape"
 CURSOR="$TMP/cursor"
-# Behavioral post-recreate readiness model files for the pre-send
-# stabilization seam (scenarios 9-10).
+# Behavioral fresh-runtime readiness model files for the pre-send
+# stabilization seam (scenarios 9-12). FRESH_TS is stamped on start or
+# restart; STARTED_MARKER flips has-session from stopped to up (cold start).
 COMPOSER_VERDICT="$TMP/composer_verdict"
-RECREATE_TS="$TMP/recreate_ts"
+FRESH_TS="$TMP/fresh_ts"
+STARTED_MARKER="$TMP/started_marker"
 READY_SEC="${READY_SEC:-0.5}"
 
 # Pane snapshots (single-line; classify_tmux_text matches on the whole text).
@@ -88,7 +95,12 @@ JSON
 cat > "$FAKEBIN/tmux" <<'SH'
 #!/usr/bin/env bash
 case "${1:-}" in
-  has-session) exit 0 ;;
+  has-session)
+    # Cold-start model: report stopped (exit 1) until the runtime is started,
+    # but only when SIMULATE_STOPPED is set (other scenarios stay always-up).
+    if [ -n "${SIMULATE_STOPPED:-}" ] && [ ! -f "${STARTED_MARKER:-}" ]; then exit 1; fi
+    exit 0
+    ;;
   capture-pane)
     n="$(cat "$CURSOR_FILE" 2>/dev/null || echo 0)"
     line="$(sed -n "$((n+1))p" "$TAPE_FILE" 2>/dev/null || true)"
@@ -102,28 +114,29 @@ case "${1:-}" in
     ;;
   send-keys)
     printf 'SEND: %s\n' "$*" >> "$SENT_FILE"
-    # Behavioral post-recreate readiness model for the pre-send stabilization
-    # seam. A freshly recreated runtime paints idle chrome before its input
-    # handling is wired, so a pointer delivered then has its paste dropped /
-    # Enter ignored (delivery started before readiness). fake-fleet-runtime
-    # records the recreate epoch; if the paste (delivery start) lands within
-    # READY_SEC of the recreate, model the composer UNSETTLED; after readiness,
-    # SETTLED. The fix is the pre-send dwell, not a paste->Enter gap.
-    if [ -n "${COMPOSER_VERDICT_FILE:-}" ] && [ -f "${RECREATE_TS_FILE:-}" ]; then
+    # Behavioral fresh-runtime readiness model for the pre-send stabilization
+    # seam. A freshly started or recreated runtime paints idle chrome before
+    # its input handling is wired, so a pointer delivered then has its paste
+    # dropped / Enter ignored (delivery started before readiness).
+    # fake-fleet-runtime records the fresh epoch (start or restart); if the
+    # paste (delivery start) lands within READY_SEC of the bring-up, model the
+    # composer UNSETTLED; after readiness, SETTLED. The fix is the pre-send
+    # dwell, not a paste->Enter gap.
+    if [ -n "${COMPOSER_VERDICT_FILE:-}" ] && [ -f "${FRESH_TS_FILE:-}" ]; then
       case " $* " in
         *" -l "*)
           "${PYTHON_BIN:-python3}" -c '
 import sys, time
 try:
-    recreate = float(open(sys.argv[1]).read())
+    fresh = float(open(sys.argv[1]).read())
 except Exception:
-    recreate = 0.0
-gap = time.time() - recreate
+    fresh = 0.0
+gap = time.time() - fresh
 ready = float(sys.argv[3])
 verdict = "SETTLED" if gap >= ready else "UNSETTLED"
 with open(sys.argv[2], "a") as fh:
-    fh.write("COMPOSER since_recreate=%.3f ready_sec=%s verdict=%s\n" % (gap, sys.argv[3], verdict))
-' "${RECREATE_TS_FILE}" "${COMPOSER_VERDICT_FILE}" "${READY_SEC:-0.5}" 2>/dev/null || true
+    fh.write("COMPOSER since_fresh=%.3f ready_sec=%s verdict=%s\n" % (gap, sys.argv[3], verdict))
+' "${FRESH_TS_FILE}" "${COMPOSER_VERDICT_FILE}" "${READY_SEC:-0.5}" 2>/dev/null || true
           ;;
       esac
     fi
@@ -146,13 +159,20 @@ if log:
             fh.write("RUNTIME " + " ".join(sys.argv[1:]) + "\n")
     except OSError:
         pass
-# Model runtime recreate: record the recreate epoch so the fake tmux can gate
-# delivery readiness on time-since-recreate (the post-recreate readiness race).
-ts = os.environ.get("RECREATE_TS_FILE")
-if ts and "restart" in sys.argv[1:]:
+# Model a fresh-runtime bring-up (start or restart): record the epoch so the
+# fake tmux can gate delivery readiness on time-since-fresh (the post-start /
+# post-recreate readiness race). start also flips has-session from stopped.
+ts = os.environ.get("FRESH_TS_FILE")
+if ts and ("restart" in sys.argv[1:] or "start" in sys.argv[1:]):
     try:
         with open(ts, "w") as fh:
             fh.write(repr(time.time()))
+    except OSError:
+        pass
+started = os.environ.get("STARTED_MARKER")
+if started and "start" in sys.argv[1:]:
+    try:
+        open(started, "w").write("1")
     except OSError:
         pass
 sys.exit(int(os.environ.get("FLEET_RUNTIME_EXIT", "0")))
@@ -165,7 +185,7 @@ notok(){ echo "FAIL - $1"; fail=$((fail+1)); }
 
 # Reset per-scenario state and write a fresh fleet.json (mode + agent).
 reset_state() {
-  rm -f "$BASELINE" "$SENT" "$CURSOR" "$COMPOSER_VERDICT" "$RECREATE_TS"
+  rm -f "$BASELINE" "$SENT" "$CURSOR" "$COMPOSER_VERDICT" "$FRESH_TS" "$STARTED_MARKER"
   : > "$SENT"
   echo "0" > "$CURSOR"
   write_fleet_config "${1:-new}" "${2:-pi}"
@@ -177,13 +197,13 @@ run_doorbell() {
   RUN_ERR="$TMP/err.log"
   # Default stabilization small for the legacy recreate scenario (7); the
   # readiness scenarios export a larger FLEET_DOORBELL_STABLE_WINDOW_SEC to
-  # exercise the pre-send dwell that clears the post-recreate readiness window.
+  # exercise the pre-send dwell that clears the fresh-runtime readiness window.
   local stable="${FLEET_DOORBELL_STABLE_WINDOW_SEC:-0.1}"
   set +e
   RUN_OUT="$(env PATH="$FAKEBIN:$PATH" \
     PYTHON_BIN="$PYTHON_BIN" \
     TAPE_FILE="$TAPE" CURSOR_FILE="$CURSOR" SENT_FILE="$SENT" \
-    COMPOSER_VERDICT_FILE="$COMPOSER_VERDICT" RECREATE_TS_FILE="$RECREATE_TS" READY_SEC="$READY_SEC" \
+    COMPOSER_VERDICT_FILE="$COMPOSER_VERDICT" FRESH_TS_FILE="$FRESH_TS" READY_SEC="$READY_SEC" \
     FLEET_DOORBELL_PREPARE_TIMEOUT_SEC=3 \
     FLEET_DOORBELL_TRANSITION_TIMEOUT_SEC=1 \
     FLEET_DOORBELL_SUBMIT_ACK_TIMEOUT_SEC=2 \
@@ -191,6 +211,7 @@ run_doorbell() {
     ${FLEET_RUNTIME_PY:+FLEET_RUNTIME_PY="$FLEET_RUNTIME_PY"} \
     ${RESTART_LOG:+RESTART_LOG="$RESTART_LOG"} \
     ${FLEET_RUNTIME_EXIT:+FLEET_RUNTIME_EXIT="$FLEET_RUNTIME_EXIT"} \
+    ${SIMULATE_STOPPED:+SIMULATE_STOPPED=1 STARTED_MARKER="$STARTED_MARKER"} \
     bash "$DOORBELL" --project "$TMP/project" --role hand-1 --handle "$handle" "$@" 2>"$RUN_ERR")"
   RUN_CODE=$?
   set -e
@@ -205,7 +226,7 @@ ordering_ok() {
   enter_ln="$(grep -n 'Enter$' "$1" | head -1 | cut -d: -f1)"
   [[ -n "$paste_ln" && -n "$enter_ln" && "$paste_ln" -lt "$enter_ln" ]]
 }
-# Last composer verdict from the behavioral recreate-readiness model.
+# Last composer verdict from the behavioral fresh-runtime readiness model.
 verdict_last() { tail -1 "$COMPOSER_VERDICT" 2>/dev/null || true; }
 
 # ── Scenario 1: stale-idle classifier race (codex /new) => refuse ───────
@@ -369,6 +390,53 @@ if [[ "$RUN_CODE" -eq 0 ]] \
   ok "pi pre-send dwell (0.8s) delivered after recreate readiness -> composer SETTLED; recorded"
 else
   notok "pi post-readiness: code=$RUN_CODE verdict=$(verdict_last) err=$(cat "$RUN_ERR")"
+fi
+
+# ── Scenario 11: post-stable pre-send recapture regressed to running ─────
+# auditor-1 P1 (882f96d9): after the stable readiness window, the final
+# pre-send recapture must be input-accepting. A regression to running at the
+# recapture must refuse BEFORE typing HAND WAKE and record nothing. The
+# recreate ran; the pointer never did.
+RESTART_LOG="$TMP/restart11.log"; rm -f "$RESTART_LOG"
+reset_state new pi
+export FLEET_RUNTIME_PY="$FAKEBIN/fake-fleet-runtime" RESTART_LOG FLEET_RUNTIME_EXIT=0
+export FLEET_DOORBELL_STABLE_WINDOW_SEC=0.3
+write_tape "$IDLE" "$IDLE" "$IDLE" "$IDLE" "$IDLE" "$IDLE" "$IDLE" "$IDLE" "$RUNNING"
+run_doorbell aa110011
+unset FLEET_DOORBELL_STABLE_WINDOW_SEC
+if [[ "$RUN_CODE" -eq 1 ]] \
+   && ! baseline_has_handle aa110011 \
+   && ! sent_has 'HAND WAKE hand-1' \
+   && [[ -f "$RESTART_LOG" ]] && grep -q -e '--role hand-1 restart' "$RESTART_LOG"; then
+  ok "pi post-stable recapture regressed to running refused (exit 1), no HAND WAKE, no record; recreate ran"
+else
+  notok "pi pre-send regression: code=$RUN_CODE baseline=$(baseline_has_handle aa110011 && echo y || echo n) err=$(cat "$RUN_ERR")"
+fi
+unset FLEET_RUNTIME_PY RESTART_LOG FLEET_RUNTIME_EXIT
+
+# ── Scenario 12: stopped cold start gets fresh-runtime readiness ─────────
+# Fresh-runtime readiness is generalized to start-or-recreate (DID_FRESH). A
+# stopped runtime started via the cold-start path (assignment_mode=continue,
+# stopped, simulated via SIMULATE_STOPPED) is a fresh runtime: it gets the
+# pre-send dwell, so delivery starts after readiness -> SETTLED. Catches a
+# regression where cold start does not set DID_FRESH (no dwell -> UNSETTLED).
+RESTART_LOG="$TMP/restart12.log"; rm -f "$RESTART_LOG"
+reset_state continue pi
+export FLEET_RUNTIME_PY="$FAKEBIN/fake-fleet-runtime" RESTART_LOG FLEET_RUNTIME_EXIT=0
+export FLEET_DOORBELL_STABLE_WINDOW_SEC=0.8 SIMULATE_STOPPED=1
+write_tape "$IDLE" "$IDLE" "$IDLE" "$IDLE" "$IDLE" "$IDLE" "$IDLE" "$IDLE" "$IDLE" "$IDLE" "$IDLE"
+run_doorbell aa120012
+unset FLEET_DOORBELL_STABLE_WINDOW_SEC SIMULATE_STOPPED
+unset FLEET_RUNTIME_PY RESTART_LOG FLEET_RUNTIME_EXIT
+if [[ "$RUN_CODE" -eq 0 ]] \
+   && baseline_has_handle aa120012 \
+   && sent_has 'HAND WAKE hand-1' \
+   && ordering_ok "$SENT" \
+   && [[ -f "$STARTED_MARKER" ]] \
+   && [[ "$(verdict_last)" == *verdict=SETTLED* ]]; then
+  ok "pi stopped cold start got fresh-runtime readiness (dwell) -> composer SETTLED; recorded"
+else
+  notok "pi cold start: code=$RUN_CODE started=$(test -f "$STARTED_MARKER" && echo y || echo n) verdict=$(verdict_last) err=$(cat "$RUN_ERR")"
 fi
 
 echo "---"
