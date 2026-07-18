@@ -59,6 +59,14 @@ TRANSITION_TIMEOUT="${FLEET_DOORBELL_TRANSITION_TIMEOUT_SEC:-8}"
 # Bounded window for a submitted pointer to be acknowledged (runtime leaves
 # idle/completed and enters running/submitting/approval).
 SUBMIT_ACK_TIMEOUT="${FLEET_DOORBELL_SUBMIT_ACK_TIMEOUT_SEC:-5}"
+# Bounded post-recreate readiness stabilization window. A freshly recreated
+# runtime (Pi assignment_mode=new) can paint idle agent chrome before its input
+# handling is wired: the pane classifies as waiting_for_input yet a pasted
+# pointer is dropped / Enter ignored until readiness matures (a paste->Enter
+# delay cannot recover a paste delivered before readiness). wait_stable_input
+# dwells this window (polling ~10Hz, aborting on regression) before send_line,
+# so delivery starts after readiness. Runs only after a recreate; overridable.
+STABLE_WINDOW="${FLEET_DOORBELL_STABLE_WINDOW_SEC:-1.0}"
 
 if ! PYTHON_BIN="$(fleet_find_python3)"; then
   echo "ERROR: python3 >= 3.9 not found (set PYTHON_BIN)" >&2
@@ -397,12 +405,9 @@ submit_delay_default() {
     return 0
   fi
   case "$AGENT" in
-    # codex and pi need paste settling before Enter on a fresh runtime; a
-    # too-short paste->Enter gap leaves the wake pointer sitting unsent in
-    # the composer (observed on pi assignment_mode=new). kimi needs longer.
-    codex|pi) printf '0.8\n' ;;
+    codex) printf '0.8\n' ;;
     kimi) printf '3.0\n' ;;
-    grok|opencode) printf '0.05\n' ;;
+    grok|pi|opencode) printf '0.05\n' ;;
     *) printf '0.05\n' ;;
   esac
 }
@@ -496,6 +501,35 @@ wait_ready() {
   done
   CLASS="$(classify_runtime)"
   return 1
+}
+
+# Bounded post-recreate readiness stabilization. A freshly recreated runtime
+# (Pi assignment_mode=new) can paint idle agent chrome before its input handling
+# is wired: the pane classifies as waiting_for_input yet a pasted pointer is
+# dropped / Enter ignored until readiness matures. wait_ready latches on the
+# first idle sample; this dwell confirms readiness by surviving a bounded window
+# in an input-accepting state, aborting (refuse) if the runtime regresses.
+# Readiness is reached by surviving the window, not by a lone pane sample or a
+# paste->Enter gap. Runs only after a recreate (DID_RECREATE), before send_line.
+wait_stable_input() {
+  local window=${1:-$STABLE_WINDOW}
+  local i=0
+  # Poll budget at ~10Hz (0.1s cadence). bash arithmetic is integer-only, so a
+  # fractional STABLE_WINDOW (e.g. 0.8s) is converted to a poll count via awk
+  # (already a doorbell dependency). Floor to whole polls.
+  local budget
+  budget="$(awk -v w="$window" 'BEGIN { printf "%d", int((w + 0) * 10) }')" 2>/dev/null || budget=0
+  local state
+  while [[ "$i" -lt "$budget" ]]; do
+    state="$(classify_runtime)"
+    case "$state" in
+      waiting_for_input|completed) ;;
+      *) return 1 ;;
+    esac
+    sleep 0.1
+    i=$((i + 1))
+  done
+  return 0
 }
 
 runtime_lifecycle() {
@@ -631,6 +665,7 @@ prepare_assignment() {
           echo "refused: assignment_mode=new pi runtime not ready after recreate ($CLASS)" >&2
           return 1
         fi
+        DID_RECREATE=1
         return 0
       fi
       echo "prepare: new session on $RESOLVED_TARGET" >&2
@@ -748,6 +783,7 @@ fi
 # and succeeded, separate from APPLY_PREPARE eligibility. It gates forced
 # pointer acknowledgement below (continue-mode new handle stays pointer-only).
 DID_PREPARE=0
+DID_RECREATE=0
 if [[ "$APPLY_PREPARE" -eq 1 && "$ASSIGNMENT_MODE" != "continue" ]]; then
   if ! prepare_assignment "$ASSIGNMENT_MODE"; then
     exit 1
@@ -832,6 +868,19 @@ fi
 
 # strip newlines / CRs from pointer (portable tr)
 MESSAGE="$(printf '%s' "$MESSAGE" | tr '\n\r' '  ')"
+
+# Pre-send post-recreate readiness stabilization: a freshly recreated runtime
+# can look idle before it can accept a pasted pointer (idle chrome paints
+# before input handling is wired). Dwell a bounded window (confirmed stable)
+# before any keystrokes so the paste lands on a ready composer. Delivery starts
+# after readiness; this is not a paste->Enter delay.
+if [[ "$DID_RECREATE" -eq 1 ]]; then
+  if ! wait_stable_input "$STABLE_WINDOW"; then
+    echo "refused: post-recreate runtime did not stabilize (regressed during readiness window) $RESOLVED_TARGET" >&2
+    exit 1
+  fi
+  CLASS="$(classify_runtime)"
+fi
 
 send_line "$MESSAGE"
 verify_pointer_submission_started || exit 1

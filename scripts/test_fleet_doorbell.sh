@@ -11,8 +11,8 @@
 #   6. pointer never acknowledged (pi compact)            => refuse, no record
 #   7. pi new recreates runtime, no /new                  => success, recorded
 #   8. pi new recreate failure                            => refuse, no record
-#   9. pi send_line too-fast Enter (0.05s)                => composer UNSETTLED
-#  10. pi send_line default delay (0.8s)                  => composer SETTLED
+#   9. pi pointer delivered before recreate readiness   => composer UNSETTLED
+#  10. pi pre-send dwell delivers after readiness        => composer SETTLED
 #
 # Scenarios 1-4 exercise the transition-aware /new path on a non-Pi agent
 # (codex), because assignment_mode=new for Pi now recreates the role runtime
@@ -22,10 +22,11 @@
 # general Pi pointer needs no acknowledgement. Scenario 6 proves the prepared
 # ack gate still holds for compact. Scenarios 7-8 cover the Pi recreate path
 # (success and failure) via the FLEET_RUNTIME_PY test seam.
-# Scenarios 9-10 exercise the send_line paste-settle timing seam with a
-# behavioral fake-tmux composer model: a too-fast Enter (0.05s) leaves the
-# pointer UNSETTLED in the composer, while the selected Pi default (0.8s)
-# settles and submits.
+# Scenarios 9-10 exercise the post-recreate readiness seam with a behavioral
+# fake-tmux model: a pointer delivered before the recreate readiness window
+# matures is UNSETTLED (paste dropped / Enter ignored); the bounded pre-send
+# stabilization dwell delivers after readiness -> SETTLED. The fix is delivery
+# after readiness, not a paste->Enter delay (submit delay stays at 0.05s).
 #
 # Injection: the script zeros TMUX_BIN at startup, so we place a fake `tmux`
 # on PATH (found via `command -v tmux`); PYTHON_BIN is honored from env.
@@ -51,10 +52,11 @@ BASELINE="$TMP/project/.vivi/mind-baseline.json"
 SENT="$TMP/sent.log"
 TAPE="$TMP/tape"
 CURSOR="$TMP/cursor"
-# Behavioral paste-settle model files for the send_line timing seam (scenarios 9-10).
+# Behavioral post-recreate readiness model files for the pre-send
+# stabilization seam (scenarios 9-10).
 COMPOSER_VERDICT="$TMP/composer_verdict"
-PASTE_TS="$TMP/paste_ts"
-PI_SETTLE_SEC="${PI_SETTLE_SEC:-0.5}"
+RECREATE_TS="$TMP/recreate_ts"
+READY_SEC="${READY_SEC:-0.5}"
 
 # Pane snapshots (single-line; classify_tmux_text matches on the whole text).
 IDLE='pi v0.80 (zai) glm-5.2 low 0.0%/1.0M (auto)'
@@ -100,32 +102,28 @@ case "${1:-}" in
     ;;
   send-keys)
     printf 'SEND: %s\n' "$*" >> "$SENT_FILE"
-    # Behavioral paste-settle model for the send_line ordering/timing seam.
-    # send_line does `send-keys -l <text>` (paste), `sleep <delay>`, then
-    # `send-keys Enter` (submit). Model Pi's fresh-runtime paste-settling: an
-    # Enter within PI_SETTLE_SEC of the paste leaves the wake pointer unsent
-    # in the composer (the observed pointer-loss race). Active only when the
-    # timing files are configured.
-    if [ -n "${COMPOSER_VERDICT_FILE:-}" ]; then
+    # Behavioral post-recreate readiness model for the pre-send stabilization
+    # seam. A freshly recreated runtime paints idle chrome before its input
+    # handling is wired, so a pointer delivered then has its paste dropped /
+    # Enter ignored (delivery started before readiness). fake-fleet-runtime
+    # records the recreate epoch; if the paste (delivery start) lands within
+    # READY_SEC of the recreate, model the composer UNSETTLED; after readiness,
+    # SETTLED. The fix is the pre-send dwell, not a paste->Enter gap.
+    if [ -n "${COMPOSER_VERDICT_FILE:-}" ] && [ -f "${RECREATE_TS_FILE:-}" ]; then
       case " $* " in
         *" -l "*)
-          "${PYTHON_BIN:-python3}" -c 'import sys,time; open(sys.argv[1],"w").write(repr(time.time()))' "${PASTE_TS_FILE:-/dev/null}" 2>/dev/null || true
-          ;;
-        *" Enter "*)
-          if [ -f "${PASTE_TS_FILE:-}" ]; then
-            "${PYTHON_BIN:-python3}" -c '
+          "${PYTHON_BIN:-python3}" -c '
 import sys, time
 try:
-    paste = float(open(sys.argv[1]).read())
+    recreate = float(open(sys.argv[1]).read())
 except Exception:
-    paste = 0.0
-gap = time.time() - paste
-settle = float(sys.argv[3])
-verdict = "SETTLED" if gap >= settle else "UNSETTLED"
+    recreate = 0.0
+gap = time.time() - recreate
+ready = float(sys.argv[3])
+verdict = "SETTLED" if gap >= ready else "UNSETTLED"
 with open(sys.argv[2], "a") as fh:
-    fh.write("COMPOSER gap=%.3f verdict=%s\n" % (gap, verdict))
-' "${PASTE_TS_FILE}" "${COMPOSER_VERDICT_FILE}" "${PI_SETTLE_SEC:-0.5}" 2>/dev/null || true
-          fi
+    fh.write("COMPOSER since_recreate=%.3f ready_sec=%s verdict=%s\n" % (gap, sys.argv[3], verdict))
+' "${RECREATE_TS_FILE}" "${COMPOSER_VERDICT_FILE}" "${READY_SEC:-0.5}" 2>/dev/null || true
           ;;
       esac
     fi
@@ -140,12 +138,21 @@ chmod +x "$FAKEBIN/tmux"
 # FLEET_RUNTIME_PY seam): logs the action argv to $RESTART_LOG and exits per
 # $FLEET_RUNTIME_EXIT. Drives the Pi recreate lifecycle in scenarios 7-8.
 cat > "$FAKEBIN/fake-fleet-runtime" <<'PY'
-import os, sys
+import os, sys, time
 log = os.environ.get("RESTART_LOG")
 if log:
     try:
         with open(log, "a") as fh:
             fh.write("RUNTIME " + " ".join(sys.argv[1:]) + "\n")
+    except OSError:
+        pass
+# Model runtime recreate: record the recreate epoch so the fake tmux can gate
+# delivery readiness on time-since-recreate (the post-recreate readiness race).
+ts = os.environ.get("RECREATE_TS_FILE")
+if ts and "restart" in sys.argv[1:]:
+    try:
+        with open(ts, "w") as fh:
+            fh.write(repr(time.time()))
     except OSError:
         pass
 sys.exit(int(os.environ.get("FLEET_RUNTIME_EXIT", "0")))
@@ -158,7 +165,7 @@ notok(){ echo "FAIL - $1"; fail=$((fail+1)); }
 
 # Reset per-scenario state and write a fresh fleet.json (mode + agent).
 reset_state() {
-  rm -f "$BASELINE" "$SENT" "$CURSOR" "$COMPOSER_VERDICT" "$PASTE_TS"
+  rm -f "$BASELINE" "$SENT" "$CURSOR" "$COMPOSER_VERDICT" "$RECREATE_TS"
   : > "$SENT"
   echo "0" > "$CURSOR"
   write_fleet_config "${1:-new}" "${2:-pi}"
@@ -168,18 +175,22 @@ write_tape() { : > "$TAPE"; local ln; for ln in "$@"; do printf '%s\n' "$ln" >> 
 run_doorbell() {
   local handle="$1"; shift
   RUN_ERR="$TMP/err.log"
+  # Default stabilization small for the legacy recreate scenario (7); the
+  # readiness scenarios export a larger FLEET_DOORBELL_STABLE_WINDOW_SEC to
+  # exercise the pre-send dwell that clears the post-recreate readiness window.
+  local stable="${FLEET_DOORBELL_STABLE_WINDOW_SEC:-0.1}"
   set +e
   RUN_OUT="$(env PATH="$FAKEBIN:$PATH" \
     PYTHON_BIN="$PYTHON_BIN" \
     TAPE_FILE="$TAPE" CURSOR_FILE="$CURSOR" SENT_FILE="$SENT" \
-    COMPOSER_VERDICT_FILE="$COMPOSER_VERDICT" PASTE_TS_FILE="$PASTE_TS" PI_SETTLE_SEC="$PI_SETTLE_SEC" \
+    COMPOSER_VERDICT_FILE="$COMPOSER_VERDICT" RECREATE_TS_FILE="$RECREATE_TS" READY_SEC="$READY_SEC" \
     FLEET_DOORBELL_PREPARE_TIMEOUT_SEC=3 \
     FLEET_DOORBELL_TRANSITION_TIMEOUT_SEC=1 \
     FLEET_DOORBELL_SUBMIT_ACK_TIMEOUT_SEC=2 \
+    FLEET_DOORBELL_STABLE_WINDOW_SEC="$stable" \
     ${FLEET_RUNTIME_PY:+FLEET_RUNTIME_PY="$FLEET_RUNTIME_PY"} \
     ${RESTART_LOG:+RESTART_LOG="$RESTART_LOG"} \
     ${FLEET_RUNTIME_EXIT:+FLEET_RUNTIME_EXIT="$FLEET_RUNTIME_EXIT"} \
-    ${FLEET_DOORBELL_SUBMIT_DELAY_SEC:+FLEET_DOORBELL_SUBMIT_DELAY_SEC="$FLEET_DOORBELL_SUBMIT_DELAY_SEC"} \
     bash "$DOORBELL" --project "$TMP/project" --role hand-1 --handle "$handle" "$@" 2>"$RUN_ERR")"
   RUN_CODE=$?
   set -e
@@ -194,7 +205,7 @@ ordering_ok() {
   enter_ln="$(grep -n 'Enter$' "$1" | head -1 | cut -d: -f1)"
   [[ -n "$paste_ln" && -n "$enter_ln" && "$paste_ln" -lt "$enter_ln" ]]
 }
-# Last composer verdict from the behavioral paste-settle model.
+# Last composer verdict from the behavioral recreate-readiness model.
 verdict_last() { tail -1 "$COMPOSER_VERDICT" 2>/dev/null || true; }
 
 # ── Scenario 1: stale-idle classifier race (codex /new) => refuse ───────
@@ -280,7 +291,7 @@ fi
 RESTART_LOG="$TMP/restart7.log"; rm -f "$RESTART_LOG"
 reset_state new pi
 export FLEET_RUNTIME_PY="$FAKEBIN/fake-fleet-runtime" RESTART_LOG FLEET_RUNTIME_EXIT=0
-write_tape "$IDLE" "$IDLE" "$IDLE" "$IDLE" "$IDLE" "$RUNNING"
+write_tape "$IDLE" "$IDLE" "$IDLE" "$IDLE" "$IDLE" "$IDLE" "$IDLE" "$IDLE" "$RUNNING"
 run_doorbell aa770007
 if [[ "$RUN_CODE" -eq 0 ]] \
    && baseline_has_handle aa770007 \
@@ -311,40 +322,53 @@ else
 fi
 unset FLEET_RUNTIME_PY RESTART_LOG FLEET_RUNTIME_EXIT
 
-# ── Scenario 9: pi send_line too-fast Enter reproduces unsent composer ──
-# Behavioral timing seam: with the old too-fast default (0.05s override) Enter
-# lands inside Pi's paste-settling window, so the fake models the wake pointer
-# as UNSETTLED — it sits unsent in the composer (the pointer-loss race). Proves
-# the seam catches a too-fast Enter rather than merely asserting a constant.
-reset_state continue pi
-write_tape "$IDLE"
-export FLEET_DOORBELL_SUBMIT_DELAY_SEC=0.05
+# ── Scenario 9: pointer delivered before recreate readiness (bug) ─────
+# Behavioral readiness seam: a freshly recreated runtime paints idle chrome
+# before input handling is wired. With only a token stabilization (0.1s) the
+# pointer is delivered inside the readiness window -> the fake models the
+# composer UNSETTLED (paste dropped / Enter ignored). This reproduces the live
+# failure mode (a 0.8s paste->Enter gap could not rescue a paste delivered
+# before readiness). Delivery-before-readiness, not Enter timing.
+RESTART_LOG="$TMP/restart9.log"; rm -f "$RESTART_LOG"
+reset_state new pi
+export FLEET_RUNTIME_PY="$FAKEBIN/fake-fleet-runtime" RESTART_LOG FLEET_RUNTIME_EXIT=0
+export FLEET_DOORBELL_STABLE_WINDOW_SEC=0.1
+write_tape "$IDLE" "$IDLE" "$IDLE" "$IDLE" "$IDLE" "$IDLE" "$IDLE" "$IDLE" "$RUNNING"
 run_doorbell aa990009
-unset FLEET_DOORBELL_SUBMIT_DELAY_SEC
+unset FLEET_DOORBELL_STABLE_WINDOW_SEC
+unset FLEET_RUNTIME_PY RESTART_LOG FLEET_RUNTIME_EXIT
 if [[ "$RUN_CODE" -eq 0 ]] \
    && baseline_has_handle aa990009 \
    && sent_has 'HAND WAKE hand-1' \
    && ordering_ok "$SENT" \
    && [[ "$(verdict_last)" == *verdict=UNSETTLED* ]]; then
-  ok "pi too-fast Enter (0.05s) left composer UNSETTLED (race reproduced); paste→Enter ordering held"
+  ok "pi pointer delivered before recreate readiness (0.1s dwell) -> composer UNSETTLED (bug reproduced)"
 else
-  notok "pi too-fast: code=$RUN_CODE verdict=$(verdict_last) err=$(cat "$RUN_ERR")"
+  notok "pi pre-readiness: code=$RUN_CODE verdict=$(verdict_last) err=$(cat "$RUN_ERR")"
 fi
 
-# ── Scenario 10: pi send_line default (0.8s) settles and submits ─────────
-# The selected Pi default clears the paste-settling window: Enter lands after
-# settling, the composer is SETTLED, and the pointer is submitted + recorded.
-reset_state continue pi
-write_tape "$IDLE"
+# ── Scenario 10: pre-send dwell delivers after recreate readiness (fix) ─
+# The bounded pre-send stabilization dwells past the readiness window before
+# send_line, so delivery starts after readiness -> composer SETTLED, pointer
+# submitted + recorded. Passes because delivery starts after readiness, NOT
+# because Enter is delayed after paste (submit delay stays at the 0.05
+# default). The recreate + ack end-to-end path (scenario 7) stays green.
+RESTART_LOG="$TMP/restart10.log"; rm -f "$RESTART_LOG"
+reset_state new pi
+export FLEET_RUNTIME_PY="$FAKEBIN/fake-fleet-runtime" RESTART_LOG FLEET_RUNTIME_EXIT=0
+export FLEET_DOORBELL_STABLE_WINDOW_SEC=0.8
+write_tape "$IDLE" "$IDLE" "$IDLE" "$IDLE" "$IDLE" "$IDLE" "$IDLE" "$IDLE" "$IDLE" "$IDLE" "$IDLE" "$IDLE" "$IDLE" "$IDLE" "$IDLE" "$IDLE" "$RUNNING"
 run_doorbell aa100010
+unset FLEET_DOORBELL_STABLE_WINDOW_SEC
+unset FLEET_RUNTIME_PY RESTART_LOG FLEET_RUNTIME_EXIT
 if [[ "$RUN_CODE" -eq 0 ]] \
    && baseline_has_handle aa100010 \
    && sent_has 'HAND WAKE hand-1' \
    && ordering_ok "$SENT" \
    && [[ "$(verdict_last)" == *verdict=SETTLED* ]]; then
-  ok "pi default (0.8s) settled composer; pointer submitted+recorded; paste→Enter ordering held"
+  ok "pi pre-send dwell (0.8s) delivered after recreate readiness -> composer SETTLED; recorded"
 else
-  notok "pi default: code=$RUN_CODE verdict=$(verdict_last) err=$(cat "$RUN_ERR")"
+  notok "pi post-readiness: code=$RUN_CODE verdict=$(verdict_last) err=$(cat "$RUN_ERR")"
 fi
 
 echo "---"
