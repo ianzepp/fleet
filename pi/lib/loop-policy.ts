@@ -23,3 +23,124 @@ export function snapshotHasActionableChange(previous: LoopSnapshot | undefined, 
 export function loopGenerationIsCurrent(loopRunning: boolean, current: number, callback: number): boolean {
   return loopRunning && current === callback;
 }
+
+/**
+ * Generation-safe one-shot scheduled-deadline policy for the Pi-owned Fleet loop.
+ *
+ * Invariant: the configured interval is the minimum delay from the most
+ * recently completed Fleet cycle to the next scheduled cycle, regardless of
+ * whether the completed cycle originated from schedule, sensor change, trusted
+ * mail, or manual/follow-up delivery.
+ *
+ * The policy is timer-free and deterministic. It tracks only the next
+ * scheduled deadline (epoch ms), a running flag, an in-flight flag, a
+ * generation counter, and the configured interval. The host adapter owns the
+ * real setTimeout/clearTimeout handle and drives start/stop/update/accept/
+ * settle/fire at the correct seams; the policy decides the deadline and whether
+ * a scheduled fire may deliver. There is no repeating-interval path and no
+ * origin-specific clock.
+ */
+export class ScheduledDeadlinePolicy {
+  private intervalMs: number;
+  private running = false;
+  private inFlight = false;
+  private deadlineMs: number | undefined;
+  private generation = 0;
+
+  constructor(intervalSec: number) {
+    this.intervalMs = intervalSec * 1000;
+  }
+
+  getIntervalSec(): number {
+    return this.intervalMs / 1000;
+  }
+
+  isRunning(): boolean {
+    return this.running;
+  }
+
+  isInFlight(): boolean {
+    return this.inFlight;
+  }
+
+  getDeadlineMs(): number | undefined {
+    return this.deadlineMs;
+  }
+
+  getGeneration(): number {
+    return this.generation;
+  }
+
+  /**
+   * Fresh start (or restart). Arms the first scheduled deadline at now+interval
+   * and bumps generation so any stale scheduled callback is invalidated.
+   * In-flight state is untouched; a loop start with a cycle still in flight
+   * (e.g. a cadence restart) does not forget it.
+   */
+  start(nowMs: number, intervalSec: number = this.intervalMs / 1000): void {
+    this.intervalMs = intervalSec * 1000;
+    this.running = true;
+    this.deadlineMs = nowMs + this.intervalMs;
+    this.generation += 1;
+  }
+
+  /**
+   * Full stop. Clears the scheduled deadline and bumps generation so in-flight
+   * async scheduled callbacks cannot deliver. In-flight state is preserved so a
+   * cycle accepted just before stop still settles correctly.
+   */
+  stop(): void {
+    this.running = false;
+    this.deadlineMs = undefined;
+    this.generation += 1;
+  }
+
+  /**
+   * Cadence change while running. Replaces the pending scheduled deadline with
+   * now+newInterval and bumps generation; running and in-flight state are
+   * preserved (an in-flight cycle is not forgotten across a cadence update).
+   * A no-op when stopped.
+   */
+  update(nowMs: number, intervalSec: number): void {
+    this.intervalMs = intervalSec * 1000;
+    if (this.running) {
+      this.deadlineMs = nowMs + this.intervalMs;
+      this.generation += 1;
+    }
+  }
+
+  /**
+   * A cycle of any origin (schedule, sensor, trusted mail, manual/follow-up)
+   * was accepted and is now in flight. Invalidate the pending scheduled
+   * callback so a stale scheduled delivery cannot fire during or immediately
+   * after this cycle. The next scheduled deadline is armed only when this cycle
+   * settles.
+   */
+  accept(_nowMs: number): void {
+    this.inFlight = true;
+    this.deadlineMs = undefined;
+  }
+
+  /**
+   * A Fleet cycle completed (agent settled). Records completion and arms the
+   * next scheduled deadline at completion+interval, regardless of origin. This
+   * is the rebase that makes the interval a minimum delay from the most recent
+   * completed cycle rather than from loop start. A non-Fleet settle (no cycle
+   * was in flight) is a no-op: the host only calls this when a cycle completed.
+   */
+  settle(nowMs: number): void {
+    this.inFlight = false;
+    if (this.running) this.deadlineMs = nowMs + this.intervalMs;
+  }
+
+  /**
+   * The scheduled one-shot fired. Consumes the pending deadline. A delivery is
+   * permitted only while running and not already in flight; a fire during an
+   * in-flight cycle (defensive: the host clears the timer on accept) does not
+   * deliver. Returns whether the host may deliver a scheduled cycle now.
+   */
+  fire(): boolean {
+    this.deadlineMs = undefined;
+    return this.running && !this.inFlight;
+  }
+}

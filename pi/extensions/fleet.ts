@@ -6,7 +6,7 @@ import { dirname, resolve } from "node:path";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { truncateToWidth } from "@earendil-works/pi-tui";
 import { Type } from "typebox";
-import { loopGenerationIsCurrent, snapshotHasActionableChange } from "../lib/loop-policy";
+import { loopGenerationIsCurrent, ScheduledDeadlinePolicy, snapshotHasActionableChange } from "../lib/loop-policy";
 
 const FLEET_ROOT = resolve(dirname(__dirname), "..");
 const SCRIPTS = resolve(FLEET_ROOT, "scripts");
@@ -341,23 +341,19 @@ type State = {
   externalLoops: Map<string, ExternalLoop>;
   pollTimer?: ReturnType<typeof setInterval>;
   monitorTimer?: ReturnType<typeof setInterval>;
-  loopTimer?: ReturnType<typeof setInterval>;
+  loopTimer?: ReturnType<typeof setTimeout>;
   uiTimer?: ReturnType<typeof setInterval>;
   mailWakeTimer?: ReturnType<typeof setTimeout>;
   mailWakeSockets: Map<string, Server>;
   mailWakeDebouncer: MailWakeDebouncer;
+  scheduler: ScheduledDeadlinePolicy;
   pollInFlight: boolean;
-  cycleInFlight: boolean;
   cycleQueued: boolean;
-  loopRunning: boolean;
-  timerGeneration: number;
-  intervalSec: number;
   monitorIntervalSec: number;
   viewMode: FleetViewMode;
   focusedFleetId?: string;
   startedAt?: string;
   lastCycleAt?: string;
-  nextCycleAt?: number;
   lastPollAt?: string;
   lastError?: string;
 };
@@ -373,12 +369,9 @@ const state: State = {
   externalLoops: new Map(),
   mailWakeSockets: new Map(),
   mailWakeDebouncer: new MailWakeDebouncer(),
+  scheduler: new ScheduledDeadlinePolicy(DEFAULT_INTERVAL_SEC),
   pollInFlight: false,
-  cycleInFlight: false,
   cycleQueued: false,
-  loopRunning: false,
-  timerGeneration: 0,
-  intervalSec: DEFAULT_INTERVAL_SEC,
   monitorIntervalSec: 60,
   viewMode: "expanded",
 };
@@ -543,7 +536,7 @@ function restoreLoopIntent(ctx: ExtensionContext): LoopEntry | undefined {
 }
 
 function saveLoopIntent(pi: ExtensionAPI, running: boolean): void {
-  pi.appendEntry(LOOP_ENTRY, { running, intervalSec: state.intervalSec } satisfies LoopEntry);
+  pi.appendEntry(LOOP_ENTRY, { running, intervalSec: state.scheduler.getIntervalSec() } satisfies LoopEntry);
 }
 
 function parseDuration(value: string | undefined): number {
@@ -835,8 +828,9 @@ function timestampSeconds(value: unknown): number | undefined {
 }
 
 function fleetNextCycle(fleet: FleetRef, mode: "mind" | "monitor", baseline: JsonObject | undefined): string {
-  if (mode === "mind" && state.loopRunning && state.nextCycleAt !== undefined) {
-    return `next ${formatDuration(state.nextCycleAt / 1000 - Date.now() / 1000)}`;
+  const nextCycleAt = state.scheduler.getDeadlineMs();
+  if (mode === "mind" && state.scheduler.isRunning() && nextCycleAt !== undefined) {
+    return `next ${formatDuration(nextCycleAt / 1000 - Date.now() / 1000)}`;
   }
   const lastCycle = timestampSeconds(baseline?.last_cycle_at);
   if (lastCycle === undefined) return "next —";
@@ -1032,7 +1026,7 @@ async function refreshFleet(pi: ExtensionAPI, fleet: FleetRef, wakeOnChange: boo
   state.snapshots.set(fleet.root, snapshot);
   state.baselines.set(fleet.root, baseline);
   state.externalLoops.set(fleet.root, external);
-  if (state.loopRunning && external.running !== false) {
+  if (state.scheduler.isRunning() && external.running !== false) {
     stopTimers();
     state.lastError = external.running
       ? `external fleet-loop.py detected for ${fleet.fleetId}; internal loop stopped`
@@ -1120,7 +1114,7 @@ function startMonitorTimer(pi: ExtensionAPI): void {
 function startUiTimer(): void {
   if (state.uiTimer) clearInterval(state.uiTimer);
   state.uiTimer = setInterval(() => {
-    if (state.ctx && (state.loopRunning || state.monitors.size > 0)) renderWidget(state.ctx);
+    if (state.ctx && (state.scheduler.isRunning() || state.monitors.size > 0)) renderWidget(state.ctx);
   }, 1000);
 }
 
@@ -1129,41 +1123,64 @@ function stopUiTimer(): void {
   state.uiTimer = undefined;
 }
 
-function stopTimers(): void {
-  state.timerGeneration += 1;
-  if (state.pollTimer) clearInterval(state.pollTimer);
-  if (state.loopTimer) clearInterval(state.loopTimer);
-  state.pollTimer = undefined;
+function clearScheduledTimer(): void {
+  if (state.loopTimer) clearTimeout(state.loopTimer);
   state.loopTimer = undefined;
+}
+
+function clearTimerHandles(): void {
+  if (state.pollTimer) clearInterval(state.pollTimer);
+  state.pollTimer = undefined;
+  clearScheduledTimer();
   stopMailWakeSockets();
   state.mailWakeTimer = clearMailWakeTimerHandle(state.mailWakeTimer);
-  state.loopRunning = false;
-  state.nextCycleAt = undefined;
   state.cycleQueued = false;
 }
 
-function startTimers(pi: ExtensionAPI): void {
-  stopTimers();
-  state.loopRunning = true;
-  const generation = state.timerGeneration;
-  state.nextCycleAt = Date.now() + state.intervalSec * 1000;
+function stopTimers(): void {
+  clearTimerHandles();
+  state.scheduler.stop();
+}
+
+// Reconcile the single real scheduled one-shot with the policy deadline. The
+// scheduled cycle is a generation-safe one-shot, not a repeating interval: any
+// accepted cycle invalidates the pending callback (see queueCycle), and
+// agent_settled arms the next deadline at completion+interval (see
+// onAgentSettled). The independent poll timer never touches this.
+function syncScheduledTimer(pi: ExtensionAPI): void {
+  clearScheduledTimer();
+  const deadline = state.scheduler.getDeadlineMs();
+  if (deadline === undefined || !state.scheduler.isRunning()) return;
+  const generation = state.scheduler.getGeneration();
+  const delay = Math.max(0, deadline - Date.now());
+  state.loopTimer = setTimeout(() => onScheduledFire(pi, generation), delay);
+}
+
+function onScheduledFire(pi: ExtensionAPI, generation: number): void {
+  if (!loopGenerationIsCurrent(state.scheduler.isRunning(), state.scheduler.getGeneration(), generation)) return;
+  // Refresh immediately before scheduled delivery so the preflight is not
+  // merely the last 60-second poll snapshot.
+  const deliver = state.scheduler.fire();
+  syncScheduledTimer(pi);
+  if (!deliver) return;
+  void refreshAll(pi, false).then(() => {
+    if (!loopGenerationIsCurrent(state.scheduler.isRunning(), state.scheduler.getGeneration(), generation)) return;
+    queueCycle(pi, "scheduled cycle");
+    renderWidget(state.ctx);
+  });
+}
+
+function startTimers(pi: ExtensionAPI, intervalSec: number = state.scheduler.getIntervalSec()): void {
+  clearTimerHandles();
+  state.scheduler.start(Date.now(), intervalSec);
   state.startedAt ??= new Date().toISOString();
   state.pollTimer = setInterval(() => {
     void refreshAll(pi, true);
   }, POLL_INTERVAL_MS);
-  state.loopTimer = setInterval(() => {
-    state.nextCycleAt = Date.now() + state.intervalSec * 1000;
-    // Refresh immediately before scheduled delivery so the preflight is not
-    // merely the last 60-second poll snapshot.
-    void refreshAll(pi, false).then(() => {
-      if (!loopGenerationIsCurrent(state.loopRunning, state.timerGeneration, generation)) return;
-      queueCycle(pi, "scheduled cycle");
-      renderWidget(state.ctx);
-    });
-  }, state.intervalSec * 1000);
+  syncScheduledTimer(pi);
   startConfiguredMailWakeSocket(pi);
   const now = Date.now();
-  const dueCycle = mailWakeDueOnLoopStart(state.loopRunning, state.mailWakeDebouncer, now);
+  const dueCycle = mailWakeDueOnLoopStart(state.scheduler.isRunning(), state.mailWakeDebouncer, now);
   if (dueCycle) {
     applyMailWakeDispatchResults(state.mailWakeDebouncer, [dueCycle], (cycle) => dispatchMailWakeCycle(pi, cycle), now);
   }
@@ -1172,8 +1189,18 @@ function startTimers(pi: ExtensionAPI): void {
   renderWidget(state.ctx!);
 }
 
+// Cadence change while running: replace the pending scheduled deadline with
+// now+interval and re-arm the one-shot. Running and in-flight state are
+// preserved (an in-flight cycle is not forgotten across an update). The
+// independent poll timer is left running.
+function updateTimers(pi: ExtensionAPI, intervalSec: number): void {
+  state.scheduler.update(Date.now(), intervalSec);
+  syncScheduledTimer(pi);
+  renderWidget(state.ctx!);
+}
+
 function queueCycle(pi: ExtensionAPI, reason: string, allowBusyFollowUp = false): boolean {
-  if (!state.loopRunning || state.attachments.size === 0 || state.cycleQueued || (state.cycleInFlight && !allowBusyFollowUp)) return false;
+  if (!state.scheduler.isRunning() || state.attachments.size === 0 || state.cycleQueued || (state.scheduler.isInFlight() && !allowBusyFollowUp)) return false;
   const ctx = state.ctx;
   if (!ctx) return false;
   state.cycleQueued = true;
@@ -1182,7 +1209,8 @@ function queueCycle(pi: ExtensionAPI, reason: string, allowBusyFollowUp = false)
     const delivery = ctx.isIdle() ? undefined : "followUp";
     pi.sendUserMessage(payload, delivery ? { deliverAs: delivery } : undefined);
     state.lastCycleAt = new Date().toISOString();
-    state.cycleInFlight = true;
+    state.scheduler.accept(Date.now());
+    syncScheduledTimer(pi);
     return true;
   } catch (error) {
     state.lastError = error instanceof Error ? error.message : String(error);
@@ -1265,7 +1293,7 @@ function stopMailWakeSockets(): void {
 function startConfiguredMailWakeSocket(pi: ExtensionAPI): void {
   stopMailWakeSockets();
   const selection = mailWakeEndpointPlan(
-    state.loopRunning,
+    state.scheduler.isRunning(),
     [...state.attachments.values()],
     (fleet) => jsonFile(fleet.fleetFile),
   );
@@ -1326,9 +1354,14 @@ function startMailWakeSocket(pi: ExtensionAPI, fleet: FleetRef): void {
   }
 }
 
-function onAgentSettled(): void {
-  state.cycleInFlight = false;
+function onAgentSettled(pi: ExtensionAPI): void {
   state.cycleQueued = false;
+  // Only a completed Fleet cycle rebases the scheduled deadline; a non-Fleet
+  // agent turn is not a cycle completion and must not move the deadline.
+  if (state.scheduler.isInFlight()) {
+    state.scheduler.settle(Date.now());
+    syncScheduledTimer(pi);
+  }
 }
 
 async function attach(pi: ExtensionAPI, ctx: ExtensionContext, input: string, takeover = false): Promise<void> {
@@ -1359,7 +1392,7 @@ async function attach(pi: ExtensionAPI, ctx: ExtensionContext, input: string, ta
   state.candidate = undefined;
   state.lastError = undefined;
   appendAttachmentEntry(pi, fleet, "attach");
-  if (state.loopRunning) startConfiguredMailWakeSocket(pi);
+  if (state.scheduler.isRunning()) startConfiguredMailWakeSocket(pi);
   await refreshFleet(pi, fleet, false);
   renderWidget(ctx);
   ctx.ui.notify(`Attached ${fleet.fleetId}`, "info");
@@ -1573,7 +1606,7 @@ async function detach(pi: ExtensionAPI, ctx: ExtensionContext, input: string): P
   if (state.attachments.size === 0) {
     stopTimers();
     saveLoopIntent(pi, false);
-  } else if (state.loopRunning) {
+  } else if (state.scheduler.isRunning()) {
     startConfiguredMailWakeSocket(pi);
   }
   renderWidget(ctx);
@@ -1590,14 +1623,13 @@ async function resumeLoop(pi: ExtensionAPI, intent: LoopEntry | undefined): Prom
       : `internal loop not restored: external fleet-loop.py is running for ${activeExternal.map(([root]) => root).join(", ")}`;
     return;
   }
-  state.intervalSec = intent.intervalSec;
   state.lastError = undefined;
-  startTimers(pi);
+  startTimers(pi, intent.intervalSec);
 }
 
 async function startLoop(pi: ExtensionAPI, interval?: string): Promise<void> {
   if (state.attachments.size === 0) throw new Error("attach at least one fleet first");
-  const requested = interval ? parseDuration(interval) : state.intervalSec;
+  const requested = interval ? parseDuration(interval) : state.scheduler.getIntervalSec();
   // Refresh external scheduler state immediately before creating our timer. A
   // stale widget must never be enough to permit a duplicate loop.
   await refreshAll(pi, false);
@@ -1608,17 +1640,15 @@ async function startLoop(pi: ExtensionAPI, interval?: string): Promise<void> {
       ? `cannot verify external fleet-loop.py state for ${activeExternal.map(([root]) => root).join(", ")}`
       : `external fleet-loop.py already running for ${activeExternal.map(([root]) => root).join(", ")}`);
   }
-  state.intervalSec = requested;
   state.lastError = undefined;
-  startTimers(pi);
+  startTimers(pi, requested);
   saveLoopIntent(pi, true);
   queueCycle(pi, "loop start");
 }
 
 async function updateLoop(pi: ExtensionAPI, interval: string): Promise<void> {
-  if (!state.loopRunning) throw new Error("internal Fleet loop is not running");
-  state.intervalSec = parseDuration(interval);
-  startTimers(pi);
+  if (!state.scheduler.isRunning()) throw new Error("internal Fleet loop is not running");
+  updateTimers(pi, parseDuration(interval));
   saveLoopIntent(pi, true);
   renderWidget(state.ctx!);
 }
@@ -1626,8 +1656,8 @@ async function updateLoop(pi: ExtensionAPI, interval: string): Promise<void> {
 async function loopStatus(pi: ExtensionAPI): Promise<JsonObject> {
   await refreshAll(pi, false);
   return {
-    running: state.loopRunning,
-    interval_sec: state.intervalSec,
+    running: state.scheduler.isRunning(),
+    interval_sec: state.scheduler.getIntervalSec(),
     attached: [...state.attachments.values()],
     external_loops: Object.fromEntries([...state.externalLoops.entries()].map(([root, loop]) => [root, loop])),
     started_at: state.startedAt,
@@ -1968,11 +1998,11 @@ export default function (pi: ExtensionAPI): void {
   });
 
   pi.on("agent_settled", () => {
-    onAgentSettled();
+    onAgentSettled(pi);
   });
 
   pi.on("session_shutdown", () => {
-    if (state.loopRunning) saveLoopIntent(pi, true);
+    if (state.scheduler.isRunning()) saveLoopIntent(pi, true);
     stopTimers();
     stopMonitorTimer();
     stopMailWakeSockets();
