@@ -496,9 +496,11 @@ wait_ready() {
 }
 
 runtime_lifecycle() {
-  # start | restart for this role via fleet-runtime.py
+  # start | restart for this role via fleet-runtime.py. FLEET_RUNTIME_PY is a
+  # focused test seam (defaults to the canonical script); production unset.
   local action=$1
-  local args=("$PYTHON_BIN" "$_FLEET_SCRIPT_DIR/fleet-runtime.py"
+  local runtime_py="${FLEET_RUNTIME_PY:-$_FLEET_SCRIPT_DIR/fleet-runtime.py}"
+  local args=("$PYTHON_BIN" "$runtime_py"
     --project "$PROJECT" --role "$ROLE" "$action" --force)
   [[ -n "$FLEET_ID" ]] && args+=(--fleet "$FLEET_ID")
   [[ -n "$FLEET_FILE" ]] && args+=(--fleet-file "$FLEET_FILE")
@@ -609,6 +611,24 @@ prepare_assignment() {
       if ! agent_accepts_input "$CLASS"; then
         echo "refused: assignment_mode=new pane is not an agent prompt (state=$CLASS) — will not type into shell" >&2
         return 1
+      fi
+      # Pi: in-process /new does not yield a usable composer (the pointer is
+      # erased and the pane appears idle but rejects later input). Recreate
+      # the role runtime instead — the documented "new or recreate" contract —
+      # then pointer-only delivery. Shared tmux sessions are preserved by the
+      # role-window restart boundary in fleet-runtime.py. No /new is sent.
+      if [[ "$AGENT" == "pi" ]]; then
+        echo "prepare: recreate pi runtime for new session on $RESOLVED_TARGET" >&2
+        if ! runtime_lifecycle restart >/dev/null; then
+          echo "refused: assignment_mode=new pi runtime recreate failed for $ROLE" >&2
+          return 1
+        fi
+        find_backing_tools
+        if ! wait_ready "$PREPARE_TIMEOUT"; then
+          echo "refused: assignment_mode=new pi runtime not ready after recreate ($CLASS)" >&2
+          return 1
+        fi
+        return 0
       fi
       echo "prepare: new session on $RESOLVED_TARGET" >&2
       local pre_new_sig
