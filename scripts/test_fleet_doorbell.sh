@@ -15,6 +15,21 @@
 #  10. pi pre-send dwell delivers after readiness        => composer SETTLED
 #  11. pi post-stable recapture regressed to running    => refuse, no record
 #  12. stopped cold start gets fresh-runtime readiness  => success, recorded
+#  13. codex $0.000 (sub) footer classified ready        => success, recorded
+#  14. codex $1.219 (sub) footer classified ready        => success, recorded
+#  15. codex $1.219 (api) footer classified ready        => success, recorded
+#  16. bare $1.219 (no marker) stays fail-closed         => refuse, no record
+#  17. bare shell prompt stays fail-closed               => refuse, no record
+#  18. vivi_pty $1.219 (sub) footer classified ready     => success, recorded
+#  19. vivi_pty $1.219 (api) footer classified ready     => success, recorded
+#  20. vivi_pty bare $1.219 stays fail-closed            => refuse, no record
+#
+# Scenarios 13-17 cover the shell/tmux classifier (classify_tmux_text) for
+# the nonzero-cost footer fix: a structured `$<amount> (sub|api)` Codex footer
+# must classify as agent-idle for any nonnegative amount, while bare money and
+# shell prompts stay fail-closed. Scenarios 18-20 cover the Python diagnostic
+# classifier (classify_text inside classify_vivi_pty) which had the same loose
+# `$0.` bug, driven through a fake vivi-pty.
 #
 # Scenarios 1-4 exercise the transition-aware /new path on a non-Pi agent
 # (codex), because assignment_mode=new for Pi now recreates the role runtime
@@ -63,6 +78,9 @@ CURSOR="$TMP/cursor"
 COMPOSER_VERDICT="$TMP/composer_verdict"
 FRESH_TS="$TMP/fresh_ts"
 STARTED_MARKER="$TMP/started_marker"
+# vivi_pty classifier-regression seam: terminal contents the fake vivi-pty
+# reports for `session diagnostic` (scenarios 18-20).
+VPTY_CONTENTS="$TMP/vpty_contents"
 READY_SEC="${READY_SEC:-0.5}"
 
 # Pane snapshots (single-line; classify_tmux_text matches on the whole text).
@@ -71,6 +89,14 @@ CODEX_IDLE='codex › openai-codex ready'
 RUNNING='Thinking… handling HAND WAKE'
 NEW_DONE='New session started'   # differs from idle -> transition marker
 COMPACT_DONE='Compacted session' # differs from idle -> transition marker
+# Codex cost-footer snapshots: a structured `$<amount> (sub|api)` marker is
+# the only money shape that classifies as agent-idle. Bare amounts and shell
+# prompts must stay fail-closed (regressions for the nonzero-cost fix).
+CODEX_COST_SUB_ZERO='$0.000 (sub) gpt-5.5 • high'
+CODEX_COST_SUB_NONZERO='$1.219 (sub) gpt-5.5 • high'
+CODEX_COST_API_NONZERO='$1.219 (api) gpt-5.5 • high'
+CODEX_COST_BARE='$1.219'
+SHELL_PROMPT='%'
 
 # fleet.json writer: hand-1 with a configurable agent + assignment_mode.
 # Scenarios 1-4 use codex/new (/new transition path); 5 continue; 6 compact;
@@ -85,6 +111,30 @@ write_fleet_config() {
       "tmux_target": "test:hand-1.1",
       "agent": "$agent",
       "assignment_mode": "$mode"
+    }
+  }
+}
+JSON
+}
+
+# fleet.json writer: hand-1 backed by vivi_pty (codex continue). The Python
+# diagnostic classifier (classify_text) is exercised only when harness_state
+# is not a decisive driver state, so the fake vivi-pty reports
+# harness_state=unknown and the regex decides readiness from terminal contents.
+write_fleet_config_vpty() {
+  local mode="$1" agent="${2:-codex}"
+  cat > "$TMP/project/.vivi/fleet.json" <<JSON
+{
+  "fleet_id": "test",
+  "hands": {
+    "hand-1": {
+      "agent": "$agent",
+      "assignment_mode": "$mode",
+      "runtime": {
+        "kind": "vivi_pty",
+        "session_id": "hand-1",
+        "socket": "$TMP/vpty.sock"
+      }
     }
   }
 }
@@ -147,6 +197,37 @@ esac
 SH
 chmod +x "$FAKEBIN/tmux"
 
+# Fake vivi-pty for the Python classifier regressions (scenarios 18-20).
+# `session diagnostic` emits JSON whose terminal.contents come from
+# $VPTY_CONTENTS_FILE with harness_state=unknown (forces the classify_text
+# regex path); `terminal write|key` record to $SENT_FILE like the fake tmux.
+cat > "$FAKEBIN/vivi-pty" <<'SH'
+#!/usr/bin/env bash
+case "${1:-}" in
+  session)
+    if [ "${2:-}" = "diagnostic" ]; then
+      "${PYTHON_BIN:-python3}" -c '
+import json, os
+contents = ""
+try:
+    with open(os.environ["VPTY_CONTENTS_FILE"]) as fh:
+        contents = fh.read()
+except Exception:
+    contents = ""
+print(json.dumps({"harness_state": "unknown", "terminal": {"contents": contents}}))
+'
+    fi
+    exit 0
+    ;;
+  terminal)
+    printf 'SEND: %s\n' "$*" >> "$SENT_FILE"
+    exit 0
+    ;;
+  *) exit 0 ;;
+esac
+SH
+chmod +x "$FAKEBIN/vivi-pty"
+
 # Fake fleet-runtime.py (Python; invoked via PYTHON_BIN through the
 # FLEET_RUNTIME_PY seam): logs the action argv to $RESTART_LOG and exits per
 # $FLEET_RUNTIME_EXIT. Drives the Pi recreate lifecycle in scenarios 7-8.
@@ -184,13 +265,20 @@ ok()   { echo "ok   - $1"; pass=$((pass+1)); }
 notok(){ echo "FAIL - $1"; fail=$((fail+1)); }
 
 # Reset per-scenario state and write a fresh fleet.json (mode + agent).
+# Reset per-scenario state. Third arg selects the backing runtime kind
+# (tmux default -> write_fleet_config; vivi_pty -> write_fleet_config_vpty).
 reset_state() {
-  rm -f "$BASELINE" "$SENT" "$CURSOR" "$COMPOSER_VERDICT" "$FRESH_TS" "$STARTED_MARKER"
+  rm -f "$BASELINE" "$SENT" "$CURSOR" "$COMPOSER_VERDICT" "$FRESH_TS" "$STARTED_MARKER" "$VPTY_CONTENTS"
   : > "$SENT"
   echo "0" > "$CURSOR"
-  write_fleet_config "${1:-new}" "${2:-pi}"
+  if [ "${3:-tmux}" = "vivi_pty" ]; then
+    write_fleet_config_vpty "${1:-new}" "${2:-codex}"
+  else
+    write_fleet_config "${1:-new}" "${2:-pi}"
+  fi
 }
 write_tape() { : > "$TAPE"; local ln; for ln in "$@"; do printf '%s\n' "$ln" >> "$TAPE"; done; }
+write_vpty_contents() { printf '%s\n' "$1" > "$VPTY_CONTENTS"; }
 
 run_doorbell() {
   local handle="$1"; shift
@@ -204,6 +292,7 @@ run_doorbell() {
     PYTHON_BIN="$PYTHON_BIN" \
     TAPE_FILE="$TAPE" CURSOR_FILE="$CURSOR" SENT_FILE="$SENT" \
     COMPOSER_VERDICT_FILE="$COMPOSER_VERDICT" FRESH_TS_FILE="$FRESH_TS" READY_SEC="$READY_SEC" \
+    VPTY_CONTENTS_FILE="$VPTY_CONTENTS" \
     FLEET_DOORBELL_PREPARE_TIMEOUT_SEC=3 \
     FLEET_DOORBELL_TRANSITION_TIMEOUT_SEC=1 \
     FLEET_DOORBELL_SUBMIT_ACK_TIMEOUT_SEC=2 \
@@ -437,6 +526,121 @@ if [[ "$RUN_CODE" -eq 0 ]] \
   ok "pi stopped cold start got fresh-runtime readiness (dwell) -> composer SETTLED; recorded"
 else
   notok "pi cold start: code=$RUN_CODE started=$(test -f "$STARTED_MARKER" && echo y || echo n) verdict=$(verdict_last) err=$(cat "$RUN_ERR")"
+fi
+
+# ── Scenario 13: codex $0.000 (sub) footer classified ready => success ──
+# Structured cost footer with a zero amount + (sub) marker must still classify
+# as agent-idle after the loose $0. matcher is replaced by the structured
+# $<amount> (sub|api) pattern (regression guard for the zero case).
+reset_state continue codex
+write_tape "$CODEX_COST_SUB_ZERO"
+run_doorbell aa130013
+if [[ "$RUN_CODE" -eq 0 ]] \
+   && baseline_has_handle aa130013 \
+   && sent_has 'HAND WAKE hand-1'; then
+  ok "codex \$0.000 (sub) footer classified ready; wake recorded"
+else
+  notok "codex \$0.000 (sub): code=$RUN_CODE baseline=$(baseline_has_handle aa130013 && echo y || echo n) err=$(cat "$RUN_ERR")"
+fi
+
+# ── Scenario 14: codex $1.219 (sub) footer classified ready => success ──
+# THE BUG: a nonzero Codex cost footer ($1.219 (sub)) classified unready
+# because both classifiers only matched loose $0. The doorbell failed closed
+# and required a runtime restart; a fresh $0.000 then worked. The structured
+# pattern now matches any nonnegative amount, so this pane is agent-idle.
+reset_state continue codex
+write_tape "$CODEX_COST_SUB_NONZERO"
+run_doorbell aa140014
+if [[ "$RUN_CODE" -eq 0 ]] \
+   && baseline_has_handle aa140014 \
+   && sent_has 'HAND WAKE hand-1'; then
+  ok "codex \$1.219 (sub) nonzero footer classified ready; wake recorded"
+else
+  notok "codex \$1.219 (sub): code=$RUN_CODE baseline=$(baseline_has_handle aa140014 && echo y || echo n) err=$(cat "$RUN_ERR")"
+fi
+
+# ── Scenario 15: codex $1.219 (api) footer classified ready => success ──
+# The structured pattern accepts the documented (api) marker as well as (sub).
+reset_state continue codex
+write_tape "$CODEX_COST_API_NONZERO"
+run_doorbell aa150015
+if [[ "$RUN_CODE" -eq 0 ]] \
+   && baseline_has_handle aa150015 \
+   && sent_has 'HAND WAKE hand-1'; then
+  ok "codex \$1.219 (api) footer classified ready; wake recorded"
+else
+  notok "codex \$1.219 (api): code=$RUN_CODE baseline=$(baseline_has_handle aa150015 && echo y || echo n) err=$(cat "$RUN_ERR")"
+fi
+
+# ── Scenario 16: bare $1.219 (no marker) stays fail-closed => refuse ────
+# Removing the loose $0. matcher must NOT broaden the classifier to arbitrary
+# money. A bare nonzero amount with no (sub|api) marker is unrecognized ->
+# unready -> refuse, no record, no HAND WAKE. Fail-closed for money output and
+# shell-injection risk.
+reset_state continue codex
+write_tape "$CODEX_COST_BARE"
+run_doorbell aa160016
+if [[ "$RUN_CODE" -eq 1 ]] \
+   && ! baseline_has_handle aa160016 \
+   && ! sent_has 'HAND WAKE hand-1'; then
+  ok "codex bare \$1.219 (no marker) refused (exit 1), no record, no HAND WAKE"
+else
+  notok "codex bare \$1.219: code=$RUN_CODE baseline=$(baseline_has_handle aa160016 && echo y || echo n) err=$(cat "$RUN_ERR")"
+fi
+
+# ── Scenario 17: bare shell prompt stays fail-closed => refuse ──────────
+# A classic shell prompt must never pass the agent-idle classifier; the
+# doorbell refuses rather than typing HAND WAKE into a shell.
+reset_state continue codex
+write_tape "$SHELL_PROMPT"
+run_doorbell aa170017
+if [[ "$RUN_CODE" -eq 1 ]] \
+   && ! baseline_has_handle aa170017 \
+   && ! sent_has 'HAND WAKE hand-1'; then
+  ok "bare shell prompt (%) refused (exit 1), no record, no HAND WAKE"
+else
+  notok "shell prompt: code=$RUN_CODE baseline=$(baseline_has_handle aa170017 && echo y || echo n) err=$(cat "$RUN_ERR")"
+fi
+
+# ── Scenario 18: vivi_pty $1.219 (sub) footer classified ready => success ─
+# The Python diagnostic classifier (classify_text inside classify_vivi_pty)
+# had the same loose $0. bug. The fake vivi-pty reports harness_state=unknown
+# so classify_text decides readiness from terminal contents; the structured
+# pattern now matches the nonzero footer through the vivi_pty code path too.
+reset_state continue codex vivi_pty
+write_vpty_contents "$CODEX_COST_SUB_NONZERO"
+run_doorbell aa180018
+if [[ "$RUN_CODE" -eq 0 ]] \
+   && baseline_has_handle aa180018 \
+   && sent_has 'HAND WAKE hand-1'; then
+  ok "vivi_pty \$1.219 (sub) nonzero footer classified ready; wake recorded"
+else
+  notok "vivi_pty \$1.219 (sub): code=$RUN_CODE baseline=$(baseline_has_handle aa180018 && echo y || echo n) err=$(cat "$RUN_ERR")"
+fi
+
+# ── Scenario 19: vivi_pty $1.219 (api) footer classified ready => success ─
+reset_state continue codex vivi_pty
+write_vpty_contents "$CODEX_COST_API_NONZERO"
+run_doorbell aa190019
+if [[ "$RUN_CODE" -eq 0 ]] \
+   && baseline_has_handle aa190019 \
+   && sent_has 'HAND WAKE hand-1'; then
+  ok "vivi_pty \$1.219 (api) footer classified ready; wake recorded"
+else
+  notok "vivi_pty \$1.219 (api): code=$RUN_CODE baseline=$(baseline_has_handle aa190019 && echo y || echo n) err=$(cat "$RUN_ERR")"
+fi
+
+# ── Scenario 20: vivi_pty bare $1.219 stays fail-closed => refuse ────────
+# The Python path must also keep bare money fail-closed (no marker -> unready).
+reset_state continue codex vivi_pty
+write_vpty_contents "$CODEX_COST_BARE"
+run_doorbell aa200020
+if [[ "$RUN_CODE" -eq 1 ]] \
+   && ! baseline_has_handle aa200020 \
+   && ! sent_has 'HAND WAKE hand-1'; then
+  ok "vivi_pty bare \$1.219 (no marker) refused (exit 1), no record, no HAND WAKE"
+else
+  notok "vivi_pty bare \$1.219: code=$RUN_CODE baseline=$(baseline_has_handle aa200020 && echo y || echo n) err=$(cat "$RUN_ERR")"
 fi
 
 echo "---"
