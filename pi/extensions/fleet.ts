@@ -6,6 +6,7 @@ import { dirname, resolve } from "node:path";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { truncateToWidth } from "@earendil-works/pi-tui";
 import { Type } from "typebox";
+import { loopGenerationIsCurrent, snapshotHasActionableChange } from "./loop-policy";
 
 const FLEET_ROOT = resolve(dirname(__dirname), "..");
 const SCRIPTS = resolve(FLEET_ROOT, "scripts");
@@ -349,6 +350,7 @@ type State = {
   cycleInFlight: boolean;
   cycleQueued: boolean;
   loopRunning: boolean;
+  timerGeneration: number;
   intervalSec: number;
   monitorIntervalSec: number;
   viewMode: FleetViewMode;
@@ -375,6 +377,7 @@ const state: State = {
   cycleInFlight: false,
   cycleQueued: false,
   loopRunning: false,
+  timerGeneration: 0,
   intervalSec: DEFAULT_INTERVAL_SEC,
   monitorIntervalSec: 60,
   viewMode: "expanded",
@@ -643,12 +646,6 @@ function safeSnapshot(snapshot: Snapshot): JsonObject {
     } : undefined,
     partial: snapshot.partial,
   };
-}
-
-function snapshotChanged(previous: Snapshot | undefined, next: Snapshot): boolean {
-  if (!previous) return false;
-  return JSON.stringify({ signals: previous.signals ?? [], fingerprint: previous.fingerprint ?? {} }) !==
-    JSON.stringify({ signals: next.signals ?? [], fingerprint: next.fingerprint ?? {} });
 }
 
 function preflightCounts(snapshot: Snapshot): { actionable: number; mail: number; needs: number; rtm: number } {
@@ -1041,7 +1038,7 @@ async function refreshFleet(pi: ExtensionAPI, fleet: FleetRef, wakeOnChange: boo
       ? `external fleet-loop.py detected for ${fleet.fleetId}; internal loop stopped`
       : `cannot verify external fleet-loop.py state for ${fleet.fleetId}; internal loop stopped`;
   }
-  if (wakeOnChange && snapshotChanged(previous, snapshot)) queueCycle(pi, `sensor change: ${fleet.fleetId}`);
+  if (wakeOnChange && snapshotHasActionableChange(previous, snapshot)) queueCycle(pi, `sensor change: ${fleet.fleetId}`);
   return snapshot;
 }
 
@@ -1133,6 +1130,7 @@ function stopUiTimer(): void {
 }
 
 function stopTimers(): void {
+  state.timerGeneration += 1;
   if (state.pollTimer) clearInterval(state.pollTimer);
   if (state.loopTimer) clearInterval(state.loopTimer);
   state.pollTimer = undefined;
@@ -1147,6 +1145,7 @@ function stopTimers(): void {
 function startTimers(pi: ExtensionAPI): void {
   stopTimers();
   state.loopRunning = true;
+  const generation = state.timerGeneration;
   state.nextCycleAt = Date.now() + state.intervalSec * 1000;
   state.startedAt ??= new Date().toISOString();
   state.pollTimer = setInterval(() => {
@@ -1157,6 +1156,7 @@ function startTimers(pi: ExtensionAPI): void {
     // Refresh immediately before scheduled delivery so the preflight is not
     // merely the last 60-second poll snapshot.
     void refreshAll(pi, false).then(() => {
+      if (!loopGenerationIsCurrent(state.loopRunning, state.timerGeneration, generation)) return;
       queueCycle(pi, "scheduled cycle");
       renderWidget(state.ctx);
     });
