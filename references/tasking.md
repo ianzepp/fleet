@@ -63,14 +63,17 @@ Not a hard stop: missing Mind congratulations or “GO” mail.
 
 | Map state | Mind files To | Not |
 | --- | --- | --- |
-| Campaign goal/stage **unlowered** | **Head** assign: `lower` (goal-check → delivery) | Product Hand |
+| Campaign goal/stage **unlowered** | **Head** assign: `lower` with **batch-ahead horizon** (default 3–5 phases; goal-check → delivery) | Product Hand; single-phase JIT lower |
+| Ready bag thin (under ~3 unstarted units) while goal continues | **Head** horizon **extension** lower (overlap implement) | Wait for empty bag then lower next phase |
 | Delivery unit ready on disk | **Hand** task citing unit path/id + done-when | Raw campaign bullet |
 | Auditor findings closed list | **Hand** `repair` | New goal-forge unless redesign |
 | Merge / maid / HK | **hand-1** (or owner) as usual | Lowering |
 
 Starvation refill follows the same table: empty Hand + unlowered next stage →
 wake **lowering Head**, not invent an implement task that forces the Hand to
-lower.
+lower. Prefer starvation never happens: when a goal is **defined**, lower a
+horizon immediately so pre-work exists before implement need. Detail:
+[`lowering.md`](lowering.md) **Horizon (batch-ahead lowering)**.
 
 ## Multi-hand bags
 
