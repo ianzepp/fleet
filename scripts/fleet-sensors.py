@@ -1107,13 +1107,25 @@ def cadence_hint_from(
     Ladder (seconds): 180, 300, 600, 900, 1200, 3600. Floor 180 (3m).
     """
     ladder = (180, 300, 600, 900, 1200, 3600)
-    mind_loop = {}
-    if isinstance(baseline, dict):
-        mind_loop = baseline.get("mind_loop") if isinstance(baseline.get("mind_loop"), dict) else {}
-    fleet_loop = (out.get("fleet") or {}) if isinstance(out.get("fleet"), dict) else {}
-    # fleet.json mind_loop may be on out via fleet_posture only — read baseline first
-    configured = mind_loop.get("interval_sec")
-    if not isinstance(configured, int) or configured <= 0:
+    # Source of truth for *current* tick: fleet.json via sensors (fleet_posture /
+    # per-head mind_loop_interval_sec). Baseline mind_loop is cycle metadata, not
+    # the interval. Fall back to temporary 5m base only when fleet omits it.
+    configured = None
+    posture = out.get("fleet_posture") if isinstance(out.get("fleet_posture"), dict) else {}
+    if isinstance(posture.get("mind_loop_interval_sec"), int) and posture["mind_loop_interval_sec"] > 0:
+        configured = int(posture["mind_loop_interval_sec"])
+    if configured is None:
+        heads = out.get("heads") if isinstance(out.get("heads"), dict) else {}
+        for _hk, hb in heads.items():
+            if isinstance(hb, dict) and isinstance(hb.get("mind_loop_interval_sec"), int) and hb["mind_loop_interval_sec"] > 0:
+                configured = int(hb["mind_loop_interval_sec"])
+                break
+    if configured is None and isinstance(baseline, dict):
+        bl = baseline.get("mind_loop") if isinstance(baseline.get("mind_loop"), dict) else {}
+        raw = bl.get("interval_sec")
+        if isinstance(raw, int) and raw > 0:
+            configured = raw
+    if configured is None or configured <= 0:
         configured = 300  # temporary base: 5m
     # snap configured to ladder for "current" display
     current = min(ladder, key=lambda x: abs(x - int(configured)))
