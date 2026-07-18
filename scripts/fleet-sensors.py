@@ -1073,6 +1073,12 @@ def build_fingerprint(out: dict, fleet: dict) -> dict:
     return fp
 
 
+def is_product_hand(name: str) -> bool:
+    """Implementer Hands only — auditors are review capacity, not product starvation."""
+    n = str(name or "")
+    return bool(n) and not n.startswith("auditor")
+
+
 def quiet_hint_from(fp: dict, prev: dict, signals: list, steward: dict) -> bool:
     keys = (
         "hand1_open",
@@ -1088,10 +1094,111 @@ def quiet_hint_from(fp: dict, prev: dict, signals: list, steward: dict) -> bool:
         "head_cto_due",
         "head_cxo_due",
     )
-    hard = [s for s in signals if not s.startswith("starvation_candidate")]
+    # Soft: empty-bag starvation + growth refill are obligations, but fingerprint-stable
+    # empty fleets must still be allowed to quiet/backoff (disposition lives on refill_hint).
+    soft_prefixes = (
+        "starvation_candidate_",
+        "growth_refill_required",
+        "mail_wake_candidate_",  # often stale pending mail on empty bags
+    )
+    hard = [
+        s
+        for s in signals
+        if not any(str(s).startswith(p) or str(s) == p.rstrip("_") for p in soft_prefixes)
+    ]
+    # growth_refill_required is exact match (no trailing _); treat as soft for quiet_hint
+    hard = [s for s in hard if str(s) != "growth_refill_required"]
     fp_cmp = {k: fp.get(k) for k in keys}
     prev_cmp = {k: prev.get(k) for k in keys}
     return fp_cmp == prev_cmp and not hard and not steward.get("tripped")
+
+
+def hand_bag_counts(out: dict) -> dict:
+    """Count product/open/idle Hand bags from sensors hand rows."""
+    hands = out.get("hands") or {}
+    open_bags = 0
+    idle_open = 0
+    running_open = 0
+    empty_idle = 0
+    product_hands = 0
+    product_open = 0
+    product_empty_idle = 0
+    for name, h in hands.items() if isinstance(hands, dict) else []:
+        if not isinstance(h, dict):
+            continue
+        act = int(h.get("actionable") or h.get("tasks_open") or 0)
+        state = str((h.get("runtime") or {}).get("state") or h.get("state") or "")
+        proc = str((h.get("runtime") or {}).get("process_state") or "")
+        idle = state in ("waiting_for_input", "completed", "stopped", "unknown") or proc == "stopped"
+        if act > 0:
+            open_bags += 1
+            if idle:
+                idle_open += 1
+            else:
+                running_open += 1
+        elif idle:
+            empty_idle += 1
+        if is_product_hand(name):
+            product_hands += 1
+            if act > 0:
+                product_open += 1
+            elif idle:
+                product_empty_idle += 1
+    return {
+        "open_bags": open_bags,
+        "idle_open": idle_open,
+        "running_open": running_open,
+        "empty_idle": empty_idle,
+        "product_hands": product_hands,
+        "product_open": product_open,
+        "product_empty_idle": product_empty_idle,
+    }
+
+
+def refill_hint_from(out: dict, signals: list, posture_suppresses_starvation: bool) -> Optional[dict]:
+    """When growth product Hands are empty, tell Mind the disposition is Head lower — not quiet/speed.
+
+    Sensors cannot know map truth; they name the required *path*:
+    file Head lower (horizon) / executive refill, never invent implement, never quiet-as-ok.
+    """
+    del signals  # reserved for future map/lower-task probes
+    posture = ((out.get("fleet_posture") or {}) if isinstance(out.get("fleet_posture"), dict) else {}).get(
+        "mode"
+    ) or "growth"
+    if posture != "growth" or posture_suppresses_starvation:
+        return None
+    counts = hand_bag_counts(out)
+    if counts["product_hands"] <= 0:
+        return None
+    # Any open product implement bag → not a refill-empty condition.
+    if counts["product_open"] > 0:
+        return None
+    return {
+        "disposition": "file_head_lower",
+        "signal": "growth_refill_required",
+        "forbidden": [
+            "invent_implement",
+            "quiet_as_ok",
+            "shorten_for_empty_bags",
+            "raw_goal_to_hand",
+        ],
+        "required": [
+            "if_map_has_unlowered_unit→assign_head_lower_horizon_3_to_5",
+            "if_map_truly_empty_after_executive_sweep→sleep_or_standby",
+            "parcel_hand_only_from_citable_delivery_unit",
+        ],
+        "reason": (
+            "growth + product Hand bags empty — not a quiet cycle and not a go-faster signal; "
+            "Mind must executive-refill via Head lower (batch-ahead horizon) when map has work, "
+            "never invent Hand implement units"
+        ),
+        "counts": {
+            "product_hands": counts["product_hands"],
+            "product_open": counts["product_open"],
+            "product_empty_idle": counts["product_empty_idle"],
+            "open_bags": counts["open_bags"],
+        },
+    }
 
 
 def cadence_hint_from(
@@ -1105,6 +1212,10 @@ def cadence_hint_from(
     Portable temporary supervision until a true Fleet host owns wake/refill.
     Mind applies by replacing the harness scheduler; sensors only advise.
     Ladder (seconds): 180, 300, 600, 900, 1200, 3600. Floor 180 (3m).
+
+    Empty product bags in growth are a *refill disposition* (see refill_hint), not
+    a reason to shorten. Shorten only for open bag work, real runtime repair, or
+    fresh operator pressure — not board noise + starvation on empty Hands.
     """
     ladder = (180, 300, 600, 900, 1200, 3600)
     # Source of truth for *current* tick: fleet.json via sensors (fleet_posture /
@@ -1133,6 +1244,8 @@ def cadence_hint_from(
     sigs = list(signals or [])
     starve = sum(1 for s in sigs if str(s).startswith("starvation_candidate_"))
     wake = sum(1 for s in sigs if "wake_candidate" in str(s))
+    # mail_wake on empty bags is not implement demand — ignore for shorten pressure
+    mail_wake = sum(1 for s in sigs if str(s).startswith("mail_wake_candidate_"))
     runtime_bad = sum(
         1
         for s in sigs
@@ -1142,27 +1255,14 @@ def cadence_hint_from(
     board = "board_event" in sigs
     head_due = any(str(s).startswith("head_due") for s in sigs)
     operator = "operator_to_mind" in sigs or "operator_mail" in sigs
+    operator_open = int(((out.get("operator") or {}) if isinstance(out.get("operator"), dict) else {}).get("open_count") or 0)
+    growth_refill = "growth_refill_required" in sigs or bool(out.get("refill_hint"))
 
-    hands = out.get("hands") or {}
-    open_bags = 0
-    idle_open = 0
-    running_open = 0
-    empty_idle = 0
-    for _name, h in hands.items() if isinstance(hands, dict) else []:
-        if not isinstance(h, dict):
-            continue
-        act = int(h.get("actionable") or h.get("tasks_open") or 0)
-        state = str((h.get("runtime") or {}).get("state") or h.get("state") or "")
-        proc = str((h.get("runtime") or {}).get("process_state") or "")
-        idle = state in ("waiting_for_input", "completed", "stopped", "unknown") or proc == "stopped"
-        if act > 0:
-            open_bags += 1
-            if idle:
-                idle_open += 1
-            else:
-                running_open += 1
-        elif idle:
-            empty_idle += 1
+    counts = hand_bag_counts(out)
+    open_bags = counts["open_bags"]
+    idle_open = counts["idle_open"]
+    running_open = counts["running_open"]
+    empty_idle = counts["empty_idle"]
 
     quiet_streak = 0
     if isinstance(baseline, dict):
@@ -1171,26 +1271,42 @@ def cadence_hint_from(
         except (TypeError, ValueError):
             quiet_streak = 0
 
-    posture = ((out.get("fleet_posture") or {}) if isinstance(out.get("fleet_posture"), dict) else {}).get(
+    posture_mode = ((out.get("fleet_posture") or {}) if isinstance(out.get("fleet_posture"), dict) else {}).get(
         "mode"
     ) or "growth"
 
     reasons = []
     target = current
 
-    # Demand: empty bags in growth, starvation, idle with open work, runtime repair
-    if posture == "growth" and (starve > 0 or empty_idle > 0):
-        target = 300
-        reasons.append("growth_empty_or_starvation→5m")
-    if idle_open > 0 or wake >= 2:
+    # Demand: open bag work waiting, runtime repair, real operator needs — NOT empty Hands.
+    if idle_open > 0:
         target = min(target, 300)
-        reasons.append("idle_open_or_multi_wake→≤5m")
-    if runtime_bad > 0 or operator:
+        reasons.append("idle_open_bag→≤5m")
+    if open_bags > 0 and wake >= 2:
         target = min(target, 300)
-        reasons.append("runtime_or_operator→≤5m")
-    if board and (wake > 0 or starve > 0 or idle_open > 0):
+        reasons.append("open_bag_multi_wake→≤5m")
+    if runtime_bad > 0:
+        target = min(target, 300)
+        reasons.append("runtime_bad→≤5m")
+    if operator_open > 0 or (operator and operator_open > 0):
+        target = min(target, 300)
+        reasons.append("operator_open→≤5m")
+    # Fresh operator→mind still worth a tighter tick once; empty absorbed spam should not pin 3m forever.
+    # Prefer open needs; if only to_mind signal with open_count 0, hold base (do not shorten below current).
+    if board and idle_open > 0:
         target = min(target, 180)
-        reasons.append("board+refill_pressure→3m")
+        reasons.append("board+idle_open_bag→3m")
+    if head_due and open_bags > 0:
+        target = min(target, 300)
+        reasons.append("head_due_with_open_bag→≤5m")
+
+    # Empty growth product capacity: disposition is file_head_lower (refill_hint), not go-faster.
+    if growth_refill or (posture_mode == "growth" and open_bags == 0 and counts["product_open"] == 0 and empty_idle > 0):
+        reasons.append("growth_empty→file_lower_not_speed")
+        # Prefer backoff path when fingerprint-quiet; otherwise hold (do not force 3m/5m).
+        if quiet_hint and quiet_streak >= 1:
+            target = max(target, 600)
+        # else leave target at current — Mind still must act on refill_hint this cycle
 
     # Backoff: quiet fingerprint / long-running healthy work
     if quiet_hint and quiet_streak >= 3:
@@ -1202,14 +1318,14 @@ def cadence_hint_from(
         else:
             target = 600
         reasons.append("quiet_streak=%s→backoff" % quiet_streak)
-    elif running_open > 0 and open_bags == running_open and starve == 0 and idle_open == 0 and not board:
+    elif running_open > 0 and open_bags == running_open and idle_open == 0 and not board:
         # all open work is mid-run; avoid thrashing
         target = max(target, 600)
         reasons.append("all_open_running→≥10m")
 
-    if posture in ("standby", "dormant") and quiet_hint:
-        target = max(target, 1200 if posture == "standby" else 3600)
-        reasons.append("posture_%s_quiet" % posture)
+    if posture_mode in ("standby", "dormant") and quiet_hint:
+        target = max(target, 1200 if posture_mode == "standby" else 3600)
+        reasons.append("posture_%s_quiet" % posture_mode)
 
     # snap to ladder
     if target not in ladder:
@@ -1234,12 +1350,19 @@ def cadence_hint_from(
             "idle_open": idle_open,
             "running_open": running_open,
             "empty_idle": empty_idle,
+            "product_open": counts["product_open"],
+            "product_empty_idle": counts["product_empty_idle"],
             "starvation": starve,
             "wake_candidates": wake,
+            "mail_wake_candidates": mail_wake,
             "runtime_bad": runtime_bad,
             "quiet_streak": quiet_streak,
+            "growth_refill": bool(growth_refill),
         },
-        "note": "Mind applies by replacing the FLEET_CYCLE scheduler; temporary until Fleet host owns refill.",
+        "note": (
+            "Mind applies cadence by replacing the FLEET_CYCLE scheduler. "
+            "Empty growth bags → see refill_hint (file Head lower), not shorten."
+        ),
     }
 
 
@@ -1514,6 +1637,19 @@ def format_text_summary(out: dict, fp: dict, git_main: dict) -> str:
         ),
         "quiet_hint=%s signals=%s" % (out.get("quiet_hint"), out.get("signals")),
     ]
+    rh = out.get("refill_hint") or {}
+    if rh:
+        lines.append(
+            "refill: disposition=%s signal=%s — %s"
+            % (
+                rh.get("disposition"),
+                rh.get("signal"),
+                (rh.get("reason") or "")[:160],
+            )
+        )
+        forbidden = rh.get("forbidden") or []
+        if forbidden:
+            lines.append("  refill_forbidden: %s" % ",".join(forbidden))
     ch = out.get("cadence_hint") or {}
     if ch:
         lines.append(
@@ -1522,7 +1658,7 @@ def format_text_summary(out: dict, fp: dict, git_main: dict) -> str:
                 ch.get("action"),
                 ch.get("current_interval_sec"),
                 ch.get("recommended_interval_sec"),
-                ",".join(ch.get("reasons") or [])[:120],
+                ",".join(ch.get("reasons") or [])[:160],
             )
         )
     memos = (out.get("mind") or {}).get("memos") or []
@@ -2362,6 +2498,14 @@ def main() -> int:
     fp = build_fingerprint(out, fleet)
     out["fingerprint"] = fp
     out["runtime_states"] = runtime_states
+    # Growth empty product bags → explicit refill disposition (Head lower), not quiet/speed.
+    refill = refill_hint_from(out, out["signals"], posture_suppresses_starvation)
+    if refill:
+        out["refill_hint"] = refill
+        if refill.get("signal") and refill["signal"] not in out["signals"]:
+            out["signals"].append(str(refill["signal"]))
+    else:
+        out["refill_hint"] = None
     out["quiet_hint"] = quiet_hint_from(fp, prev, out["signals"], out["steward"])
     out["cadence_hint"] = cadence_hint_from(out, baseline, out["quiet_hint"], out["signals"])
     out["baseline_last_cycle"] = baseline.get("last_cycle")

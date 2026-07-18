@@ -75,6 +75,12 @@ lower. Prefer starvation never happens: when a goal is **defined**, lower a
 horizon immediately so pre-work exists before implement need. Detail:
 [`lowering.md`](lowering.md) **Horizon (batch-ahead lowering)**.
 
+**Sensor bridge:** `fleet-sensors.py` surfaces this as `signals+=growth_refill_required`
+and `refill_hint: {disposition: file_head_lower, …}` whenever growth product Hand
+bags are empty. Mind cycles must disposition that hint every fire (file lower,
+executive refill, or sleep-valid only after an honest empty-map sweep) — not
+absorb-only quiet, and not cadence shorten for emptiness.
+
 ## Multi-hand bags
 
 - File targets **to a specific Hand** (`To: hand-1`), not broadcast

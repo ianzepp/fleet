@@ -678,6 +678,20 @@ Fail-fast is required, but the interval should adapt in both directions. Mind ow
 hint by replacing the harness scheduler. Temporary until a true Fleet host owns
 wake/refill. Base is commonly **5m**; floor **3m** for normal supervision.
 
+**`refill_hint` / `growth_refill_required`:** when growth product Hand bags are
+empty, sensors also emit signal `growth_refill_required` and structured
+`refill_hint` with `disposition=file_head_lower`. That is a **Mind act-now path**,
+not a go-faster cadence cue:
+
+| Do | Do not |
+| --- | --- |
+| Assign **Head lower** (batch-ahead horizon) if map has unlowered work | Invent Hand implement units |
+| Executive refill same cycle in growth | Report the cycle as quiet/sleep-valid |
+| Parcel Hands only from citable delivery units | Shorten FLEET_CYCLE solely because Hands are empty |
+
+Cadence reasons may include `growth_empty→file_lower_not_speed`. Empty bags +
+board noise + stale `mail_wake` must **not** force a 3m tick.
+
 Use judgment rather than changing cadence on one anomalous fire. When adapting a scheduler: create the replacement with the same goal, roots, authority limits, and stop condition; cancel the superseded scheduler immediately; never leave duplicate loops active; record the new scheduler id and reason in the cycle summary and baseline. Do not shorten below 3 minutes for normal Fleet supervision. An urgent addressed-mail or runtime event is handled in the current cycle, not by waiting for a cadence adjustment.
 
 Reset `quiet_streak` on real progress: new/changed tasking, HEAD move, Status absorb, filed residual, completed unit, successful wake, or ops intervention.
