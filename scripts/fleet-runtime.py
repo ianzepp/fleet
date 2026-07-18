@@ -384,9 +384,12 @@ def stop_tmux(fleet: Dict[str, Any], binding: Dict[str, Any]) -> Tuple[bool, str
     if rc != 0:
         return True, "already stopped"
     if window:
+        if not tmux_target_exists(tmux, target):
+            return True, "window already stopped"
         rc2, out2 = run_cmd([tmux, "kill-window", "-t", target_t], timeout=10)
-        if rc2 == 0:
-            return True, out2 or "window stopped"
+        if rc2 != 0:
+            return False, out2 or "failed to stop role window"
+        return True, out2 or "window stopped"
     rc3, out3 = run_cmd([tmux, "kill-session", "-t", sess_t], timeout=10)
     return rc3 == 0, out3 or "session stopped"
 

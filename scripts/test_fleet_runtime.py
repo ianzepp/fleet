@@ -112,10 +112,16 @@ case "$1" in
   new-session) touch "$TMPDIR/fake-tmux-session"; echo "new-session $*" >> "$log"; exit 0 ;;
   list-windows) echo "head-ceo"; exit 0 ;;
   new-window) echo "new-window $*" >> "$log"; exit 0 ;;
-  display-message) [[ -f "$TMPDIR/fake-tmux-session" ]] && echo "%1" && exit 0 || exit 1 ;;
+  display-message)
+    [[ -f "$TMPDIR/fake-tmux-session" ]] || exit 1
+    [[ "${FAKE_TMUX_TARGET_MISSING:-0}" == "1" ]] && exit 1
+    echo "%1"; exit 0 ;;
   capture-pane) echo "›"; exit 0 ;;
   send-keys) echo "send-keys $*" >> "$log"; exit 0 ;;
-  kill-window) rm -f "$TMPDIR/fake-tmux-session"; echo "kill-window $*" >> "$log"; exit 0 ;;
+  kill-window)
+    echo "kill-window $*" >> "$log"
+    [[ "${FAKE_TMUX_KILL_WINDOW_FAIL:-0}" == "1" ]] && exit 1
+    exit 0 ;;
   kill-session) rm -f "$TMPDIR/fake-tmux-session"; echo "kill-session $*" >> "$log"; exit 0 ;;
 esac
 exit 0
@@ -167,6 +173,66 @@ exit 0
         log = (Path(os.environ.get("TMPDIR", "/tmp")) / "fake-tmux-log").read_text(encoding="utf-8")
         self.assertIn("new-session", log)
         self.assertIn("send-keys", log)
+
+    def test_missing_role_window_never_kills_shared_session(self):
+        self.install_fake_tmux()
+        self.write_fleet({
+            "fleet_id": "test",
+            "tmux_layout": "session_per_fleet",
+            "hands": {
+                "hand-1": {
+                    "agent": "pi",
+                    "mail_identity": "hand-1",
+                    "cwd": str(self.root),
+                    "tmux_session": "test",
+                    "tmux_window": "hand-1",
+                    "tmux_target": "test:hand-1.1",
+                    "agent_launch": "pi --model fake",
+                },
+            },
+        })
+        session = Path(os.environ.get("TMPDIR", "/tmp")) / "fake-tmux-session"
+        log = Path(os.environ.get("TMPDIR", "/tmp")) / "fake-tmux-log"
+        session.touch()
+        os.environ["FAKE_TMUX_TARGET_MISSING"] = "1"
+        try:
+            rc = self.run_helper("--role", "hand-1", "stop")
+        finally:
+            os.environ.pop("FAKE_TMUX_TARGET_MISSING", None)
+        self.assertEqual(rc.returncode, 0, rc.stderr + rc.stdout)
+        self.assertTrue(session.exists(), "role stop must preserve the shared tmux session")
+        self.assertNotIn("kill-session", log.read_text(encoding="utf-8") if log.exists() else "")
+        self.assertIn("window already stopped", rc.stdout)
+
+    def test_role_window_stop_failure_never_falls_back_to_shared_session(self):
+        self.install_fake_tmux()
+        self.write_fleet({
+            "fleet_id": "test",
+            "tmux_layout": "session_per_fleet",
+            "hands": {
+                "hand-1": {
+                    "agent": "pi",
+                    "mail_identity": "hand-1",
+                    "cwd": str(self.root),
+                    "tmux_session": "test",
+                    "tmux_window": "hand-1",
+                    "tmux_target": "test:hand-1.1",
+                },
+            },
+        })
+        session = Path(os.environ.get("TMPDIR", "/tmp")) / "fake-tmux-session"
+        log = Path(os.environ.get("TMPDIR", "/tmp")) / "fake-tmux-log"
+        session.touch()
+        os.environ["FAKE_TMUX_KILL_WINDOW_FAIL"] = "1"
+        try:
+            rc = self.run_helper("--role", "hand-1", "stop")
+        finally:
+            os.environ.pop("FAKE_TMUX_KILL_WINDOW_FAIL", None)
+        self.assertEqual(rc.returncode, 1)
+        self.assertTrue(session.exists(), "failed role stop must preserve the shared tmux session")
+        events = log.read_text(encoding="utf-8")
+        self.assertIn("kill-window", events)
+        self.assertNotIn("kill-session", events)
 
     def test_doctor_fails_stopped_vivi_pty(self):
         self.install_fake_vivi_pty()
