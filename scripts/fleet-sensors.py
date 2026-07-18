@@ -233,6 +233,20 @@ def classify_terminal(text: str, session_exists: bool) -> str:
         if re.search(r"⬝|esc interrupt", bottom):
             return "running"
         return "waiting_for_input"
+    # Pi (pi-hand) — idle footer even when "Update Available" chrome sits above.
+    # Example: "0.0%/1.0M (auto) … (zai) glm-5.2 • low" or "pi v0.80.7".
+    if re.search(
+        r"pi v0\.|\(zai\)\s*glm-5\.2|glm-5\.2\s*•\s*(low|medium|high)|%/1\.0M\s*\(auto\)|escape interrupt|mgs-hand-\d+",
+        t,
+        re.I,
+    ):
+        if re.search(
+            r"Working \(|esc to interrupt|Waiting for response|Responding|Thinking…|[🌑🌒🌓🌔🌕🌖🌗🌘]\s*·\s*Tip:",
+            t,
+            re.I,
+        ):
+            return "running"
+        return "waiting_for_input"
     return "unknown"
 
 

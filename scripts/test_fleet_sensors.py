@@ -56,6 +56,20 @@ exited
 """
         self.assertEqual(fleet_sensors.classify_terminal(tail, True), "unknown")
 
+    def test_pi_hand_idle_with_update_banner(self) -> None:
+        tail = """
+ pi v0.80.7
+ escape interrupt · ctrl+c/ctrl+d clear/exit · / commands · ! bash · ctrl+o
+ more
+────────────────────────────────────────────────────────────────────────────────
+ Update Available
+ New version 0.80.10 is available. Run pi update
+────────────────────────────────────────────────────────────────────────────────
+~/work/mintedgeek/swarm (main) • mgs-hand-1
+0.0%/1.0M (auto)                                             (zai) glm-5.2 • low
+"""
+        self.assertEqual(fleet_sensors.classify_terminal(tail, True), "waiting_for_input")
+
 
 
 def _empty_product_hands() -> dict:

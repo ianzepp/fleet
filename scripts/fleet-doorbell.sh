@@ -249,8 +249,9 @@ classify_tmux_text() {
     return 0
   fi
   # Positive agent-idle markers only (do not treat shell %/$ as ready).
+  # Pi (pi-hand): footer like "0.0%/1.0M (auto) … (zai) glm-5.2 • low" or "pi v0.80".
   if printf '%s\n' "$t" | grep -Eiq \
-    '›|codex ›|\$0\.|openai-codex|Ask anything|OpenCode Zen|Build ·|ctrl\+p commands|always-approve|Shift\+Tab|Idle until|Board empty|bag empty|Turn completed|actionable: 0|╰─|pi-lite|Grok  |Grok$'; then
+    '›|codex ›|\$0\.|openai-codex|Ask anything|OpenCode Zen|Build ·|ctrl\+p commands|always-approve|Shift\+Tab|Idle until|Board empty|bag empty|Turn completed|actionable: 0|╰─|pi-lite|Grok  |Grok$|pi v0\.|\(zai\)|glm-5\.2|escape interrupt|%/1\.0M \(auto\)|mgs-hand-'; then
     if printf '%s\n' "$t" | grep -Eiq \
       'bag empty|standing by|turn end|Turn completed|ready-to-merge|Idle until|Board empty|actionable: 0'; then
       echo completed
@@ -324,7 +325,7 @@ def classify_text(t: str) -> str:
     if lines and re.search(r"context:\s*\d+%", lines[-1]) and re.search(r"│\s*>\s*", bottom):
         return "waiting_for_input"
     if re.search(
-        r"›|codex ›|\$0\.|openai-codex|Ask anything|OpenCode Zen|Build ·|ctrl\+p commands|always-approve|Shift\+Tab|Idle until|Board empty|bag empty|Turn completed|actionable: 0|╰─|pi-lite|Grok  |Grok$|◇ candidate",
+        r"›|codex ›|\$0\.|openai-codex|Ask anything|OpenCode Zen|Build ·|ctrl\+p commands|always-approve|Shift\+Tab|Idle until|Board empty|bag empty|Turn completed|actionable: 0|╰─|pi-lite|Grok  |Grok$|◇ candidate|pi v0\.|\(zai\)|glm-5\.2|escape interrupt|%/1\.0M \(auto\)|mgs-hand-",
         t,
         re.I,
     ):
