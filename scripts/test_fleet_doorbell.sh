@@ -1,13 +1,18 @@
 #!/usr/bin/env bash
 # Focused tests for scripts/fleet-doorbell.sh — Pi /new pointer-loss race.
 #
-# Covers the four required scenarios for the transition-aware preparation +
-# pointer acknowledgement fix, plus a continue-mode preservation check:
+# Covers the transition-aware preparation + pointer acknowledgement fix:
 #   1. stale-idle immediate classifier race       => refuse, no wake record
 #   2. delayed /new transition                     => success, wake recorded
 #   3. successful fresh readiness                  => success, wake recorded
-#   4. pointer never acknowledged                  => refuse, no wake record
-#   5. continue-mode preserves no-verification     => success (behavior preserved)
+#   4. pointer never acknowledged (new)            => refuse, no wake record
+#   5. continue + new handle, no --no-prepare      => success, no forced ack (P1)
+#   6. pointer never acknowledged (compact)        => refuse, no wake record
+#
+# Scenario 5 is the continue-mode P1 regression: a new handle under
+# assignment_mode=continue must skip preparation, so DID_PREPARE stays 0 and a
+# general Pi pointer needs no acknowledgement (historical pointer-only behavior).
+# Scenario 6 proves the prepared-ack gate still holds for compact (DID_PREPARE=1).
 #
 # Injection: the script zeros TMUX_BIN at startup, so we place a fake `tmux`
 # on PATH (found via `command -v tmux`); PYTHON_BIN is honored from env.
@@ -37,20 +42,26 @@ CURSOR="$TMP/cursor"
 IDLE='pi v0.80 (zai) glm-5.2 low 0.0%/1.0M (auto)'
 RUNNING='Thinking… handling HAND WAKE'
 NEW_DONE='New session started'   # differs from IDLE -> transition marker
+COMPACT_DONE='Compacted session' # differs from IDLE -> transition marker
 
-# fleet.json: a pi hand role with assignment_mode=new.
-cat > "$TMP/project/.vivi/fleet.json" <<'JSON'
+# fleet.json writer: pi hand role with a configurable assignment_mode.
+# Scenarios 1-4 use `new`; scenario 5 uses `continue` (the P1 path); scenario 6
+# uses `compact`. Unquoted heredoc so $mode expands.
+write_fleet_config() {
+  local mode="$1"
+  cat > "$TMP/project/.vivi/fleet.json" <<JSON
 {
   "fleet_id": "test",
   "hands": {
     "hand-1": {
       "tmux_target": "test:hand-1.1",
       "agent": "pi",
-      "assignment_mode": "new"
+      "assignment_mode": "$mode"
     }
   }
 }
 JSON
+}
 
 # Fake tmux: dispatches on $1; capture-pane returns the next tape line.
 cat > "$FAKEBIN/tmux" <<'SH'
@@ -89,6 +100,7 @@ reset_state() {
   rm -f "$BASELINE" "$SENT" "$CURSOR"
   : > "$SENT"
   echo "0" > "$CURSOR"
+  write_fleet_config "${1:-new}"
 }
 write_tape() { : > "$TAPE"; local ln; for ln in "$@"; do printf '%s\n' "$ln" >> "$TAPE"; done; }
 
@@ -163,18 +175,33 @@ else
   notok "pointer never ack: code=$RUN_CODE baseline=$(baseline_has_handle aa440004 && echo y || echo n) err=$(cat "$RUN_ERR")"
 fi
 
-# ── Scenario 5: continue-mode preserves no-verification => success ──────
-reset_state
-# --no-prepare => APPLY_PREPARE=0; pi continue-mode pointer ack is a no-op.
+# ── Scenario 5: continue + new handle, no --no-prepare => success (P1) ──────
+reset_state continue
 write_tape "$IDLE"
-run_doorbell aa550005 --no-prepare
+run_doorbell aa550005
 if [[ "$RUN_CODE" -eq 0 ]] \
    && baseline_has_handle aa550005 \
    && sent_has 'HAND WAKE hand-1' \
-   && ! sent_has '/new'; then
-  ok "continue-mode wake preserved (no /new, no forced ack); wake recorded"
+   && ! sent_has '/new' \
+   && ! sent_has '/compact'; then
+  ok "continue + new handle preserved (no /new|/compact, no forced ack); wake recorded"
 else
-  notok "continue-mode: code=$RUN_CODE baseline=$(baseline_has_handle aa550005 && echo y || echo n) err=$(cat "$RUN_ERR")"
+  notok "continue + new handle: code=$RUN_CODE baseline=$(baseline_has_handle aa550005 && echo y || echo n) err=$(cat "$RUN_ERR")"
+fi
+
+# ── Scenario 6: pointer never acknowledged (compact) => refuse ──────────
+# Gate proof: assignment_mode=compact runs real preparation (DID_PREPARE=1),
+# so an unacknowledged pointer must still refuse and record no wake.
+reset_state compact
+write_tape "$IDLE" "$IDLE" "$IDLE" "$IDLE" "$COMPACT_DONE" "$IDLE" "$IDLE"
+run_doorbell aa660006
+if [[ "$RUN_CODE" -eq 1 ]] \
+   && ! baseline_has_handle aa660006 \
+   && sent_has '/compact' \
+   && sent_has 'HAND WAKE hand-1'; then
+  ok "compact pointer never acknowledged refused (exit 1), no wake record, pointer was sent"
+else
+  notok "compact never ack: code=$RUN_CODE baseline=$(baseline_has_handle aa660006 && echo y || echo n) err=$(cat "$RUN_ERR")"
 fi
 
 echo "---"

@@ -431,11 +431,13 @@ send_line() {
 }
 
 verify_pointer_submission_started() {
-  # A new-session/compact/restart wake (APPLY_PREPARE) always requires positive
-  # acknowledgement per the doorbell invariant — never record baseline success
-  # from keystroke delivery alone. Continue-mode wakes preserve the prior
-  # behavior: only Kimi under vivi_pty required acknowledgement.
-  if [[ "$APPLY_PREPARE" -ne 1 ]]; then
+  # Acknowledgement is required only when an actual preparation (new/compact/
+  # restart) ran and succeeded — the sole case where the doorbell invariant
+  # forbids recording baseline success from keystroke delivery alone.
+  # Eligibility (APPLY_PREPARE) is intentionally not enough: assignment_mode
+  # =continue with a new handle skips preparation, so it must preserve the
+  # historical pointer-only behavior (only Kimi under vivi_pty required ack).
+  if [[ "$DID_PREPARE" -ne 1 ]]; then
     [[ "$WAKE_MODE" == "vivi_pty" && "$AGENT" == "kimi" ]] || return 0
   fi
   local i=0
@@ -719,10 +721,15 @@ else
   APPLY_PREPARE=0
 fi
 
+# DID_PREPARE tracks whether a new/compact/restart preparation actually ran
+# and succeeded, separate from APPLY_PREPARE eligibility. It gates forced
+# pointer acknowledgement below (continue-mode new handle stays pointer-only).
+DID_PREPARE=0
 if [[ "$APPLY_PREPARE" -eq 1 && "$ASSIGNMENT_MODE" != "continue" ]]; then
   if ! prepare_assignment "$ASSIGNMENT_MODE"; then
     exit 1
   fi
+  DID_PREPARE=1
   CLASS="$(classify_runtime)"
 elif [[ "$CLASS" == "stopped" ]]; then
   # continue (or skipped prepare): still need a live runtime for pointer wake
