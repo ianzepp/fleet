@@ -13,6 +13,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 SCRIPTS = Path(__file__).resolve().parent
 
@@ -307,14 +308,54 @@ class RuntimeCommandUpdateTests(unittest.TestCase):
         self.assertEqual(updated["command"][1:], ["--provider", "zai", "--model", "glm-5.2", "--thinking", "high", "--approve"])
 
     def test_vivi_pty_command_kimi(self):
-        runtime = {"kind": "vivi_pty", "command": ["kimi"]}
+        runtime = {"kind": "vivi_pty", "driver": "generic", "command": ["kimi"]}
         updated = rebind._update_runtime_command(runtime, "kimi", "kimi-k3", None, None, None)
         self.assertEqual(updated["command"], ["kimi", "--model", "kimi-k3", "--yolo"])
+        self.assertEqual(updated["driver"], "kimi")
 
     def test_vivi_pty_command_unknown_preserves(self):
         runtime = {"kind": "vivi_pty", "command": ["custom-agent"]}
         updated = rebind._update_runtime_command(runtime, "unknown", "x", None, None, None)
         self.assertIs(updated, runtime)
+
+    def test_vivi_pty_start_uses_current_cwd_and_driver_flags(self):
+        slot = {
+            "mail_identity": "head-cpo",
+            "runtime": {
+                "kind": "vivi_pty",
+                "session_id": "test-head-cpo",
+                "socket": "/tmp/test.sock",
+                "driver": "kimi",
+                "command": ["kimi", "--yolo"],
+            },
+        }
+        with mock.patch.object(rebind.shutil, "which", return_value="/bin/vivi-pty"), mock.patch.object(
+            rebind, "run_cmd", return_value=(0, "ok")
+        ) as run:
+            ok, _ = rebind._start_vivi_pty(slot, "head-cpo", "/tmp/work", Path("/tmp/project"))
+        self.assertTrue(ok)
+        self.assertEqual(
+            run.call_args.args[0],
+            [
+                "/bin/vivi-pty", "session", "start", "test-head-cpo",
+                "--socket", "/tmp/test.sock", "--cwd", "/tmp/work",
+                "--driver", "kimi", "--", "kimi", "--yolo",
+            ],
+        )
+
+    def test_vivi_pty_rebind_removes_tombstone(self):
+        with mock.patch.object(rebind.shutil, "which", return_value="/bin/vivi-pty"), mock.patch.object(
+            rebind, "run_cmd", return_value=(0, "ok")
+        ) as run:
+            ok, _ = rebind._stop_vivi_pty("test-head-cpo", "/tmp/test.sock")
+        self.assertTrue(ok)
+        self.assertEqual(
+            run.call_args.args[0],
+            [
+                "/bin/vivi-pty", "session", "remove", "test-head-cpo",
+                "--socket", "/tmp/test.sock",
+            ],
+        )
 
 
 class ResolveSlotsTests(unittest.TestCase):

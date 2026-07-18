@@ -64,6 +64,7 @@ from fleet_common import (  # noqa: E402
 require_python()
 
 HARNESS_LAUNCHERS = ("grok", "codex", "pi", "opencode", "kimi")
+VIVI_PTY_DRIVERS = frozenset(("generic", "grok", "codex", "pi", "opencode", "kimi"))
 CANONICAL_STATES_FOR_RESTART = (
     "waiting_for_input",
     "completed",
@@ -213,6 +214,8 @@ def _update_runtime_command(runtime: dict, agent: str, agent_model: Optional[str
 
     updated = dict(runtime)
     updated["command"] = cmd
+    if agent_lower in VIVI_PTY_DRIVERS:
+        updated["driver"] = agent_lower
     return updated
 
 
@@ -354,10 +357,10 @@ def _stop_tmux(target: str, session: str) -> Tuple[bool, str]:
 
 
 def _stop_vivi_pty(session_id: str, socket: str) -> Tuple[bool, str]:
-    """Stop a vivi_pty session. Returns (ok, message)."""
+    """Remove a vivi_pty session so the same id can bind new config."""
     vivi_pty = shutil.which("vivi-pty") or "vivi-pty"
     rc, out = run_cmd(
-        [vivi_pty, "session", "stop", session_id, "--socket", socket],
+        [vivi_pty, "session", "remove", session_id, "--socket", socket],
         timeout=10,
     )
     return rc == 0, out
@@ -418,7 +421,20 @@ def _start_vivi_pty(slot: dict, identity: str, cwd: Optional[str],
         return False, "no runtime.command to start"
     vivi_pty = shutil.which("vivi-pty") or "vivi-pty"
     work_dir = cwd or str(project)
-    args = [vivi_pty, "session", "start", session_id, "--socket", socket, "-c", work_dir, "--"]
+    driver = str(runtime.get("driver") or "generic")
+    args = [
+        vivi_pty,
+        "session",
+        "start",
+        session_id,
+        "--socket",
+        socket,
+        "--cwd",
+        work_dir,
+        "--driver",
+        driver,
+        "--",
+    ]
     args.extend(command)
     rc, out = run_cmd(args, timeout=15)
     return rc == 0, out

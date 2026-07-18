@@ -378,7 +378,10 @@ submit_delay_default() {
     return 0
   fi
   if [[ "$WAKE_MODE" == "vivi_pty" ]]; then
-    printf '0.05\n'
+    case "$AGENT" in
+      kimi) printf '0.8\n' ;;
+      *) printf '0.05\n' ;;
+    esac
     return 0
   fi
   case "$AGENT" in
@@ -396,8 +399,16 @@ send_line() {
   delay="$(submit_delay_default)"
   text="$(printf '%s' "$text" | tr '\n\r' '  ')"
   if [[ "$WAKE_MODE" == "vivi_pty" ]]; then
-    "$VIVI_PTY_BIN" terminal write "$RESOLVED_TARGET" "$text" --enter --socket "$SOCKET"
-    sleep "$delay"
+    if [[ "$AGENT" == "kimi" ]]; then
+      # Kimi needs paste settling before Enter; an atomic write --enter can
+      # leave a complete wake pointer sitting unsent in the composer.
+      "$VIVI_PTY_BIN" terminal write "$RESOLVED_TARGET" "$text" --socket "$SOCKET"
+      sleep "$delay"
+      "$VIVI_PTY_BIN" terminal key "$RESOLVED_TARGET" Enter --socket "$SOCKET"
+    else
+      "$VIVI_PTY_BIN" terminal write "$RESOLVED_TARGET" "$text" --enter --socket "$SOCKET"
+      sleep "$delay"
+    fi
   else
     local target_exact
     target_exact="$(tmux_target_exact "$RESOLVED_TARGET")"
@@ -405,6 +416,23 @@ send_line() {
     sleep "$delay"
     "$TMUX_BIN" send-keys -t "$target_exact" Enter
   fi
+}
+
+verify_kimi_submission_started() {
+  local i=0
+  local state
+  [[ "$WAKE_MODE" == "vivi_pty" && "$AGENT" == "kimi" ]] || return 0
+  while [[ "$i" -lt 50 ]]; do
+    state="$(classify_runtime)"
+    case "$state" in
+      running|submitting|approval_required) return 0 ;;
+      stopped|failed|unready|unknown) break ;;
+    esac
+    sleep 0.1
+    i=$((i + 1))
+  done
+  echo "refused: Kimi wake was not acknowledged (state=$state); wake not recorded" >&2
+  return 1
 }
 
 # True when it is safe to type a pointer (or /new|/compact) into the pane.
@@ -702,6 +730,7 @@ fi
 MESSAGE="$(printf '%s' "$MESSAGE" | tr '\n\r' '  ')"
 
 send_line "$MESSAGE"
+verify_kimi_submission_started || exit 1
 
 # record last wake in baseline (atomic write)
 "$PYTHON_BIN" - "$BASELINE" "$PROJECT" "$ROLE" "$HANDLE" "$RESOLVED_TARGET" "$WAKE_MODE" "$SOCKET" "$ASSIGNMENT_MODE" <<'PY'

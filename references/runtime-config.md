@@ -70,6 +70,22 @@ quiet/mode counters, stores fingerprint/runtime_states, merges `sensors.heads`
 `steward.last_rearm_at` — that is `steward.sh arm|rearm` only (when steward is
 enabled+armed).
 
+### `fleet-cycle-close.py`
+
+```bash
+python3 scripts/fleet-cycle-close.py --project <root> --acted -s 'filed lower' \
+  --disposition 'growth_refill_required=delegated:task abc123'
+python3 scripts/fleet-cycle-close.py --project <root> --quiet -s 'sleep' \
+  --dispositions-file /tmp/cycle-dispositions.json
+```
+
+This is the required normal close path. It collects sensors once, requires one
+evidence-bearing disposition for every emitted signal, records the configured
+redacted sensor history, writes `.vivi/logs/cycles/<cycle>.json`, bumps the
+baseline, and refreshes `.vivi/cycle-closure.json`. A quiet cycle accepts only
+`deferred-valid` or `sleep-valid` dispositions. Missing, extra, or
+partial-sensor dispositions fail before the baseline advances.
+
 ### `verify-fleet-json.py`
 
 ```bash

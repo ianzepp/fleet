@@ -295,6 +295,7 @@ class ArgumentParsingTests(unittest.TestCase):
             "--recap", "Merged theme",
             "--no-watch",
             "--no-increment-silence",
+            "--disposition", "operator_mail=escalated:presented to operator",
         ])
         self.assertTrue(args.acted)
         self.assertFalse(args.quiet)
@@ -305,6 +306,10 @@ class ArgumentParsingTests(unittest.TestCase):
         self.assertEqual(args.recap, "Merged theme")
         self.assertTrue(args.no_watch)
         self.assertTrue(args.no_increment_silence)
+        self.assertEqual(
+            args.disposition,
+            ["operator_mail=escalated:presented to operator"],
+        )
 
     def test_quiet_flag(self):
         parser = close_mod.parser()
@@ -326,6 +331,49 @@ class ArgumentParsingTests(unittest.TestCase):
         with self.assertRaises(SystemExit):
             parser = close_mod.parser()
             parser.parse_args(["--acted"])
+
+
+class DispositionTests(unittest.TestCase):
+    def test_parse_cli_disposition(self):
+        rows = close_mod.parse_dispositions(
+            ["growth_refill_required=delegated:task abc123 filed"], None
+        )
+        self.assertEqual(rows["growth_refill_required"]["disposition"], "delegated")
+        self.assertEqual(rows["growth_refill_required"]["evidence"], "task abc123 filed")
+
+    def test_missing_evidence_is_rejected(self):
+        with self.assertRaisesRegex(ValueError, "requires non-empty evidence"):
+            close_mod.parse_dispositions(["operator_mail=escalated"], None)
+
+    def test_every_signal_requires_disposition(self):
+        with self.assertRaisesRegex(ValueError, "unresolved sensor signals"):
+            close_mod.validate_dispositions(
+                {"signals": ["operator_mail"], "partial": False}, {}, False
+            )
+
+    def test_partial_sensor_requires_explicit_disposition(self):
+        with self.assertRaisesRegex(ValueError, "sensors_partial"):
+            close_mod.validate_dispositions(
+                {"signals": [], "partial": True}, {}, False
+            )
+
+    def test_quiet_rejects_active_disposition(self):
+        rows = close_mod.parse_dispositions(
+            ["operator_mail=acted:absorbed abc123"], None
+        )
+        with self.assertRaisesRegex(ValueError, "quiet cycle has active"):
+            close_mod.validate_dispositions(
+                {"signals": ["operator_mail"], "partial": False}, rows, True
+            )
+
+    def test_deferred_signal_can_close_quiet(self):
+        rows = close_mod.parse_dispositions(
+            ["runtime_hand_1_running=deferred-valid:turn still active"], None
+        )
+        result = close_mod.validate_dispositions(
+            {"signals": ["runtime_hand_1_running"], "partial": False}, rows, True
+        )
+        self.assertEqual(result[0]["disposition"], "deferred-valid")
 
 
 class InProcessIntegrationTests(unittest.TestCase):

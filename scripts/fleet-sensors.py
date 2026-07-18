@@ -1070,7 +1070,9 @@ def build_fingerprint(out: dict, fleet: dict) -> dict:
         "steward_armed": (out.get("steward") or {}).get("armed"),
         "steward_tripped": (out.get("steward") or {}).get("tripped"),
         "map_focus": (fleet.get("focus") or {}).get("chapter")
-        or (fleet.get("focus") or {}).get("primary_goal"),
+        or (fleet.get("focus") or {}).get("primary_goal")
+        or (fleet.get("focus") or {}).get("priority_goal")
+        or (fleet.get("focus") or {}).get("text"),
     }
     for hkey, hdata in (out.get("heads") or {}).items():
         sk = hkey.replace("-", "_")
@@ -1503,8 +1505,21 @@ def summary_snapshot(out: dict) -> dict:
         "quiet_hint": out.get("quiet_hint"),
         "partial": out.get("partial"),
         "fingerprint": redact_snapshot(out.get("fingerprint") or {}),
+        "mind": {
+            "memo_count": (out.get("mind") or {}).get("memo_count"),
+            "memo_budget": (out.get("mind") or {}).get("memo_budget"),
+        },
         "roles": roles,
     }
+
+
+def memo_pressure(identity_row: dict, listed: List[dict], budget: int) -> Tuple[int, bool]:
+    raw_count = identity_row.get("memos_open")
+    try:
+        count = int(raw_count) if raw_count is not None else len(listed)
+    except (TypeError, ValueError):
+        count = len(listed)
+    return count, count > budget
 
 
 def _history_files(directory: Path) -> List[Path]:
@@ -1676,6 +1691,11 @@ def format_text_summary(out: dict, fp: dict, git_main: dict) -> str:
             )
         )
     memos = (out.get("mind") or {}).get("memos") or []
+    mind = out.get("mind") or {}
+    lines.append(
+        "mind_memory: memos=%s budget=%s"
+        % (mind.get("memo_count"), mind.get("memo_budget"))
+    )
     if memos:
         lines.append("mind_memos:")
         for memo in memos:
@@ -1741,6 +1761,7 @@ def main() -> int:
     ap.add_argument("--no-watch", action="store_true", help="Skip mailspace watch --once")
     ap.add_argument("--tail", type=int, default=16, help="tmux capture lines per pane")
     ap.add_argument("--memo-limit", type=int, default=20, help="number of Mind memo checklist lines to include; 0 disables")
+    ap.add_argument("--memo-budget", type=int, default=20, help="maximum active Mind memos before a pressure signal")
     ap.add_argument("--cursor-file", default=None, help="watch cursor path (default: .vivi/mind-watch.cursor)")
     ap.add_argument("--record-cycle", action="store_true", help="Record this canonical Mind-cycle observation when sensor_log is enabled")
     ap.add_argument("--cycle-id", default=None, help="Cycle identifier (default: next baseline cycle)")
@@ -1759,6 +1780,8 @@ def main() -> int:
         ap.error("--cycle-id must be a canonical non-negative decimal integer")
     if args.memo_limit < 0:
         ap.error("--memo-limit must be non-negative")
+    if args.memo_budget < 0:
+        ap.error("--memo-budget must be non-negative")
 
     project = Path(args.project).expanduser().resolve()
     if not project.is_dir():
@@ -1917,15 +1940,22 @@ def main() -> int:
 
     mind_row = out["identities"].get(mind_inbox) or {}
     mind_memos = list_memos(vivi, str(project), mind_inbox, limit=args.memo_limit) if vivi else []
+    mind_memo_count, mind_memo_over_budget = memo_pressure(
+        mind_row, mind_memos, args.memo_budget
+    )
     out["mind"] = {
         "identity": mind_inbox,
         "inbox_unread": mind_row.get("inbox_unread", 0),
         "from_operator": op_to_mind,
         "from_operator_count": len(op_to_mind),
         "memos": mind_memos,
-        "memo_count": len(mind_memos),
+        "memo_count": mind_memo_count,
         "memo_limit": args.memo_limit,
+        "memo_budget": args.memo_budget,
+        "memo_over_budget": mind_memo_over_budget,
     }
+    if mind_memo_over_budget:
+        out["signals"].append("mind_memo_over_budget")
 
     now_dt = datetime.now(timezone.utc)
 

@@ -166,5 +166,28 @@ class RefillAndCadenceHintTests(unittest.TestCase):
         self.assertIn("idle_open_bag→≤5m", ch["reasons"])
 
 
+class MemoPressureTests(unittest.TestCase):
+    def test_uses_total_mailspace_count_not_display_limit(self) -> None:
+        count, over = fleet_sensors.memo_pressure(
+            {"memos_open": 337}, [{"handle": "one"}] * 20, 20
+        )
+        self.assertEqual(count, 337)
+        self.assertTrue(over)
+
+    def test_small_durable_set_is_below_budget(self) -> None:
+        count, over = fleet_sensors.memo_pressure(
+            {"memos_open": 9}, [{"handle": "one"}] * 9, 20
+        )
+        self.assertEqual(count, 9)
+        self.assertFalse(over)
+
+    def test_fingerprint_accepts_overlay_priority_goal_focus(self) -> None:
+        fingerprint = fleet_sensors.build_fingerprint(
+            {"hands": {}, "git": {}, "operator": {}, "steward": {}},
+            {"focus": {"priority_goal": "factory/goals/railway.md"}},
+        )
+        self.assertEqual(fingerprint["map_focus"], "factory/goals/railway.md")
+
+
 if __name__ == "__main__":
     unittest.main()

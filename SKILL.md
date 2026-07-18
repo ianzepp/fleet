@@ -178,7 +178,7 @@ Core process here; detail in `references/` + `scripts/`.
 | Mind loop fallback | [`scripts/fleet-loop.py`](scripts/fleet-loop.py). tmux-backed `FLEET_CYCLE` injector for Mind harnesses without native scheduled loops. Records `.vivi/fleet-loop.json`; `start`, `status`, `stop`; loop ≠ steward and never runs sensors itself. |
 | Runtime lifecycle | [`scripts/fleet-runtime.py`](scripts/fleet-runtime.py). Backend-neutral start/stop/restart/status for configured Hand/Head runtimes; use before doorbell when a role is stopped. |
 | Runtime rebind | [`scripts/fleet-runtime-rebind.py`](scripts/fleet-runtime-rebind.py). Plan/apply atomic runtime config changes across Heads and Hands. |
-| Cycle close | [`scripts/fleet-cycle-close.py`](scripts/fleet-cycle-close.py). One command: sensors → baseline bump → optional steward rearm. |
+| Cycle close | [`scripts/fleet-cycle-close.py`](scripts/fleet-cycle-close.py). Required normal close path: sensors → explicit dispositions → redacted receipt → baseline bump → optional steward rearm. |
 | Codex pane | [`scripts/codex-reinit.sh`](scripts/codex-reinit.sh) |
 | Codex plugin | [`plugins/fleet/`](plugins/fleet) |
 | opencode pane | [`scripts/opencode-hand-ctl.sh`](scripts/opencode-hand-ctl.sh) |
@@ -413,7 +413,7 @@ Host axis on slots: `host`, `ssh`, host-scoped cwd/tmux/launch. Wake/reinit **on
 
 1. **Arm/attach** — identities; harness; runtime binding; baseline counters; `mind_session`; **do not** arm steward unless operator asked for that fleet. Dormant-to-live procedure: [`launch.md`](references/launch.md)
 2. **Focus** — map package; Hand picks open target (no GO wait)  
-3. **Gather** — `fleet-sensors.py`; process new addressed mail before cadence; quiet if fingerprint/panes unchanged; doorbell/reinit; end: `fleet-cycle-close.py` (sensors → baseline → optional steward rearm) or `fleet-baseline.py bump` (+ `steward.sh rearm` **only if steward armed for that fleet**)
+3. **Gather** — `fleet-sensors.py`; process new addressed mail before cadence; quiet if fingerprint/panes unchanged; doorbell/reinit; end with `fleet-cycle-close.py`. It refuses unresolved signals and writes the canonical receipt before advancing the baseline. Use direct `fleet-baseline.py bump` only for repair/testing, never a normal cycle.
 4. **Hand work** — show → implement → validate → unit `$polish` → done → next/sleep  
 5. **Sleep** — most wakes no-ops ([`mind-cycle.md`](references/mind-cycle.md))  
 6. **Detach/wind-down** — if steward was armed, `steward.sh disarm` same turn; drop idle panes  
@@ -456,12 +456,15 @@ python3 <skill>/scripts/fleet-runtime.py --project <root> --fleet <fleet-id> --r
 # Agent recovery only if doorbell sticks/errors:
 <skill>/scripts/codex-reinit.sh doctor --project <root> --fleet <fleet-id> --role hand-1      # Codex
 <skill>/scripts/opencode-hand-ctl.sh doctor --project <root> --fleet <fleet-id> --role hand-1  # opencode
-# Cycle close: sensors → baseline → optional steward rearm in one command
-python3 <skill>/scripts/fleet-cycle-close.py --project <root> --acted --summary '…'
+# Cycle close: sensors → dispositions → receipt → baseline → optional steward rearm
+python3 <skill>/scripts/fleet-cycle-close.py --project <root> --acted --summary '…' \
+  --disposition 'growth_refill_required=delegated:lower task abc123 filed'
+# For several signals, prefer a JSON object: {"signal":{"disposition":"acted","evidence":"handle"}}
+python3 <skill>/scripts/fleet-cycle-close.py --project <root> --acted \
+  --dispositions-file /tmp/cycle-dispositions.json
 # or: --quiet for sleep cycles; --operator-engaged resets silence
 # silence: default bump increments turns_since_operator_message
-python3 <skill>/scripts/fleet-baseline.py bump -p <root> --fleet <fleet-id> -s 'sleep' --quiet \
-  --fingerprint-file /tmp/fleet-sensors.json
+# Direct baseline bump is a repair/test seam; it does not satisfy normal closeout.
 # only if human prose this turn or since last_operator_message_at:
 # python3 …/fleet-baseline.py bump … --operator-engaged
 # Runtime rebind: plan dry-run or atomic apply

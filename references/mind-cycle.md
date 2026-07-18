@@ -227,11 +227,10 @@ python3 $SK/fleet-sensors.py --project "$ROOT" --history 10 [--role hand-1]
 $SK/fleet-doorbell.sh --project "$ROOT" --role hand-1 --handle <hex> --note 'bag open'
 # exit 0 sent · 1 refused (running|down|rate-limit) · 2 usage
 
-python3 $SK/fleet-sensors.py --project "$ROOT" --record-cycle --cycle-id <non-negative-integer> > /tmp/fleet-sensors.json
-python3 $SK/fleet-baseline.py bump -p "$ROOT" -s 'sleep' --quiet \
-  --fingerprint-file /tmp/fleet-sensors.json
-# only if steward enabled+armed for this fleet (default: skip):
-# $SK/steward.sh rearm --project "$ROOT"
+# Normal end-of-cycle path. Repeat --disposition once for every emitted signal,
+# or use --dispositions-file with the same signal → disposition/evidence mapping.
+python3 $SK/fleet-cycle-close.py --project "$ROOT" --acted --summary '…' \
+  --disposition 'operator_to_mind=acted:absorbed handles abc123,def456'
 ```
 
 | Helper | Job |
@@ -243,6 +242,12 @@ python3 $SK/fleet-baseline.py bump -p "$ROOT" -s 'sleep' --quiet \
 ### Signal disposition gate
 
 `sensors.signals[]` are obligations. Before sleep/report/baseline bump, each material signal must be `acted`, `delegated`, `escalated`, `deferred-valid`, or `sleep-valid` as defined in `SKILL.md`.
+
+`fleet-cycle-close.py` enforces this mechanically. It rejects missing or extra
+signal dispositions, requires evidence, records the exact redacted observation
+under `.vivi/logs/sensors/`, writes a per-cycle receipt under
+`.vivi/logs/cycles/`, then advances the baseline. Direct baseline bumps are for
+repair and tests only.
 
 Examples: `operator_to_mind` must be absorbed first; `operator_mail` must be presented/carry-forwarded; `wake_candidate_*` must be doorbelled/reinit'd or validly deferred; `runtime_*_stopped|failed|approval_required` must be repaired, assigned to ops, or escalated; `starvation_candidate_*` in growth must trigger file+wake or executive refill/valid pause; repeated dirty blockers must be diff-classified A/B/C.
 
