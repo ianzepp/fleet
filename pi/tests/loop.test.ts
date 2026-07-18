@@ -3,7 +3,7 @@ import test from "node:test";
 import {
   loopGenerationIsCurrent,
   snapshotHasActionableChange,
-} from "../extensions/loop-policy.ts";
+} from "../lib/loop-policy.ts";
 
 const snapshot = (signals: string[] = [], fingerprint: Record<string, unknown> = {}) => ({
   signals,

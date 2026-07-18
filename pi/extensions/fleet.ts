@@ -6,7 +6,7 @@ import { dirname, resolve } from "node:path";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { truncateToWidth } from "@earendil-works/pi-tui";
 import { Type } from "typebox";
-import { loopGenerationIsCurrent, snapshotHasActionableChange } from "./loop-policy";
+import { loopGenerationIsCurrent, snapshotHasActionableChange } from "../lib/loop-policy";
 
 const FLEET_ROOT = resolve(dirname(__dirname), "..");
 const SCRIPTS = resolve(FLEET_ROOT, "scripts");
