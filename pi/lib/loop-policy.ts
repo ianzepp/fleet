@@ -39,6 +39,16 @@ export function loopGenerationIsCurrent(loopRunning: boolean, current: number, c
  * settle/fire at the correct seams; the policy decides the deadline and whether
  * a scheduled fire may deliver. There is no repeating-interval path and no
  * origin-specific clock.
+ *
+ * Lifecycle truth (do not regress to per-message accounting): Pi delivers a
+ * follow-up message (sendUserMessage with deliverAs "followUp") as a
+ * continuation that drains inside the active agent run, and emits a single
+ * agent_settled event only after the whole queued batch has drained. Several
+ * accepts during one run therefore share one settle. The boolean in-flight
+ * flag is intentional: it means "a Fleet batch is running", not "one specific
+ * accepted message". Counting one outstanding per accept and consuming one per
+ * settle strands the scheduler in-flight forever (one agent_settled can never
+ * drain N accepts), so do not reintroduce outstanding-per-accept here.
  */
 export class ScheduledDeadlinePolicy {
   private intervalMs: number;
@@ -113,8 +123,9 @@ export class ScheduledDeadlinePolicy {
    * A cycle of any origin (schedule, sensor, trusted mail, manual/follow-up)
    * was accepted and is now in flight. Invalidate the pending scheduled
    * callback so a stale scheduled delivery cannot fire during or immediately
-   * after this cycle. The next scheduled deadline is armed only when this cycle
-   * settles.
+   * after this cycle. Pi coalesces follow-ups into one run, so several accepts
+   * during a single run share one agent_settled; the next scheduled deadline
+   * arms when that single settle fires (see settle).
    */
   accept(_nowMs: number): void {
     this.inFlight = true;
@@ -125,8 +136,13 @@ export class ScheduledDeadlinePolicy {
    * A Fleet cycle completed (agent settled). Records completion and arms the
    * next scheduled deadline at completion+interval, regardless of origin. This
    * is the rebase that makes the interval a minimum delay from the most recent
-   * completed cycle rather than from loop start. A non-Fleet settle (no cycle
-   * was in flight) is a no-op: the host only calls this when a cycle completed.
+   * completed cycle rather than from loop start. Because Pi drains a whole
+   * batch of accepted cycles (original + any follow-ups) before emitting one
+   * agent_settled, a single settle clears the entire in-flight batch and arms
+   * the deadline from that final completion. A non-Fleet settle (no cycle was
+   * in flight) never reaches here: the host's onAgentSettled only calls this
+   * while in flight, so an extra unrelated agent_settled is a no-op at the
+   * adapter guard.
    */
   settle(nowMs: number): void {
     this.inFlight = false;

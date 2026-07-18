@@ -189,3 +189,102 @@ test("busy/in-flight cycles cannot cause an immediate scheduled follow-up after 
   busy.settle(150_000);
   assert.equal(busy.getDeadlineMs(), 150_000 + INTERVAL_MS);
 });
+
+// Pi one-batch lifecycle (auditor-2 c9678a1e): a follow-up sent during a
+// running cycle (sendUserMessage with deliverAs "followUp") drains inside the
+// same agent run, and Pi emits a single agent_settled only after the whole
+// queued batch drains. Several accepts during one run therefore share ONE
+// settle. The boolean in-flight flag models "a Fleet batch is running"; a
+// single settle clears it and arms the deadline from the final completion.
+// These tests model that lifecycle by mirroring onAgentSettled, which only
+// calls settle() while isInFlight(). They fail on the rejected per-message
+// outstanding count model (4eb6826): one agent_settled can never drain N
+// accepts, so that model strands the scheduler in-flight forever with no
+// scheduled deadline.
+
+test("one Pi agent_settled after a busy follow-up drains clears in-flight and rebases from final completion", () => {
+  const p = new ScheduledDeadlinePolicy(INTERVAL);
+  p.start(0); // deadline = 300, nothing in flight
+  p.accept(100_000); // original Fleet cycle A accepted/running
+  assert.equal(p.isInFlight(), true);
+  assert.equal(p.getDeadlineMs(), undefined);
+  // Trusted-mail/manual follow-up B accepted while A is still running (adapter
+  // allowBusyFollowUp path). Pi queues it as a continuation inside A's run.
+  p.accept(110_000);
+  assert.equal(p.isInFlight(), true);
+  assert.equal(p.getDeadlineMs(), undefined);
+  // No intermediate agent_settled exists. After the whole batch drains Pi
+  // emits ONE agent_settled; onAgentSettled calls settle once.
+  if (p.isInFlight()) p.settle(200_000);
+  assert.equal(p.isInFlight(), false);
+  // Deadline is the final (batch) completion + interval, not an earlier one.
+  assert.equal(p.getDeadlineMs(), 200_000 + INTERVAL_MS);
+});
+
+test("several busy follow-ups accepted during one run settle in a single Pi agent_settled", () => {
+  const p = new ScheduledDeadlinePolicy(INTERVAL);
+  p.start(0);
+  p.accept(10_000); // A
+  p.accept(20_000); // follow-up B
+  p.accept(30_000); // follow-up C
+  assert.equal(p.isInFlight(), true);
+  assert.equal(p.getDeadlineMs(), undefined);
+  // One final agent_settled after all three drain clears the whole batch.
+  if (p.isInFlight()) p.settle(60_000);
+  assert.equal(p.isInFlight(), false);
+  assert.equal(p.getDeadlineMs(), 60_000 + INTERVAL_MS);
+});
+
+test("an extra unrelated agent_settled after the batch settled is a no-op", () => {
+  const p = new ScheduledDeadlinePolicy(INTERVAL);
+  p.start(0);
+  p.accept(100_000);
+  p.accept(110_000); // follow-up during A
+  if (p.isInFlight()) p.settle(200_000); // batch drains; one agent_settled
+  assert.equal(p.isInFlight(), false);
+  const armed = p.getDeadlineMs();
+  assert.equal(armed, 200_000 + INTERVAL_MS);
+  // A later, unrelated agent_settled (e.g. a non-Fleet turn) arrives with
+  // nothing in flight. onAgentSettled's isInFlight() guard skips settle, so the
+  // already-armed deadline is untouched.
+  if (p.isInFlight()) p.settle(500_000); // skipped
+  assert.equal(p.isInFlight(), false);
+  assert.equal(p.getDeadlineMs(), armed); // unchanged
+});
+
+test("cadence update during one in-flight batch rebases from the single batch completion", () => {
+  const p = new ScheduledDeadlinePolicy(INTERVAL);
+  p.start(0);
+  p.accept(100_000);
+  p.accept(110_000); // follow-up during A; whole batch in flight
+  // Cadence change mid-batch must not strand the batch; it only changes the
+  // interval and invalidates stale callbacks.
+  p.update(120_000, 600);
+  assert.equal(p.getIntervalSec(), 600);
+  // One final agent_settled clears the batch and arms from final completion.
+  if (p.isInFlight()) p.settle(200_000);
+  assert.equal(p.isInFlight(), false);
+  assert.equal(p.getDeadlineMs(), 200_000 + 600_000);
+});
+
+test("stop mid-batch, single agent_settled while stopped, then restart stays honest", () => {
+  const p = new ScheduledDeadlinePolicy(INTERVAL);
+  p.start(0);
+  p.accept(100_000);
+  p.accept(110_000); // follow-up during A; whole batch in flight
+  // Operator stops the loop while a batch is still running.
+  p.stop();
+  assert.equal(p.isRunning(), false);
+  assert.equal(p.isInFlight(), true); // outstanding batch preserved across stop
+  assert.equal(p.getDeadlineMs(), undefined);
+  // The in-flight batch's single agent_settled arrives while stopped; settle
+  // clears in-flight but arms nothing while the loop is stopped.
+  if (p.isInFlight()) p.settle(200_000);
+  assert.equal(p.isInFlight(), false);
+  assert.equal(p.getDeadlineMs(), undefined);
+  // Restart later: fresh deadline from restart; in-flight stays clear.
+  p.start(300_000);
+  assert.equal(p.isRunning(), true);
+  assert.equal(p.isInFlight(), false);
+  assert.equal(p.getDeadlineMs(), 300_000 + INTERVAL_MS);
+});
