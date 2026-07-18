@@ -31,7 +31,7 @@
 # Exit: 0 sent · 1 refused (running / unready shell / rate-limit / missing / prepare fail) · 2 usage/config error
 #
 # Safety: tmux classify is FAIL-CLOSED. Only positive agent chrome → send-keys+Enter.
-# Bare zsh/bash (or unknown screens) → state=unready → refuse (never type HAND WAKE into a shell).
+# Bare zsh/bash (or unknown screens) → state=unready → refuse (never type a pointer into a shell).
 set -euo pipefail
 
 _FLEET_SCRIPT_DIR="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
@@ -242,7 +242,7 @@ tmux_target_exact() {
 #
 # FAIL-CLOSED: only positive agent chrome → waiting_for_input / completed.
 # Bare shells and unrecognized screens → unready (never default to "ready").
-# Doorbell must not send-keys+Enter into zsh/bash (treats HAND as a command).
+# Doorbell must not send-keys+Enter into zsh/bash (treats a pointer as a command).
 classify_tmux_text() {
   local t=$1
   # Order matters: first match wins.
@@ -825,7 +825,7 @@ elif [[ "$CLASS" == "stopped" ]]; then
 fi
 
 # Fail closed: only agent idle/completed may receive keystrokes (+ Enter).
-# Bare shell / unmatched pane classifies as unready — never send HAND WAKE into zsh.
+# Bare shell / unmatched pane classifies as unready — never send a pointer into zsh.
 if [[ "$CLASS" == "stopped" ]]; then
   echo "refused: no runtime session for $RESOLVED_TARGET" >&2
   exit 1
@@ -870,14 +870,20 @@ except Exception:
   fi
 fi
 
-# Build pointer message
+# Build pointer message.
+# A delivered pointer is an ASSIGNMENT instruction to consume work, never a
+# command to invoke the delivery mechanism: the recipient must run vivi itself
+# and complete the work, not ring fleet-doorbell. Template uses only ${VAR}
+# interpolation (no backticks / $()), so role/mail/project/handle/note values
+# become inert composer text under bash variable expansion — there is no
+# command-substitution execution path for any interpolated value.
 if [[ -z "$MESSAGE" ]]; then
   PROJECT_Q="$PROJECT"
   MAIL_Q="${MAIL:-$ROLE}"
   if [[ -n "$HANDLE" ]]; then
-    MESSAGE="HAND WAKE ${ROLE}. Bag: show ${HANDLE}. vivi --project ${PROJECT_Q} --for ${MAIL_Q}. ${NOTE} Continue."
+    MESSAGE="Assignment for ${ROLE}: consume this directly, do NOT run fleet-doorbell. Run: vivi task show ${HANDLE} --project ${PROJECT_Q}. Complete the assigned work, then report To mind. ${NOTE}"
   else
-    MESSAGE="HAND WAKE ${ROLE}. Bag: show next open. vivi --project ${PROJECT_Q} --for ${MAIL_Q}. ${NOTE} Continue."
+    MESSAGE="Assignment for ${ROLE}: do NOT run fleet-doorbell. Run: vivi task list --for ${MAIL_Q} --project ${PROJECT_Q} --status open, then show and complete the next open task for your identity and report To mind. ${NOTE}"
   fi
 fi
 
@@ -896,8 +902,8 @@ if [[ "$DID_FRESH" -eq 1 ]]; then
   fi
   # Final fail-closed recapture right before send: the pre-send state must be
   # input-accepting. A regression to running/submitting/approval/failed/unready
-  # between the readiness window and delivery must refuse BEFORE typing HAND
-  # WAKE and record nothing (auditor-1 P1). This CLASS is also the known idle
+  # between the readiness window and delivery must refuse BEFORE typing the
+  # pointer and record nothing (auditor-1 P1). This CLASS is also the known idle
   # baseline for the pointer ack transition check.
   CLASS="$(classify_runtime)"
   if [[ "$FORCE" -ne 1 ]] && ! agent_accepts_input "$CLASS"; then

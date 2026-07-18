@@ -23,6 +23,15 @@
 #  18. vivi_pty $1.219 (sub) footer classified ready     => success, recorded
 #  19. vivi_pty $1.219 (api) footer classified ready     => success, recorded
 #  20. vivi_pty bare $1.219 stays fail-closed            => refuse, no record
+#  21. shell-looking handle/note inert (no execution)    => success, recorded
+#  22. no-handle pointer: assignment, not self-wake      => success, recorded
+#
+# Scenarios 21-22 cover the assignment-pointer wording fix: 21 proves the
+# pointer template uses only ${VAR} interpolation (no backticks / $()), so a
+# handle/note carrying shell metacharacters is delivered as inert composer text
+# and never executed; 22 proves the no-handle pointer directs the recipient to
+# list its own next open task (new vivi subcommand + --for <identity>), never
+# to ring fleet-doorbell.
 #
 # Scenarios 13-17 cover the shell/tmux classifier (classify_tmux_text) for
 # the nonzero-cost footer fix: a structured `$<amount> (sub|api)` Codex footer
@@ -44,7 +53,7 @@
 # UNSETTLED (paste dropped / Enter ignored); the bounded pre-send dwell
 # delivers after readiness -> SETTLED. Scenario 11 is the auditor-1 P1
 # regression: a post-stable pre-send recapture regressed to running must refuse
-# BEFORE typing HAND WAKE and record nothing. Scenario 12 generalizes
+# BEFORE typing the pointer and record nothing. Scenario 12 generalizes
 # readiness to start-or-recreate: a stopped cold start (assignment_mode=
 # continue, stopped) is a fresh runtime and gets the pre-send dwell too.
 #
@@ -86,7 +95,7 @@ READY_SEC="${READY_SEC:-0.5}"
 # Pane snapshots (single-line; classify_tmux_text matches on the whole text).
 IDLE='pi v0.80 (zai) glm-5.2 low 0.0%/1.0M (auto)'
 CODEX_IDLE='codex › openai-codex ready'
-RUNNING='Thinking… handling HAND WAKE'
+RUNNING='Thinking… handling assignment'
 NEW_DONE='New session started'   # differs from idle -> transition marker
 COMPACT_DONE='Compacted session' # differs from idle -> transition marker
 # Codex cost-footer snapshots: a structured `$<amount> (sub|api)` marker is
@@ -287,6 +296,12 @@ run_doorbell() {
   # readiness scenarios export a larger FLEET_DOORBELL_STABLE_WINDOW_SEC to
   # exercise the pre-send dwell that clears the fresh-runtime readiness window.
   local stable="${FLEET_DOORBELL_STABLE_WINDOW_SEC:-0.1}"
+  # Build the doorbell argv. --handle is omitted when empty so the no-handle
+  # branch is exercised (the script rejects --handle "" as "requires a value").
+  local argv=(--project "$TMP/project" --role hand-1)
+  if [[ -n "$handle" ]]; then
+    argv+=(--handle "$handle")
+  fi
   set +e
   RUN_OUT="$(env PATH="$FAKEBIN:$PATH" \
     PYTHON_BIN="$PYTHON_BIN" \
@@ -301,17 +316,17 @@ run_doorbell() {
     ${RESTART_LOG:+RESTART_LOG="$RESTART_LOG"} \
     ${FLEET_RUNTIME_EXIT:+FLEET_RUNTIME_EXIT="$FLEET_RUNTIME_EXIT"} \
     ${SIMULATE_STOPPED:+SIMULATE_STOPPED=1 STARTED_MARKER="$STARTED_MARKER"} \
-    bash "$DOORBELL" --project "$TMP/project" --role hand-1 --handle "$handle" "$@" 2>"$RUN_ERR")"
+    bash "$DOORBELL" "${argv[@]}" "$@" 2>"$RUN_ERR")"
   RUN_CODE=$?
   set -e
 }
 
 baseline_has_handle() { [[ -f "$BASELINE" ]] && grep -q "$1" "$BASELINE"; }
 sent_has() { grep -q -- "$1" "$SENT"; }
-# Assert the HAND WAKE paste precedes the Enter submit in the SEND log ordering.
+# Assert the assignment-pointer paste precedes the Enter submit in the SEND log.
 ordering_ok() {
   local paste_ln enter_ln
-  paste_ln="$(grep -n 'HAND WAKE' "$1" | head -1 | cut -d: -f1)"
+  paste_ln="$(grep -n 'Assignment for' "$1" | head -1 | cut -d: -f1)"
   enter_ln="$(grep -n 'Enter$' "$1" | head -1 | cut -d: -f1)"
   [[ -n "$paste_ln" && -n "$enter_ln" && "$paste_ln" -lt "$enter_ln" ]]
 }
@@ -325,7 +340,7 @@ run_doorbell aa110001
 if [[ "$RUN_CODE" -eq 1 ]] \
    && ! baseline_has_handle aa110001 \
    && sent_has '/new' \
-   && ! sent_has 'HAND WAKE hand-1'; then
+   && ! sent_has 'Assignment for hand-1'; then
   ok "codex stale-idle race refused (exit 1), no record, /new sent, pointer NOT sent"
 else
   notok "codex stale-idle race: code=$RUN_CODE baseline=$(baseline_has_handle aa110001 && echo y || echo n) err=$(cat "$RUN_ERR")"
@@ -338,7 +353,7 @@ run_doorbell aa220002
 if [[ "$RUN_CODE" -eq 0 ]] \
    && baseline_has_handle aa220002 \
    && sent_has '/new' \
-   && sent_has 'HAND WAKE hand-1'; then
+   && sent_has 'Assignment for hand-1'; then
   ok "codex delayed /new transition succeeded after stale polls; wake recorded"
 else
   notok "codex delayed transition: code=$RUN_CODE baseline=$(baseline_has_handle aa220002 && echo y || echo n) err=$(cat "$RUN_ERR")"
@@ -350,7 +365,7 @@ write_tape "$CODEX_IDLE" "$CODEX_IDLE" "$CODEX_IDLE" "$CODEX_IDLE" "$NEW_DONE" "
 run_doorbell aa330003
 if [[ "$RUN_CODE" -eq 0 ]] \
    && baseline_has_handle aa330003 \
-   && sent_has 'HAND WAKE hand-1'; then
+   && sent_has 'Assignment for hand-1'; then
   ok "codex fresh readiness succeeded promptly; wake recorded"
 else
   notok "codex fresh readiness: code=$RUN_CODE baseline=$(baseline_has_handle aa330003 && echo y || echo n) err=$(cat "$RUN_ERR")"
@@ -362,7 +377,7 @@ write_tape "$CODEX_IDLE" "$CODEX_IDLE" "$CODEX_IDLE" "$CODEX_IDLE" "$NEW_DONE" "
 run_doorbell aa440004
 if [[ "$RUN_CODE" -eq 1 ]] \
    && ! baseline_has_handle aa440004 \
-   && sent_has 'HAND WAKE hand-1'; then
+   && sent_has 'Assignment for hand-1'; then
   ok "codex pointer never acknowledged refused (exit 1), no record, pointer was sent"
 else
   notok "codex pointer never ack: code=$RUN_CODE baseline=$(baseline_has_handle aa440004 && echo y || echo n) err=$(cat "$RUN_ERR")"
@@ -374,7 +389,7 @@ write_tape "$IDLE"
 run_doorbell aa550005
 if [[ "$RUN_CODE" -eq 0 ]] \
    && baseline_has_handle aa550005 \
-   && sent_has 'HAND WAKE hand-1' \
+   && sent_has 'Assignment for hand-1' \
    && ! sent_has '/new' \
    && ! sent_has '/compact'; then
   ok "continue + new handle preserved (no /new|/compact, no forced ack); wake recorded"
@@ -389,7 +404,7 @@ run_doorbell aa660006
 if [[ "$RUN_CODE" -eq 1 ]] \
    && ! baseline_has_handle aa660006 \
    && sent_has '/compact' \
-   && sent_has 'HAND WAKE hand-1'; then
+   && sent_has 'Assignment for hand-1'; then
   ok "compact pointer never acknowledged refused (exit 1), no record, pointer was sent"
 else
   notok "compact never ack: code=$RUN_CODE baseline=$(baseline_has_handle aa660006 && echo y || echo n) err=$(cat "$RUN_ERR")"
@@ -405,7 +420,7 @@ write_tape "$IDLE" "$IDLE" "$IDLE" "$IDLE" "$IDLE" "$IDLE" "$IDLE" "$IDLE" "$RUN
 run_doorbell aa770007
 if [[ "$RUN_CODE" -eq 0 ]] \
    && baseline_has_handle aa770007 \
-   && sent_has 'HAND WAKE hand-1' \
+   && sent_has 'Assignment for hand-1' \
    && ! sent_has '/new' \
    && [[ -f "$RESTART_LOG" ]] && grep -q -e '--role hand-1 restart' "$RESTART_LOG"; then
   ok "pi new recreated runtime (no /new), restart called, pointer acked, wake recorded"
@@ -423,7 +438,7 @@ write_tape "$IDLE" "$IDLE" "$IDLE"
 run_doorbell aa880008
 if [[ "$RUN_CODE" -eq 1 ]] \
    && ! baseline_has_handle aa880008 \
-   && ! sent_has 'HAND WAKE hand-1' \
+   && ! sent_has 'Assignment for hand-1' \
    && ! sent_has '/new' \
    && [[ -f "$RESTART_LOG" ]]; then
   ok "pi new recreate failure refused (exit 1), no record, restart attempted, no /new"
@@ -449,7 +464,7 @@ unset FLEET_DOORBELL_STABLE_WINDOW_SEC
 unset FLEET_RUNTIME_PY RESTART_LOG FLEET_RUNTIME_EXIT
 if [[ "$RUN_CODE" -eq 0 ]] \
    && baseline_has_handle aa990009 \
-   && sent_has 'HAND WAKE hand-1' \
+   && sent_has 'Assignment for hand-1' \
    && ordering_ok "$SENT" \
    && [[ "$(verdict_last)" == *verdict=UNSETTLED* ]]; then
   ok "pi pointer delivered before recreate readiness (0.1s dwell) -> composer UNSETTLED (bug reproduced)"
@@ -473,7 +488,7 @@ unset FLEET_DOORBELL_STABLE_WINDOW_SEC
 unset FLEET_RUNTIME_PY RESTART_LOG FLEET_RUNTIME_EXIT
 if [[ "$RUN_CODE" -eq 0 ]] \
    && baseline_has_handle aa100010 \
-   && sent_has 'HAND WAKE hand-1' \
+   && sent_has 'Assignment for hand-1' \
    && ordering_ok "$SENT" \
    && [[ "$(verdict_last)" == *verdict=SETTLED* ]]; then
   ok "pi pre-send dwell (0.8s) delivered after recreate readiness -> composer SETTLED; recorded"
@@ -484,7 +499,7 @@ fi
 # ── Scenario 11: post-stable pre-send recapture regressed to running ─────
 # auditor-1 P1 (882f96d9): after the stable readiness window, the final
 # pre-send recapture must be input-accepting. A regression to running at the
-# recapture must refuse BEFORE typing HAND WAKE and record nothing. The
+# recapture must refuse BEFORE typing the pointer and record nothing. The
 # recreate ran; the pointer never did.
 RESTART_LOG="$TMP/restart11.log"; rm -f "$RESTART_LOG"
 reset_state new pi
@@ -495,9 +510,9 @@ run_doorbell aa110011
 unset FLEET_DOORBELL_STABLE_WINDOW_SEC
 if [[ "$RUN_CODE" -eq 1 ]] \
    && ! baseline_has_handle aa110011 \
-   && ! sent_has 'HAND WAKE hand-1' \
+   && ! sent_has 'Assignment for hand-1' \
    && [[ -f "$RESTART_LOG" ]] && grep -q -e '--role hand-1 restart' "$RESTART_LOG"; then
-  ok "pi post-stable recapture regressed to running refused (exit 1), no HAND WAKE, no record; recreate ran"
+  ok "pi post-stable recapture regressed to running refused (exit 1), no pointer, no record; recreate ran"
 else
   notok "pi pre-send regression: code=$RUN_CODE baseline=$(baseline_has_handle aa110011 && echo y || echo n) err=$(cat "$RUN_ERR")"
 fi
@@ -519,7 +534,7 @@ unset FLEET_DOORBELL_STABLE_WINDOW_SEC SIMULATE_STOPPED
 unset FLEET_RUNTIME_PY RESTART_LOG FLEET_RUNTIME_EXIT
 if [[ "$RUN_CODE" -eq 0 ]] \
    && baseline_has_handle aa120012 \
-   && sent_has 'HAND WAKE hand-1' \
+   && sent_has 'Assignment for hand-1' \
    && ordering_ok "$SENT" \
    && [[ -f "$STARTED_MARKER" ]] \
    && [[ "$(verdict_last)" == *verdict=SETTLED* ]]; then
@@ -537,7 +552,7 @@ write_tape "$CODEX_COST_SUB_ZERO"
 run_doorbell aa130013
 if [[ "$RUN_CODE" -eq 0 ]] \
    && baseline_has_handle aa130013 \
-   && sent_has 'HAND WAKE hand-1'; then
+   && sent_has 'Assignment for hand-1'; then
   ok "codex \$0.000 (sub) footer classified ready; wake recorded"
 else
   notok "codex \$0.000 (sub): code=$RUN_CODE baseline=$(baseline_has_handle aa130013 && echo y || echo n) err=$(cat "$RUN_ERR")"
@@ -553,7 +568,7 @@ write_tape "$CODEX_COST_SUB_NONZERO"
 run_doorbell aa140014
 if [[ "$RUN_CODE" -eq 0 ]] \
    && baseline_has_handle aa140014 \
-   && sent_has 'HAND WAKE hand-1'; then
+   && sent_has 'Assignment for hand-1'; then
   ok "codex \$1.219 (sub) nonzero footer classified ready; wake recorded"
 else
   notok "codex \$1.219 (sub): code=$RUN_CODE baseline=$(baseline_has_handle aa140014 && echo y || echo n) err=$(cat "$RUN_ERR")"
@@ -566,7 +581,7 @@ write_tape "$CODEX_COST_API_NONZERO"
 run_doorbell aa150015
 if [[ "$RUN_CODE" -eq 0 ]] \
    && baseline_has_handle aa150015 \
-   && sent_has 'HAND WAKE hand-1'; then
+   && sent_has 'Assignment for hand-1'; then
   ok "codex \$1.219 (api) footer classified ready; wake recorded"
 else
   notok "codex \$1.219 (api): code=$RUN_CODE baseline=$(baseline_has_handle aa150015 && echo y || echo n) err=$(cat "$RUN_ERR")"
@@ -575,29 +590,29 @@ fi
 # ── Scenario 16: bare $1.219 (no marker) stays fail-closed => refuse ────
 # Removing the loose $0. matcher must NOT broaden the classifier to arbitrary
 # money. A bare nonzero amount with no (sub|api) marker is unrecognized ->
-# unready -> refuse, no record, no HAND WAKE. Fail-closed for money output and
+# unready -> refuse, no record, no pointer. Fail-closed for money output and
 # shell-injection risk.
 reset_state continue codex
 write_tape "$CODEX_COST_BARE"
 run_doorbell aa160016
 if [[ "$RUN_CODE" -eq 1 ]] \
    && ! baseline_has_handle aa160016 \
-   && ! sent_has 'HAND WAKE hand-1'; then
-  ok "codex bare \$1.219 (no marker) refused (exit 1), no record, no HAND WAKE"
+   && ! sent_has 'Assignment for hand-1'; then
+  ok "codex bare \$1.219 (no marker) refused (exit 1), no record, no pointer"
 else
   notok "codex bare \$1.219: code=$RUN_CODE baseline=$(baseline_has_handle aa160016 && echo y || echo n) err=$(cat "$RUN_ERR")"
 fi
 
 # ── Scenario 17: bare shell prompt stays fail-closed => refuse ──────────
 # A classic shell prompt must never pass the agent-idle classifier; the
-# doorbell refuses rather than typing HAND WAKE into a shell.
+# doorbell refuses rather than typing a pointer into a shell.
 reset_state continue codex
 write_tape "$SHELL_PROMPT"
 run_doorbell aa170017
 if [[ "$RUN_CODE" -eq 1 ]] \
    && ! baseline_has_handle aa170017 \
-   && ! sent_has 'HAND WAKE hand-1'; then
-  ok "bare shell prompt (%) refused (exit 1), no record, no HAND WAKE"
+   && ! sent_has 'Assignment for hand-1'; then
+  ok "bare shell prompt (%) refused (exit 1), no record, no pointer"
 else
   notok "shell prompt: code=$RUN_CODE baseline=$(baseline_has_handle aa170017 && echo y || echo n) err=$(cat "$RUN_ERR")"
 fi
@@ -612,7 +627,7 @@ write_vpty_contents "$CODEX_COST_SUB_NONZERO"
 run_doorbell aa180018
 if [[ "$RUN_CODE" -eq 0 ]] \
    && baseline_has_handle aa180018 \
-   && sent_has 'HAND WAKE hand-1'; then
+   && sent_has 'Assignment for hand-1'; then
   ok "vivi_pty \$1.219 (sub) nonzero footer classified ready; wake recorded"
 else
   notok "vivi_pty \$1.219 (sub): code=$RUN_CODE baseline=$(baseline_has_handle aa180018 && echo y || echo n) err=$(cat "$RUN_ERR")"
@@ -624,7 +639,7 @@ write_vpty_contents "$CODEX_COST_API_NONZERO"
 run_doorbell aa190019
 if [[ "$RUN_CODE" -eq 0 ]] \
    && baseline_has_handle aa190019 \
-   && sent_has 'HAND WAKE hand-1'; then
+   && sent_has 'Assignment for hand-1'; then
   ok "vivi_pty \$1.219 (api) footer classified ready; wake recorded"
 else
   notok "vivi_pty \$1.219 (api): code=$RUN_CODE baseline=$(baseline_has_handle aa190019 && echo y || echo n) err=$(cat "$RUN_ERR")"
@@ -637,10 +652,59 @@ write_vpty_contents "$CODEX_COST_BARE"
 run_doorbell aa200020
 if [[ "$RUN_CODE" -eq 1 ]] \
    && ! baseline_has_handle aa200020 \
-   && ! sent_has 'HAND WAKE hand-1'; then
-  ok "vivi_pty bare \$1.219 (no marker) refused (exit 1), no record, no HAND WAKE"
+   && ! sent_has 'Assignment for hand-1'; then
+  ok "vivi_pty bare \$1.219 (no marker) refused (exit 1), no record, no pointer"
 else
   notok "vivi_pty bare \$1.219: code=$RUN_CODE baseline=$(baseline_has_handle aa200020 && echo y || echo n) err=$(cat "$RUN_ERR")"
+fi
+
+# ── Scenario 21: shell-looking handle/note are inert composer text ──────
+# The pointer template must use only ${VAR} interpolation (no backticks /
+# $()), so a handle or note carrying shell metacharacters cannot become
+# executable syntax: it is delivered as inert composer text and never
+# executed. Two canaries would be created if any command substitution ran;
+# both must stay absent, while the literal injection text is present verbatim
+# in the SEND log on a single line (paste precedes Enter).
+reset_state continue pi
+write_tape "$IDLE"
+CANARY_H="$TMP/canary21h"; rm -f "$CANARY_H"
+CANARY_N="$TMP/canary21n"; rm -f "$CANARY_N"
+# If the template ever command-substituted these, the canaries would appear.
+INJ_HANDLE='$(touch '"$CANARY_H"')'
+INJ_NOTE='`touch '"$CANARY_N"'`; rm -rf / #'
+run_doorbell "$INJ_HANDLE" --note "$INJ_NOTE"
+if [[ "$RUN_CODE" -eq 0 ]] \
+   && [[ ! -e "$CANARY_H" && ! -e "$CANARY_N" ]] \
+   && sent_has 'Assignment for hand-1' \
+   && grep -qF -- 'touch '"$CANARY_H" "$SENT" \
+   && grep -qF -- 'touch '"$CANARY_N" "$SENT" \
+   && ordering_ok "$SENT"; then
+  ok "shell-looking handle/note delivered inert (no execution), single line; recorded"
+else
+  notok "injection: code=$RUN_CODE canaryH=$([ -e "$CANARY_H" ] && echo EXISTS || echo no) canaryN=$([ -e "$CANARY_N" ] && echo EXISTS || echo no) err=$(cat "$RUN_ERR")"
+fi
+
+# ── Scenario 22: no-handle pointer is an assignment, not a self-wake ────
+# Without a handle the pointer must direct the recipient to list/show its OWN
+# next open task (new assignment wording with the correct vivi subcommand and
+# --for <identity>), never to ring fleet-doorbell. An empty handle arg makes
+# run_doorbell omit --handle entirely (the script rejects --handle ""),
+# selecting the no-handle branch.
+reset_state continue pi
+write_tape "$IDLE"
+run_doorbell ""   # empty handle -> no-handle branch
+if [[ "$RUN_CODE" -eq 0 ]] \
+   && [[ -f "$BASELINE" ]] \
+   && sent_has 'Assignment for hand-1' \
+   && sent_has 'do NOT run fleet-doorbell' \
+   && sent_has 'vivi task list' \
+   && grep -qF -- '--for hand-1' "$SENT" \
+   && ! sent_has 'Bag: show' \
+   && ! sent_has ' HAND WAKE' \
+   && ordering_ok "$SENT"; then
+  ok "no-handle pointer directs recipient to list own tasks (assignment, not self-wake)"
+else
+  notok "no-handle: code=$RUN_CODE baseline=$([ -f "$BASELINE" ] && echo y || echo n) err=$(cat "$RUN_ERR")"
 fi
 
 echo "---"
