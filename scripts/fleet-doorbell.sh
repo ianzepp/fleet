@@ -14,10 +14,16 @@
 #   restart  — fleet-runtime restart then pointer when handle is new
 # Same-handle rewake does not re-apply mode (unless --force-prepare).
 #
+# /new and /compact are transition-aware: a new-session wake records success
+# only after the command demonstrably changes the pane (no stale-idle race) and
+# the pointer is positively acknowledged as leaving idle. See
+# wait_command_transition and verify_pointer_submission_started.
+#
 # Requires: bash 3.2+ (not sh/zsh-as-script), python3 >= 3.9
 # Backing runtime: tmux (default) or vivi-pty for roles with runtime.kind=vivi_pty.
 # Portable: macOS + Linux. Override with TMUX_BIN / VIVI_PTY_BIN / PYTHON_BIN /
-# FLEET_DOORBELL_SUBMIT_DELAY_SEC / FLEET_DOORBELL_PREPARE_TIMEOUT_SEC.
+# FLEET_DOORBELL_SUBMIT_DELAY_SEC / FLEET_DOORBELL_PREPARE_TIMEOUT_SEC /
+# FLEET_DOORBELL_TRANSITION_TIMEOUT_SEC / FLEET_DOORBELL_SUBMIT_ACK_TIMEOUT_SEC.
 #
 # Rate limit (min_seconds_between_wakes): only if this Hand has prior wake
 # count >= 1 in baseline last_hand_wake.by_hand.<name>. First wake never limited.
@@ -47,6 +53,12 @@ TARGET=""
 MESSAGE=""
 SUBMIT_DELAY="${FLEET_DOORBELL_SUBMIT_DELAY_SEC:-}"
 PREPARE_TIMEOUT="${FLEET_DOORBELL_PREPARE_TIMEOUT_SEC:-45}"
+# Bounded window for a /new or /compact command to change the pane (transition
+# away from the pre-command idle screen). Polls ~10Hz; never a blind sleep.
+TRANSITION_TIMEOUT="${FLEET_DOORBELL_TRANSITION_TIMEOUT_SEC:-8}"
+# Bounded window for a submitted pointer to be acknowledged (runtime leaves
+# idle/completed and enters running/submitting/approval).
+SUBMIT_ACK_TIMEOUT="${FLEET_DOORBELL_SUBMIT_ACK_TIMEOUT_SEC:-5}"
 
 if ! PYTHON_BIN="$(fleet_find_python3)"; then
   echo "ERROR: python3 >= 3.9 not found (set PYTHON_BIN)" >&2
@@ -418,11 +430,18 @@ send_line() {
   fi
 }
 
-verify_kimi_submission_started() {
+verify_pointer_submission_started() {
+  # A new-session/compact/restart wake (APPLY_PREPARE) always requires positive
+  # acknowledgement per the doorbell invariant — never record baseline success
+  # from keystroke delivery alone. Continue-mode wakes preserve the prior
+  # behavior: only Kimi under vivi_pty required acknowledgement.
+  if [[ "$APPLY_PREPARE" -ne 1 ]]; then
+    [[ "$WAKE_MODE" == "vivi_pty" && "$AGENT" == "kimi" ]] || return 0
+  fi
   local i=0
   local state
-  [[ "$WAKE_MODE" == "vivi_pty" && "$AGENT" == "kimi" ]] || return 0
-  while [[ "$i" -lt 50 ]]; do
+  local budget=$((SUBMIT_ACK_TIMEOUT * 10))
+  while [[ "$i" -lt "$budget" ]]; do
     state="$(classify_runtime)"
     case "$state" in
       running|submitting|approval_required) return 0 ;;
@@ -431,7 +450,7 @@ verify_kimi_submission_started() {
     sleep 0.1
     i=$((i + 1))
   done
-  echo "refused: Kimi wake was not acknowledged (state=$state); wake not recorded" >&2
+  echo "refused: pointer submission was not acknowledged (state=$state); wake not recorded" >&2
   return 1
 }
 
@@ -484,6 +503,49 @@ runtime_lifecycle() {
   "${args[@]}"
 }
 
+# Compact, deterministic signature of the current runtime screen (last few
+# non-empty lines). Used to detect that a /new or /compact command actually
+# changed the pane, rather than a stale pre-command idle screen being mistaken
+# for a successful transition. tmux: capture-pane; vivi_pty: diagnostic contents.
+runtime_signature() {
+  local raw=""
+  if [[ "$WAKE_MODE" == "vivi_pty" ]]; then
+    raw="$("$VIVI_PTY_BIN" session diagnostic "$RESOLVED_TARGET" --socket "$SOCKET" 2>/dev/null \
+      | "$PYTHON_BIN" -c 'import json,sys
+try:
+    d=json.load(sys.stdin)
+    print(((d.get("terminal") or {}).get("contents") or ""))
+except Exception:
+    print("")' 2>/dev/null || true)"
+  else
+    local target_exact
+    target_exact="$(tmux_target_exact "$RESOLVED_TARGET")"
+    raw="$("$TMUX_BIN" capture-pane -t "$target_exact" -p -S -20 2>/dev/null || true)"
+  fi
+  printf '%s\n' "$raw" | awk 'NF { lines[++n]=$0 } END { start = n>8 ? n-7 : 1; for (i=start;i<=n;i++) printf "%s\n", lines[i] }' | tr -d '\r'
+}
+
+# Poll until the runtime screen differs from `before` (the command took effect)
+# or `timeout` seconds elapse. Proves a /new or /compact transitioned away from
+# the pre-command idle screen instead of wait_ready latching onto stale chrome.
+# Bounded (polls ~10Hz); never a blind sleep. Returns 0 on transition, 1 timeout.
+# A capture failure (empty signature) never counts as a transition (fail-closed).
+wait_command_transition() {
+  local before=$1
+  local timeout=${2:-$TRANSITION_TIMEOUT}
+  local i=0
+  local now
+  while [[ "$i" -lt $((timeout * 10)) ]]; do
+    now="$(runtime_signature)"
+    if [[ -n "$now" && "$now" != "$before" ]]; then
+      return 0
+    fi
+    sleep 0.1
+    i=$((i + 1))
+  done
+  return 1
+}
+
 prepare_assignment() {
   local mode=$1
   case "$mode" in
@@ -511,7 +573,13 @@ prepare_assignment() {
         return 1
       fi
       echo "prepare: compact on $RESOLVED_TARGET" >&2
+      local pre_compact_sig
+      pre_compact_sig="$(runtime_signature)"
       send_line "/compact"
+      if ! wait_command_transition "$pre_compact_sig" "$TRANSITION_TIMEOUT"; then
+        echo "refused: assignment_mode=compact did not transition after /compact (stale idle) ($RESOLVED_TARGET)" >&2
+        return 1
+      fi
       if ! wait_ready "$PREPARE_TIMEOUT"; then
         echo "refused: assignment_mode=compact did not return to idle ($CLASS)" >&2
         return 1
@@ -541,7 +609,13 @@ prepare_assignment() {
         return 1
       fi
       echo "prepare: new session on $RESOLVED_TARGET" >&2
+      local pre_new_sig
+      pre_new_sig="$(runtime_signature)"
       send_line "/new"
+      if ! wait_command_transition "$pre_new_sig" "$TRANSITION_TIMEOUT"; then
+        echo "refused: assignment_mode=new did not transition after /new (stale idle) ($RESOLVED_TARGET)" >&2
+        return 1
+      fi
       if ! wait_ready "$PREPARE_TIMEOUT"; then
         echo "refused: assignment_mode=new did not return to idle after /new ($CLASS)" >&2
         return 1
@@ -730,7 +804,7 @@ fi
 MESSAGE="$(printf '%s' "$MESSAGE" | tr '\n\r' '  ')"
 
 send_line "$MESSAGE"
-verify_kimi_submission_started || exit 1
+verify_pointer_submission_started || exit 1
 
 # record last wake in baseline (atomic write)
 "$PYTHON_BIN" - "$BASELINE" "$PROJECT" "$ROLE" "$HANDLE" "$RESOLVED_TARGET" "$WAKE_MODE" "$SOCKET" "$ASSIGNMENT_MODE" <<'PY'
