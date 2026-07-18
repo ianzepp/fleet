@@ -40,6 +40,11 @@ from fleet_common import (  # noqa: E402
 
 require_python()
 
+# Completed Mind cycles a configured auditor lane must stay healthy+idle+empty
+# before sensors emit an advisory auditor_refill_candidate_<role> hint. Counting
+# uses baseline.last_cycle advancement (fleet-baseline.py), never poll/wall time.
+AUDITOR_IDLE_THRESHOLD = 4
+
 
 def run(cmd: List[str], timeout: float = 30.0) -> tuple:
     return run_cmd(cmd, timeout=timeout)
@@ -1116,6 +1121,7 @@ def quiet_hint_from(fp: dict, prev: dict, signals: list, steward: dict) -> bool:
         "starvation_candidate_",
         "growth_refill_required",
         "mail_wake_candidate_",  # often stale pending mail on empty bags
+        "auditor_refill_candidate_",  # advisory idle-auditor hint; never blocks backoff
     )
     hard = [
         s
@@ -1215,6 +1221,70 @@ def refill_hint_from(out: dict, signals: list, posture_suppresses_starvation: bo
             "open_bags": counts["open_bags"],
         },
     }
+
+
+def auditor_lane_healthy_idle(hand_row: dict) -> bool:
+    """An auditor lane is a refill candidate only when healthy, idle, unpaused, empty.
+
+    healthy idle runtime = waiting_for_input or completed. Suppress
+    running/unknown/failed/stopped/approval_required, any paused packet/hand, and
+    any open task/need — review capacity with active work is not idle.
+    """
+    if not isinstance(hand_row, dict):
+        return False
+    state = str((hand_row.get("runtime") or {}).get("state") or "")
+    if state not in ("waiting_for_input", "completed"):
+        return False
+    if hand_row.get("operational_pause"):
+        return False
+    if int(hand_row.get("actionable") or 0) > 0:
+        return False
+    if int(hand_row.get("tasks_open") or 0) > 0 or int(hand_row.get("needs_open") or 0) > 0:
+        return False
+    return True
+
+
+def auditor_refill_hints(out: dict, baseline: dict) -> List[str]:
+    """Advisory auditor_refill_candidate_<role> hints for long healthy-idle auditors.
+
+    A configured auditor lane (hand named auditor-*) that has remained
+    healthy+idle with no actionable bag for AUDITOR_IDLE_THRESHOLD completed Mind
+    cycles emits an advisory hint. The completed-cycle count is persisted in
+    fleet-baseline.py (auditor_idle.<role>.idle_run), advanced by baseline
+    last_cycle advancement — never sensor poll count or wall time. Sensors never
+    task, wake, or doorbell an auditor; this is a refill-candidate hint for
+    Mind/Heads only. Anti-spam: after a hint, the next requires
+    AUDITOR_IDLE_THRESHOLD more completed idle cycles
+    (auditor_idle.<role>.last_hint_idle_run).
+
+    Also stashes out["auditor_idle"] = {role: healthy_idle_bool} so
+    fleet-baseline.py can advance the per-lane counter from the same
+    classification (single source of truth for healthy-idle).
+    """
+    hands = out.get("hands") or {}
+    persisted = baseline.get("auditor_idle") if isinstance(baseline.get("auditor_idle"), dict) else {}
+    idle_map: Dict[str, bool] = {}
+    emitted: List[str] = []
+    if not isinstance(hands, dict):
+        out["auditor_idle"] = idle_map
+        return emitted
+    for name, hand_row in hands.items():
+        if not isinstance(name, str) or not name.startswith("auditor"):
+            continue
+        healthy_idle = auditor_lane_healthy_idle(hand_row)
+        idle_map[name] = healthy_idle
+        if not healthy_idle:
+            continue
+        entry = persisted.get(name) if isinstance(persisted.get(name), dict) else {}
+        idle_run = int(entry.get("idle_run") or 0)
+        last_hint = entry.get("last_hint_idle_run")
+        if idle_run < AUDITOR_IDLE_THRESHOLD:
+            continue
+        if last_hint is not None and (idle_run - int(last_hint)) < AUDITOR_IDLE_THRESHOLD:
+            continue
+        emitted.append("auditor_refill_candidate_%s" % name)
+    out["auditor_idle"] = idle_map
+    return emitted
 
 
 def cadence_hint_from(
@@ -2550,6 +2620,14 @@ def main() -> int:
             out["signals"].append(str(refill["signal"]))
     else:
         out["refill_hint"] = None
+    # Advisory auditor refill candidates: configured auditor-* lanes that have
+    # stayed healthy+idle+empty for AUDITOR_IDLE_THRESHOLD completed Mind cycles
+    # (count persisted/advanced in fleet-baseline.py via baseline last_cycle).
+    # Advisory only — never tasks, wakes, or doorbells an auditor; soft signal so
+    # it never forces the loop fast or blocks healthy backoff (see quiet_hint).
+    for sig in auditor_refill_hints(out, baseline):
+        if sig not in out["signals"]:
+            out["signals"].append(sig)
     out["quiet_hint"] = quiet_hint_from(fp, prev, out["signals"], out["steward"])
     out["cadence_hint"] = cadence_hint_from(out, baseline, out["quiet_hint"], out["signals"])
     out["baseline_last_cycle"] = baseline.get("last_cycle")

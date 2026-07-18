@@ -154,6 +154,49 @@ def normalize_wake_records(b: dict) -> None:
     b.pop("last_hand_wake_target", None)
 
 
+def apply_auditor_idle_state(b: dict, sensors: dict) -> None:
+    """Advance per-auditor healthy-idle cycle bookkeeping from a sensors blob.
+
+    Counting uses baseline last_cycle advancement (one bump == one completed
+    cycle), never sensor poll count or wall time. A lane advances only while
+    sensors reports it healthy+idle+empty (sensors["auditor_idle"][role]); any
+    work, pause, or unhealthy runtime resets the streak to zero. The anti-spam
+    marker last_hint_idle_run is stamped from the auditor_refill_candidate_<role>
+    signal sensors emitted this cycle, using the pre-advancement idle_run that
+    sensors observed, so the next hint requires AUDITOR_IDLE_THRESHOLD more
+    completed idle cycles. No-op when the sensors blob carries no auditor_idle
+    map (e.g. a manual bump without the full sensors blob).
+    """
+    idle_map = sensors.get("auditor_idle")
+    if not isinstance(idle_map, dict) or not idle_map:
+        return
+    raw_signals = sensors.get("signals")
+    signal_set = {str(s) for s in raw_signals} if isinstance(raw_signals, list) else set()
+    persisted = b.get("auditor_idle") if isinstance(b.get("auditor_idle"), dict) else {}
+    updated: dict = {}
+    for role, prev_entry in persisted.items():
+        if isinstance(prev_entry, dict):
+            updated[role] = dict(prev_entry)
+    for role, healthy in idle_map.items():
+        if not isinstance(role, str) or not role.startswith("auditor"):
+            continue
+        entry = updated.get(role) if isinstance(updated.get(role), dict) else {}
+        prev_run = int(entry.get("idle_run") or 0)
+        prev_hint = entry.get("last_hint_idle_run")
+        healthy_bool = bool(healthy)
+        new_run = prev_run + 1 if healthy_bool else 0
+        if ("auditor_refill_candidate_%s" % role) in signal_set:
+            new_hint: Optional[Any] = prev_run
+        elif not healthy_bool:
+            new_hint = None
+        else:
+            new_hint = prev_hint
+        entry["idle_run"] = new_run
+        entry["last_hint_idle_run"] = new_hint
+        updated[role] = entry
+    b["auditor_idle"] = updated
+
+
 def apply_sensors_blob(b: dict, sensors: dict, args: argparse.Namespace) -> dict:
     """Extract fingerprint + side effects from a full fleet-sensors JSON blob."""
     b.pop("pane_classes", None)
@@ -173,6 +216,7 @@ def apply_sensors_blob(b: dict, sensors: dict, args: argparse.Namespace) -> dict
         st["tripped"] = sensors["steward"].get("tripped", st.get("tripped"))
         b["steward"] = st
     apply_head_report_state(b, sensors.get("heads"))
+    apply_auditor_idle_state(b, sensors)
     return fp
 
 
