@@ -94,7 +94,7 @@ Once a real fleet is chosen and case 2 or 3 applies, leave this section — oper
 
 | Dependency | Why | Min / notes |
 | --- | --- | --- |
-| **Vivi** (`vivi` CLI) | **Only** supported board | **≥ 4.6** (prefer **4.7+**) |
+| **Vivi** (`vivi` CLI) | **Only** supported board | **≥ 6.4** |
 | **bash** | Shell helpers (`steward`, `doorbell`, …) | **3.2+** (not `sh` / not zsh-as-script) |
 | **Python 3** | Cycle helpers | **≥ 3.9** |
 | **Project root** | Where `.vivi/` lives | Writable directory |
@@ -127,7 +127,7 @@ cd vivarium && cargo install --path . && vivi --version
 
 # Verify (stop if any fail — case 2/3 will not work)
 command -v vivi
-vivi --version          # want 4.6+ (prefer 4.7+)
+vivi --version          # want 6.4+
 vivi mailspace --help
 ```
 
@@ -514,7 +514,7 @@ Wind-down: [`runtime-config.md`](runtime-config.md). Multi-fleet attach set: [`m
 | Symptom | Case | Fix |
 | --- | --- | --- |
 | `vivi: command not found` | 1 | Install Vivi; fix PATH |
-| Old vivi / no `mailspace watch` | 1 | Upgrade ≥ 4.6 |
+| Old vivi / no `mailspace watch` | 1 | Upgrade ≥ 6.4 |
 | No `.vivi/` / empty board | 2 | `mailspace init` + identities |
 | Missing `fleet.json` | 2 | Write overlay (template above) |
 | Sensors `vivi_missing` | 1–3 | PATH / wrong `--project` |

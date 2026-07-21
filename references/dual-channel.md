@@ -12,7 +12,7 @@ Sensors normalize both into one nested `runtime` object.
 
 ## Checking role liveness
 
-`vivi board --process` (Vivi ≥ 6.1) gives the Mind one scan across all roles:
+`vivi board --process` gives the Mind one scan across all roles:
 
 ```bash
 vivi board --process --project <root>           # all roles
@@ -26,7 +26,7 @@ mismatch; do not invent local process truth.
 
 ## Checking role schedule (cadence)
 
-`vivi board` (Vivi ≥ 6.2) includes a `schedule` block per role derived from the
+`vivi board` includes a `schedule` block per role derived from the
 age of the role's latest outbound mail. Set cadence on the role:
 
 ```bash
@@ -98,7 +98,7 @@ Backend-specific evidence markers and classification details: [`tmux.md`](tmux.m
 [`vivi-pty.md`](vivi-pty.md). Sub-agents do not require state classification
 (completion is the notification).
 
-## Mailspace watch and thread (Vivi ≥ 4.6)
+## Mailspace watch and thread
 
 Board liveness + conversation lineage. **Not** IMAP / `vivi sync`. Full flag tables: [`vivi.md`](vivi.md).
 
@@ -122,7 +122,7 @@ vivi mail watch --for mind --project "$ROOT" \
 vivi mail thread <handle> --project <root> [--json] [--infer] [--limit 50]
 ```
 
-Prefer `show` first; `thread` for multi-hop / residual / RTM. `--infer` = historical best-effort only. Reply: `vivi mail reply <handle>`; `--reply-to` / lifecycle `--note` captured (Vivi 4.6).
+Prefer `show` first; `thread` for multi-hop / residual / RTM. `--infer` = historical best-effort only. Reply: `vivi mail reply <handle>`; `--reply-to` / lifecycle `--note` captured.
 
 ## Channel split (mandatory)
 

@@ -13,7 +13,7 @@ Abbot **Mind / Head / Hand** roles on a **multi-session fleet** (Vivi board + ex
 | --- | --- | --- |
 | **Mind** | Tasking, integrate, cycles | Operator TUI + board **`mind@…`** (no external runtime) |
 | **Operator mail** | Human escalations | Board **`operator@…`** (no external runtime) |
-| **Head** | Advise / report on cadence — not bag drain | **`head-ceo` / `head-cto` / `head-cxo`** (+ optional org Heads). Often carries cadence (Vivi ≥ 6.2) |
+| **Head** | Advise / report on cadence — not bag drain | **`head-ceo` / `head-cto` / `head-cxo`** (+ optional org Heads). Carries cadence |
 | **Planner** | Goal-forge and delivery lowering | **`planner-1`…`planner-N`** (Hands with planning duty; **`$campaign`** + **`$delivery`**; mid-tier) |
 | **Hand** | Execute work (implement only) | **`hand-1`…`hand-N`** (product implementers; all Hands are equivalent floaters; low-tier) |
 | **Auditor** | Review completed work | **`auditor-1` / `auditor-2`** (Hands with review duty; **`$auditor`**; high-tier) |
@@ -329,7 +329,7 @@ Each role has a compact mandatory-read protocol. It distills the rules from the 
 | Goal lowering | [`lowering.md`](references/lowering.md) |
 | Filing / starvation | [`tasking.md`](references/tasking.md) |
 | Board CLI | [`vivi.md`](references/vivi.md) |
-| Communication tracing (≥ 6.3) | [`vivi.md`](references/vivi.md) § Communication tracing |
+| Communication tracing | [`vivi.md`](references/vivi.md) § Communication tracing |
 | Runtime channel concept | [`dual-channel.md`](references/dual-channel.md) |
 | Modes / fail-fast / polish / HK | [`mind-cycle.md`](references/mind-cycle.md) |
 | operator@ | [`operator-mail.md`](references/operator-mail.md) |
@@ -479,7 +479,7 @@ The protocol check, gather, execute, and close steps are the same per fleet. The
 
 Kind ≠ severity. Hard stop = open tasks/needs. Not a stop = missing GO mail.
 
-Starvation: empty product bag + **product** map unit → file+wake. If the next map item is **unlowered**, assign **lower** To the Head seat — do **not** dump the raw goal on a Hand. [`lowering.md`](references/lowering.md)
+Starvation: empty product bag + **product** map unit → file+wake. If the next map item is **unlowered**, assign **lower** to planner-N — do **not** dump the raw goal on a Hand. [`lowering.md`](references/lowering.md)
 
 ## Role memory (memos)
 
@@ -487,16 +487,10 @@ Memos are durable, project-local context for a role's own future sessions. This 
 
 ```sh
 vivi memo list   --project <root> --for <mind-or-head-id>
+vivi memo search --project <root> --for <mind-or-head-id> "keyword"
 vivi memo show   --project <root> <handle>
 vivi memo save   --project <root> --for <mind-or-head-id> --subject '...' --body '...'
 ```
-
-> **Known gap: no `memo search`.** `memo list` dumps every memo for a role;
-> there is no keyword or handle query to find memos mentioning a topic. This
-> forces a Mind to load all of a role's memos into context, which defeats the
-> purpose of selective durable memory. Until a `vivi memo search` command
-> exists, keep each role's memo set small and use descriptive handles/subjects
-> so a `memo list` scan stays cheap.
 
 **Transient routing state is not memory.** Per-cycle dispatch, wake/queue state, per-commit status belong in baseline — never in memos.
 
@@ -518,7 +512,7 @@ Backend-specific mechanics: [`subagent.md`](references/subagent.md), [`tmux.md`]
 
 1. **Arm/attach** — identities; harness; runtime binding; baseline counters; `mind_session`. Dormant-to-live: [`launch.md`](references/launch.md)
 2. **Focus** — map package; Hand picks open target
-3. **Gather** — `fleet-sensors.py`; process mail; wake/spawn; end with `fleet-cycle-close.py`
+3. **Gather** — `vivi board --project <root>` + `fleet-sensors.py`; process mail; wake/spawn; end with `fleet-cycle-close.py`
 4. **Hand work** — show→implement→validate→unit `$polish`→done→next/sleep
 5. **Sleep** — most wakes no-ops
 6. **Detach/wind-down** — disarm steward if armed; drop idle runtimes

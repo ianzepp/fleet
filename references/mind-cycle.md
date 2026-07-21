@@ -456,7 +456,7 @@ When `fleet-sensors.py` is unavailable or you need detail beyond the two-call pa
 1. Baseline + fleet config (pending_reviews/merges, lanes, quiet_streak,
    turns_since, mind_mode, watch cursor)
 2. Board status counts
-3. Optional mailspace watch --once --write-cursor (Vivi ≥ 4.6)
+3. Optional mailspace watch --once --write-cursor
 4. Mind inbox top (board mail ≠ operator message; paid: mail thread)
 5. Open tasks/needs per hand-N (not legacy codex for quiet/wake/starvation)
 6. Main HEAD + dirty; each active side lane: status -sb + HEAD + branch

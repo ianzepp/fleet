@@ -29,7 +29,7 @@ Prefer short tokens: `mind`, `operator`, `hand-1`, `hand-2`, `head-ceo`, …
 vivi --help
 vivi <command> --help
 vivi <command> <subcommand> --help
-vivi --version                  # prefer ≥ 4.6 (watch/thread); 4.7+ fine
+vivi --version                  # prefer ≥ 6.4 (trace, memo search, task deps, verdicts, mailspace description, subagent PID fix)
 ```
 
 ## Kinds (what to send)
@@ -64,6 +64,9 @@ vivi board --for <name> --project <root> --json   # optional
 
 # Report (file results)
 vivi task done <handle> --for <name> --note '<evidence>' --project <root>
+# Optional structured close fields (≥ 6.4):
+vivi task done <handle> --for <name> --verdict clean_pass --project <root>              # auditor verdicts
+vivi task done <handle> --for <name> --repo examples --tip e968cc3 --project <root>     # land receipts
 vivi mail send --from <name> --to mind --subject '<subject>' --body '<body>' --project <root>
 vivi mail send --from <name> --to mind --subject '<subject>' --body-file /tmp/report.txt --project <root>  # long bodies
 vivi role set <name> --clear-pid --project <root>
@@ -96,6 +99,9 @@ python3 <fleet-skill>/scripts/fleet-sensors.py --project "$ROOT" --text
 vivi memo show --project "$ROOT" <handle>
 
 vivi mailspace status --project "$ROOT"
+# Fleet-level charter (≥ 6.4)
+vivi mailspace description --project "$ROOT"                      # show current
+vivi mailspace description --project "$ROOT" --set 'description'  # set
 
 vivi mailspace watch --for mind --project "$ROOT" \
   --once --write-cursor --cursor-file "$CURSOR"
@@ -118,7 +124,7 @@ Prefer **`fleet-sensors.py`**: emits `operator_mail` (To operator) and **`operat
 
 Paid path: list/show what changed; `mail thread` when lineage matters; residual **tasks** To owning Hand. **Do not** unbounded-block on `watch` during fail-fast cycles.
 
-## Communication tracing (Vivi ≥ 6.3)
+## Communication tracing
 
 `vivi trace` reconstructs the cross-role communication tree around any handle. Use it to verify coordination chains instead of inferring edges from subject lines and timing.
 
@@ -156,6 +162,8 @@ reinitialization:
 
 ```bash
 vivi memo list --project "$ROOT" --for <mind-or-head-id>
+vivi memo search --project "$ROOT" --for <mind-or-head-id> "keyword"
+vivi memo search --project "$ROOT" --for <mind-or-head-id> --subject "ACCEPT*"
 vivi memo show --project "$ROOT" <handle>
 vivi memo save --project "$ROOT" --for <mind-or-head-id> \\
   --subject '…' --body '…'
@@ -200,14 +208,17 @@ context later.
 
 ```bash
 vivi mailspace init --project "$ROOT"              # once per project (case 2)
-vivi mailspace status --project "$ROOT"            # every cheap cycle
+vivi mailspace status --project "$ROOT"
+# Fleet-level charter (≥ 6.4)
+vivi mailspace description --project "$ROOT"                      # show current
+vivi mailspace description --project "$ROOT" --set 'description'  # set            # every cheap cycle
 vivi mailspace identity list --project "$ROOT"
 vivi role add <name> --kind hand --harness subagent --project "$ROOT"   # one-step role seat (identity + role record)
 vivi mailspace identity add <name> --project "$ROOT"                     # thin identity only (no role metadata)
 # vivi mailspace identity rename <old> <new> --project "$ROOT"
 ```
 
-### Watch (Vivi ≥ 4.6) — board liveness, not IMAP
+### Watch — board liveness, not IMAP
 
 ```bash
 vivi mailspace watch --for <identity> --project "$ROOT" [filters…]
@@ -275,6 +286,16 @@ vivi task send --project "$ROOT" \
   --from mind --to hand-1 \
   --subject 'unit: …' \
   --body 'done-when: … evidence: …'
+
+# Task dependencies (≥ 6.4): declare structured ordering
+vivi task send --project "$ROOT" \
+  --from mind --to hand-3 \
+  --depends-on <handle-A> --depends-on <handle-B> \
+  --subject 'unit: … (after A+B)' --body '…'
+
+# Query blocked tasks (≥ 6.4)
+vivi task list --for hand-3 --project "$ROOT" --blocked
+vivi task list --for hand-3 --project "$ROOT" --blocking <handle>
 
 vivi need send --project "$ROOT" \
   --from mind --to hand-1 \

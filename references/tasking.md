@@ -196,4 +196,4 @@ Paid path, after sensors:
 7. if multi-hop: vivi mail thread <handle> (or show’s thread context)
 ```
 
-**Dump is audit**, not heartbeat. Prefer open-only dumps. CLI shapes: `companion-fallbacks.md`. Watch/thread: `dual-channel.md` (Vivi ≥ 4.6).
+**Dump is audit**, not heartbeat. Prefer open-only dumps. CLI shapes: `companion-fallbacks.md`. Watch/thread: `dual-channel.md`.
