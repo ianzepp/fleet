@@ -9,7 +9,7 @@
 
 Checks JSON parse, required-for-function keys, cross-reference meaning
 (mail_identity unique within the mailspace; auditor Hands use fresh
-assignments), executive_cadence / wake-field well-formedness, and that
+assignments), wake-field well-formedness, and that
 referenced absolute paths (role_prompt, persona, tooling binaries) exist.
 
 The schema is intentionally permissive ("Recommended keys — extend freely; skill
@@ -200,52 +200,6 @@ def _register_mail_identity(
         identities[mid] = where
 
 
-def _check_executive_cadence(report: Report, where: str, block: Dict[str, Any]) -> None:
-    """Validate Head schedule dial: every_n_loops (0 = on-call, N>=1 = scheduled)."""
-    if "self_directed" in block:
-        report.warn(
-            where + ".self_directed",
-            "ignored/removed: Head schedule is only executive_cadence.every_n_loops "
-            "(0=on-call, N>=1=scheduled); wake charter comes from persona+posture",
-        )
-    cad = block.get("executive_cadence")
-    if cad is None:
-        return
-    cwhere = "%s.executive_cadence" % where
-    if not isinstance(cad, dict):
-        report.err(cwhere, "must be an object")
-        return
-    # Canonical dial: every_n_loops (0 = on-call; N >= 1 = scheduled)
-    enl = cad.get("every_n_loops")
-    if enl is not None:
-        if not isinstance(enl, int) or isinstance(enl, bool) or enl < 0:
-            report.err(
-                "%s.every_n_loops" % cwhere,
-                "must be an integer >= 0 (0=on-call, N>=1=scheduled), got %r" % (enl,),
-            )
-    en = cad.get("enabled")
-    if en is not None:
-        if not isinstance(en, bool):
-            report.err("%s.enabled" % cwhere, "must be boolean if present (legacy), got %r" % (en,))
-        else:
-            report.warn(
-                "%s.enabled" % cwhere,
-                "legacy: prefer every_n_loops only (0=on-call; omit enabled). "
-                "enabled:false ≡ every_n_loops:0; enabled:true without every_n_loops "
-                "uses posture×role default",
-            )
-    # interval_sec / min_seconds_between_sweeps are legacy/ignored — warn if present.
-    for legacy_key in ("interval_sec", "min_seconds_between_sweeps"):
-        if legacy_key in cad:
-            report.warn(
-                "%s.%s" % (cwhere, legacy_key),
-                "ignored: Head spacing is every_n_loops × mind_loop.interval_sec "
-                "(set every_n_loops; see fleet-posture.md)",
-            )
-    if "sweep_mode" in cad and not isinstance(cad.get("sweep_mode"), str):
-        report.warn("%s.sweep_mode" % cwhere, "should be a string, got %r" % (cad.get("sweep_mode"),))
-
-
 def _check_sensor_log(report: Report, value: Any) -> None:
     if value is None:
         return
@@ -379,7 +333,6 @@ def validate(fleet: Dict[str, Any], fleet_path: Path, path_checks: bool) -> Repo
         if la is not None and not isinstance(la, list):
             report.warn(where, "legacy_aliases should be a list, got %r" % (type(la).__name__,))
         _check_assignment_mode(report, where, block)
-        _check_executive_cadence(report, where, block)
         _check_path(report, where, "role_prompt", block.get("role_prompt"), path_checks)
         _check_path(report, where, "persona", block.get("persona"), path_checks)
 

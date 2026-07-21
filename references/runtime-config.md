@@ -95,8 +95,7 @@ python3 scripts/verify-fleet-json.py --project <root> --strict         # warning
 python3 scripts/verify-fleet-json.py --project <root> --no-path-checks # skip on-disk refs
 ```
 
-Validates fleet.json shape, cross-references (`mail_identity` unique, auditor Hands use fresh assignments), `executive_cadence` /
-wake-field well-formedness, and that referenced absolute paths (`role_prompt`,
+Validates fleet.json shape, cross-references (`mail_identity` unique, auditor Hands use fresh assignments), wake-field well-formedness, and that referenced absolute paths (`role_prompt`,
 `persona`, `tooling` binaries) exist, and validates `sensor_log` level/path/retention shape. The schema is permissive ("extend freely;
 skill cares about meanings") — unknown keys are NOT rejected. Exit `0` ok ·
 `1` validation errors (or any warning under `--strict`) · `2` usage.
@@ -538,45 +537,26 @@ Recommended keys (extend freely; skill cares about meanings):
   "head-ceo": {
     "mail_identity": "head-ceo",
     "assignment_mode": "new",
-    "role_prompt": "<fleet-path>/head-ceo-role-prompt.txt",
-    "executive_cadence": {
-      "every_n_loops": 36,
-      "sweep_mode": "expansion"
-    }
+    "role_prompt": "<fleet-path>/head-ceo-role-prompt.txt"
   },
   "head-cto": {
-    "mail_identity": "head-cto",
-    "executive_cadence": { "every_n_loops": 6 }
+    "mail_identity": "head-cto"
   },
   "head-cxo": {
     "mail_identity": "head-cxo",
-    "tmux_session": "head-cxo",
-    "executive_cadence": { "every_n_loops": 12 }
+    "tmux_session": "head-cxo"
   },
   "head-cso": {
-    "mail_identity": "head-cso",
-    "executive_cadence": { "every_n_loops": 0, "sweep_mode": "security" }
+    "mail_identity": "head-cso"
   }
 }
 ```
 
-### Head schedule (`executive_cadence.every_n_loops`)
+### Head cadence (Vivi ≥ 6.2)
 
-Single dial — no `enabled`, no `self_directed`:
+Head schedule is set on the Vivi role record via `vivi role set <head> --cadence <duration>`. Board reports `ok` / `due` / `overdue` schedule state based on last outbound mail age. See [`dual-channel.md`](dual-channel.md) § Checking role schedule and [`heads.md`](heads.md) § Cadence spacing.
 
-| Value | Meaning |
-| --- | --- |
-| **0** | **On-call** — sensors never emit scheduled `head_due_*`; Mind files explicit tasks when needed |
-| **N ≥ 1** | **Scheduled** — due every `N × mind_loop.interval_sec`; Mind should wake a sweep with persona/posture charter |
-
-```text
-sweep_interval_sec = every_n_loops × mind_loop.interval_sec   # only when N >= 1
-```
-
-Prefer **explicit** `every_n_loops` on every Head. Legacy: `enabled: false` ≡ 0;
-`enabled: true` without N uses posture×role defaults (CTO/CXO/CEO only).
-
-**Mind loop tick (optional).** Base FLEET_CYCLE spacing for Head cadence math:
+**Mind loop tick (optional).** Base FLEET_CYCLE spacing for the Mind's own polling:
 
 ```json
 "mind_loop": { "interval_sec": 300 }
@@ -597,7 +577,7 @@ Default **`300`** (5 minutes) when omitted. Alias: top-level `loop_interval_sec`
 }
 ```
 
-Default cadences by tier: `inventory` freshness 30d, analysis 90d, no restore drill; `critical` freshness 14d, analysis 60d, restore drill 180d; `regulated_or_irreplaceable` freshness 7d, analysis 30d, restore drill 90d. `grace_days` defaults to 7. This cadence is calendar/maturity-triggered and independent of `executive_cadence.every_n_loops`.
+Default cadences by tier: `inventory` freshness 30d, analysis 90d, no restore drill; `critical` freshness 14d, analysis 60d, restore drill 180d; `regulated_or_irreplaceable` freshness 7d, analysis 30d, restore drill 90d. `grace_days` defaults to 7. This cadence is calendar/maturity-triggered and independent of role cadence.
 
 Baseline receipts are separate evidence state under `mind-baseline.json.disaster_recovery` and are never auto-derived from config, directories, repository size, remotes, or backup-job success:
 
@@ -618,40 +598,6 @@ Baseline receipts are separate evidence state under `mind-baseline.json.disaster
 
 No receipts plus an enabled policy makes analysis due first; sensors never schedule a meaningless freshness-only first pass. Freshness receipts never set restore proof. Receipt timestamps materially in the future are invalid/unknown (no clock-skew tolerance is currently granted), not clamped to age zero or treated as fresh. Sensor output includes compact policy/receipt/due state and signals (`head_due_coo_dr_freshness`, `head_due_coo_dr_analysis`, `head_due_coo_dr_restore_drill`, plus `head_overdue_*` after grace). Sensors do not page the operator, file COO assignments, perform restore work, or mutate baseline receipts. Existing COO DR assignments are reported as backpressure so Mind does not duplicate them.
 
-**Executive cadence (optional, per head).** Opt-in block: `{enabled, every_n_loops?, sweep_mode?}`.
-When `enabled`, `fleet-sensors.py` surfaces `head_due_<role>` after the **cadence
-interval** since last completion mail (pane not `running`). Completion = new mail
-from the head's `mail_identity` or `legacy_aliases` in `head_report_inbox` (default
-**`mind`**). Durable state: baseline `head-*`.`last_report_handle` / `last_report_at`.
-
-**Interval law:**
-
-```text
-sweep_interval_sec = every_n_loops × mind_loop.interval_sec
-```
-
-`every_n_loops` is **configurable per head** via `executive_cadence.every_n_loops`.
-When unset, it defaults from the posture × role table below (overridable default
-ladder — not immutable law):
-
-| Posture | head-cto | head-cxo | head-ceo | @ `interval_sec=300` |
-| --- | --- | --- | --- | --- |
-| **growth** | ×6 | ×12 | ×36 | 30m / 1h / 3h |
-| **standby** | ×18 | ×36 | ×72 | 1.5h / 3h / 6h |
-| **dormant** | — | — | — | sweeps **paused** |
-
-`every_n_loops: 0` is on-call; `N >= 1` is scheduled (interval =
-`N × mind_loop.interval_sec`). Prefer explicit N on every Head. Legacy
-`enabled` folds into that resolution; `self_directed` is ignored.
-`interval_sec` and `min_seconds_between_sweeps` are **ignored** (legacy).
-`sweep_mode` is free-form for Mind assign flavor; when unset, sensors default
-from posture: growth → `expansion`, standby → `stewardship`, dormant →
-`paused`. Detail: [`fleet-posture.md`](fleet-posture.md). Validate with
-`verify-fleet-json.py`.
-
-**Never hardcode model strings as Hand identity.** Capacity lives on the Vivi role record (`vivi role set`). Defaults from preferred_models; override for capacity/experiment, re-align when quiet.
-
-Prefer absolute paths from fleet `tooling` over `which` every cycle.
 
 ## Baseline schema
 

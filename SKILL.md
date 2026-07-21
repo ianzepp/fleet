@@ -13,7 +13,7 @@ Abbot **Mind / Head / Hand** roles on a **multi-session fleet** (Vivi board + ex
 | --- | --- | --- |
 | **Mind** | Tasking, integrate, cycles | Operator TUI + board **`mind@…`** (no external runtime) |
 | **Operator mail** | Human escalations | Board **`operator@…`** (no external runtime) |
-| **Head** | Advise / report — not bag drain | **`head-ceo` / `head-cto` / `head-cxo`** (+ optional org Heads) |
+| **Head** | Advise / report — not bag drain | **`head-ceo` / `head-cto` / `head-cxo`** (+ optional org Heads). Often carries cadence (Vivi ≥ 6.2) |
 | **Hand** | Execute work (implement **or** audit) | **`hand-1`…`hand-N`**, **`auditor-1` / `auditor-2`** (Hands with review duty; **`$auditor`**) |
 
 ## Execution model

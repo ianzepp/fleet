@@ -24,6 +24,33 @@ States: `alive`, `zombie`, `dead`, `sleep`, `not_set`, `remote`, `unknown`.
 `not_set` = available to assign (no process claimed the seat). `remote` = host
 mismatch; do not invent local process truth.
 
+## Checking role schedule (cadence)
+
+`vivi board` (Vivi ≥ 6.2) includes a `schedule` block per role derived from the
+age of the role's latest outbound mail. Set cadence on the role:
+
+```bash
+vivi role set head-ceo --cadence 4h --project <root>
+vivi role set head-ceo --clear-cadence --project <root>
+```
+
+| State | Meaning | Example (10m cadence) |
+| --- | --- | --- |
+| `none` | No cadence configured | Reactive — event-driven (mail, starvation) |
+| `never` | Cadence set, no outbound signal yet | First run pending |
+| `ok` | Last signal younger than one cadence + 10% grace | 0–11m ago |
+| `due` | Silence between one and two cadences | 11–20m ago |
+| `overdue` | Silence at or beyond two cadences | 20m+ ago |
+
+Board text prints a schedule line when state is not `none`. JSON always includes
+the `schedule` block. Schedule is **advisory** — it tells the Mind when a role
+hasn't reported in a while; it is not an execution contract. Process liveness
+remains separate: a periodic seat may be `not_set` (no PID) while schedule is
+healthy because mail is current.
+
+Cadence is most often used for Heads, stewards, and similar advisory seats.
+Hands are usually event-driven (mail arrives, Hand spawns) and don't need cadence.
+
 ## Runtime backends
 
 | Backend | When | Reference |

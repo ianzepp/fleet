@@ -58,28 +58,22 @@ misleading.
 
 ### head-coo disaster-recovery cadence (opt-in)
 
-Top-level `disaster_recovery` is default-off and independent of `executive_cadence.every_n_loops`. When enabled with tier `inventory`, `critical`, or `regulated_or_irreplaceable`, sensors may emit `head_due_coo_dr_freshness`, `head_due_coo_dr_analysis`, or `head_due_coo_dr_restore_drill` plus overdue variants after grace. Missing block, `enabled=false`, or `tier=off` is silent.
+Top-level `disaster_recovery` is default-off and independent of role cadence. When enabled with tier `inventory`, `critical`, or `regulated_or_irreplaceable`, sensors may emit `head_due_coo_dr_freshness`, `head_due_coo_dr_analysis`, or `head_due_coo_dr_restore_drill` plus overdue variants after grace. Missing block, `enabled=false`, or `tier=off` is silent.
 
 COO DR assignments are report-only: evidence, gaps, RPO/RTO/coverage status, restore-proof status, and recommended safe next step. COO never performs backup, restore, secret access, provider setup, spend, external contact, or destructive/live recovery. Policy/config is not evidence; one Git remote or a successful backup job is never restore proof. Existing COO DR assignments suppress duplicate assignment recommendations without hiding due state. Dormant fleets with explicit critical/regulated policy keep the obligation visible but assignment may remain paused.
 
-### Cadence spacing (configurable)
+### Cadence spacing (Vivi ≥ 6.2)
 
-**One dial:** `executive_cadence.every_n_loops` (default L = `mind_loop.interval_sec` = 300s).
+Set cadence per role via `vivi role set <head> --cadence <duration> --project <root>`. Board reports schedule state (`ok` / `due` / `overdue`) based on last outbound mail age. See [`dual-channel.md`](dual-channel.md) § Checking role schedule.
 
-| Value | Mode |
+| Cadence state | Head action |
 | --- | --- |
-| **0** | On-call — no scheduled `head_due_*`; explicit Mind tasks only |
-| **N ≥ 1** | Scheduled — due every `N × L` seconds |
+| `ok` | Skip — within cadence |
+| `due` | Assign if work exists; otherwise defer |
+| `overdue` | Spawn for stewardship (advisor sweep, map audit) unless posture says quiet |
+| `none` | Reactive — explicit Mind tasks only |
 
-Posture defaults when N omitted under legacy `enabled: true` (prefer explicit N):
-
-| Mode | CTO | CXO | CEO | others |
-| --- | --- | --- | --- | --- |
-| growth | ×6 | ×12 | ×36 | 0 |
-| standby | ×18 | ×36 | ×72 | 0 |
-| dormant | paused | paused | paused | paused |
-
-No `enabled` / `self_directed` peer knobs. Sensors pause scheduled sweeps on **dormant** only. Full semantics: [`fleet-posture.md`](fleet-posture.md).
+Posture still gates whether overdue spawns happen on `dormant` (pause). Full semantics: [`fleet-posture.md`](fleet-posture.md).
 
 ---
 
@@ -104,7 +98,7 @@ Identity: `head-ceo` (legacy: `strategist` / `head-strategist`). Persona: [`head
 
 ### Map-health / cadence sweep (self-directed when due)
 
-When sensors emit `head_due_ceo` (`every_n_loops >= 1` and interval elapsed) and posture allows:
+When the CEO role's schedule state is `due` or `overdue` (Vivi ≥ 6.2 cadence) and posture allows:
 
 | Posture | Assign flavor |
 | --- | --- |
@@ -240,7 +234,7 @@ Code review is **not** this cadence. Low-risk `done` evidence may satisfy accept
 2. Session **down** → recreate + role-prompt bootstrap (unless operator/dormant paused)
 3. New report → absorb; triage task/need **To owning Hand**; doorbell if idle; baseline `head_cto.last_report_*`
 4. On map-gate findings: if `false_gate` / named producer fact, feed hand-1 or CEO map-health — do not freeze merges for a stamp
-5. **Do not** assign every cycle. Soft-wake if stuck idle long; cadence assign uses posture lens
+5. **Do not** assign every cycle. Spawn on `due`/`overdue` cadence; otherwise explicit Mind tasks only
 6. Never map-refill as product lane
 7. Do **not** act as merge GO/NO-GO or block Mind merge decisions awaiting stamp
 

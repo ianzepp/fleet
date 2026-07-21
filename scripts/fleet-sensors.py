@@ -2504,24 +2504,49 @@ def main() -> int:
 
         head_paused = head_is_paused(baseline, key)
 
-        secs = _secs_since(last_completed, now_dt) if last_completed else None
-        interval_elapsed = (secs is None) or (secs >= sweep_interval)
-        # dormant pauses Head cadence; standby still allows stewardship sweeps.
-        sweep_due = (
-            sweep_enabled
-            and not head_paused
-            and not posture_pauses_executive_sweeps
-            and pclass not in ("starting", "submitting", "running")
-            and interval_elapsed
-        )
-        overdue_sec = None
-        if (
-            sweep_enabled
-            and not posture_pauses_executive_sweeps
-            and secs is not None
-            and secs > sweep_interval
-        ):
-            overdue_sec = int(secs - sweep_interval)
+        # Vivi ≥ 6.2: prefer role cadence from the board when set.
+        # The schedule state (ok/due/overdue) comes from Vivi based on last
+        # outbound mail age; this overrides the legacy every_n_loops path.
+        vivi_schedule = None
+        if vivi:
+            vs = vivi_role_status(vivi, str(project), key)
+            if isinstance(vs.get("schedule"), dict):
+                vivi_schedule = vs["schedule"]
+        if vivi_schedule and vivi_schedule.get("state") in ("due", "overdue", "ok", "never"):
+            sched_state = vivi_schedule.get("state")
+            sweep_enabled = sched_state != "never"
+            sweep_due = (
+                sched_state in ("due", "overdue")
+                and not head_paused
+                and not posture_pauses_executive_sweeps
+                and pclass not in ("starting", "submitting", "running")
+            )
+            overdue_sec = (
+                int(vivi_schedule.get("age_seconds") or 0)
+                - int(vivi_schedule.get("cadence_seconds") or 0) * 2
+                if sched_state == "overdue" and vivi_schedule.get("age_seconds")
+                else None
+            )
+            sweep_interval = int(vivi_schedule.get("cadence_seconds") or 0)
+        else:
+            secs = _secs_since(last_completed, now_dt) if last_completed else None
+            interval_elapsed = (secs is None) or (secs >= sweep_interval)
+            # dormant pauses Head cadence; standby still allows stewardship sweeps.
+            sweep_due = (
+                sweep_enabled
+                and not head_paused
+                and not posture_pauses_executive_sweeps
+                and pclass not in ("starting", "submitting", "running")
+                and interval_elapsed
+            )
+            overdue_sec = None
+            if (
+                sweep_enabled
+                and not posture_pauses_executive_sweeps
+                and secs is not None
+                and secs > sweep_interval
+            ):
+                overdue_sec = int(secs - sweep_interval)
 
         short = pk.split("_", 1)[1]  # ceo | cto | cxo
         if sweep_due:
