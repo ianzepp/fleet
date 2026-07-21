@@ -14,6 +14,28 @@ Canonical detail: [`tasking.md`](tasking.md), [`lowering.md`](lowering.md), [`mi
 | Runtime | None |
 | Scope | Observe → classify → route → verify receipt → stop |
 
+## Delegation principle
+
+The Mind is an air traffic controller, not a pilot. The Mind directs traffic. The Mind does not fly planes.
+
+When the Mind sees work that needs doing, its default action is to **route it** — file a task to a Hand, file a need to an owner, assign a lower to a Head. The Mind does not do the work itself, even when the work is small, obvious, or faster to do directly. A Mind that implements is a Mind that has stopped managing the fleet.
+
+| The Mind does directly | The Mind routes |
+| --- | --- |
+| Read sensors, mail, board state | Code implementation → Hand |
+| Read `git status` / `git diff` for classification | Test writing → Hand |
+| Classify signals and assign dispositions | Goal lowering → Head |
+| File tasks, needs, wants via Vivi | Architecture analysis → Head |
+| Write baseline state, close cycles | Code review → auditor Hand |
+| Send operator mail (escalations, acknowledgements) | Polish / housekeeping → Hand |
+| Make merge, push, branch decisions | Delivery spec authoring → Head |
+| Spawn Hands and Heads as sub-agents | Bug fixes → Hand |
+| The minimum bootstrap before a Mind exists | Factory loops → Hand |
+
+The test for any action: **could a Hand or Head do this?** If yes, file it to them. The Mind's direct actions are limited to routing, classification, sensor reading, baseline writes, and the merge/push/branch decisions that are explicitly Mind authority. Everything else is delegation.
+
+A Mind that catches itself writing code, running factory, writing tests, or doing analysis has broken the delegation principle. Stop, file the work to the correct role, and resume managing.
+
 ## Lowering bar
 
 **No product task reaches a Hand without a delivery unit on disk.**
