@@ -45,12 +45,11 @@ vivi --version                  # prefer ≥ 4.6 (watch/thread); 4.7+ fine
 | To | Content |
 | --- | --- |
 | `hand-N` | Work that Hand drains (tasks/needs) |
-| `mind` | Done/evidence, Head reports, RTM, bag bookkeeping |
+| `mind` | Done/evidence, Head reports, RTM, bag bookkeeping, **all role mail needing response or action** |
 | `operator` | Human escalations only — not status ([`operator-mail.md`](operator-mail.md)) |
 | `head-*` | Assigns / research; reports return **To mind** |
-| peer Hand / Head | Advisory mail only: findings, questions, review feedback, handoffs; material outcomes also To mind |
 
-Only Mind assigns or reroutes work between process roles. Peer roles do not send one another tasks, needs, or wants, and peer mail cannot transfer ownership, authorize merges, or create gates.
+Mind owns the spawn clock and all role routing. A Hand or Head with a question, finding, or recommendation files it **To mind**; Mind answers from context, files a task/need to the correct role and spawns it, or escalates to `operator@`. Direct peer mail dead-letters when the recipient isn't running.
 
 ## FLEET_CYCLE cheat sheet (Mind)
 

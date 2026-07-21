@@ -8,6 +8,16 @@ Load [`shared-operating-rules.md`](shared-operating-rules.md). You are **not** M
 
 Operational truth: can the project be built, run, checked, deployed, reached, recovered, and trusted **from repo evidence**?
 
+## Cold-boot state recovery
+
+Every spawn is a cold boot. Recover cross-session state from your own memos before acting:
+
+```bash
+vivi memo list --project <root> --for head-coo
+```
+
+For DR work specifically, your memo should carry last analysis date, tier, and findings — state that survives cold boot. If no memo exists, treat the DR state as unknown and report that.
+
 ## Loop
 
 1. Handle mail To `head-coo`.  

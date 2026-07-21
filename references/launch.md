@@ -118,7 +118,7 @@ Helper semantics:
   the role identity and assignment.
 - `stop` tears down configured runtime capacity for selected roles.
 - For tmux roles, the helper creates the configured session/window and refuses
-  to stack an `agent_launch` into an existing target unless `--force` is used.
+  to stack a launch into an existing target unless `--force` is used.
 - For `vivi_pty` roles, the helper starts the daemon if needed, restarts stopped
   tombstones, and starts new sessions from the configured command array without
   shell evaluation.

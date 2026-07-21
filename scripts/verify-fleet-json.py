@@ -8,8 +8,8 @@
   verify-fleet-json.py --project <root> --no-path-checks # skip on-disk path refs
 
 Checks JSON parse, required-for-function keys, cross-reference meaning
-(default_hand resolves; mail_identity unique within the mailspace; auditor Hands
-cannot merge and use fresh assignments), executive_cadence / wake-field well-formedness, and that
+(mail_identity unique within the mailspace; auditor Hands use fresh
+assignments), executive_cadence / wake-field well-formedness, and that
 referenced absolute paths (role_prompt, persona, tooling binaries) exist.
 
 The schema is intentionally permissive ("Recommended keys — extend freely; skill
@@ -299,12 +299,8 @@ def validate(fleet: Dict[str, Any], fleet_path: Path, path_checks: bool) -> Repo
     _check_sensor_log(report, fleet.get("sensor_log"))
     _check_lane_lifecycle(report, fleet.get("lane_lifecycle"))
 
-    # --- default_hand cross-reference (hands may be keyed as 'hunters' in legacy fleets) ---
+    # --- hands (may be keyed as 'hunters' in legacy fleets) ---
     hands = ensure_dict(fleet.get("hands") or fleet.get("hunters"))
-    if fleet.get("default_hand") is not None:
-        dh = fleet.get("default_hand")
-        if not isinstance(dh, str) or dh not in hands:
-            report.err("$.default_hand", "references missing hand: %r (known: %s)" % (dh, sorted(hands) or "(none)"))
 
     # --- steward ---
     st = fleet.get("steward")
@@ -334,15 +330,11 @@ def validate(fleet: Dict[str, Any], fleet_path: Path, path_checks: bool) -> Repo
         if cwd is not None and isinstance(cwd, str) and cwd.startswith("/") and not _is_remote(h):
             if path_checks and not Path(cwd).is_dir():
                 report.warn(where, "cwd does not exist locally: %s" % cwd)
-        if "merges_to_main" in h and not isinstance(h.get("merges_to_main"), bool):
-            report.err(where, "merges_to_main must be boolean, got %r" % (h.get("merges_to_main"),))
         if name.startswith("auditor-") and not AUDITOR_HAND_RE.match(name):
             report.err(where, "auditor Hand name must match auditor-N with N >= 1")
         if AUDITOR_HAND_RE.match(name):
             if h.get("mail_identity") != name:
                 report.err(where, "auditor mail_identity must match role name %r" % name)
-            if h.get("merges_to_main") is not False:
-                report.err(where, "auditor Hand requires merges_to_main=false")
             if h.get("assignment_mode") != "new":
                 report.err(where, "auditor Hand requires assignment_mode='new' for independent review")
         pkt = h.get("packet")
@@ -376,8 +368,6 @@ def validate(fleet: Dict[str, Any], fleet_path: Path, path_checks: bool) -> Repo
         _register_mail_identity(report, identities, where, block.get("mail_identity"))
         if "agent" in block and not isinstance(block.get("agent"), str):
             report.warn(where, "agent must be a string, got %r" % (block.get("agent"),))
-        if block.get("merges_to_main") is True:
-            report.err(where, "merges_to_main=true on a head — only hands merge to main")
         la = block.get("legacy_aliases")
         if la is not None and not isinstance(la, list):
             report.warn(where, "legacy_aliases should be a list, got %r" % (type(la).__name__,))

@@ -2,43 +2,59 @@
 
 Arming a fleet, rebinding runtimes, Mind/Hand/Head duties.
 
+## Execution harness values
+
+| Harness | Meaning | Reference |
+| --- | --- | --- |
+| **`subagent`** (default) | Spawn in parent runtime; event-driven completion | [`subagent.md`](subagent.md) |
+| **`tmux`** | External tmux pane; polled completion | [`tmux.md`](tmux.md) |
+| **`vivi_pty`** | Structured PTY session; polled completion | [`vivi-pty.md`](vivi-pty.md) |
+| **`pi`** | Pi TUI in tmux/PTY (legacy harness value; implies tmux or vivi_pty) | [`pi.md`](pi.md) |
+| **`codex`** | Codex CLI in tmux (compatibility exception) | [`tmux.md`](tmux.md) |
+| **`opencode`** | opencode CLI in tmux (compatibility exception) | [`tmux.md`](tmux.md) |
+| **`kimi`** | Kimi Code CLI in tmux (compatibility exception) | [`tmux.md`](tmux.md) |
+
+With Vivi 6.0+ roles, capacity (provider/model/thinking) lives on the role
+record (`vivi role set`). The harness field on the role (or fleet.json `agent`)
+determines execution backend. Sub-agent is the default for new fleets.
+
 ## Roles
 
 | Role | Typical identity | Job | Output |
 | --- | --- | --- | --- |
 | **Hand** | `hand-1`…`hand-N`, **`auditor-1` / `auditor-2`** | Implement product **or** run code review — same Hand category; duty differs by identity | Done + evidence, or `auditor-N report:` To `mind` |
-| **Mind** | Board **`mind@…`** — **no tmux**; process = operator TUI | Survey product; **dole out** tasking; integrate; **triage audit need**; fleet ops; operator mail | Open tasks/needs; wake Hands (incl. auditors); merge queue |
-| **Operator mail** | Board **`operator@…` only** — **no tmux** | Accrue human escalations while autonomous | Need/mail To human — **not** status |
-| **Steward** | tmux **`steward`** (not Mind) | Dead-man: watch successful cycle ticks; trip → hold + page | `steward.sh` |
+| **Mind** | Board **`mind@…`** — no external runtime; process = operator TUI | Survey product; **dole out** tasking; integrate; **triage audit need**; fleet ops; operator mail | Open tasks/needs; wake Hands (incl. auditors); merge queue |
+| **Operator mail** | Board **`operator@…` only** — no external runtime | Accrue human escalations while autonomous | Need/mail To human — **not** status |
+| **Steward** | optional runtime (not Mind) | Dead-man: watch successful cycle ticks; trip → hold + page | `steward.sh` |
 | **head-ceo** (Head) | `head-ceo` | **Strategist:** map health, sequencing, side-lane buckets | Mail To `mind` |
 | **head-cto** (Head) | `head-cto` | **Gate honesty / architecture** — not the code-review Hand queue | Mail To `mind` |
 | **head-cxo** (Head) | `head-cxo` | Complexity / purity | Mail To `mind` |
 
-**CTO is a kind of Head; auditor is a kind of Hand** — not a fourth top-level class. Configure `auditor-1` / `auditor-2` under **`hands`** in `fleet.json` (`merges_to_main: false`, skill **`$auditor`**). Mind files and wakes; Heads advise; implementer Hands ship; auditor Hands review when assigned.
+**CTO is a kind of Head; auditor is a kind of Hand** — not a fourth top-level class. Configure `auditor-1` / `auditor-2` under **`hands`** in `fleet.json` (skill **`$auditor`**; auditor Hands review, never commit product code). Mind files and wakes; Heads advise; implementer Hands ship; auditor Hands review when assigned.
 
 Prefer numbered hands (`hand-N`) over harness-named identities. Keep the product plane on Pi by default; Heads may use different Pi providers or models for independent review.
 
 ## Fleet axes (identity ≠ assignment ≠ runtime)
 
 ```text
-hand-N  =  identity (mail + tmux)
+hand-N  =  identity (mail + role)
               ├── assignment   focus / packet / cwd / merge rights
               └── runtime      harness + model + wake/reinit policy
 ```
 
 | Axis | Meaning | Sticky? |
 | --- | --- | --- |
-| **Identity** | Who owns bag + pane (`hand-N`) | Session name while the slot exists |
-| **Assignment** | What work that slot is on | Usually only hand-1 main + merge rights. hand-2+ transient |
+| **Identity** | Who owns bag + role (`hand-N`) | Mail identity while the slot exists |
+| **Assignment** | What work that slot is on | Transient; Mind assigns per unit |
 | **Runtime** | Harness + model + wake/reinit | Hand harness follows Mind. Model within harness may rebind. Heads free |
 
-Product law talks in H-numbers + current assignment. Ops read runtime from fleet (`agent`, `agent_launch`) and apply wake/reinit by harness, not H-number. Live bindings in **project fleet config**. Do not hardcode model strings into role tables as Hand identity.
+Product law talks in H-numbers + current assignment. Ops read runtime capacity from the Vivi role record and apply wake/reinit by harness, not H-number. Fleet.json holds operational bindings only (tmux targets, cwd, wake mode). Do not hardcode model strings into role tables as Hand identity.
 
 ## Harness alignment (Mind ↔ Hands vs Heads)
 
-**Rule (one line):** default product-plane alignment (Hands share Mind’s harness); **documented fleet config exceptions win** — do not “normalize” a deliberate heterogeneous fleet.
+**Rule (one line):** default product-plane alignment (Hands share Mind's harness); **documented fleet config exceptions win** — do not "normalize" a deliberate heterogeneous fleet.
 
-### Why Hands follow Mind’s harness
+### Why Hands follow Mind's harness
 
 The Mind is the **control plane** for the fleet. It has internal access to its own
 systems instructions — the harness-level behavior, tooling surface, prompt
@@ -46,6 +62,12 @@ conventions, and agentic loop semantics — that shape how it formulates tasks,
 describes done-when, and debugs Hand failures. When Hands share the same harness,
 instructions the Mind writes are natively understood by the Hand without
 translation or impedance mismatch.
+
+For **sub-agent** fleets, Hands inherently share the Mind's harness — they are
+spawned inside the parent runtime. This is the strongest alignment.
+
+For **tmux/PTY** fleets, Hands run in separate panes/sessions. Same-harness
+alignment means same CLI (Pi, Codex, etc.) across Mind and Hands.
 
 A Hand on a different harness from its Mind must cope with instructions shaped
 by a different agentic loop, tool-use conventions, and internal model of how
@@ -86,9 +108,8 @@ Pi-aligned roles keep one wake/reinit/bootstrap surface. Heads diversify through
 ## Preferred models by role
 
 Default every managed role to the **Pi harness**. Live provider, model, and effort
-remain project configuration (`provider`, `agent_model`, `agent_launch`, thinking
-flags). Capacity ladders change Pi provider/model without inventing permanent
-Hand identity from model strings.
+live on the Vivi role record (`vivi role set`). Capacity ladders change Pi
+provider/model without inventing permanent Hand identity from model strings.
 
 **Unit-shape routing and capability classes** (volume implement vs design vs
 review/audit vs repair loop): see **[`model-selection.md`](model-selection.md)**.
@@ -148,14 +169,11 @@ pi --provider zai --model glm-5.2 --thinking high   # or xhigh
 
 ## Harness launch reference
 
-Each harness has a distinct CLI and configuration surface. The fleet `agent_launch`
-field in fleet.json is the source of truth per slot; the tables below help
-operators write that field. For model/effort changes at runtime, see
-[`runtime-config.md`](runtime-config.md) § Model ladder.
+Each harness has a distinct CLI and configuration surface. Capacity (provider/model/thinking) lives on the Vivi role record; the tables below describe each harness's flags for reference. For model/effort changes at runtime, see [`runtime-config.md`](runtime-config.md) § Model ladder.
 
 ### Principles
 
-1. `agent_launch` in fleet.json wins for every slot — never hardcode model strings as identity.
+1. Capacity on the Vivi role record wins — never hardcode model strings as identity.
 2. Model changes step the configured **Pi provider/model ladder** first.
 3. Heads use Pi; model and thinking effort vary by role.
 
@@ -167,7 +185,7 @@ by default; override per-invocation via `-c key=value` or `--model`.
 
 | Flag | Purpose | Fleet use |
 | --- | --- | --- |
-| `-m` / `--model <MODEL>` | Model ID (e.g. `gpt-5.6-luna`, `gpt-5.6-sol`) | Set `agent_model` |
+| `-m` / `--model <MODEL>` | Model ID (e.g. `gpt-5.6-luna`, `gpt-5.6-sol`) | Model on Vivi role |
 | `-c` / `--config <key=value>` | Override config dotted path | Toggle effort without editing file |
 | `-p` / `--profile <NAME>` | Layer a named profile on base config | Profile for different models |
 | `-s` / `--sandbox <MODE>` | Sandbox mode | `danger-full-access` for Hands |
@@ -274,13 +292,13 @@ opencode --model opencode/gpt-5.5 --auto
 
 Binary: `kimi`. Documentation: [Kimi Code CLI](https://moonshotai.github.io/kimi-code/).
 Kimi uses a persistent TUI with `/new`, `/compact`, `/yolo`, `/auto`, and
-`/permission` controls. Fleet uses `agent_launch` as the source of truth and a
+`/permission` controls. Fleet uses the Vivi role capacity as the source of truth and a
 longer tmux submit-settle delay because rapid injected text can otherwise leave
 Enter in the multiline composer.
 
 | Flag | Purpose | Fleet use |
 | --- | --- | --- |
-| `-m` / `--model <MODEL>` | Model alias | Set `agent_model` |
+| `-m` / `--model <MODEL>` | Model alias | Model on Vivi role |
 | `-y` / `--yolo` | Skip regular tool approvals | Unattended Hands only |
 | `--auto` | Automatically handle approvals/questions | Alternative operator-selected automation mode |
 | `-S` / `--session [ID]` | Resume a session | Manual recovery; normal Fleet continuity keeps the TUI resident |
@@ -362,12 +380,13 @@ list the default search paths (“`~`” resolves to the current user’s home d
 
 - Cheap intake; `show` only the chosen handle
 - Drain open tasks/needs for **its** identity; validate; mark done with evidence
+- **Commit own work** on assigned branch — the Hand has the diff context; see [SKILL.md § Commit authority and workflow](../SKILL.md#commit-authority-and-workflow)
 - Advance campaign/docs Status when stage criteria hold and residuals empty (Status must not overclaim — e.g. static checks ≠ GPU product run)
 - **After product unit lands:** `$polish` on **changed source files from this unit only** — main skill **End-of-unit polish**
 - Exit when tasking empty for focus **and** map has no next package (or operator pause) — not when Mind stamp missing
-- Clean turn end: mark done; turn-end / **ready-to-merge** mail when useful
-- **hand-2+ after unit:** clean commit + tasking done + turn-end; no invent main work or merge. Expect Mind refill same cycle when campaign still has work
-- **hand-2+ after theme RTM:** wait only for **integration** (Mind review → merge via hand-1)
+- Clean turn end: mark done; turn-end mail with commit SHA + report
+- **After unit:** clean commit + tasking done + turn-end. Expect Mind refill same cycle when campaign still has work
+- **After theme on feature branch:** signal ready-to-merge; wait for Mind merge decision
 - **Don't get stuck:** classify dirt A/B/C; file needs same turn; **pivot** when one item blocks
 
 ## Mind does
@@ -375,12 +394,14 @@ list the default search paths (“`~`” resolves to the current user’s home d
 - **Is the operator entry point:** human conversation **is** Mind (board = `mind@…` + **`operator@…`** — no tmux for either)
 - Resolve **interaction mode** each cycle — main skill + `mind-cycle.md`
 - Find missed work, Status overclaims, missing evidence; file **targets** with where / done-when / evidence bar (**to owning Hand**)
-- **Integration absorb/accept** — *absorb = bookkeeping when something moved; accept = integration bar (not code review)* — canon [`mind-cycle.md`](mind-cycle.md); not deep peer review of every packet
+- **Integration absorb/accept** — *absorb = bookkeeping when something moved; accept = audit loop passed (not code review)* — canon [`mind-cycle.md`](mind-cycle.md); not deep peer review of every unit
 - Stay quiet when fingerprint unchanged, panes healthy, no ops signal
-- Each wake: cheap **fleet pane scan**; doorbell idle/done panes with open targets; use **Codex reinit** (`scripts/codex-reinit.sh`) only as fallback for stuck/down/error Codex sessions
-- Residual → **task** to Hand; agent decision hold → **need**; **human** wall / problem / blocker / bug-guidance → **`operator@`** (`operator-mail.md`); **tmux pointer only**
+- Each wake: cheap **runtime scan**; wake idle/done agents with open targets; use backend-specific reinit (see [`tmux.md`](tmux.md) or [`vivi-pty.md`](vivi-pty.md)) only as fallback for stuck/down/error sessions
+- Residual → **task** to Hand; agent decision hold → **need**; **human** wall / problem / blocker / bug-guidance → **`operator@`** (`operator-mail.md`); **runtime pointer only**
+- **Branch and merge decisions:** Mind decides branch strategy at assignment time (main vs feature vs worktree); Mind owns feature-branch merge decisions
+- **Push decisions:** Mind decides when to push; default off for Railway-linked repos
 - **Post-main polish advisory:** main git tip moves → `suggest-polish-files.py` (JSON, capped); scores ≥ threshold → bounded polish **task** — Mind does not run polish loop
-- **Major-inflection housekeeping:** campaign end / large multi-theme merge / stage closeout / operator ask only — **one** `$housekeeping` **task** To hand-1; never after routine lands
+- **Major-inflection housekeeping:** campaign end / large multi-theme merge / stage closeout / operator ask only — **one** `$housekeeping` **task**; never after routine lands
 - **Capacity packing:** when picking head-ceo side-lane buckets, use `effort` / `est_tokens` + recent `cost_calibration`
 - **Cost calibration:** on Hand done for bound candidate, record actual vs est when known. If TUI does not surface usage (common for **Codex** interactive): `actual_tokens=null`, `actual_source=unavailable` (or `mind_estimate` if Mind ballparks). **Do not invent** token numbers.
 - **Unstick half-dead dirt:** open the diff; class A mechanical → clear same turn; no multi-hour freeze
@@ -401,7 +422,7 @@ list the default search paths (“`~`” resolves to the current user’s home d
 - Wait multiple cycles on head-ceo for a decision it can make with a default
 - Treat strong guidance as a hard ban that freezes progress
 - Run a dual Mind process (second ops TUI/pane)
-- Create tmux for **`mind`** or **`operator`** (board inboxes only)
+- Create external runtime for **`mind`** or **`operator`** (board inboxes only)
 - File status / absorbs / “still running” To **`operator@`**
 
 ## head-cto does (Head)

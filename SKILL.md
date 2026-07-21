@@ -1,54 +1,158 @@
 ---
 name: fleet
-description: Multi-agent fleet management with Mind/Head/Hand roles (Abbot pattern) — Mind session attaches to one or more fleets; Hands/Heads; steward dead-man; dual-channel Vivi+tmux; multi-fleet FLEET_CYCLE. Use for hand-N fleets, multi-fleet attach, codex reinit, opencode hand-ctl, steward arm/rearm/disarm.
+description: Multi-agent fleet management with Mind/Head/Hand roles (Abbot pattern) — Mind session attaches to one or more fleets; Hands/Heads via sub-agents (default), tmux, or vivi-pty; Vivi board as work truth; event-driven or polling completion; multi-fleet FLEET_CYCLE.
 ---
 
 # Fleet
 
 **Official source:** [https://github.com/ianzepp/fleet](https://github.com/ianzepp/fleet) — clone or pull from there for updates; do not treat monorepo skill mirrors as canonical.
 
-Abbot **Mind / Head / Hand** roles on a **multi-session fleet** (Vivi board + tmux panes), not an in-process kernel.
+Abbot **Mind / Head / Hand** roles on a **multi-session fleet** (Vivi board + execution runtime), not an in-process kernel.
 
 | Role | Job | Identity |
 | --- | --- | --- |
-| **Mind** | Tasking, integrate, pane ops, cycles | Operator TUI + board **`mind@…`** (no tmux) |
-| **Operator mail** | Human escalations | Board **`operator@…`** (no tmux) |
+| **Mind** | Tasking, integrate, cycles | Operator TUI + board **`mind@…`** (no external runtime) |
+| **Operator mail** | Human escalations | Board **`operator@…`** (no external runtime) |
 | **Head** | Advise / report — not bag drain | **`head-ceo` / `head-cto` / `head-cxo`** (+ optional org Heads) |
 | **Hand** | Execute work (implement **or** audit) | **`hand-1`…`hand-N`**, **`auditor-1` / `auditor-2`** (Hands with review duty; **`$auditor`**) |
 
+## Execution model
+
+Fleet Hands and Heads run via one of three execution backends:
+
+| Backend | Completion | Use | Reference |
+| --- | --- | --- | --- |
+| **Sub-agent** (default) | Event-driven | Harness supports spawning; parallel work; advisory Heads | [`subagent.md`](references/subagent.md) |
+| **tmux** | Polled | Persistent interactive sessions; harness lacks sub-agents; remote SSH | [`tmux.md`](references/tmux.md) |
+| **vivi-pty** | Polled | Structured PTY sessions without tmux | [`vivi-pty.md`](references/vivi-pty.md) |
+
+**Sub-agent is the default** for harnesses that support it (Grok Build, Codex, etc.) — completion notifications drive the Mind; no polling or pane management. Capacity (provider/model/thinking) and charter live on the Vivi role record; boot and report are backend-neutral — see [Role communication contract](#role-communication-contract).
+
+## Role communication contract
+
+Every Hand and Head session — regardless of backend — follows one boot and report shape. The Vivi role record is the single source for identity, capacity, and charter; the Vivi board is the single source for work and results.
+
+### Boot
+
+The parent delivers a thin pointer. The role loads its own context from Vivi.
+
+```text
+You are fleet role <name>.
+Load charter:  vivi role charter show <name> --project <root>
+Load task:     vivi task show <handle> --project <root>
+Optional bag:  vivi board --for <name> --project <root> --json
+Execute per charter. Report via vivi task done + vivi mail send.
+Return only a short pointer.
+```
+
+### Report
+
+Before returning, the role files results through Vivi:
+
+```bash
+vivi task done <handle> --for <name> --note '<evidence: what changed, why, residuals>'
+vivi mail send --from <name>@<mailspace> --to mind@<mailspace> \
+  --subject 'Re: <task subject>' --body '<durable findings>'
+```
+
+Returns to parent: short pointer only.
+
+```text
+Done. Commit <sha>. Mail <handle> has the full report.
+```
+
+Detailed report lives in Vivi for audit; parent context stays lean.
+
+### Backend delivery
+
+Boot and report shapes are identical across backends. Only delivery differs.
+
+| Backend | Boot pointer via | Completion by |
+| --- | --- | --- |
+| **Sub-agent** | Thin spawn prompt | Notification (event) |
+| **tmux** | `fleet-doorbell.sh` / `tmux send-keys` | Pane classification (poll) |
+| **vivi-pty** | `fleet-doorbell.sh` / `terminal write` | Session diagnostics (poll) |
+
+Mechanics: [`subagent.md`](references/subagent.md), [`tmux.md`](references/tmux.md), [`vivi-pty.md`](references/vivi-pty.md).
+
+## Commit authority and workflow
+
+Hands commit their own work. The Hand has the diff context; re-deriving it in the Mind is waste. The Mind's job is review-after (sampling, auditor on risk), not commit-before.
+
+### Standard delivery flow
+
+```text
+1. Operator + Mind   discuss feature
+2. Mind              creates goal doc
+3. Head              runs goal-check; Mind verifies
+4. Head              lowers into delivery phases; Mind reviews + prioritizes
+5. Mind              assigns phase to a Hand (picks branch strategy: main or feature)
+6. Hand              executes, commits on assigned branch, returns SHA + report
+7. Mind              sends commit to auditor
+8. Auditor           reviews; reports bugs To mind (or pass)
+9. Mind              forwards bugs to Hand as follow-up with commit ref
+10. Hand             fixes, commits, reports back
+11. Mind             sends to auditor for verification
+12. Auditor           verifies pass
+13. Mind             accepts; phase marked done
+```
+
+The audit loop (steps 7–12) is the integration bar. `accept` means the audit loop passed, not that something is queued for merge.
+
+### Branch strategy is a Mind decision
+
+| Situation | Branch | Who creates |
+| --- | --- | --- |
+| Default | **Main** — Mind scopes to non-overlapping areas; commit lands directly | (no branch needed) |
+| Large feature or overlap risk | **Feature branch** — Mind creates branch, assigns Hand to it | Mind |
+| Isolated experiment or parallel work | **Worktree** at predetermined path — Mind sets up, hands path to Hand | Mind |
+
+Most work lands on main because the Mind scopes non-overlapping work across repos/crates. Feature branches are the exception, not the default.
+
+### Push
+
+Push is the Mind's decision, not the Hand's default. The Mind knows per-repo deployment posture:
+
+| Repo type | Push default |
+| --- | --- |
+| Railway-linked (auto-deploy) | **Do not push** without explicit Mind decision |
+| Railway-linked (manual deploy) | Safe to push when Mind approves |
+| No remote / local-only | Moot |
+
+### What does not exist anymore
+
+- **`merges_to_main` field.** No per-Hand merge flag. Branch strategy is a Mind decision at assignment time.
+- **`default_hand` field.** No dedicated integration Hand. All Hands are equivalent floaters.
+- **`pending_merges` / fleet-level RTM tracking.** Feature-branch merges flow through ordinary task/need/mail. The Mind tracks branches it created.
+- **hand-1 as integration lane.** Single-repo fleets that want one integration Hand configure that through assignment, not through a fleet-wide field.
+
 ## Prime directive: Mind owns liveness
 
-A Mind is not a reporter. A Mind owns forward progress for every attached fleet: observe Vivi + tmux, keep honest work moving, refill empty product capacity, route decisions, repair runtime capacity, and preserve human blockers until they are answered.
+A Mind is not a reporter. A Mind owns forward progress for every attached fleet: observe Vivi + runtime state, keep honest work moving, refill empty product capacity, route decisions, repair runtime capacity, and preserve human blockers until they are answered.
 
-**A cycle is incomplete until every material sensor signal has a disposition.** Treat `fleet-sensors.py` `signals[]`, open operator mail, pane failures, dirty blockers, pending merges/RTM, idle Hands, Head reports, and board events as obligations — not trivia.
+**A cycle is incomplete until every material sensor signal has a disposition.** Treat `fleet-sensors.py` `signals[]`, open operator mail, runtime failures, dirty blockers, idle Hands, Head reports, and board events as obligations — not trivia.
 
 | Disposition | Meaning |
 | --- | --- |
-| `acted` | Fixed, filed, woke, reinit'd, merged/queued, absorbed, or presented this cycle |
+| `acted` | Fixed, filed, woke, spawned, absorbed, or presented this cycle |
 | `delegated` | Converted to a concrete task/need/mail for the correct Hand/Head/Mind owner |
 | `escalated` | Sent To `operator@` with default/options because human-only or unsafe to default |
-| `deferred-valid` | Explicitly held by posture, operational pause, running pane, merge wait, or real dependency |
+| `deferred-valid` | Explicitly held by posture, operational pause, running agent, branch wait, or real dependency |
 | `sleep-valid` | No material signals, no honest unblocked work, and posture permits quiet |
 
-Reporting a blocker without acting, delegating, escalating, or recording a valid defer is a failed Mind cycle. “Pane unavailable,” “foreign dirt,” “operator need exists,” “empty bag,” and “Head not running” are not dispositions by themselves.
+Reporting a blocker without acting, delegating, escalating, or recording a valid defer is a failed Mind cycle.
 
 ## Identity + binding
 
-| Identity | Mail | tmux | Notes |
+| Identity | Mail | Runtime | Notes |
 | --- | --- | --- | --- |
 | **mind** | `mind@…` | none | Board To: Mind; process = this chat |
 | **operator** | `operator@…` | none | Human only — [`operator-mail.md`](references/operator-mail.md) |
-| **steward** | optional opt-in | tmux runtime | Dead-man, not Mind — **off by default**; operator must enable+arm per fleet — [`dead-man.md`](references/dead-man.md) |
-| **hand-N** | `hand-N@…` | configured runtime | `hand-1` merges to main; product implementers |
+| **steward** | optional opt-in | configured runtime | Dead-man, not Mind — **off by default**; operator must enable+arm per fleet — [`dead-man.md`](references/dead-man.md) |
+| **hand-N** | `hand-N@…` | configured runtime | Product implementers and reviewers; all Hands are equivalent floaters |
 | **auditor-N** | `auditor-N@…` | configured runtime | **Still a Hand** (same bag/wake machinery under `hands`); code-review duty; load **`$auditor`**; no merge; report To mind |
 | **head-*** | `head-*@…` | configured runtime | ceo=strategist; cto **gate honesty / architecture** (not default code-review queue); cxo purity; cso security; coo ops |
 
-| Layout | Binding |
-| --- | --- |
-| Single-fleet | `mail_identity == tmux_session`; target e.g. `hand-1:1.1` |
-| Session-per-fleet | role mail; session=`fleet_id`; window=role; target e.g. `mgs:hand-1.1` |
-
-**Ops use the role's configured runtime binding and consume canonical `runtime` observations.** No mind/operator runtime. No dual Mind process.
 **Fleet** = project root + `.vivi/`.
 
 ### Standard helper scope
@@ -60,83 +164,99 @@ Every fleet helper uses the same scope vocabulary:
 --fleet/-f <fleet-id>         logical fleet identity, validated against fleet.json
 --fleet-file <path>           explicit fleet.json path override
 --role <role>                 logical Hand/Head role (repeatable where selection needs it)
---runtime-target <target>     concrete tmux/Vivi-PTY target override for the helper call
+--runtime-target <target>     concrete runtime target override for the helper call
 ```
-
-`--fleet` is never a fleet.json pathname, and a backend target is never used as
-the fleet identity. `scripts/fleet-resolve.py` is the narrow shared adapter for
-turning `project + fleet + role` into the configured tmux session/window/pane or
-Vivi-PTY session. Helpers may expose only the flags relevant to their operation,
-but use these meanings when they do.
 
 ### Tokens (disambiguation)
 
 | Token | Means | Not |
 | --- | --- | --- |
-| **`HEAD`** / “main tip” | Git commit pointer (`git rev-parse HEAD`) | Advisor role |
+| **`HEAD`** / "main tip" | Git commit pointer (`git rev-parse HEAD`) | Advisor role |
 | **Head** / `head-*` | Advisor role (`head-ceo` / `head-cto` / `head-cxo`) | Git tip |
 | **bag** | Open tasks+needs for an identity (Vivi) | Status essays |
 | **map** | Campaign/factory plan of next packages | The bag itself |
 | **unit** | One implementable package of work | Full theme |
-| **theme** | Multi-unit delivery chunk; merge boundary for packets | Single residual |
-| **packet** | hand-2+ worktree/branch (not main) | Main checkout |
-| **RTM** | ready-to-merge (mail signal for a packet/theme) | Done on main |
+| **theme** | Multi-unit delivery chunk | Single residual |
+| **packet** | Branch-bound assignment (any Hand) | Main checkout |
+| **RTM** | ready-to-merge (mail signal for branch work) | Done on main |
 | **absorb** | Bookkeeping when something moved | Integration bar |
-| **accept** | Integration bar (clear review debt / queue merge) — not code review | absorb; auditor residual |
+| **accept** | Audit loop passed; review debt cleared | absorb; auditor residual |
 | **GO stamp** | Forbidden stage license / approval gate | Residual tasking |
 
-Canon for absorb/accept: [`mind-cycle.md`](references/mind-cycle.md) § Absorb vs accept. Do not invent a third meaning.
+Canon for absorb/accept: [`mind-cycle.md`](references/mind-cycle.md) § Absorb vs accept.
+
+## Invariants
+
+### Process structure
 
 | Invariant | Rule |
 | --- | --- |
 | Process | Mind fills bag; Hand empties. Progress = open tasking + map — not GO stamps |
+| Hand equivalence | All Hands are equivalent floaters. The Mind picks any available Hand for each assignment. No Hand has a special integration role; there is no fleet-wide main in a multi-repo container. Single-repo fleets don't need a dedicated merger either — see [Commit authority and workflow](#commit-authority-and-workflow) |
 | Lowering | **Campaign goal → Head lowers** (`goal-forge` → `$goal-check` READY → `$delivery` docs) → Mind files Hands from those units. Hands do **not** lower raw goals via factory. — [`lowering.md`](references/lowering.md) |
-| Mind memory | Use **mind memos** as atomic durable checklist facts that would otherwise live only in chat: current thesis, lane ownership, intentional defers, operator policy, invariants, and next likely moves. Tasks route work; mail reports events; baseline tracks counters; memos preserve cold-boot context. **Durability test:** would this fact still matter after a reinit, or in a week? If not — cycle dispatch, wake/queue state, per-commit status, pane state — it is **loop state** (baseline / `mind_loop` state), not a memo. |
-| Multi-hand | Mind files/wakes/merges clock; head-ceo side-lane bucket (`effort`+`est_tokens`); Mind calibrates est vs actual |
+| Commit authority | **Hands commit their own work.** The Hand has the diff context; re-deriving it in the Mind is waste. The Mind's job is review-after (sampling, auditor on risk), not commit-before. See [Commit authority and workflow](#commit-authority-and-workflow) |
+| Branch strategy | **Branch and worktree decisions belong to the Mind.** Default is main (Mind scopes non-overlapping work). Feature branch is the exception, created by Mind when scope is large or overlap risk is real. Hands commit to whatever branch they're assigned. |
+| Push authority | **Push is the Mind's decision.** Default off. The Mind knows per-repo deployment posture: Railway auto-deploy = do not push without explicit decision; Railway manual = safe when Mind approves; no remote = moot. |
+| Role routing | All role mail routes **To mind**. Mind owns the spawn clock; direct peer mail dead-letters when the recipient isn't running. Mind answers from context, files to the correct role and spawns it, or escalates to `operator@` |
+
+### Quality
+
+| Invariant | Rule |
+| --- | --- |
+| Audit loop | The audit loop is the integration bar: implement → commit → auditor review → repair → verify → accept. `accept` means the loop passed, not that something is queued for merge. Green self-authored tests ≠ ready. |
+| Charter sufficiency | The boot pattern fails if charters are thin. A charter must encode: who the seat is (role, lens, report style), process law that applies to every unit, report-back expectations, and non-goals. If cold-boot fails, extend the charter — do not rely on accumulated state. |
+| Quality | Product Hands ship unit quality. **Code review** is a **Hand duty** on **`auditor-1` / `auditor-2`** — **not** head-cto by default. **Never** universal review on every completion |
 | Campaign truth | `head-ceo` periodically audits campaign/factory status against Git, board, validation, release, and deploy evidence; Mind files bounded `$zombie-docs` repair when prose lies |
-| Lane lifecycle | A bound idle Hand is investigated after the configured grace; Mind reconciles map/task/worktree truth before continue, park, cooldown, or release. Runtime release never implies worktree deletion |
-| Floater shape | **Recommended for multi-repo containers:** keep **hand-1** as the dedicated main/integration lane; use **hand-2..hand-4** as floaters that may run in parallel when their assigned repos/worktrees do not overlap. This is a strong default, not a universal requirement; explicit fleet config or operator direction wins. |
+
+### Capacity and continuity
+
+| Invariant | Rule |
+| --- | --- |
 | Starvation | Empty bag + **honest unblocked product unit on the map** → file+wake. Never invent polish/makework to fill bags |
-| Growth refill sensor | Sensors emit **`growth_refill_required`** + **`refill_hint.disposition=file_head_lower`** when growth product Hand bags are empty. Treat as act-now: Head lower / executive refill — **not** quiet, **not** invent implement, **not** shorten cadence for emptiness alone. |
-| Growth liveness | In `growth`, an idle product Hand with no queued unit is **not** a quiet cycle: trigger an executive refill sweep immediately; do not wait for the normal Head cadence. |
-| Wake on mail | Each Mind cycle is the debounce: new board mail addressed to a process role wakes that role when idle. Executive cadence governs unsolicited sweeps, never addressed work. Running panes are not interrupted; the next cycle retries after they become idle. |
-| Posture | Per-fleet `growth` \| `standby` \| `dormant` — switch atomically with `scripts/fleet-posture.py`; willing to sleep when charter says so — [`fleet-posture.md`](references/fleet-posture.md) |
-| Assignment mode | Per Hand/Head `assignment_mode`: `new` \| `compact` \| `continue` \| `restart` — session prep on each **new** work item ([`runtime-config.md`](references/runtime-config.md)); legacy `clean_slate_per_assignment: true` ≡ `new` |
-| Loop continuity | Before ending a turn with delegated Hand/Head work outstanding, ensure a Fleet loop is active to collect the result. Create one if absent; if an existing interval is too slow for new operator-requested work, tighten it. Never create a duplicate — [`mind-cycle.md`](references/mind-cycle.md#adaptive-scheduled-cadence) |
-| Cadence | Scheduled loops adapt: thin/unchanged results → lengthen; accumulated work faster than absorption → shorten; completion → cancel. Replace schedules without duplicates and preserve goal/limits/stop condition — [`mind-cycle.md`](references/mind-cycle.md#adaptive-scheduled-cadence) |
-| COO DR | Top-level `disaster_recovery` is default-off and calendar/maturity-triggered. COO reports recoverability evidence/gaps only; no backup, restore, secret/provider/spend/external action. Policy/config, one Git remote, or backup-job success is never restore proof. |
-| Stuck | Freeze fails — name, unstick, pivot. No status-only blocked cycles. Stuck ≠ “must invent work” |
-| Harness | **Default:** Mind, Hands, and Heads use Pi; provider/model diversity preserves advisor independence. **Fleet config exceptions win** (desktop Mind, Kimi/Codex/OpenCode compatibility harness, operator-recorded mixed) — [`roles-and-harness.md`](references/roles-and-harness.md) |
-| Models | **Cheap well-scoped implement → strong independent audit → cheap repair.** Volume implement only **after** Head lowering (or existing delivery unit / repair list). Tag units; route Hands by shape; auditors on **review-class @ high**. Live strings: `fleet.json`. Process: [`model-selection.md`](references/model-selection.md), [`lowering.md`](references/lowering.md) |
-| Quality | Product Hands ship unit quality. **Code review** is a **Hand duty** on **`auditor-1` / `auditor-2`** (same category as other hands; skill **`$auditor`**) — **not** head-cto by default. Mind decides: low-risk → accept from implementer `done` evidence; **risk / auth-persistence / sample** → task an auditor Hand. **Never** universal review on every completion. Green self-authored tests ≠ ready. **head-cto** = gate honesty / architecture only |
-| Head backpressure | A Head that refuses or does not run is **`deferred-valid`**: record once in baseline, retry on cadence. Do **not** re-dispatch to it this cycle and do **not** memo the stall. Dispatch/refuse churn is a failed cycle, not a disposition |
-| Mind mail hygiene | The loop does not narrate itself into mail. Self-addressed mail (`mind@` → `mind@`) and reply-thread echoes are not a memory substitute — a cycle's record lives in baseline / `mind_loop` state, same as memos. Mail To `mind@` is routing/triage and deliberation, not an append-only audit sink. `mail absorb` marks mail read (the consume lifecycle) and is not a memory mechanism — durable context belongs in `memo` |
-| Peer communication | Heads and Hands may send advisory **mail** to one another. They may not assign or reroute peer tasks, needs, or wants; transfer ownership; authorize merges; or create gates. Material peer mail must remain visible to Mind. |
+| Growth refill | Sensors emit **`growth_refill_required`** + **`refill_hint.disposition=file_head_lower`** when growth product Hand bags are empty. Treat as act-now: Head lower / executive refill |
+| Growth liveness | In `growth`, an idle product Hand with no queued unit is **not** a quiet cycle: trigger an executive refill sweep immediately |
+| Head backpressure | A Head that refuses or does not run is **`deferred-valid`**: record once in baseline, retry on cadence |
+| Loop continuity | Before ending a turn with delegated work outstanding, ensure a Fleet loop is active to collect the result. Create one if absent; never create a duplicate — [`mind-cycle.md`](references/mind-cycle.md#adaptive-scheduled-cadence) |
+
+### Operational
+
+| Invariant | Rule |
+| --- | --- |
+| Mind memory | Memos carry rules and policy that must survive a **cold boot** — a brand-new session with no compaction history. Two tests, both must fail for a memo to be warranted: (1) would losing this across a cold boot cause a worse decision? (2) can it be recovered from a Vivi handle instead? If yes to the second, use a pointer in compaction — not a memo. Things tied to the current working arc (task status, hand progress, audit results) belong in compaction or the board, not memos. |
+| Mind mail hygiene | Mail To mind is routing and triage, not memory. Read it, act on it, absorb it. Do not accumulate open mail as a backlog; do not self-address mail as a parking lot. Absorb marks mail read (the consume lifecycle) and is not a memory mechanism — durable context belongs in memo, working context belongs in compaction. On major inflection (campaign end, stage closeout), audit memos and retire ones that reference superseded architecture. |
+| Wake on mail | Each Mind cycle is the debounce: new board mail addressed to a process role wakes that role when idle. Running agents are not interrupted |
+| Posture | Per-fleet `growth` \| `standby` \| `dormant` — [`fleet-posture.md`](references/fleet-posture.md) |
+| Assignment mode | Per Hand/Head `assignment_mode`: `new` \| `compact` \| `continue` \| `restart` — [`runtime-config.md`](references/runtime-config.md) |
+| Cadence | Sub-agent fleets: **15–30m** backup loop (event-driven). tmux/PTY fleets: **3–5m** polling loop. Adapt per [`mind-cycle.md`](references/mind-cycle.md#event-driven-cadence-sub-agent-fleets) |
+| Lane lifecycle | A bound idle Hand is investigated after the configured grace; Mind reconciles map/task/worktree truth before continue, park, cooldown, or release. Runtime release never implies worktree deletion |
+| Multi-hand | Mind files/wakes on the assignment clock; head-ceo side-lane bucket (`effort`+`est_tokens`); Mind calibrates est vs actual |
 | Hygiene | Mind never runs `$polish`/`$housekeeping` itself; never thrash polish for continuity |
 
-| Mind hygiene | When | Action |
-| --- | --- | --- |
-| Polish advisory | Main **git `HEAD`** moved | Cheap ranker → ≤1 bounded `$polish` task if scores ≥ threshold |
-| Housekeeping | Campaign end / large merge / stage closeout / operator | One `$housekeeping` task To hand-1 — never routine lands |
+### Safety
+
+| Invariant | Rule |
+| --- | --- |
+| Stuck | Freeze fails — name, unstick, pivot. No status-only blocked cycles |
+| Harness | **Default:** Hands share Mind's harness. Fleet config exceptions win — [`roles-and-harness.md`](references/roles-and-harness.md) |
+| Models | **Cheap well-scoped implement → strong independent audit → cheap repair.** Volume implement only **after** Head lowering. Live strings on the Vivi role record. Process: [`model-selection.md`](references/model-selection.md) |
+
 ```text
 map → MIND ─files→ bag → HAND clears target → residuals → MIND
-       Vivi = work truth · tmux = process truth
+       Vivi = work truth · runtime = process truth
 Heads ─mail To mind→ triage · problems → operator@ · status → mind@ + recap
 ```
 
-Peer mail is allowed for findings, questions, early review feedback, and handoffs. It is advisory and may wake the recipient on the next Mind cycle. Queue ownership remains centralized: Mind alone files or reroutes tasks/needs/wants between process roles. Avoid automatic reply chains; one peer reply is not a new assignment.
-
 ## When to use
 
-Multi-agent project loops, factory/campaign residual+implementer, fail-fast 5–10m wakes, tmux Hands/Heads (local or SSH). **Not** personal IMAP (`$mail`); not a second acceptance gate.
+Multi-agent project loops, factory/campaign residual+implementer, event-driven or polling fleet management. **Not** personal IMAP (`$mail`); not a second acceptance gate.
 
 ## Hard bans vs guidance
 
 | Kind | Examples |
 | --- | --- |
-| **Hard ban** | Destructive git on foreign dirt; erase other WIP; `exec` that kills pane session |
-| **Guidance** | Mode, harness alignment, head-ceo, absorb/accept, merge cadence, models |
-| **Not a ban** | “Might break autonomous” — if operator engaged or default safe, **act** |
+| **Hard ban** | Destructive git on foreign dirt; erase other WIP; `exec` that kills a runtime session |
+| **Guidance** | Mode, harness alignment, head-ceo, absorb/accept, models |
+| **Not a ban** | "Might break autonomous" — if operator engaged or default safe, **act** |
 
 **Decide now:** reversible default → take it. Human-only → `operator@` need/mail (default+options) + pivot.
 
@@ -146,43 +266,42 @@ Core process here; detail in `references/` + `scripts/`.
 
 | Session context | Required reading |
 | --- | --- |
-| **Cold attach** (new session, empty context, or compact without recap) | This file → [`vivi.md`](references/vivi.md) → [`mind-cycle.md`](references/mind-cycle.md). Add [`getting-started.md`](references/getting-started.md) §3 for attach, [`multi-fleet.md`](references/multi-fleet.md) before multi-fleet commands, [`pi.md`](references/pi.md) inside Pi, [`fleet-guide.md`](references/fleet-guide.md) only when vocabulary is cold, and [`cold-boot.md`](references/cold-boot.md) only when durable memory is missing. |
-| **Hot cycle** (mode/counters/state already in context) | This file alone if quiet; open a ref when that surface hits |
-| **Arm / first Mind turn on a live fleet** | This file + refs for surfaces you will touch this turn |
+| **Cold attach** | This file → [`subagent.md`](references/subagent.md) (or [`tmux.md`](references/tmux.md) / [`vivi-pty.md`](references/vivi-pty.md) for those backends) → [`mind-cycle.md`](references/mind-cycle.md). Add [`getting-started.md`](references/getting-started.md) for attach, [`multi-fleet.md`](references/multi-fleet.md) before multi-fleet. |
+| **Hot cycle** (state already in context) | This file alone if quiet; open a ref when that surface hits |
+| **Arm / first Mind turn** | This file + refs for surfaces you will touch this turn |
 
 | Load when | Path |
 | --- | --- |
+| Sub-agent execution | [`subagent.md`](references/subagent.md) |
+| tmux execution | [`tmux.md`](references/tmux.md) |
+| vivi-pty execution | [`vivi-pty.md`](references/vivi-pty.md) |
 | Install / init / attach | [`getting-started.md`](references/getting-started.md) |
-| Cold boot (no institutional memory) | [`cold-boot.md`](references/cold-boot.md) |
+| Cold boot | [`cold-boot.md`](references/cold-boot.md) |
 | Dormant → fully launched | [`launch.md`](references/launch.md) |
 | Vocab / shape (cold) | [`fleet-guide.md`](references/fleet-guide.md) |
 | Roles / harness / models | [`roles-and-harness.md`](references/roles-and-harness.md) |
-| Model selection (unit shape + role classes) | [`model-selection.md`](references/model-selection.md) |
-| Goal lowering (Head → delivery → Hand) | [`lowering.md`](references/lowering.md) |
+| Model selection | [`model-selection.md`](references/model-selection.md) |
+| Goal lowering | [`lowering.md`](references/lowering.md) |
 | Filing / starvation | [`tasking.md`](references/tasking.md) |
 | Board CLI | [`vivi.md`](references/vivi.md) |
-| Panes / wake / reinit | [`dual-channel.md`](references/dual-channel.md) |
-| Modes / fail-fast / polish / HK / absorb·accept | [`mind-cycle.md`](references/mind-cycle.md) |
+| Runtime channel concept | [`dual-channel.md`](references/dual-channel.md) |
+| Modes / fail-fast / polish / HK | [`mind-cycle.md`](references/mind-cycle.md) |
 | operator@ | [`operator-mail.md`](references/operator-mail.md) |
-| Steward | [`dead-man.md`](references/dead-man.md), [`scripts/steward.sh`](scripts/steward.sh) |
+| Steward | [`dead-man.md`](references/dead-man.md) |
 | Multi-fleet | [`multi-fleet.md`](references/multi-fleet.md) |
 | Posture / sleep vs continuity | [`fleet-posture.md`](references/fleet-posture.md) |
-| Side lanes / lane lifecycle / merge | [`multi-lane.md`](references/multi-lane.md); canonical disposition gates in [`mind-cycle.md`](references/mind-cycle.md) |
+| Side lanes / lane lifecycle / merge | [`multi-lane.md`](references/multi-lane.md) |
 | Heads | [`heads.md`](references/heads.md), [`heads/cast.md`](references/heads/cast.md) |
 | Remote | [`ssh-remote.md`](references/ssh-remote.md) |
 | Schema / ladders / wind-down | [`runtime-config.md`](references/runtime-config.md) |
 | Missing companions | [`companion-fallbacks.md`](references/companion-fallbacks.md) |
 | Pi Mind extension | [`pi.md`](references/pi.md) |
-| Pi Hand/Head wrappers (`pi-hand` / `pi-head`) | [`pi-role-wrappers.md`](references/pi-role-wrappers.md) |
-| Sensors / baseline / doorbell | [`fleet-sensors.py`](scripts/fleet-sensors.py), [`fleet-baseline.py`](scripts/fleet-baseline.py), [`fleet-doorbell.sh`](scripts/fleet-doorbell.sh), [`fleet-resolve.py`](scripts/fleet-resolve.py). Doorbell records `last_hand_wake`; sensors cover RTM/integration lag, Git drift, dirt, and lane reconciliation. |
-| Mind loop fallback | [`scripts/fleet-loop.py`](scripts/fleet-loop.py). tmux-backed `FLEET_CYCLE` injector for Mind harnesses without native scheduled loops. Records `.vivi/fleet-loop.json`; `start`, `status`, `stop`; loop ≠ steward and never runs sensors itself. |
-| Runtime lifecycle | [`scripts/fleet-runtime.py`](scripts/fleet-runtime.py). Backend-neutral start/stop/restart/status for configured Hand/Head runtimes; use before doorbell when a role is stopped. |
-| Runtime rebind | [`scripts/fleet-runtime-rebind.py`](scripts/fleet-runtime-rebind.py). Plan/apply atomic runtime config changes across Heads and Hands. |
-| Cycle close | [`scripts/fleet-cycle-close.py`](scripts/fleet-cycle-close.py). Required normal close path: sensors → explicit dispositions → redacted receipt → baseline bump → optional steward rearm. |
-| Codex pane | [`scripts/codex-reinit.sh`](scripts/codex-reinit.sh) |
-| Codex plugin | [`plugins/fleet/`](plugins/fleet) |
-| opencode pane | [`scripts/opencode-hand-ctl.sh`](scripts/opencode-hand-ctl.sh) |
-| Portability smoke | [`scripts/lib/env.sh`](scripts/lib/env.sh), [`smoke-portability.sh`](scripts/smoke-portability.sh) |
+| Pi Hand/Head wrappers | [`pi-role-wrappers.md`](references/pi-role-wrappers.md) |
+| Sensors / baseline | [`fleet-sensors.py`](scripts/fleet-sensors.py), [`fleet-baseline.py`](scripts/fleet-baseline.py), [`fleet-resolve.py`](scripts/fleet-resolve.py) |
+| Mind loop fallback | [`scripts/fleet-loop.py`](scripts/fleet-loop.py) |
+| Runtime lifecycle | [`scripts/fleet-runtime.py`](scripts/fleet-runtime.py) |
+| Runtime rebind | [`scripts/fleet-runtime-rebind.py`](scripts/fleet-runtime-rebind.py) |
+| Cycle close | [`scripts/fleet-cycle-close.py`](scripts/fleet-cycle-close.py) |
 
 ## Don't get stuck
 
@@ -196,42 +315,26 @@ Core process here; detail in `references/` + `scripts/`.
 | --- | --- | --- |
 | Decision / scope | need/mail + default+options same turn | Silent wait |
 | Awkward item | Switch targets | Topic monogamy |
-| Dirt on path | `git diff` → class A/B/C → act | Status-only “foreign dirty” |
-| Integration lag | Queue **merge** or **base-update** (whichever unblocks); **then** pivot other product work | Thrash re-verify on blocked consumer |
-| Pane dead/idle+open | Wake / reinit / runtime ladder | Stack wakes |
+| Dirt on path | `git diff` → class A/B/C → act | Status-only "foreign dirty" |
+| Branch lag | Queue **merge** or **base-update**; **then** pivot other product work | Thrash re-verify on blocked consumer |
+| Agent dead/idle+open | Wake / reinit / spawn (backend-specific) | Stack wakes |
 | Human wall | File `operator@` + pivot | Silent stall |
-| Hand idle, tasks unprocessed | Verify the helper resolved the logical fleet and role to the expected runtime target. Also: hands receive **direct prompts** with task content, not `vivi board` — the board is Mind's dashboard, not a wake command. Send the task instructions inline. | Re-file task; send board to claim it was filed |
-Sleep when bag empty **and** no honest next product unit (or posture is standby/dormant). Sleep is allowed — do not invent work.
+
+Sleep when bag empty **and** no honest next product unit (or posture is standby/dormant).
 
 ### Growth-liveness refill
 
-Growth posture has a stronger continuity contract than standby or dormant:
+Growth posture has a stronger continuity contract:
 
-1. If any product Hand is idle with an empty actionable bag, and no honest
-   unblocked map unit is already available, trigger the configured executive
-   sweep **in this cycle**. Do not wait three to six hours for the scheduled
-   `head-ceo`/CTO/CXO cadence.
-2. Run `head-ceo` first for map health and bounded next-unit proposals; run the
-   configured technical, product, security, marketing, or purity Heads in
-   parallel when their domains are relevant. Heads return bounded buckets with
-   scope, done-when, dependencies, and effort/token estimates; they do not file
-   Hand tasks themselves.
-3. Mind converts honest, unblocked Head proposals into Hand tasks and
-   doorbells in the same cycle. A growth fleet may sleep only when the sweep
-   finds no honest product scope, or when a real human/environment gate is
-   recorded with a default and pivot.
-4. A configured executive pane that is missing, `unknown`, `down`, or in an
-   error state is a capacity failure, not a reason to wait: reinit/recreate it
-   in the same cycle. If the fleet has no configured executive topology, file
-   an operational need to repair the roster and pivot to any remaining
-   grounded work.
-5. Repeated growth cycles with idle Hands and no executive result are a
-   fleet-control defect. Report the defect and keep the refill path active;
-   never normalize it as `quiet`.
+1. If any product Hand is idle with an empty actionable bag, trigger the configured executive sweep **in this cycle**.
+2. Run `head-ceo` first for map health and bounded next-unit proposals.
+3. Mind converts honest, unblocked Head proposals into Hand tasks in the same cycle.
+4. A configured executive that is missing, `unknown`, `down`, or in an error state is a capacity failure: reinit/recreate it in the same cycle.
+5. Repeated growth cycles with idle Hands and no executive result are a fleet-control defect. Report and keep the refill path active.
 
 ### Dirt (half-dead targets)
 
-**Ban:** destructive git on foreign/unknown WIP.  
+**Ban:** destructive git on foreign/unknown WIP.
 **Guidance:** open the diff — foreign ≠ ignore forever.
 
 | Class | Is | Act |
@@ -240,25 +343,23 @@ Growth posture has a stronger continuity contract than standby or dormant:
 | **B** | Other agent semantic WIP | Work around / escalate — never erase |
 | **C** | Mixed | Own safe hunks only |
 
-Hand: A same turn; B need+pivot; C own hunks. Mind: ≥2 cycles blocked unclassified → open diff, classify, track age.
-
 ## Roles (compact)
 
 | Role | Does | Does not |
 | --- | --- | --- |
-| Hand (implementer) | Drain product bag; validate; polish unit; ship | Wait for GO; erase foreign WIP; hand-2+ merge |
-| Hand (auditor-N) | Drain **review** bag; `$auditor`; report To mind | Product implement; merge; GO stamp |
+| Hand (implementer) | Drain product bag; validate; commit own work; polish unit; ship | Wait for GO; erase foreign WIP; touch another Hand's WIP |
+| Hand (auditor-N) | Drain **review** bag; `$auditor`; report To mind | Product implement; commit product code; GO stamp |
 | Mind | File/wake/integrate; **triage whether to file auditor Hand**; operator mail | GO stamps; deep code review itself |
 | operator@ | Human escalations | Status; bag drain |
-| head-cto | Technical **gate honesty** + architecture | Default code-review queue (use auditor Hands) |
-| head-ceo | **Strategist + default lowering seat:** map health; **when assigned**, lower one goal/stage through goal-check → delivery docs; side-lane buckets | File Hand tasks; merge; invent polish; product code |
-| head-cxo | Complexity/purity (gates invented by shape) | Product bag; operator mail |
+| head-cto | Technical **gate honesty** + architecture | Default code-review queue |
+| head-ceo | **Strategist + default lowering seat** | File Hand tasks; merge; product code |
+| head-cxo | Complexity/purity | Product bag; operator mail |
 
 Identity ≠ assignment ≠ runtime. Detail: [`roles-and-harness.md`](references/roles-and-harness.md).
 
 ## Mind modes (guidance)
 
-Job fixed; **budget** follows engagement (not model id). Write every cycle:
+Job fixed; **budget** follows engagement. Write every cycle:
 
 | Counter | Meaning |
 | --- | --- |
@@ -266,179 +367,106 @@ Job fixed; **budget** follows engagement (not model id). Write every cycle:
 | `turns_since_operator_message` | Cycles since last **human** prose |
 | `last_operator_message_at` | For recap window |
 
-**Operator message** = human prose in this session **or** board mail **From operator@ To mind@**. **Not:** `FLEET_CYCLE…` injections, Hand/Head board mail, pane captures.
+**Operator message** = human prose in this session **or** board mail **From operator@ To mind@**. **Not:** `FLEET_CYCLE…` injections, Hand/Head board mail, runtime captures.
 
 ### FLEET_CYCLE prefix (required)
 
-**First line** = attach log only (what fleets this fire covers). **Do not** invent path keys on the topic line (`also=`, `also2=`, …).
+**First line** = attach log only.
 
 ```text
-# Single fleet — either slug or one project= is enough
 FLEET_CYCLE fleets=mgs
-FLEET_CYCLE project=/path/to/one/fleet
-
-# Multi-fleet — slugs only on the first line
 FLEET_CYCLE fleets=mgs,faber,nacht
 ```
 
-**Paths** live **below** the first line (loop body / durable prompt), as a plain slug→root map Mind already knows from attach:
+**Paths** live **below** the first line as a plain slug→root map:
 
 ```text
 Roots:
   mgs:   /path/to/minted-geek-swarm
   faber: /path/to/faberlang
-  nacht: /path/to/nachtbagger
 ```
 
-Resolve each slug via that map (or `fleet.json` `project` when already open). Loop lives in the operator TUI — no fake Mind pane. Multi-fleet: mini-cycle **each** named fleet; baseline bump per fleet. **`steward.sh rearm` only if that fleet’s steward is enabled and armed** (opt-in).  
-**Bug:** `FLEET_CYCLE`-only payload ≠ silence — count human chat **between** fires.
-
-```text
-engaged = human prose this turn OR since last_operator_message_at (not FLEET_CYCLE)
-if engaged: interactive; silence=0; present operator@ if N>0; refresh recap
-else: silence += 1; silence≥3 → autonomous (else keep prior; turns 1–2 may still watch)
-```
-
-**Hard never (mode counters) — both directions:**
-
-| Forbidden | Why |
-| --- | --- |
-| `turns += 1` / force `autonomous` only because payload is `FLEET_CYCLE…` | Ignores human chat **between** fires |
-| Force `turns = 0` / force `interactive` on **every** FLEET_CYCLE | Silence never advances; autonomous never arrives |
-
-**Do:** resolve engagement first. Human prose this turn **or** since `last_operator_message_at` → `--operator-engaged` (reset). Else let `fleet-baseline.py bump` **increment** silence (default). **Never** hand-edit counters after bump.
-
-Override: `Mind: deep` / `Mind: ops only`.
+Resolve engagement first. Human prose this turn or since `last_operator_message_at` → `--operator-engaged` (reset). Else let baseline bump increment silence. Never hand-edit counters after bump.
 
 | Mode | Budget | Report |
 | --- | --- | --- |
-| **Autonomous** (silence≥3 **true** human gaps) | Thin ops; decide-now defaults | Compact one-liner / short headline |
-| **Interactive** | Full human reasoning; fail-fast ops | **Rich** every FLEET_CYCLE (even quiet) |
-
-Report tracks **mode**, not acted/sleep alone. Templates: [`mind-cycle.md`](references/mind-cycle.md).
-
-**Recap:** compact deltas since last operator (git tips, handles, panes, mode, debt). Re-seed after `/compact`.
+| **Autonomous** (silence≥3) | Thin ops; decide-now defaults | Compact one-liner |
+| **Interactive** | Full human reasoning; fail-fast ops | **Rich** every FLEET_CYCLE |
 
 ### Multi-fleet / steward / operator@
 
 | Topic | Rule |
 | --- | --- |
-| Multi-fleet | One Mind session may supervise many fleets; **one Mind per fleet** (advisory `mind_session`); fleets= on FLEET_CYCLE line; prefer session=`fleet_id`. **Per-fleet posture** — standby/dormant mini-cycles stay quiet |
-| Posture | `growth` ships map + aggressive Head research; `standby` = on-call Hands quiet, Heads **stewardship**; `dormant` = Heads rare. Head schedule = one dial `executive_cadence.every_n_loops`: **0** on-call, **N≥1** due every `N × mind_loop.interval_sec` (no separate `enabled`/`self_directed`). Continuity doubt → head-ceo once, not polish thrash — [`fleet-posture.md`](references/fleet-posture.md) |
-| Mind loop fallback | If the harness has no native loop/tool scheduler, `scripts/fleet-loop.py --project <root> start 5m --target <operator-pane>` may inject `FLEET_CYCLE` into the live operator pane. `status` before starting; `stop` when the campaign ends or a better scheduler replaces it. |
-| Steward | **Default OFF.** Per-fleet dead-man only when operator **explicitly** enables `steward.enabled` **and** asks to arm **that** fleet. Loop ≠ steward. When armed: rearm each successful mini-cycle; disarm same turn on detach. Not second Mind |
-| operator@ | **Both directions every cheap cycle:** (1) **To operator@** escalations waiting on human (2) **From operator@ → mind@** decisions/feedback — absorb **first**. Sensors: `operator_mail` + `operator_to_mind`. [`operator-mail.md`](references/operator-mail.md) |
+| Multi-fleet | One Mind session may supervise many fleets; **one Mind per fleet**; per-fleet posture |
+| Posture | `growth` ships map + aggressive research; `standby` = on-call quiet; `dormant` = rare activity |
+| Mind loop fallback | If the harness has no native loop, `scripts/fleet-loop.py` may inject `FLEET_CYCLE` via tmux |
+| Steward | **Default OFF.** Per-fleet dead-man only when operator explicitly enables+arms |
+| operator@ | Both directions every cycle: (1) To operator@ escalations (2) From operator@ → mind@ decisions — absorb first |
 
 ## Tasking (summary)
 
 | Kind | Use |
 | --- | --- |
-| task | Implementable + done-when (incl. critical defects) |
+| task | Implementable + done-when |
 | need | Decision — default+options |
 | want | Non-blocking later |
 | mail | Deliberation — not primary queue |
 
-Kind ≠ severity. Hard stop = open tasks/needs. Not a stop = missing GO mail.  
-hand-1 = main + merges; hand-2+ = packets, never main merge; unit done → refill; theme done → RTM mail.  
-Recommended multi-repo layout: **hand-1** stays dedicated to the main/integration lane, while **hand-2..hand-4** are floaters. Mind may reassign floaters across repos/worktrees and run them in parallel only when write scopes do not overlap; if scopes collide, serialize or choose a different repo. This is a suggested operating shape, not a hard schema requirement.
-Starvation: empty product bag + **product** map unit → file+wake. If the next map item is **unlowered**, assign **lower** To the Head seat — do **not** dump the raw goal on a Hand. [`lowering.md`](references/lowering.md) · [`tasking.md`](references/tasking.md)
+Kind ≠ severity. Hard stop = open tasks/needs. Not a stop = missing GO mail.
+
+Starvation: empty product bag + **product** map unit → file+wake. If the next map item is **unlowered**, assign **lower** To the Head seat — do **not** dump the raw goal on a Hand. [`lowering.md`](references/lowering.md)
 
 ## Role memory (memos)
 
-Memos are durable, project-local context for a role's own future sessions. They
-are not routed work, communication, or part of the actionable bag. This surface
-is for **Mind and Head identities only**; Hands do not create, read, or maintain
-memos. Hands return findings through their assigned task and normal advisory
-mail, while Mind or a Head decides what deserves durable memory.
-
-Mind and Heads should review their own memos when attaching or resuming, and
-save stable decisions, recurring constraints, strategy, or findings that
-should survive a cycle or reinitialization:
+Memos are durable, project-local context for a role's own future sessions. This surface is for **Mind and Head identities only**; Hands do not create, read, or maintain memos.
 
 ```sh
 vivi memo list   --project <root> --for <mind-or-head-id>
 vivi memo show   --project <root> <handle>
 vivi memo save   --project <root> --for <mind-or-head-id> --subject '...' --body '...'
-vivi memo dump   --project <root> --for <mind-or-head-id>
-vivi memo delete --project <root> --for <mind-or-head-id> <handle>
 ```
 
-Use `memo dump --for` for an explicitly scoped memory review. Do not use memos
-to assign, delegate, or report work; use task, need, want, or mail for those
-purposes. Memos do not appear in `vivi board`, task dumps, or normal mail
-dumps, and Hands are not a fallback memory store.
+**Transient routing state is not memory.** Per-cycle dispatch, wake/queue state, per-commit status belong in baseline — never in memos.
 
-**Transient routing state is not memory.** Per-cycle dispatch, wake/queue
-state, per-commit status, and Head-refusal stalls belong in baseline /
-`mind_loop` state — never in memos. Do not memoize “cycle N dispatched…”; the
-loop narrating its own mechanics to itself is the core memo anti-pattern. When
-attaching to a repo that has real history but no Vivi memory (lost store, or
-first fleet management), rebuild a small seed set from durable sources — see
-[`cold-boot.md`](references/cold-boot.md).
+## Runtime channel (concept)
 
-## Dual channel (summary)
-
-Vivi = work truth. The configured tmux or `vivi_pty` runtime = process truth. Sensors normalize both into one nested `runtime` object.
+Vivi = work truth. The execution runtime = process truth. Sensors normalize both into one nested `runtime` object.
 
 | Runtime state | Action |
 | --- | --- |
 | `starting` / `submitting` / `running` | No wake |
-| `waiting_for_input` / `completed` + open | Pointer doorbell. First wake per Hand never rate-limits |
-| `waiting_for_input` / `completed` + open + stuck after doorbell | Harness-specific reinit fallback |
-| `approval_required` | Resolve the approval boundary; do not stack input |
+| `waiting_for_input` / `completed` + open | Wake (backend-specific) |
+| `approval_required` | Resolve the approval boundary |
 | `failed` / `stopped` | Diagnose, rebind, or recreate |
-| `unknown` | Use evidence and stability; never claim false certainty |
+| `unknown` | Use evidence and stability |
 
-**`assignment_mode`** (per Hand/Head in `fleet.json`): how sessions are prepared
-for each **new** work item — `new` | `compact` | `continue` | `restart`.
-`fleet-doorbell.sh` applies this automatically when `--handle` differs from the
-last wake handle (override with `--mode` / `--no-prepare` / `--force-prepare`).
-Resolved via `fleet-resolve.py`. Legacy `clean_slate_per_assignment: true` ≡
-`new`. Full table: [`runtime-config.md`](references/runtime-config.md) §
-assignment_mode.
-
-Pointers go through the configured runtime; done-when stays in Vivi. CLI: [`vivi.md`](references/vivi.md). Watch/thread: [`dual-channel.md`](references/dual-channel.md). Remote: [`ssh-remote.md`](references/ssh-remote.md).
-
-| Vivi ≥4.6 | Use |
-| --- | --- |
-| `mailspace watch --once --write-cursor` | Cheap board events |
-| `mail|task|need watch` | Filtered paid wait |
-| `mail thread` | Multi-hop lineage |
-
-## Remote (summary)
-
-Host axis on slots: `host`, `ssh`, host-scoped cwd/tmux/launch. Wake/reinit **on Hand host**. One mailspace DB. [`ssh-remote.md`](references/ssh-remote.md)
+Backend-specific mechanics: [`subagent.md`](references/subagent.md), [`tmux.md`](references/tmux.md), [`vivi-pty.md`](references/vivi-pty.md). Full concept: [`dual-channel.md`](references/dual-channel.md).
 
 ## Lifecycle
 
-1. **Arm/attach** — identities; harness; runtime binding; baseline counters; `mind_session`; **do not** arm steward unless operator asked for that fleet. Dormant-to-live procedure: [`launch.md`](references/launch.md)
-2. **Focus** — map package; Hand picks open target (no GO wait)  
-3. **Gather** — `fleet-sensors.py`; process new addressed mail before cadence; quiet if fingerprint/panes unchanged; doorbell/reinit; end with `fleet-cycle-close.py`. It refuses unresolved signals and writes the canonical receipt before advancing the baseline. Use direct `fleet-baseline.py bump` only for repair/testing, never a normal cycle.
-4. **Hand work** — show → implement → validate → unit `$polish` → done → next/sleep  
-5. **Sleep** — most wakes no-ops ([`mind-cycle.md`](references/mind-cycle.md))  
-6. **Detach/wind-down** — if steward was armed, `steward.sh disarm` same turn; drop idle panes  
+1. **Arm/attach** — identities; harness; runtime binding; baseline counters; `mind_session`. Dormant-to-live: [`launch.md`](references/launch.md)
+2. **Focus** — map package; Hand picks open target
+3. **Gather** — `fleet-sensors.py`; process mail; wake/spawn; end with `fleet-cycle-close.py`
+4. **Hand work** — show→implement→validate→unit `$polish`→done→next/sleep
+5. **Sleep** — most wakes no-ops
+6. **Detach/wind-down** — disarm steward if armed; drop idle runtimes
 
 ### Polish / housekeeping
 
 | Who | When | Scope |
 | --- | --- | --- |
 | Hand | End of product unit | Primary sources this unit only; serial `$polish` |
-| Mind | Main git tip moved | `suggest-polish-files.py` → ≤1 task, top files, score ≥ threshold (default 500) |
-| Mind | Major inflection only | One HK task To hand-1; never every land |
-
-```bash
-# <skill> and <main> are placeholders — substitute real paths
-python3 <skill>/scripts/suggest-polish-files.py --repo <main> --json --limit 15
-```
+| Mind | Main git tip moved | `suggest-polish-files.py` → ≤1 task |
+| Mind | Major inflection only | One HK task; never every land |
 
 ## Fail-fast
 
-Exit in seconds on sensors/ops. Mode first → sensors → sleep if quiet. Autonomous: thin ops + compact report. Interactive: fail-fast ops + **rich** report. No unbounded watch. **absorb ≠ accept** — [`mind-cycle.md`](references/mind-cycle.md). Code review → Hand roles **auditor-1/2** + `$auditor`; head-cto for gate honesty only.
+Exit in seconds on sensors/ops. Mode first → sensors → sleep if quiet. **absorb ≠ accept**. Code review → auditor Hands + `$auditor`; head-cto for gate honesty only.
 
 ## Shared workspace
 
-**Ban:** destructive git / overwrite outside scope.  
-**Guidance:** dirt blocks → diff → A/B/C → act or pivot same turn. Ambiguity → `operator@` with default.
+**Ban:** destructive git / overwrite outside scope.
+**Guidance:** dirt blocks → diff → A/B/C → act or pivot same turn.
 
 ## Overlay contract
 
@@ -449,65 +477,18 @@ Skill = portable process. Overlay = roster, paths, models, ssh, maps, Status.
 ```
 
 ```bash
-# Placeholders: <skill> <root> <hex> — tokens without <> are literals
 python3 <skill>/scripts/fleet-sensors.py --project <root> --fleet <fleet-id> --text
-python3 <skill>/scripts/fleet-runtime.py --project <root> --fleet <fleet-id> --role hand-1 start
-<skill>/scripts/fleet-doorbell.sh --project <root> --fleet <fleet-id> --role hand-1 --handle <hex>
-# Agent recovery only if doorbell sticks/errors:
-<skill>/scripts/codex-reinit.sh doctor --project <root> --fleet <fleet-id> --role hand-1      # Codex
-<skill>/scripts/opencode-hand-ctl.sh doctor --project <root> --fleet <fleet-id> --role hand-1  # opencode
-# Cycle close: sensors → dispositions → receipt → baseline → optional steward rearm
-python3 <skill>/scripts/fleet-cycle-close.py --project <root> --acted --summary '…' \
-  --disposition 'growth_refill_required=delegated:lower task abc123 filed'
-# For several signals, prefer a JSON object: {"signal":{"disposition":"acted","evidence":"handle"}}
-python3 <skill>/scripts/fleet-cycle-close.py --project <root> --acted \
-  --dispositions-file /tmp/cycle-dispositions.json
-# or: --quiet for sleep cycles; --operator-engaged resets silence
-# silence: default bump increments turns_since_operator_message
-# Direct baseline bump is a repair/test seam; it does not satisfy normal closeout.
-# only if human prose this turn or since last_operator_message_at:
-# python3 …/fleet-baseline.py bump … --operator-engaged
-# Runtime rebind: plan dry-run or atomic apply
-python3 <skill>/scripts/fleet-runtime-rebind.py plan --project <root> --hands all --agent pi --provider openai-codex --model gpt-5.5 --thinking medium
-python3 <skill>/scripts/fleet-runtime-rebind.py apply --project <root> --hands all --agent pi --provider openai-codex --model gpt-5.5 --thinking medium --restart
-# only if operator enabled+armed steward for this fleet:
-# scripts/steward.sh rearm --project <root>
+python3 <skill>/scripts/fleet-cycle-close.py --project <root> --acted --summary '…'
 ```
-
-Desktop Mind OK; Hands stay terminal/tmux. Schema: [`runtime-config.md`](references/runtime-config.md).
 
 ## Anti-patterns
 
-- **Bag:** GO warden; severity-as-kind; sleep with product work; sleep in growth
-  before an executive refill sweep; invent continuity work; dual Mind; Heads own
-  bags; idle floaters despite safe parallel work; zombie campaign lanes; retire
-  from idle alone; overlap write scopes without serialize/defer; wait on Head
-  cadence or CEO permission for obvious spine work; omit bucket costs;
-  **campaign goal → Hand** without Head lowering (goal-check → delivery);
-  Hand invents factory/delivery for an unlowered stage.
-- **Process:** mail-only or pane-only truth; tmux policy; mixed Hand harnesses;
-  stacked wakes; wrong-host tmux; IMAP bag sensing; unbounded watch; standby-fleet
-  busywork; per-cycle dispatch memos; universal completion review; route review to
-  `head-cto` instead of auditors; put review-class models on every mechanical Hand
-  unit; dump ambiguous design on volume implementers without forge; accept green
-  self-tests as readiness; dispatch/refuse churn; narration mail; completion hidden
-  in replies.
-- **Integration:** equate packet-green with consumer-green; label integration lag
-  a compiler residual; merge red themes; let Mind merge packets; treat absorb as
-  accept.
-- **Hygiene/workspace:** skip unit polish; polish foreign work; Mind runs polish or
-  housekeeping; polish for continuity; housekeeping every land; score as merge
-  gate; destructive or status-only dirt handling; topic monogamy; deep-plan every
-  autonomous cycle; stay interactive forever; let `FLEET_CYCLE` force autonomous
-  mode or zero turns; hand-edit silence after baseline bump; compact while
-  interactive; invent autonomous report formats; freeze on CEO permission; omit
-  the `FLEET_CYCLE` prefix; send status to `operator@`; skip present-on-return;
-  arm steward without operator authority; leave it armed after stop-loop; use it
-  as Mind; count heartbeat without a real cycle; scan global rosters; ignore
-  configured `tmux_target` mappings.
+- **Bag:** GO warden; severity-as-kind; sleep with product work; sleep in growth before executive refill sweep; invent continuity work; dual Mind; Heads own bags; idle floaters despite safe parallel work; zombie campaign lanes; **campaign goal → Hand** without Head lowering; Hand invents factory/delivery for an unlowered stage
+- **Process:** mail-only or runtime-only truth; mixed Hand harnesses; stacked wakes; unbounded watch; standby-fleet busywork; per-cycle dispatch memos; universal completion review; route review to `head-cto` instead of auditors; dispatch/refuse churn; narration mail; completion hidden in replies
+- **Integration:** equate packet-green with consumer-green; commit another Hand's WIP; treat absorb as accept
+- **Hygiene/workspace:** skip unit polish; polish foreign work; Mind runs polish or housekeeping; polish for continuity; housekeeping every land; destructive or status-only dirt handling; topic monogamy; freeze on CEO permission; omit the `FLEET_CYCLE` prefix; send status to `operator@`; arm steward without operator authority
 
 ## Companions / first exposure
 
-Missing skills → [`companion-fallbacks.md`](references/companion-fallbacks.md). Package is self-contained.  
-**No fleet visible on load** → brief the operator ([`getting-started.md`](references/getting-started.md) §0); do not invent attach.  
-First install/init/attach: [`getting-started.md`](references/getting-started.md). Vocab: [`fleet-guide.md`](references/fleet-guide.md). Design archive: [`multi-fleet-design.md`](references/multi-fleet-design.md). Personas: [`heads/cast.md`](references/heads/cast.md) — not every cycle.
+Missing skills → [`companion-fallbacks.md`](references/companion-fallbacks.md). Package is self-contained.
+**No fleet visible on load** → brief the operator ([`getting-started.md`](references/getting-started.md) §0); do not invent attach.

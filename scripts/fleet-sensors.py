@@ -1060,7 +1060,7 @@ def head_is_paused(baseline: dict, key: str) -> bool:
 def build_fingerprint(out: dict, fleet: dict) -> dict:
     """Quiet-compare fingerprint (no durable head report fields)."""
     hands = out.get("hands") or {}
-    h1 = hands.get(fleet.get("default_hand") or "hand-1") or next(iter(hands.values()), {})
+    h1 = next(iter(hands.values()), {})
     h2 = hands.get("hand-2") or {}
     git_main = (out.get("git") or {}).get("main") or {}
     fp = {
@@ -1774,11 +1774,6 @@ def format_text_summary(out: dict, fp: dict, git_main: dict) -> str:
         lines.append("  op→mind %s: %s" % (om.get("handle"), (om.get("subject") or "")[:80]))
     if git_main.get("dirty_paths"):
         lines.append("  dirty_paths: %s" % ", ".join(git_main.get("dirty_paths") or []))
-    for rtm in (out.get("integration") or {}).get("pending_rtm") or []:
-        lines.append(
-            "  pending_rtm %s from=%s commit=%s: %s"
-            % (rtm.get("handle"), rtm.get("from"), rtm.get("commit"), (rtm.get("subject") or "")[:90])
-        )
     for name, h in (out.get("hands") or {}).items():
         stall_n = int(h.get("cycles_unchanged") or 0)
         stall_lab = " stall=%s" % stall_n if stall_n > 0 else ""
@@ -2075,6 +2070,7 @@ def main() -> int:
     for name, h in hands.items():
         if not isinstance(h, dict):
             continue
+        is_first_hand = name == next(iter(hands), None)
         mid = h.get("mail_identity") or name
         runtime = h.get("runtime") or {}
         vivi_pty_role = is_vivi_pty_role(h)
@@ -2238,7 +2234,6 @@ def main() -> int:
             "new_addressed_mail": new_addressed_mail,
             "cycles_unchanged": cycles_unchanged,
             "min_seconds_between_wakes": h.get("min_seconds_between_wakes", 180),
-            "merges_to_main": h.get("merges_to_main", False),
             "packet_state": packet.get("state"),
             "operational_pause": hand_paused or paused_pkt,
         }
@@ -2295,47 +2290,13 @@ def main() -> int:
             if progress["candidate"]:
                 out["signals"].append(f"lane_reconcile_candidate_{name}")
 
-        # git for main hand (walk up from cwd; container fleets scan children / git.main_cwd)
-        if h.get("merges_to_main") or name == fleet.get("default_hand"):
+        # Track git tip for the first hand (reference for fingerprint and state).
+        # No fleet-wide "main" — each repo has its own main; the Mind tracks branches.
+        if is_first_hand:
             out["git"]["main"] = git_tip(Path(cwd), fleet)
 
     out["hand_progress"] = hand_progress
     out["lane_progress"] = lane_progress
-
-    # RTM is mail rather than an open bag item. Surface unmerged RTM mail so
-    # empty Hand bags cannot masquerade as honest product starvation.
-    rtm_mail = list_ready_to_merge(vivi, str(project), mind_inbox) if vivi else []
-    recent_mail = list_recent_mail(vivi, str(project), mind_inbox) if vivi and rtm_mail else []
-    git_main = (out.get("git") or {}).get("main") or {}
-    main_cwd = git_main.get("cwd")
-    main_name = fleet.get("default_hand") or "hand-1"
-    main_cfg = hands.get(main_name) if isinstance(hands.get(main_name), dict) else {}
-    main_identity = main_cfg.get("mail_identity") or main_name
-    pending_rtm = []
-    merged_rtm = []
-    unresolved_rtm = []
-    for item in rtm_mail:
-        ancestry = commit_is_on_main(main_cwd, item.get("commit"))
-        enriched = dict(item)
-        enriched["commit_on_main"] = ancestry
-        completion = rtm_completion_mail(item, recent_mail, main_identity)
-        enriched["completion_mail"] = completion
-        if ancestry is True or completion:
-            merged_rtm.append(enriched)
-        elif ancestry is False or git_main.get("dirty"):
-            pending_rtm.append(enriched)
-        else:
-            unresolved_rtm.append(enriched)
-    out["integration"] = {
-        "pending_rtm": pending_rtm,
-        "pending_rtm_count": len(pending_rtm),
-        "merged_rtm_count": len(merged_rtm),
-        "unresolved_rtm_count": len(unresolved_rtm),
-        "suggested_actions": (["queue_merge_to_main_hand"] if pending_rtm else []),
-    }
-    if pending_rtm:
-        out["signals"].append("pending_rtm")
-        out["signals"].append("integration_lag")
 
     # heads (optional pane scan) + executive cadence.
     # Single dial: executive_cadence.every_n_loops

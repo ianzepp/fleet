@@ -212,7 +212,6 @@ class RuntimeRebindApplyTests(unittest.TestCase):
             hand.update(extra_hand)
         return {
             "version": 1,
-            "default_hand": "hand-1",
             "fleet_id": "test",
             "mind": {"agent": "grok"},
             "hands": {"hand-1": hand},

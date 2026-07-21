@@ -1,11 +1,10 @@
 # Model selection (role + unit shape)
 
 Generic guidance for choosing **provider / model / thinking effort** by **role
-duty** and **unit shape**. Live bindings always win from project
-`.vivi/fleet.json` (`agent`, `provider`, `agent_model`, `agent_launch`,
-thinking flags). This file is process law for Mind when **filing**,
-**rebinding**, or **capacity-stepping** — not a second source of truth for
-which string is running.
+duty** and **unit shape**. Live bindings always win from the Vivi role record
+(`vivi role show <name> --project <root>`). This file is process law for Mind
+when **filing**, **rebinding**, or **capacity-stepping** — not a second source
+of truth for which string is running.
 
 **Do not** pin product marketing names or operator subscription details here.
 Project overlays may name concrete models; the skill stays capability-class
@@ -45,8 +44,7 @@ satisfy one class; **fleet.json** records which.
 **Provider is part of the binding.** Project overlays must pair each model with
 its correct provider (example: volume GLM-class models often require a specific
 vendor provider id such as `zai` — never assume the default codex/openai
-provider). A model string without the matching `provider` / `agent_launch`
-flag is a misconfiguration.
+provider). A model string without the matching `provider` is a misconfiguration.
 
 **Native harness vs provider.** Some design-class tools are **full harnesses**
 (own CLI/agent loop), not a provider behind Pi. If the project overlay says a

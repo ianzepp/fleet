@@ -76,7 +76,7 @@ python3 scripts/fleet-posture.py set --project <root> growth \
 | --- | --- |
 | Map unit with clear product done-when | “Polish something” / drive-by cleanup |
 | Honest residual on open goal | Second polish advisory same tip without new land |
-| pending_merges / spine residual | `$housekeeping` outside major inflection |
+| Feature branch ready for Mind merge decision | `$housekeeping` outside major inflection |
 | Operator- or CEO-named product package | Empty-bag theater to silence sensors |
 
 **Ban:** invent work (including polish/HK loops) to keep Hands busy or to clear `starvation_candidate_*`.
@@ -86,7 +86,7 @@ Hygiene remains: Hand end-of-unit polish; post-main polish advisory **once per t
 ## Mind decision tree (per fleet mini-cycle)
 
 ```text
-1. Drain real signal: **operator→mind** + To operator@, absorb done/HEAD, open bags, pending_merges/reviews
+1. Drain real signal: **operator→mind** + To operator@, absorb done/HEAD, open bags, reviews
 2. Open product bag → wake (doorbell/reinit) as today — no invention
 3. posture in {standby, dormant}:
      → do not starvation-file; sleep/quiet report; optional absorb only

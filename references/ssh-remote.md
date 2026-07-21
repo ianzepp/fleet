@@ -30,7 +30,6 @@ hand-N / head-*  =  identity (mail + remote tmux session name)
 | `ssh` | e.g. `ssh -o BatchMode=yes user@host` |
 | `tmux_session` / `tmux_target` | Session/pane **on that host** |
 | `cwd` | Path **on that host** |
-| `agent_launch` | Command **on that host** (PATH if non-login SSH bare) |
 | `mailspace_project` | Optional. `vivi --project` root if ≠ Mind’s view |
 
 **Binding:** mail identity token == tmux session name (on host running the pane).
@@ -111,8 +110,6 @@ Identity = session name; `agent=pi` (or fleet preference); clean-slate/reinit po
       "tmux_target": "hand-2:1.1",
       "cwd": "/home/user/work/fleet",
       "agent": "codex",
-      "agent_launch": "export PATH=…; codex",
-      "merges_to_main": false,
       "wake_mode": "tmux_send_keys_via_ssh"
     }
   },
@@ -144,7 +141,7 @@ Operator Mind in desktop app; product Hands (+ optional Heads) on remote tmux. D
 | Verify first capture after arm | Trust fleet JSON without live pane |
 | Reinit on Hand host | Kill local processes for a remote Hand |
 | One mailspace board of record | Split truth across two `.vivi/` DBs |
-| Prefer packet/remote for hand-2+ first | hand-1 merge-to-main on remote before ready |
+| Prefer packet/remote for branch work first | Mind merge on remote before ready |
 
 ## Related
 

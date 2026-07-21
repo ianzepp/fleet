@@ -73,10 +73,9 @@ On return: present operator mail list first.
 
 | Who | Does | Does not |
 | --- | --- | --- |
-| **Mind** | File/refill bags, wake/reinit, merge clock, absorb (bookkeeping), pack capacity; file/present **operator mail** | Peer-review every packet; run full `$polish`/`$housekeeping`; status To `operator@` |
+| **Mind** | File/refill bags, wake/reinit, absorb (bookkeeping), branch/merge decisions, pack capacity; file/present **operator mail** | Peer-review every unit; run full `$polish`/`$housekeeping`; status To `operator@` |
 | **operator@** | Accrue human problems/blockers/guidance | Status; Hand bag drain |
-| **hand-1** | Main; spine; **only** merge → main | Wait for GO mail; erase foreign WIP |
-| **hand-2+** | Packet/worktree lanes; unit→refill; theme→ready-to-merge | Merge to main; invent unbounded spine |
+| **hand-N** | Execute assigned work; commit own work; validate; polish unit | Wait for GO mail; erase foreign WIP; touch another Hand's WIP |
 | **head-ceo** | **Strategist:** map health, misprioritization, gate honesty; **side-lane buckets** (+ effort/token ballparks); posture-scaled | File Hand tasks; stamp GO/NO-GO |
 | **head-cto** | **Code review / bugs on main after merge** | Own product tasking; block merges as license |
 | **head-cxo** | Complexity / purity (not operator-facing) | Own product tasking; operator email |
@@ -103,7 +102,7 @@ compatibility exceptions.
 4. **Mind cycles** — cheap sensors; act on signal; sleep when quiet  
 5. **Scheduled wakes** — `FLEET_CYCLE …` (not human prose)  
 6. **Mode** — engaged → **interactive**; silent cycles → **autonomous**; on return: **operator@** before recap  
-7. **Integration** — hand-2+ never merges; Mind **accepts** themes (integration bar) → merge task To hand-1 at clean breakpoint  
+7. **Integration** — Hands commit own work; Mind decides branch strategy at assignment; audit loop (implement → auditor → verify → accept) is the integration bar  
 8. **Hygiene** — polish advisory after main lands; `$housekeeping` only at **major inflection**
 
 **Keep screen moving (product only):** empty bag + map has unblocked **product** work = **starvation** → file next + wake. **Posture** (`growth` / `standby` / `dormant`): growth = aggressive Head research + expansion; standby = quiet Hands, Head **stewardship** (not expansion); dormant = Heads rare. Continuity doubt → head-ceo once, not thrash — [`fleet-posture.md`](fleet-posture.md).
@@ -112,11 +111,9 @@ compatibility exceptions.
 
 ## Multi-hand
 
-| hand-1 | hand-2+ |
-| --- | --- |
-| Main, merges, critical spine | Side lane / packet; parallel safe work |
+All Hands are equivalent floaters. The Mind picks any available Hand for each assignment. No Hand has a special integration role.
 
-head-ceo **bucket**: why off main; seams vs spine; **effort** `S|M|L|XL` + **est_tokens**. Mind binds, files, records actual vs estimate.
+head-ceo **bucket**: parallel candidates by write scope; **effort** `S|M|L|XL` + **est_tokens**. Mind binds, files, records actual vs estimate.
 
 Leaving hand-2 empty while map has a second unblocked track = Mind starvation of second lane.
 
@@ -132,7 +129,7 @@ Leaving hand-2 empty while map has a second unblocked track = Mind starvation of
 **To:** `hand-N`=work; `mind`=fleet board; `operator`=human escalations only.
 
 Kind ≠ severity. Critical defects are still **tasks**.  
-**Absorb** = bookkeeping when something moved. **Accept** = clear review debt or queue merge — not full code review (assigned `auditor-N` Hand + `$auditor`).
+**Absorb** = bookkeeping when something moved. **Accept** = audit loop passed; review debt cleared — not full code review (assigned `auditor-N` Hand + `$auditor`).
 
 ## Fleet files
 
@@ -148,7 +145,7 @@ optional role prompts     # Head bootstraps
 1. **No second Mind** — no shell `send-keys` into fake Mind pane as control plane  
 2. **No GO/NO-GO game warden** — residuals and empty bags, not stage licenses  
 3. **No destructive git on foreign dirty** — classify A/B/C; never stash/reset/clean  
-4. **No packet merge from hand-2+** — only hand-1 merges to main  
+4. **No touching another Hand's WIP** — respect write-scope boundaries; Mind coordinates overlap  
 5. **No Heads owning product bags** — advise; Mind files  
 6. **No housekeeping after every land** — inflection only  
 7. **No treating FLEET_CYCLE as operator silence** if human chatted between fires  

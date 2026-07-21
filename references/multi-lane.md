@@ -1,26 +1,16 @@
-# Multi-lane Mind and integration
+# Multi-lane Mind and branch integration
 
-Load for side lanes, theme merge, base-update, pin-relative done, `pending_merges`.
+Load for parallel hand coordination, write-scope non-overlap, feature-branch integration, base-update, pin-relative done, and lane lifecycle.
 
 ## Multi-lane Mind (all hands every cycle)
 
 Track **all active hands** every cycle. Do not collapse maps into one spine.
 
-**Live assignment = fleet JSON** (`hands.*.packet` / `focus` / `cwd`). Prose “H2 always owns X” is not law.
+**Live assignment = fleet JSON** (`hands.*.packet` / `focus` / `cwd`). Prose "H2 always owns X" is not law.
 
-### Recommended floater shape
+### Floater shape
 
-For multi-repo containers, prefer this default shape:
-
-| Slot | Recommended use |
-| --- | --- |
-| **hand-1** | Dedicated main/integration lane. Keep it stable for spine work, merge tasks, and main-checkout residuals. |
-| **hand-2..hand-4** | Floater pool. Assign per unit/theme to any ready repo/worktree whose write scope does not overlap another active Hand. |
-| **hand-5+** | Fleet-specific extra capacity; follow explicit config/operator policy. |
-
-This is a strong suggestion, not a schema requirement. Fleet config and explicit
-operator direction win. The invariant is not “H2 owns repo X”; it is “Mind
-keeps floaters on honest, non-overlapping product work.”
+All Hands are equivalent floaters. The Mind picks any available Hand for each assignment. See [SKILL.md § Commit authority and workflow](../SKILL.md#commit-authority-and-workflow).
 
 Before filing a floater task:
 
@@ -34,36 +24,35 @@ Before filing a floater task:
 
 | Slot | Workspace | Bag empty means |
 | --- | --- | --- |
-| **hand-1** | **main** (sticky) | starvation if main map next, pending_merges, or better open residuals |
-| **hand-2..hand-4** | **current floater assignment** | starvation if any non-overlapping ready repo unit exists — refill same cycle; valid defer if only overlapping/dependent work remains |
-| **hand-5+** | **fleet-specific assignment** | follow explicit fleet config/operator policy |
+| **any hand-N** | **current assignment** (repo/crate/worktree) | starvation if any non-overlapping ready unit exists — refill same cycle; valid defer if only overlapping/dependent work remains |
 
 File **To the Hand that owns that assignment**. Never cross-file continuous work.
 
-## Theme → main (always via hand-1; theme cadence)
+## Branch integration
 
-Side-lane workers **never** merge to main. Mind owns integration clock. Long continuous lanes merge at **theme boundaries**, not every unit.
+Most work lands on main because the Mind scopes non-overlapping work across repos and crates. Feature branches are the exception, used when scope is large or overlap risk is real. The Mind creates feature branches and worktrees; Hands commit to whatever branch they're assigned.
 
 | Event | Mind action |
 | --- | --- |
-| Worker finishes **unit** | **Absorb** + review; residual/next To: **same worker**; **no** merge to h1 |
-| Worker finishes **theme** | ready-to-merge → review → **accept** → `pending_merges` → **merge task To: h1** at clean breakpoint |
-| Operator forces mid-theme integrate | exception only when explicit |
+| Worker finishes **unit** on main | **Absorb** + review → auditor if risk; residual/next To: **same worker** |
+| Worker finishes **unit** on feature branch | **Absorb** + review; worker keeps committing on the branch |
+| Worker finishes **theme** on feature branch | Review → **accept** → Mind merges when ready (see [Integration decision](#integration-decision)) |
+| Operator forces mid-theme integrate | Exception only when explicit |
 
-**Theme (default):** one delivery-index major unit honestly closed **or** operator-named theme — not “tasking empty for an hour.”
+**Theme (default):** one delivery-index major unit honestly closed **or** operator-named theme — not "tasking empty for an hour."
 
-### Theme-complete path
+### Integration decision
 
-1. Worker signals **theme ready-to-merge** (name + tip + evidence) **or** Mind judges done after review  
-2. **Absorb** tip; light residual/evidence since last main merge (not GO stamp; not full code review)  
-3. **Integration accept** → `pending_merges` (slug, tip, base, theme, `queued_for_hand1`) **or** residual To worker  
-   (Deep review = assigned **`auditor-N` Hand + `$auditor`** on main after hand-1 merges)
-4. File **one merge task To: hand-1** (slug, branch, base, tip, theme, validation, **watch-scope drift**)  
-5. Wake/reinit h1 only at **clean breakpoint**. Mid-spine → **queue**  
-6. After h1 merges: **absorb** main; **accept** merge; clear/update `pending_merges`; next unit/theme To worker (or reassign)  
-7. After theme on main: evaluate **main → side-lane base-update**
+When a feature branch is ready to merge:
 
-Between themes: worker keeps committing; main free for spine; side lane must **periodically absorb green main**.
+1. Worker signals **theme ready-to-merge** (branch name + tip + evidence) **or** Mind judges done after review.
+2. **Absorb** tip; light residual/evidence check (not GO stamp; not full code review).
+3. **Accept** when audit loop passes (auditor verified).
+4. Mind merges the branch to main at a clean breakpoint — Mind owns the merge decision, not a queue.
+5. After merge: absorb main; next unit/theme To worker (or reassign).
+6. Evaluate base-update for any other branches that lag main.
+
+Between theme merges: workers keep committing on their assigned branches; the Mind tracks branch state through normal task/need flow.
 
 ## Dedicated lane lifecycle
 
@@ -87,11 +76,10 @@ baseline fields: [`runtime-config.md`](runtime-config.md).
 
 | Mode | Rule |
 | --- | --- |
-| Bounded one-shot | ready-to-merge when assignment finishes → review → merge to h1 |
-| Long-term continuous | merge only at **theme** boundaries; units → absorb/review/next only |
-| hand-2+ | never merge to main |
-| h1 wake | defer while mid-spine / dirty main WIP |
-| Reverse sync | **main → side-lane base-update required** (not forever-diverge) |
+| Bounded one-shot (on main) | Commit directly; no merge needed |
+| Bounded one-shot (on feature branch) | Commit on branch → Mind merges when ready |
+| Long-term continuous (feature branch) | Merge at **theme** boundaries; units → absorb/review/next only |
+| Reverse sync | **main → feature-branch base-update required** (not forever-diverge) |
 
 ## Integration seams (pin-relative done)
 
@@ -99,59 +87,39 @@ A fix is **done relative to a pin**, not absolutely.
 
 | Operation | Touches | Owner | When |
 | --- | --- | --- | --- |
-| **Theme merge** packet → main | main | **hand-1** only | Theme accept + clean breakpoint |
-| **Base-update** main → packet | writable packet branch | **packet worker** | Green main + not mid-unit + lag/drift |
+| **Theme merge** feature → main | main | **Mind** | Theme accept + clean breakpoint |
+| **Base-update** main → feature | writable feature branch | **branch worker** | Green main + not mid-unit + lag/drift |
 | **Pin refresh** | pinned/read-only worktree | **operator / Mind** | Product needs main-only capability; worker must **not** self-bump |
-| **Consumer re-verify** | product packet | that Hand | Only after `git merge-base --is-ancestor <fix-sha> <consumer-pin-HEAD>` |
+| **Consumer re-verify** | product branch | that Hand | Only after `git merge-base --is-ancestor <fix-sha> <consumer-pin-HEAD>` |
 
-**Misroute:** residual To origin Hand when consumer red because fix **not on their pin** = **integration lag**. Queue merge/base-update/pin-refresh — don’t thrash re-verify. No “DONE re-verify NOW” until fix reachable from consumer tree. Prefer need To Mind/operator for pin refresh over stacked wakes on a correctly blocked Hand.
+**Misroute:** residual To origin Hand when consumer red because fix **not on their pin** = **integration lag**. Queue merge/base-update/pin-refresh — don't thrash re-verify. No "DONE re-verify NOW" until fix reachable from consumer tree. Prefer need To Mind/operator for pin refresh over stacked wakes on a correctly blocked Hand.
 
-## Main → side-lane base-update
+## Main → feature-branch base-update
 
-**Invariant:** continuous side lanes must not lag main indefinitely. Mind decides **when**; workers execute when assigned.
+**Invariant:** continuous feature branches must not lag main indefinitely. Mind decides **when**; workers execute when assigned.
 
-Default: **merge green main into side branch** (merge commit > rebase on multi-agent shared branches). Skill states **policy**, not filesystem convention.
+Default: **merge green main into feature branch** (merge commit > rebase on multi-agent shared branches). Skill states **policy**, not filesystem convention.
 
 ### Green main gate (hard)
 
-Only base-update from a tip that is **green** by project bar (formatter, lint, targeted tests). Name **exact green SHA** in task. Red/unvalidated → wait or file main residual — **do not** refresh onto known-broken tip. After base-update failure, suspect merge interaction first — not “main was already broken.”
+Only base-update from a tip that is **green** by project bar (formatter, lint, targeted tests). Name **exact green SHA** in task. Red/unvalidated → wait or file main residual — **do not** refresh onto known-broken tip. After base-update failure, suspect merge interaction first — not "main was already broken."
 
 ### When to file (do not thrash)
 
 | Trigger | Action |
 | --- | --- |
 | Theme merge just accepted on main | Prefer base-update when worker idle/clean |
-| Side lane missing main commits on watch/write surface | File before product depending on those facts |
+| Feature branch missing main commits on watch/write surface | File before product depending on those facts |
 | Watch-scope drift / next theme merge painful | File base-update |
 | Worker mid-flight intentional dirty WIP | **Defer** |
 | Main not green | **Defer** |
 
-One base-update task per lane when lag is real — not a new SHA every cycle.
+One base-update task per branch when lag is real — not a new SHA every cycle.
 
-**Task body:** To side-lane worker; green main SHA + evidence + merge into side branch + validate + turn-end. Worker: honest conflicts; no force-push; no product scope expansion unless required for conflicts.
+**Task body:** To branch worker; green main SHA + evidence + merge into feature branch + validate + turn-end. Worker: honest conflicts; no force-push; no product scope expansion unless required for conflicts.
 
 ## Post-theme residue vs pending merge
 
-**Empty tasking + no `queued_for_hand1` ≠ tip on main.** Unit/polish commits after a recorded theme merge = **post-theme residue** until next theme seam (or operator forces integrate).
+**Empty tasking on a feature branch ≠ branch merged to main.** Unit/polish commits after a recorded theme = **post-theme residue** until next theme seam (or operator forces integrate).
 
-Assess with `git merge-base --is-ancestor <side-tip> <main-tip>` (and reverse lag), not only `pending_merges`.
-
-## `pending_merges` states
-
-```text
-active | ready | reviewing | queued_for_hand1 | merged
-| partial_merged | integrated_publish_pending | abandoned
-```
-
-| State | Meaning |
-| --- | --- |
-| `active` | Theme in flight on side lane |
-| `ready` | Worker claims ready; not yet reviewing |
-| `reviewing` | Mind review open |
-| `queued_for_hand1` | Accepted; merge task exists or should |
-| `merged` | On main and accepted as merge |
-| `partial_merged` | Part of theme landed; residual debt |
-| `integrated_publish_pending` | Integrated; publish/Status still open |
-| `abandoned` | Explicitly dropped |
-
-Ledger may keep old `merged` rows; **live queue** = non-terminal states only.
+Assess with `git merge-base --is-ancestor <feature-tip> <main-tip>` (and reverse lag) to check whether the branch has been merged.

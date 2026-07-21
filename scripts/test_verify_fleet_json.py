@@ -27,22 +27,12 @@ class AuditorHandValidationTest(unittest.TestCase):
         return {
             "mail_identity": "auditor-1",
             "tmux_target": "test:auditor-1.1",
-            "merges_to_main": False,
             "assignment_mode": "new",
         }
 
     def test_accepts_canonical_auditor_hand(self):
         report = self.validate(self.valid_auditor())
         self.assertEqual(report.errors, [])
-
-    def test_rejects_auditor_that_can_merge(self):
-        auditor = self.valid_auditor()
-        auditor["merges_to_main"] = True
-        report = self.validate(auditor)
-        self.assertIn(
-            ("hands.auditor-1", "auditor Hand requires merges_to_main=false"),
-            report.errors,
-        )
 
     def test_rejects_missing_fresh_assignment_mode(self):
         auditor = self.valid_auditor()

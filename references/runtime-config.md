@@ -32,7 +32,7 @@ python3 scripts/fleet-sensors.py -p <root> --record-cycle [--cycle-id <id>]
 python3 scripts/fleet-sensors.py -p <root> --history 10 [--role hand-1]
 ```
 
-Emits board status, open handles, pane classes, git tip, ahead/behind counts, bounded dirty paths, pending RTM/integration-lag evidence, fingerprint, `signals[]`, `quiet_hint`, posture, Head cadence due flags, and model provenance for every configured Head/Hand. `configured` normalizes fleet role fields (`agent`; explicit `provider`; `model` or `agent_model`; and `reasoning`, `agent_reasoning_effort`, `thinking`, or `effort`) and may fill otherwise absent values from the role's unambiguous `preferred_models` profile; it never parses `agent_launch`. `observed` comes only from structured normalized runtime diagnostics and remains null when not provable. `match_status` therefore distinguishes `match`, `mismatch`, `configured_only`, `observed_only`, and `unknown` without treating config as observation. RTM reconciliation uses advertised commit ancestry when available and newer main-Hand merge-completion mail as the cheap fallback. Exit `0` ok · `1` hard · `2` partial.
+Emits board status, open handles, pane classes, git tip, ahead/behind counts, bounded dirty paths, fingerprint, `signals[]`, `quiet_hint`, posture, Head cadence due flags, and model provenance for every configured Head/Hand. `configured` reads capacity from the Vivi role record (`provider`, `model`, `thinking`) and may fill otherwise absent values from the role's unambiguous `preferred_models` profile. `observed` comes only from structured normalized runtime diagnostics and remains null when not provable. `match_status` therefore distinguishes `match`, `mismatch`, `configured_only`, `observed_only`, and `unknown` without treating config as observation. Exit `0` ok · `1` hard · `2` partial.
 
 Sensor history is opt-in and normal/ad-hoc invocations never write it:
 
@@ -95,8 +95,7 @@ python3 scripts/verify-fleet-json.py --project <root> --strict         # warning
 python3 scripts/verify-fleet-json.py --project <root> --no-path-checks # skip on-disk refs
 ```
 
-Validates fleet.json shape, cross-references (`default_hand` resolves,
-`mail_identity` unique, auditor Hands cannot merge and use fresh assignments), `executive_cadence` /
+Validates fleet.json shape, cross-references (`mail_identity` unique, auditor Hands use fresh assignments), `executive_cadence` /
 wake-field well-formedness, and that referenced absolute paths (`role_prompt`,
 `persona`, `tooling` binaries) exist, and validates `sensor_log` level/path/retention shape. The schema is permissive ("extend freely;
 skill cares about meanings") — unknown keys are NOT rejected. Exit `0` ok ·
@@ -207,7 +206,7 @@ scripts/codex-reinit.sh classify --project /path/to/fleet --fleet <fleet-id> --r
 | Rule | Detail |
 | --- | --- |
 | Defaults | `PROJECT` from cwd; `FLEET_FILE`=`$PROJECT/.vivi/fleet.json`; `--fleet` selects the logical ID |
-| Launch | Prefer Hand **`agent_launch`** (after `cd` to fleet cwd). If empty: `codex -m <agent_model> -c model_reasoning_effort=xhigh` (`CODEX_EFFORT` / `--model` overrides). Never `exec codex` |
+| Launch | Construct launch from the role capacity (Vivi role record) + harness. Never `exec codex` |
 | Exit | reinit `0/1/2 stuck_idle/3`; doctor `0/1/2` (script header) |
 | Symlink | Fleets may wrap via `.vivi/codex-reinit.sh` |
 
@@ -217,7 +216,7 @@ See [`dead-man.md`](dead-man.md). Subcommands: `arm` / `rearm` / `disarm` / `che
 
 ## Runtime fallback
 
-**Invariant:** assignment (hand-N, side lane, merge rights) does **not** change on model full. Only **runtime** rebinds (`agent_model`, `agent_launch`, carefully `agent`/`wake_mode`). Source: fleet `runtime_fallback` + per-hand fields + harness alignment.
+**Invariant:** assignment (hand-N, side lane, merge rights) does **not** change on model full. Only **runtime** rebinds (provider/model/thinking on the Vivi role). Source: Vivi role record + harness alignment.
 
 ### Failure classes
 
@@ -241,7 +240,7 @@ pi_model_ladder_head:  [ zai/glm-5.2@high, zai/glm-5.2@xhigh, … ]
 **On `failed` with `runtime.detail=capacity`:**
 
 1. Not mid-successful `running` with real progress → wait
-2. Advance Hand `agent_model` one step **same harness**; rewrite `agent_launch`
+2. Advance Hand model one step **same harness** via `vivi role set`
 3. Doorbell if idle; reinit only for down/stuck/error recovery — short bootstrap, no stacked wakes
 4. Baseline `last_runtime_fallback` {hand, from, to, reason, cycle, at}
 5. **≤1 model step per Hand per cycle**
@@ -260,7 +259,7 @@ pi_model_ladder_head:  [ zai/glm-5.2@high, zai/glm-5.2@xhigh, … ]
 
 Do **not** change a single Hand's harness while the Mind and other Hands remain Pi. Capacity fallback changes Pi provider/model first.
 
-A rare harness flip updates `mind.agent` + every Hand’s `agent` + `agent_launch` + `wake_mode` at a clean breakpoint. **Assignment remains unchanged.**
+A rare harness flip updates every role’s `harness` on the Vivi role record at a clean breakpoint. **Assignment remains unchanged.**
 
 ### Per-cycle budget (anti-thrash)
 
@@ -317,7 +316,7 @@ Exit 2 → one more reinit same cycle OK; still stuck next cycle → model ladde
 
 **Classify traps:** do not treat tool `timeout N cmd` or `error: test failed` as `failed` with connection detail when the runtime is live and working. Prefer current bottom prompt evidence and doctor evidence over raw greps of older scrollback.
 
-**Manual fallback:** kill agent children of pane only; leave tmux+shell; launch without `exec` via fleet `agent_launch`; short bootstrap; record `last_codex_reinit_at`.
+**Manual fallback:** kill agent children of pane only; leave tmux+shell; launch without `exec` from the role capacity; short bootstrap; record `last_codex_reinit_at`.
 
 **Forbidden:** multi-paragraph argv holds; repeated doorbells without submit-settle/inspection; reinit `running` without FORCE; `exec codex`.
 
@@ -362,7 +361,7 @@ progress wakes.
 | **`new`** | Fresh agent session for this assignment (`/new` in-pane, or recreate session leaving shell/cwd). Drop prior chat context. | Cold-cache fleets; high context cost; CEO-style one-shot analysis; default when operator wants no transcript carry-over |
 | **`compact`** | Same process; send `/compact` (or harness equivalent), then pointer doorbell with the new handle | Theme switch same cwd when context is still coherent |
 | **`continue`** | Same session; pointer doorbell only (no compact, no recreate) | Cheap follow-ups; sticky multi-step units that intentionally share context |
-| **`restart`** | Kill the agent process (or whole runtime slot) and relaunch via `agent_launch` / `fleet-runtime.py restart` before the assignment boot | Stuck harness; model/provider flag change; dirty process that `/new` cannot clear |
+| **`restart`** | Kill the agent process (or whole runtime slot) and relaunch via `fleet-runtime.py restart` from role capacity before the assignment boot | Stuck harness; model/provider flag change; dirty process that `/new` cannot clear |
 
 **Resolved by:** `fleet_common.resolve_assignment_mode` / `fleet-resolve.py`
 (`assignment_mode` on the binding JSON and `RESOLVED_ASSIGNMENT_MODE` in shell).
@@ -414,7 +413,6 @@ Recommended keys (extend freely; skill cares about meanings):
 ```json
 {
   "version": 1,
-  "default_hand": "hand-1",
   "legacy_hand_identity": "codex",
   "fleet_id": "mgs",
   "tmux_layout": "legacy",
@@ -460,10 +458,6 @@ Recommended keys (extend freely; skill cares about meanings):
   },
   "binding_rule": "legacy: mail_identity==tmux_session; session_per_fleet: mail_identity==role, tmux_session==fleet_id, tmux_window==role; always use tmux_target",
   "mind": {
-    "agent": "pi",
-    "agent_model": "gpt-5.5",
-    "provider": "openai-codex",
-    "thinking": "medium",
     "note": "Pi is the product harness; Mind is not a fleet process slot"
   },
   "agent_policy": {
@@ -498,13 +492,7 @@ Recommended keys (extend freely; skill cares about meanings):
       "tmux_session": "hand-1",
       "tmux_target": "hand-1:1.1",
       "cwd": "/path/to/main",
-      "agent": "pi",
-      "provider": "openai-codex",
-      "agent_model": "gpt-5.5",
-      "thinking": "medium",
-      "agent_launch": "pi --provider openai-codex --model gpt-5.5 --thinking medium --approve",
-      "merges_to_main": true,
-      "assignment_sticky": true,
+                "assignment_sticky": true,
       "runtime_sticky": false,
       "assignment_mode": "new",
       "wake_mode": "tmux_send_keys",
@@ -515,12 +503,7 @@ Recommended keys (extend freely; skill cares about meanings):
       "host": "remote.example",
       "ssh": "ssh -o BatchMode=yes remote.example",
       "cwd": "/path/on/remote/side-lane",
-      "agent": "pi",
-      "provider": "openai-codex",
-      "agent_model": "gpt-5.5",
-      "agent_launch": "pi --provider openai-codex --model gpt-5.5 --thinking medium --approve",
-      "wake_mode": "tmux_send_keys_via_ssh",
-      "merges_to_main": false,
+              "wake_mode": "tmux_send_keys_via_ssh",
       "assignment_sticky": false,
       "assignment_mode": "continue",
       "packet": { "slug": "…", "branch": "…", "state": "assigned" }
@@ -531,13 +514,7 @@ Recommended keys (extend freely; skill cares about meanings):
       "tmux_session": "auditor-1",
       "tmux_target": "auditor-1:1.1",
       "cwd": "/path/to/main",
-      "agent": "pi",
-      "provider": "openai-codex",
-      "agent_model": "gpt-5.5",
-      "thinking": "high",
-      "agent_launch": "pi --provider openai-codex --model gpt-5.5 --thinking high --approve",
-      "merges_to_main": false,
-      "assignment_sticky": false,
+                "assignment_sticky": false,
       "assignment_mode": "new",
       "wake_mode": "tmux_send_keys",
       "min_seconds_between_wakes": 180,
@@ -548,9 +525,7 @@ Recommended keys (extend freely; skill cares about meanings):
       "tmux_session": "hand-3",
       "tmux_target": "hand-3:1.1",
       "cwd": "/path/to/campaign-worktree",
-      "agent": "pi",
-      "merges_to_main": false,
-      "assignment_mode": "continue",
+        "assignment_mode": "continue",
       "lane": {
         "campaign": "docs/CAMPAIGN.md",
         "goal": "factory/goals/example.md",
@@ -562,10 +537,6 @@ Recommended keys (extend freely; skill cares about meanings):
   },
   "head-ceo": {
     "mail_identity": "head-ceo",
-    "agent": "pi",
-    "agent_model": "glm-5.2",
-    "thinking": "high",
-    "agent_launch": "pi --provider zai --model glm-5.2 --thinking high",
     "assignment_mode": "new",
     "role_prompt": "<fleet-path>/head-ceo-role-prompt.txt",
     "executive_cadence": {
@@ -575,22 +546,15 @@ Recommended keys (extend freely; skill cares about meanings):
   },
   "head-cto": {
     "mail_identity": "head-cto",
-    "agent": "pi",
-    "agent_model": "glm-5.2",
-    "thinking": "high",
     "executive_cadence": { "every_n_loops": 6 }
   },
   "head-cxo": {
     "mail_identity": "head-cxo",
     "tmux_session": "head-cxo",
-    "agent": "pi",
-    "agent_model": "glm-5.2",
-    "thinking": "high",
     "executive_cadence": { "every_n_loops": 12 }
   },
   "head-cso": {
     "mail_identity": "head-cso",
-    "agent": "pi",
     "executive_cadence": { "every_n_loops": 0, "sweep_mode": "security" }
   }
 }
@@ -685,7 +649,7 @@ from posture: growth → `expansion`, standby → `stewardship`, dormant →
 `paused`. Detail: [`fleet-posture.md`](fleet-posture.md). Validate with
 `verify-fleet-json.py`.
 
-**Never hardcode model strings as Hand identity.** Read `agent_launch` from fleet. Hand `agent` should match `mind.agent` unless baseline records operator exception. Defaults from preferred_models; override for capacity/experiment, re-align when quiet.
+**Never hardcode model strings as Hand identity.** Capacity lives on the Vivi role record (`vivi role set`). Defaults from preferred_models; override for capacity/experiment, re-align when quiet.
 
 Prefer absolute paths from fleet `tooling` over `which` every cycle.
 
@@ -710,7 +674,7 @@ last_actionable_fingerprint
   <role>_mail_top                 # newest addressed mail observed this cycle
   <role>_mail_pending             # changed mail waiting for an idle-pane doorbell
 pending_reviews[]
-pending_merges[]
+feature_branch_merges (Mind-controlled, via task/need)
 active_packets{} or active_lanes{}
 lane_progress{}
   # hand -> {signature, unchanged_cycles, last_progress_at, candidate,
@@ -795,7 +759,7 @@ Orderly shutdown (lifecycle **Retire**).
 ### Procedure
 
 1. **Stop** filing new keep-screen-moving targets (unless last drain)
-2. **Absorb** finished lands: HEADs, light-accept, honest `pending_reviews`/`pending_merges` (no invent theme RTMs)
+2. **Absorb** finished lands: HEADs, light-accept, honest `pending_reviews` (no invent theme RTMs)
 3. **Classify each slot:** empty+clean/idle → drop; mid-unit product → keep or operator-stop with residual; human/env gate only → finished for wind-down, leave need open
 4. **Drop panes** for finished hands/Heads (`tmux kill-session`); leave mid-product if residual drain wanted
 5. **Baseline** `mind_loop.state = wound_up`: dropped/kept panes, tips, residual handles, handoff
@@ -812,7 +776,7 @@ Orderly shutdown (lifecycle **Retire**).
 
 ### Rearm
 
-1. Recreate tmux sessions from fleet (`cwd`, `agent_launch`)
+1. Recreate tmux sessions from fleet (`cwd`) + Vivi role capacity
 2. Read baseline handoff + open taskings
 3. Refill starvation if maps still have work
 4. Set `mind_loop.state = armed|running`; clear or archive wind-up block

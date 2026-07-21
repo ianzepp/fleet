@@ -26,12 +26,9 @@ Pi already supports:
 --no-tools, -nt          disable all tools
 ```
 
-Wrappers inject the right defaults so `fleet.json` `agent_launch` cannot forget.
+Wrappers inject the right defaults so a Pi launch cannot forget extension/tool policy.
 
-**Invariant (reinit / vivi_pty):** `agent_launch` is canonical. `runtime.command`
-must match `shlex.split(agent_launch)`. `fleet-runtime.py reinit` removes the
-session id and starts with desired argv — it must **not** `session.restart` a
-stale plain-`pi` binding. `verify-fleet-json.py` errors when the two disagree.
+**Invariant (reinit / vivi_pty):** the launch command is constructed from the Vivi role record (harness + provider/model/thinking + kind). `fleet-runtime.py reinit` removes the session id and starts with desired argv — it must **not** `session.restart` a stale plain-`pi` binding.
 
 ## Hand (`pi-hand`)
 
@@ -84,18 +81,20 @@ that need it can compose:
 # prompt in launch or use pi-hand alone with project AGENTS.md discovery.
 ```
 
-## fleet.json `agent_launch`
+## Role capacity + wrapper selection
 
-Prefer absolute paths into the skill (stable across machines with the skill):
+The runtime constructs the launch from the Vivi role record. Hands get `pi-hand`; Heads get `pi-head`; capacity flags come from the role:
 
-```json
-"agent_launch": "/Users/ianzepp/work/ianzepp/fleet/scripts/pi-hand --provider openai-codex --model gpt-5.5 --thinking medium --name mgs-hand-1 --approve"
+```bash
+vivi role set hand-1 --project <root> --harness tmux \
+  --provider openai-codex --model gpt-5.5 --thinking medium
+# runtime constructs: pi-hand --provider openai-codex --model gpt-5.5 --thinking medium --name hand-1 --approve
 ```
 
-Heads:
-
-```json
-"agent_launch": "/Users/ianzepp/work/ianzepp/fleet/scripts/pi-head --provider openai-codex --model gpt-5.5 --thinking high --name mgs-head-cto --approve"
+```bash
+vivi role set head-cto --project <root> --harness tmux \
+  --provider openai-codex --model gpt-5.5 --thinking high
+# runtime constructs: pi-head --provider openai-codex --model gpt-5.5 --thinking high --name head-cto --approve
 ```
 
 **Mind** sessions (Grok or Pi with Fleet UI) should **not** use `pi-hand` /
@@ -107,8 +106,8 @@ pi -e /Users/ianzepp/work/ianzepp/fleet/pi/extensions/fleet.ts …
 
 ## Migration checklist
 
-1. Point Hand `agent_launch` at `scripts/pi-hand` in each active fleet.json.
-2. Point Head `agent_launch` at `scripts/pi-head`.
+1. Set each Hand role's harness to `tmux` (or `vivi_pty`) on the Vivi role record.
+2. Set each Head role's harness likewise.
 3. Restart contaminated panes (`fleet-runtime restart --role … --force`).
 4. Confirm status line is not `monitor:swarm` / Mind cycle chrome in Hand panes.
 

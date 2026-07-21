@@ -235,7 +235,7 @@ python3 $SK/fleet-cycle-close.py --project "$ROOT" --acted --summary '…' \
 
 | Helper | Job |
 | --- | --- |
-| `fleet-sensors.py` | Board status, optional watch, handles, pane classes, git tip/divergence/dirty paths, pending RTM integration lag, fingerprint, `signals[]`, `quiet_hint` |
+| `fleet-sensors.py` | Board status, optional watch, handles, pane classes, git tip/divergence/dirty paths, fingerprint, `signals[]`, `quiet_hint` |
 | `fleet-doorbell.sh` | Resolve `tmux_target`; refuse running/down/rate-limit; pointer `send-keys` only; `last_hand_wake` |
 | `fleet-baseline.py` | `get` / `bump` / `rearm-note` / `wound-up` — counters, mode silence, fingerprints, recap, `--mind-session` attach, `--detach` |
 
@@ -298,10 +298,10 @@ a reply chain.
 - no relevant main/packet HEAD/dirty move
 - no new mailspace watch hits (if using cursor)
 - pane classes unchanged and not `error_*`
-- not (hand-1 idle + empty + map/merge debt)
+- not (hand idle + empty + map debt)
 - not (idle + open tasking needing doorbell)
 - not (empty tasking + map next = starvation unfilled)
-- `pending_reviews` / `pending_merges` empty or explicitly deferred
+- `pending_reviews` empty or explicitly deferred
 
 On **true quiet:** bump `quiet_streak`, keep/update silence + `mind_mode`, write baseline, report by **mode**. Do not re-read full campaign for quiet autonomous wake.
 
@@ -374,12 +374,15 @@ Never wake a `running` Hand merely because bag unchanged. Deep work only on paid
 
 ## Mind cycle kinds
 
-`cycle = last_cycle + 1` (write at end). Cadence commonly **3–5 minutes** per fire.
+`cycle = last_cycle + 1` (write at end). Cadence depends on execution backend:
+**3–5 minutes** for tmux/PTY polling; **15–30 minutes** for sub-agent fleets
+where completion is event-driven (see [Adaptive scheduled cadence](#adaptive-scheduled-cadence)).
 
 | Shape | Default cadence |
 | --- | --- |
 | **Manual / unscheduled Mind polling** | Sleep **≥ 60s** between unchanged checks |
-| **Formal scheduled loop** | Start around **5 minutes**, then adapt to observed work density |
+| **Formal scheduled loop (tmux/PTY)** | Start around **5 minutes**, then adapt to observed work density |
+| **Backup loop (sub-agent fleet)** | Start around **15–30 minutes**; event-driven completions are the primary driver |
 
 Pi Mind cycles may use the Pi-owned Fleet loop or discrete cycles with shell `sleep` ≥ 60s. Fail-fast regardless. A scheduled cadence is a control setting, not a permanent promise: Mind should proactively replace the scheduler with a longer interval when repeated cycles are thin or unchanged, and with a shorter interval when reports, completions, decisions, or integration work accumulate faster than cycles can absorb them. Preserve the same loop goal and stop condition when replacing it, cancel the old scheduler, and report the new cadence in the next cycle summary.
 
@@ -596,7 +599,7 @@ Other skill files only **link** here; do not invent alternate meanings.
 | Term | Meaning | When | Quality bar |
 | --- | --- | --- | --- |
 | **Absorb** | Reconcile sensors into baseline/bag awareness (“something moved”) | Every cycle when product/board/pane signal moved | Low — bookkeeping honesty |
-| **Accept** | Integration bar: unit/packet good enough to clear review debt, close map square, or **queue merge** | Thorough or opportunistic residual with honest evidence | Medium — tests/claims/scope honesty — **not** full code review |
+| **Accept** | Audit loop passed: unit good enough to clear review debt, close map square | Thorough or opportunistic residual with honest evidence | Medium — tests/claims/scope honesty — **not** full code review |
 | **Code review** | **Hand** `auditor-1/2` + `$auditor` on assigned range | When Mind triages risk / sample / operator ask | High — bugs, fail-closed, multi-theme interactions |
 
 | Role | Says… |
@@ -607,50 +610,24 @@ Other skill files only **link** here; do not invent alternate meanings.
 | **head-cto** | Gate honesty / architecture (not the code-review Hand queue) |
 | **Operator** | May force priority |
 
-**Anti-pattern:** treat absorb as accept; Mind multi-page code review of every packet; routing code review to head-cto instead of auditor Hands.
+**Anti-pattern:** treat absorb as accept; Mind multi-page code review of every unit; routing code review to head-cto instead of auditor Hands.
 
-**Fixed phrase for other docs:** *absorb = bookkeeping when something moved; accept = integration bar (not code review) — mind-cycle.*
+**Fixed phrase for other docs:** *absorb = bookkeeping when something moved; accept = audit loop passed (not code review) — mind-cycle.*
 
 ## Review debt
 
 ```text
 pending_reviews[]: { hand, range or shas, paths, reason, since_cycle, status }
-pending_merges[]:  {
-  packet_slug, branch, worker, tip, base, theme?,
-  state: active | ready | reviewing | queued_for_hand1 | merged
-       | partial_merged | integrated_publish_pending | abandoned
-}
 ```
 
 | Event | Mind duty |
 | --- | --- |
 | Hand marks done / git tip jumps | **Absorb**; add `pending_reviews` if not yet **accepted** |
 | Thorough or opportunistic review | **Accept** (clear debt) or file residuals; drain backlog |
-| Packet ready-to-merge mail | **Absorb** → review → **accept** or residual → `queued_for_hand1` + merge task |
-| Long-term packet unit (not theme) | **Absorb**/review; next target to worker; **no** merge task to h1 |
-| hand-1 idle + empty + pending_merges queued | Prefer merge task doorbell **now** |
-| hand-1 idle + empty + map still open | Refill targets **and** drain review/merge debt |
-| hand-1 completes merge | **Absorb** merge on main → **accept** merge (or residual) |
+| Feature branch theme ready-to-merge | **Absorb** → review → **accept** → Mind merges when ready (see [SKILL.md § Commit authority and workflow](../SKILL.md#commit-authority-and-workflow)) |
+| Long-term branch unit (not theme) | **Absorb**/review; next target to worker; no merge needed yet |
 
-## Merge task body (to hand-1)
-
-When Mind **accepts** a packet, merge task names at least:
-
-- packet slug + root path; writable repo(s) + branch name(s)
-- base checkpoint + expected tip; preferred merge order
-- validation commands / bar (**two-sided green:** packet RTM certified fmt+tests; merger re-checks green on main)
-- **watch-scope drift** before merge:  
-  `git diff --name-only <base>..HEAD -- <watch-paths>`  
-  Non-empty drift on watch paths → stop and report. Empty / only expected docs → proceed
-- done-when: on main, green validation, note back to Mind (task done + optional turn-end mail)
-
-| hand-1 state | Action |
-| --- | --- |
-| Idle + empty tasking | File merge task + doorbell **now** |
-| Running / dirty mid-phase | File or keep `queued_for_hand1`; **do not** interrupt |
-| Idle + other open targets | Merge may beat new spine if packet blocking; else queue |
-
-After hand-1 merge done: Mind **absorbs**, then **accepts** main result (or residual). Operator may retire worktrees later.
+Feature-branch merges are Mind decisions, not queue-driven. The Mind tracks branches it created through ordinary task/need flow. No `pending_merges` object or `queued_for_hand1` state.
 
 ## Adaptive scheduled cadence
 
@@ -682,6 +659,30 @@ Fail-fast is required, but the interval should adapt in both directions. Mind ow
 `action` shorten|lengthen|hold, `reasons`, counts). Mind still owns applying the
 hint by replacing the harness scheduler. Temporary until a true Fleet host owns
 wake/refill. Base is commonly **5m**; floor **3m** for normal supervision.
+
+## Event-driven cadence (sub-agent fleets)
+
+When using sub-agents as the primary execution backend (see
+[`subagent.md`](subagent.md)), the loop cadence model shifts. Sub-agents notify
+on completion — no polling needed for task progress. The scheduled loop becomes
+a backup, not the main driver.
+
+| Execution model | Driver | Base cadence |
+| --- | --- | --- |
+| **Sub-agent (default)** | Completion notifications | **15–30m** backup loop |
+| **tmux / vivi-pty** | Polling cycle | **3–5m** base loop |
+
+The backup loop for sub-agent fleets checks:
+
+- Stuck sub-agents (spawned but no completion after N minutes)
+- Board staleness (open tasks with no progress events)
+- Starvation patterns (hands idle across consecutive backup cycles)
+- Feature branches pending Mind merge decision
+- Operator mail (needs/decisions waiting for response)
+
+Tighten toward 5–10m when the operator is engaged or multiple sub-agents are
+in flight. Loosen toward 30m when all sub-agents have completed and the bag
+is empty.
 
 **`refill_hint` / `growth_refill_required`:** when growth product Hand bags are
 empty, sensors also emit signal `growth_refill_required` and structured

@@ -14,7 +14,7 @@ When a persona says “create tasks for CTO/CPO…”, fleet meaning = **recomme
 
 Heads are an LLM **progress-and-judgment** layer for the fleet: research the map and product under a role lens, then report so Mind can resequence Hands. They are **not** independent product workers or a decentralized assignment hierarchy.
 
-Heads and Hands may exchange advisory **mail** directly for findings, questions, early review feedback, and handoffs. Peer mail may wake an idle recipient on the next Mind cycle, but it cannot assign or reroute tasks/needs/wants, transfer ownership, authorize a merge, or create a gate. Copy or summarize material outcomes To mind so coordination remains durable. Avoid recursive reply loops: reply when it adds evidence or resolves the question, then return control to Mind.
+All role mail routes **To mind**. Heads report findings, questions, and recommendations To mind; Mind files work to the correct role and spawns it. Direct peer mail between Hands or between a Hand and a Head dead-letters when the recipient isn't running — Mind owns the spawn clock and the routing.
 
 ## Job (all Heads)
 

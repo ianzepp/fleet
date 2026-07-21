@@ -9,7 +9,7 @@ Load persona only when assigning that Head for depth — not every FLEET_CYCLE.
 | Hard rule | |
 | --- | --- |
 | Not product lanes | No keep-screen-moving refill with map packages |
-| No merge | Never own `pending_merges` |
+| No merge | Never own merge decisions; Mind owns branch/merge |
 | Progress via priority picture | Advise To mind; Mind files Hands |
 | Harness | Prefer **Pi** harness, model by role (CEO/CXO → GLM 5.2, CTO → Codex 5.5) — one-shot assign→report |
 | Identity | `head-*` (mail + tmux when armed) |
@@ -96,7 +96,7 @@ Identity: `head-ceo` (legacy: `strategist` / `head-strategist`). Persona: [`head
 3. Report arrived → absorb (see below); `awaiting_report=false`
 4. Not awaiting + ready for new question → apply role **`assignment_mode`** (often `new`) + one assign:
    1. File assignment mail **To: head-ceo** first (handle exists)
-   2. Quit/kill agent; **fresh** launch from fleet `head-ceo.agent_launch`
+   2. Quit/kill agent; **fresh** launch from the role's configured harness + capacity (Vivi role record)
    3. Bootstrap: role prompt path, show assign handle, research, report **To: mind**, idle
    4. `awaiting_report=true`; record `last_reinit_at` + assign handle
 5. Prefer mail for body; short tmux pointer after reinit OK
@@ -242,7 +242,7 @@ Code review is **not** this cadence. Low-risk `done` evidence may satisfy accept
 4. On map-gate findings: if `false_gate` / named producer fact, feed hand-1 or CEO map-health — do not freeze merges for a stamp
 5. **Do not** assign every cycle. Soft-wake if stuck idle long; cadence assign uses posture lens
 6. Never map-refill as product lane
-7. Do **not** act as merge GO/NO-GO or block hand-1 merges awaiting stamp
+7. Do **not** act as merge GO/NO-GO or block Mind merge decisions awaiting stamp
 
 ---
 

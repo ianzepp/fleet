@@ -202,7 +202,6 @@ new repo families, copied overlays, and multi-fleet hosts from colliding.
   "tmux_layout": "session_per_fleet",
   "mind_inbox": "mind",
   "operator_inbox": "operator",
-  "default_hand": "hand-1",
   "mind": {
     "agent": "pi"
   },
@@ -213,9 +212,6 @@ new repo families, copied overlays, and multi-fleet hosts from colliding.
       "tmux_window": "hand-1",
       "tmux_target": "myfleet:hand-1.1",
       "cwd": "/path/to/your/project",
-      "agent": "pi",
-      "agent_launch": "pi --provider openai-codex --model gpt-5.5 --thinking medium --approve",
-      "merges_to_main": true,
       "wake_mode": "tmux_send_keys",
       "min_seconds_between_wakes": 180
     },
@@ -225,9 +221,6 @@ new repo families, copied overlays, and multi-fleet hosts from colliding.
       "tmux_window": "auditor-1",
       "tmux_target": "myfleet:auditor-1.1",
       "cwd": "/path/to/your/project",
-      "agent": "pi",
-      "agent_launch": "pi --provider openai-codex --model gpt-5.5 --thinking high --approve",
-      "merges_to_main": false,
       "assignment_mode": "new",
       "wake_mode": "tmux_send_keys",
       "min_seconds_between_wakes": 180,
@@ -249,7 +242,20 @@ new repo families, copied overlays, and multi-fleet hosts from colliding.
 
 **Posture:** `growth` ships the map; `standby` / `dormant` = on-call or paused (Vivi-shaped fleets). Detail: [`fleet-posture.md`](fleet-posture.md).
 
-Replace paths, `agent` / `agent_launch`, and `cwd`. Full schema / multi-fleet `tmux_layout`: [`runtime-config.md`](runtime-config.md), [`multi-fleet.md`](multi-fleet.md).
+Replace paths and `cwd`. Full schema / multi-fleet `tmux_layout`: [`runtime-config.md`](runtime-config.md), [`multi-fleet.md`](multi-fleet.md).
+
+### Set capacity on Vivi roles
+
+Capacity (provider/model/thinking) and charter live on the Vivi role record, not in fleet.json:
+
+```bash
+vivi role add hand-1 --project "$ROOT" --kind hand --harness tmux
+vivi role set hand-1 --project "$ROOT" --provider openai-codex --model gpt-5.5 --thinking medium
+vivi role charter set hand-1 --project "$ROOT" --body 'You are a fleet product Hand. Execute assigned work, commit, report To mind.'
+
+vivi role add auditor-1 --project "$ROOT" --kind hand --harness tmux --label auditor
+vivi role set auditor-1 --project "$ROOT" --provider openai-codex --model gpt-5.5 --thinking high
+```
 
 Legacy single-fleet targets (`tmux_session == role`, for example
 `hand-1:1.1`) remain supported for existing one-off fleets. Do not choose that
@@ -268,7 +274,7 @@ Optional later: watch cursor (auto-created by sensors), steward files (when `ste
 ```bash
 # session-per-fleet: session name == fleet_id; window name == role
 tmux new-session -d -s myfleet -n hand-1 -c "$ROOT"
-tmux send-keys -t myfleet:hand-1.1 -l -- 'pi --provider openai-codex --model gpt-5.5 --thinking medium --approve'   # = agent_launch
+# Launch command is constructed from the Vivi role capacity (provider/model/thinking) + harness
 tmux send-keys -t myfleet:hand-1.1 Enter
 # optional: tmux attach -t myfleet
 ```
@@ -488,7 +494,7 @@ Wind-down: [`runtime-config.md`](runtime-config.md). Multi-fleet attach set: [`m
 | Vivi | `vivi --version` |
 | Mailspace | `vivi mailspace status --project $ROOT` shows identities |
 | Identities | `mind`, `operator`, `hand-1` (+ Heads you use) |
-| fleet.json | Hands have `tmux_target`, `cwd`, `agent_launch` |
+| fleet.json | Hands have `tmux_target`, `cwd` (operational only) |
 | baseline | file exists; get via `fleet-baseline.py get -p $ROOT` |
 | Pane | `tmux has-session` for the session in `tmux_target` |
 | Sensors | `fleet-sensors.py --text` exit 0 or 2 (partial), not 1 |
