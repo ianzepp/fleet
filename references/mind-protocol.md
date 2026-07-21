@@ -119,6 +119,16 @@ Unsent questions do not exist. Other agents see only the board and commits.
 
 ## Operator attention
 
+Arm a background watch for operator-to-mind mail at cycle start so operator messages get near-immediate response instead of waiting for the next cycle:
+
+```bash
+vivi mail watch --for mind --match-from operator --project <root> \
+  --until-count 1 --timeout 24h --write-cursor \
+  --cursor-file <root>/.vivi/operator-to-mind.cursor
+```
+
+When it fires, handle the mail and re-arm. Runs independently of the cycle loop. Detail: [`mind-cycle.md`](mind-cycle.md) § Operator mail monitor.
+
 Apply the fleet-autonomy test first: if the Mind can choose a reasoned default safely, it is not a human gate. For a true wall:
 
 | Requirement |
