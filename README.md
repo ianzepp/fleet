@@ -56,7 +56,7 @@ native desktop widget API for a persistent Fleet panel.
 
 ## Config and fallbacks
 
-- [`references/runtime-config.md`](references/runtime-config.md) — `fleet.json` / baseline schemas, capacity recovery, wind-up/down
+- [`references/runtime-config.md`](references/runtime-config.md) — Vivi role records / baseline schemas, capacity recovery, wind-up/down
 - [`references/companion-fallbacks.md`](references/companion-fallbacks.md) — behavior theses when companion skills are absent
 
 ## Scripts
@@ -69,7 +69,6 @@ native desktop widget API for a persistent Fleet panel.
 | [`scripts/codex-reinit.sh`](scripts/codex-reinit.sh) | Recover a stuck Codex Hand pane |
 | [`scripts/steward.sh`](scripts/steward.sh) | Arm / rearm / disarm the dead-man watchdog |
 | [`scripts/suggest-polish-files.py`](scripts/suggest-polish-files.py) | Rank files for a bounded polish task after main moves |
-| [`scripts/verify-fleet-json.py`](scripts/verify-fleet-json.py) | Validate a fleet's `fleet.json` |
 | [`scripts/fleet-runtime.py`](scripts/fleet-runtime.py) | Backend-neutral start/stop/restart/status for configured Hand/Head runtimes |
 | [`scripts/fleet-runtime-rebind.py`](scripts/fleet-runtime-rebind.py) | Plan/apply atomic runtime rebinds across roles |
 | [`scripts/fleet-cycle-close.py`](scripts/fleet-cycle-close.py) | Deterministic Mind close: sensors → dispositions → receipt → baseline → optional steward rearm |

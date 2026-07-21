@@ -26,7 +26,6 @@ Do **not** hardcode only `/opt/homebrew/...`. Prefer `fleet_find_*` from `lib/en
 python3 scripts/fleet-sensors.py --project <root>            # JSON (default)
 python3 scripts/fleet-sensors.py --project <root> --text
 python3 scripts/fleet-sensors.py --project <root> --no-watch # skip mailspace watch
-python3 scripts/fleet-sensors.py -p <root> --fleet <fleet-id> --fleet-file <path/to/fleet.json>
 python3 scripts/fleet-sensors.py -p <root> --tail 12 --cursor-file <path>
 python3 scripts/fleet-sensors.py -p <root> --record-cycle [--cycle-id <id>]
 python3 scripts/fleet-sensors.py -p <root> --history 10 [--role hand-1]
@@ -86,20 +85,6 @@ baseline, and refreshes `.vivi/cycle-closure.json`. A quiet cycle accepts only
 `deferred-valid` or `sleep-valid` dispositions. Missing, extra, or
 partial-sensor dispositions fail before the baseline advances.
 
-### `verify-fleet-json.py`
-
-```bash
-python3 scripts/verify-fleet-json.py --project <root>                  # text summary
-python3 scripts/verify-fleet-json.py --fleet-file /path/to/fleet.json --json
-python3 scripts/verify-fleet-json.py --project <root> --strict         # warnings as errors
-python3 scripts/verify-fleet-json.py --project <root> --no-path-checks # skip on-disk refs
-```
-
-Validates fleet.json shape, cross-references (`mail_identity` unique, auditor Hands use fresh assignments), wake-field well-formedness, and that referenced absolute paths (`role_prompt`,
-`persona`, `tooling` binaries) exist, and validates `sensor_log` level/path/retention shape. The schema is permissive ("extend freely;
-skill cares about meanings") — unknown keys are NOT rejected. Exit `0` ok ·
-`1` validation errors (or any warning under `--strict`) · `2` usage.
-
 ### `fleet-posture.py`
 
 ```bash
@@ -108,7 +93,7 @@ python3 scripts/fleet-posture.py set --project <root> growth|standby|dormant \
   --reason 'why' [--wake-trigger '...']... [--json]
 ```
 
-Updates only `fleet.json.fleet_posture`, preserves unspecified posture fields, stamps `since`, strictly validates a same-directory temporary candidate, and atomically replaces the overlay. It does not wake roles, run sensors, bump the Mind baseline, or arm the steward; normal Mind-cycle processing applies the transition. Exit `0` ok · `1` data/validation error · `2` usage.
+Updates only the fleet posture record, preserves unspecified posture fields, stamps `since`, strictly validates a temporary candidate, and atomically commits it. It does not wake roles, run sensors, bump the Mind baseline, or arm the steward; normal Mind-cycle processing applies the transition. Exit `0` ok · `1` data/validation error · `2` usage.
 
 ### `fleet-runtime.py`
 
@@ -121,7 +106,7 @@ python3 scripts/fleet-runtime.py --project <root> --role head-ceo doctor
 ```
 
 Backend-neutral process lifecycle for configured Hand/Head roles. It resolves
-`fleet.json` bindings and dispatches to `tmux` or `vivi_pty` without changing
+bindings from the Vivi role record and dispatches to `tmux` or `vivi_pty` without changing
 assignments, posture, board state, or runtime backend. Use it when a role is
 stopped/missing before using `fleet-doorbell.sh` to deliver a work pointer.
 
@@ -204,7 +189,7 @@ scripts/codex-reinit.sh classify --project /path/to/fleet --fleet <fleet-id> --r
 
 | Rule | Detail |
 | --- | --- |
-| Defaults | `PROJECT` from cwd; `FLEET_FILE`=`$PROJECT/.vivi/fleet.json`; `--fleet` selects the logical ID |
+| Defaults | `PROJECT` from cwd; roster resolved from Vivi role records |
 | Launch | Construct launch from the role capacity (Vivi role record) + harness. Never `exec codex` |
 | Exit | reinit `0/1/2 stuck_idle/3`; doctor `0/1/2` (script header) |
 | Symlink | Fleets may wrap via `.vivi/codex-reinit.sh` |
@@ -380,7 +365,7 @@ If both are set, **`assignment_mode` wins**. Prefer the new field; do not add
 | Same `--handle` rewake | Skip prepare; pointer only (still refuses if running) |
 | `--no-prepare` | Force pointer-only |
 | `--force-prepare` | Apply mode even on same handle |
-| `--mode <m>` | Override fleet.json for this call |
+| `--mode <m>` | Override the Vivi role record for this call |
 | Stopped runtime | Start (or restart) before pointer when needed |
 
 Prepare steps:
@@ -614,7 +599,7 @@ steward                           # {armed, last_rearm_at, tripped, tripped_at, 
 mind_loop.last_successful_cycle_at
 mind_session optional             # advisory attach lock {label, host, pid, attached_at}
 mind_loop.state                    # running | detached | wound_up | dead_man_tripped | …
-fleet_posture optional            # mirror of fleet.json: mode growth|standby|dormant, reason, last_ceo_continuity_at
+fleet_posture optional            # posture: mode growth|standby|dormant, reason, last_ceo_continuity_at
 mind_watch_cursor_path optional
 last_actionable_fingerprint
   <role>_mail_top                 # newest addressed mail observed this cycle

@@ -30,7 +30,7 @@ Drive **forward progress of your lens** by changing Mind’s priority picture �
 
 ## Posture dial (proactivity)
 
-Read `fleet_posture.mode` from fleet.json / sensors (aliases: `campaign`→growth, `on_call`→standby). **Intensity and kind** of Head work scale with posture:
+Read `fleet_posture.mode` from the Vivi role record / sensors (aliases: `campaign`→growth, `on_call`→standby). **Intensity and kind** of Head work scale with posture:
 
 | Mode | Head proactivity | Bias |
 | --- | --- | --- |

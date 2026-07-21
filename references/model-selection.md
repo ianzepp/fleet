@@ -39,7 +39,7 @@ persistence, packaging law) — not “does the suite pass?”
 | **Break-glass** | Peak implement when cheap path fails | Stuck after audit+repair, P0 one-shot, or operator pin |
 
 Mind maps project-configured models onto these classes. Multiple providers may
-satisfy one class; **fleet.json** records which.
+satisfy one class; the **Vivi role record** records which.
 
 **Provider is part of the binding.** Project overlays must pair each model with
 its correct provider (example: volume GLM-class models often require a specific

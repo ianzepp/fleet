@@ -12,7 +12,7 @@ completion. No polling. No doorbell. No tmux pane to keep alive.
 | Tmux / vivi-pty | Sub-agent |
 | --- | --- |
 | Poll every 3–5m to check if work is done | Completion notification arrives immediately |
-| Capacity rebind = kill pane, edit fleet.json, relaunch | Capacity rebind = `vivi role set`; next spawn uses new values |
+| Capacity rebind = kill pane, edit role record, relaunch | Capacity rebind = `vivi role set`; next spawn uses new values |
 | Doorbell text into a pane; hope it lands | Direct spawn with thin boot context |
 | Report lands in mail; Mind polls to find it | Report lands in Vivi (durable); short pointer returns to Mind |
 | Head consult = paste persona + poll pane | Head consult = spawn with charter pointer + task handle |

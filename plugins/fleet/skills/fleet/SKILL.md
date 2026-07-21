@@ -16,7 +16,7 @@ not create a second Fleet control plane.
 - Treat `fleet_preflight` and `fleet_dashboard` as observation; they do not
   wake roles, file work, or change Fleet state.
 - Route mutations through the MCP tools, which call the canonical scripts.
-  Do not edit `.vivi/fleet.json`, `mind-baseline.json`, or runtime state by
+  Do not edit Vivi role records, `mind-baseline.json`, or runtime state by
   hand.
 - A sensor signal needs a disposition: acted, delegated, escalated,
   deferred-valid, or sleep-valid.
@@ -41,7 +41,7 @@ not create a second Fleet control plane.
   the user has authorized them and the required target or summary is explicit.
 
 Always pass the Fleet project root. If the user has not identified one, inspect
-the current workspace for `.vivi/fleet.json` before asking for a path.
+the current workspace for a `.vivi/` mailspace before asking for a path.
 
 ## UI boundary
 

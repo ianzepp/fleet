@@ -8,7 +8,7 @@
 
 ## Posture modes
 
-Stored on the fleet overlay (`fleet.json` → `fleet_posture`) and mirrored in baseline for recap.
+Stored on the fleet posture record and mirrored in baseline for recap.
 
 | Mode | Intent | Empty bags + no real map unit | Head proactivity |
 | --- | --- | --- | --- |
@@ -52,7 +52,7 @@ Examples: active campaign fleets → `growth`. Vivi-shaped “feature when I nee
 | `wake_triggers` | What moves standby/dormant → growth (operator text, board, external) |
 | `ceo_continuity_min_hours` | Min gap between continuity CEO assigns (default 6) — no thrash |
 
-Baseline may copy `mode` / `reason` for recap; fleet.json remains source of truth for charter.
+Baseline may copy `mode` / `reason` for recap; the posture record remains source of truth for charter.
 
 ### Change posture safely
 
@@ -68,7 +68,7 @@ python3 scripts/fleet-posture.py set --project <root> growth \
   --wake-trigger 'named campaign unit accepted'
 ```
 
-`set` preserves unspecified posture fields, stamps `since`, strictly validates a temporary candidate, and atomically replaces `fleet.json`. It does **not** wake roles, bump the baseline, run sensors, or arm the steward. The current or next Mind cycle observes the new source-of-truth posture and handles runtime consequences. Use `--json` for automation.
+`set` preserves unspecified posture fields, stamps `since`, strictly validates a temporary candidate, and atomically commits it. It does **not** wake roles, bump the baseline, run sensors, or arm the steward. The current or next Mind cycle observes the new source-of-truth posture and handles runtime consequences. Use `--json` for automation.
 
 ## Starvation vs makework (hard)
 
@@ -137,7 +137,7 @@ At default L=5m: growth ≈ **30m / 1h / 3h**; standby ≈ **1.5h / 3h / 6h**.
 
 - Change **how often Mind ticks** → `mind_loop.interval_sec`.  
 - Change **one Head’s schedule** → set that head’s `every_n_loops` (0 or N).  
-- Prefer **explicit** `every_n_loops` on every Head in `fleet.json` so posture defaults are not a surprise.  
+- Prefer **explicit** `every_n_loops` on every Head role record so posture defaults are not a surprise.  
 - Legacy `enabled: false` ≡ `every_n_loops: 0`. Legacy `enabled: true` without N uses the table above.  
 - Legacy `self_directed` is **ignored** — remove it from overlays.  
 - Sensors emit `sweep_every_n_loops`, `mind_loop_interval_sec`, `sweep_interval`, `sweep_enabled` (`every_n_loops >= 1`).
@@ -174,7 +174,7 @@ Do not invent polish makework. Report To mind@.
 | --- | --- |
 | standby/dormant → growth | Operator asks; or real product task/need lands; or Mind accepts named unit after CEO/operator |
 | growth → standby/dormant | CEO recommends + Mind accepts; or operator sets posture; or empty map + long quiet with default=pause |
-| Rearm panes | If wound_up: recreate from fleet.json; else leave idle panes |
+| Rearm panes | If wound_up: recreate from role records; else leave idle panes |
 
 Warm-up is not “fill polish.” First unit must be product-shaped.
 

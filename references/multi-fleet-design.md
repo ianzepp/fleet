@@ -61,7 +61,7 @@ v2 drops that: Mind is transient; no roster, global baseline, cross-fleet disk i
 
 | Term | Meaning |
 | --- | --- |
-| **Fleet** | Project root + overlay (`.vivi/fleet.json`, mailspace, baseline). Durability boundary. |
+| **Fleet** | Project root + Vivi mailspace/role records (mailspace, baseline). Durability boundary. |
 | **Mind session** | One operator TUI. Ephemeral. Attaches to a fleet set. Only cross-fleet state home. |
 | **Attached set** | Fleets this Mind supervises. Named on each `FLEET_CYCLE` line; not an on-disk roster. |
 | **Attach / detach** | Take over / release a fleet. Detach has steward consequences (§6.5). Visible via cycle topic line. |
@@ -98,7 +98,7 @@ Single-fleet is already session-attach with set of one. v2 generalizes to ≥1 +
 ### 4.3 Fleet overlay (per project, unchanged)
 
 ```text
-<project>/.vivi/  # fleet.json · mind-baseline.json · mail.sqlite · steward.log · mind-watch.cursor
+<project>/.vivi/  # Vivi role records · mind-baseline.json · mail.sqlite · steward.log · mind-watch.cursor
 factory/          # product map
 ```
 
@@ -180,7 +180,7 @@ Same-host fleets both get `hand-1` **windows** without collision (`mgs:hand-1` v
 
 ### 6.4 Window naming is a `tmux_target` format change
 
-Today `hand-1:1.1` = session `hand-1`, **window `1`**. Proposed `mgs:hand-1.1` = **named window** `hand-1`. Both valid tmux, but: parsers splitting on `:` expecting numeric window break (audit all); creation is `new-session -s mgs -n hand-1` then `new-window -t mgs -n hand-2`; fleet.json already has `tmux_target` — **format migration**, not schema add.
+Today `hand-1:1.1` = session `hand-1`, **window `1`**. Proposed `mgs:hand-1.1` = **named window** `hand-1`. Both valid tmux, but: parsers splitting on `:` expecting numeric window break (audit all); creation is `new-session -s mgs -n hand-1` then `new-window -t mgs -n hand-2`; the Vivi role record already carries `tmux_target` — **format migration**, not schema add.
 
 ### 6.5 Attach / detach protocol
 
@@ -271,7 +271,7 @@ Interactive = richer blocks; autonomous = compact. Operator-return → §6.7 rec
 
 `fleet_id`/`tmux_session` **host-scoped**. Baseline + lock in fleet’s **local** project dir. Wake/capture/reinit on pane host (SSH-wrap). Collision = two fleets **same host** sharing `tmux_session`, not shared `fleet_id` across hosts.
 
-### 6.12 fleet.json fields (proposed additions)
+### 6.12 Vivi role record fields (proposed additions)
 
 ```json
 {
@@ -323,7 +323,7 @@ tmux send-keys -t mgs:hand-1.1 …
 Outline only. Decoupled; all per-fleet.
 
 1. **Script fixes (required, topology-independent).**
-   - `soft_hold_hands`: hardcodes `hand-1`/`hand-2` as **session names** → `${sess}:1.1`. Under session-per-fleet holds **silently no-op**. Rewrite to read each hand’s `tmux_target` from fleet.json.
+   - `soft_hold_hands`: hardcodes `hand-1`/`hand-2` as **session names** → `${sess}:1.1`. Under session-per-fleet holds **silently no-op**. Rewrite to read each hand’s `tmux_target` from its Vivi role record.
    - `ensure_tmux_session`: uses `${sess}:1.1` not steward `tmux_target` — fix via fleet config.
    - Audit `codex-reinit.sh` + doorbell for same pattern.
 2. **Topology.** New fleets day one; existing optional (step 4).
@@ -377,7 +377,7 @@ Rollback: unset `tmux_layout` → legacy. Session-attach itself is not a rupture
 | `fleet/references/dead-man.md` | Steward protocol |
 | `fleet/references/operator-mail.md` | Human escalation |
 | `fleet/references/dual-channel.md` | Vivi + tmux |
-| `fleet/references/runtime-config.md` | fleet.json / baseline / wind-down |
+| `fleet/references/runtime-config.md` | Vivi role records / baseline / wind-down |
 | `fleet/references/ssh-remote.md` | Remote Hands/Heads |
 | `fleet/scripts/steward.sh` | Arm/rearm/disarm/trip (needs §8 fixes) |
 | `docs/fleet-guide.md` | First-exposure vocabulary |

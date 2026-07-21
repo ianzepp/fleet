@@ -15,7 +15,7 @@ Arming a fleet, rebinding runtimes, Mind/Hand/Head duties.
 | **`kimi`** | Kimi Code CLI in tmux (compatibility exception) | [`tmux.md`](tmux.md) |
 
 With Vivi 6.0+ roles, capacity (provider/model/thinking) lives on the role
-record (`vivi role set`). The harness field on the role (or fleet.json `agent`)
+record (`vivi role set`). The harness field on the role (or the role's `agent`)
 determines execution backend. Sub-agent is the default for new fleets.
 
 ## Roles
@@ -30,7 +30,7 @@ determines execution backend. Sub-agent is the default for new fleets.
 | **head-cto** (Head) | `head-cto` | **Gate honesty / architecture** — not the code-review Hand queue | Mail To `mind` |
 | **head-cxo** (Head) | `head-cxo` | Complexity / purity | Mail To `mind` |
 
-**CTO is a kind of Head; auditor is a kind of Hand** — not a fourth top-level class. Configure `auditor-1` / `auditor-2` under **`hands`** in `fleet.json` (skill **`$auditor`**; auditor Hands review, never commit product code). Mind files and wakes; Heads advise; implementer Hands ship; auditor Hands review when assigned.
+**CTO is a kind of Head; auditor is a kind of Hand** — not a fourth top-level class. Configure `auditor-1` / `auditor-2` as Hand role records (skill **`$auditor`**; auditor Hands review, never commit product code). Mind files and wakes; Heads advise; implementer Hands ship; auditor Hands review when assigned.
 
 Prefer numbered hands (`hand-N`) over harness-named identities. Keep the product plane on Pi by default; Heads may use different Pi providers or models for independent review.
 
@@ -103,7 +103,7 @@ Pi-aligned roles keep one wake/reinit/bootstrap surface. Heads diversify through
 4. Capacity on Mind: prefer same-harness recovery; if Mind must move harness, rebind Hands or park Hands and recover Mind first.
 5. Heads are **out of** this rule. Rebind a Head only for its own capacity or operator preference.
 
-**Anti-pattern:** “H3 is always Codex” as permanent product law **or** forcing all Hands onto Mind’s harness when fleet.json already declares a valid exception. Assignment stays independent of harness.
+**Anti-pattern:** “H3 is always Codex” as permanent product law **or** forcing all Hands onto Mind’s harness when the role record already declares a valid exception. Assignment stays independent of harness.
 
 ## Preferred models by role
 
@@ -161,7 +161,7 @@ pi --provider llama-router --model ornith-35b-q8 --print --no-session "<task>"
 | **head-cxo** (complexity, purity) | **Pi** | Volume often enough; design class when purity is structural feel | **medium–high** |
 | Other Heads (CPO, COO, CSO, CFO, CMO) | **Pi** | Role-fit; project overlay names models | **medium–high** |
 
-Advisors are largely one-shot (assign → report). Use Pi with a deliberately distinct provider/model when independent review benefits from diversity. Concrete model strings are project overlay (`fleet.json` + optional `.vivi/model-selection.md`), not Hand identity.
+Advisors are largely one-shot (assign → report). Use Pi with a deliberately distinct provider/model when independent review benefits from diversity. Concrete model strings are project config (Vivi role record + optional `.vivi/model-selection.md`), not Hand identity.
 
 ```text
 pi --provider zai --model glm-5.2 --thinking high   # or xhigh

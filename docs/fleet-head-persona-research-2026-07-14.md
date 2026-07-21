@@ -67,17 +67,17 @@ Shared finding-class vocabulary (`priority_inversion`, `starved_producer`, `unic
 
 ### GAP A — [CONFIG BUG] swarm `head-cso` persona points at the wrong file
 
-`~/work/mintedgeek/.vivi/fleet.json` → `head-cso.persona = .../personas/cto.md` (correctness/gate-honesty) instead of `.../personas/cso.md` (security/privacy/abuse).
+The swarm `head-cso` Vivi role record → `head-cso.persona = .../personas/cto.md` (correctness/gate-honesty) instead of `.../personas/cso.md` (security/privacy/abuse).
 
 - **Impact today: low** — the CSO is producing excellent, on-lens security work (`09bbe04`, black-hat BH-LLM-002) because the `notes` field + the per-assignment files carry the security framing. It is not currently mis-behaving.
-- **Impact on cold-boot reinit: high** — if swarm is reinit'd from fleet.json persona path alone (e.g. another OS failure / machine migration, exactly the scenario 12h ago), the CSO would bootstrap against the CTO persona and lose its security lens until an assignment re-grounds it. This is precisely the fragility the user's OS-failure-recovery context exposes.
+- **Impact on cold-boot reinit: high** — if swarm is reinit'd from the role record persona path alone (e.g. another OS failure / machine migration, exactly the scenario 12h ago), the CSO would bootstrap against the CTO persona and lose its security lens until an assignment re-grounds it. This is precisely the fragility the user's OS-failure-recovery context exposes.
 - **Fix:** one-line config edit: `head-cso.persona → .../personas/cso.md`. Faber already has this correct.
 
 ### GAP B — Faber role-prompt.txt files are stale-dualist vs the persona layer
 
 Faber arms each head with **both** a `persona` (fleet skill, fleet vocabulary: hand-N, mind) **and** a `.vivi/*-role-prompt.txt` (legacy camp vocabulary: hunter-N, gatherer, reviewer, `To: reviewer`). MGS by contrast sets `role_prompt: null` and relies on persona + assignment files.
 
-- The faber role-prompts still say "report **To: reviewer**" and "hunter-N (main/MIR), hunter-2 (HIR packet)" while `fleet.json` renamed identities to `head-cto`/`hand-1` and `head_report_inbox: reviewer`. The persona files say "To: mind."
+- The faber role-prompts still say "report **To: reviewer**" and "hunter-N (main/MIR), hunter-2 (HIR packet)" while the Vivi role records renamed identities to `head-cto`/`hand-1` and `head_report_inbox: reviewer`. The persona files say "To: mind."
 - This creates a **dual truth on the report destination and the vocabulary**. In faber, `reviewer` *is* the gatherer/mind-adjacent inbox, so mail routes correctly today — but the role-prompt's mental model (hunter/gatherer/reviewer camp) is a generation behind the persona's (hand/head/mind fleet).
 - **Risk:** a head clean-slate-reinit'd from the role-prompt.txt will speak in legacy vocabulary and may mis-address or mis-scope; the persona (loaded second, or not at all if the role-prompt is treated as primary) can contradict it.
 

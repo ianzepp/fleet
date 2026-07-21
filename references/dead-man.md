@@ -8,7 +8,7 @@ Fleet-local **completed-cycle watchdog**. If Mind stops completing `FLEET_CYCLE`
 
 | Require | Meaning |
 | --- | --- |
-| `fleet.json` → `steward.enabled: true` | Operator chose this fleet may use dead-man |
+| Vivi steward config → `enabled: true` | Operator chose this fleet may use dead-man |
 | Operator says to arm steward **for that fleet** | Explicit turn on (not implied by attach/loop) |
 | Then `steward.sh arm --project <root>` | Process + baseline armed |
 
@@ -45,14 +45,14 @@ Mind session (operator TUI) — may supervise one or more fleets
 F/.vivi/mind-baseline.json   (+ optional F/.vivi/steward.rearm touch)
   ▲
   │  poll
-tmux **target from fleet.json** (legacy steward:1.1 or mgs:steward.1)
+tmux **target from the Vivi role record** (legacy steward:1.1 or mgs:steward.1)
   │  loop: sleep → check → trip?
   │
   on trip (this fleet only):
     baseline hold flag
     operator@ board mail
     optional external email page
-    soft-hold idle Hands via fleet.json hand tmux_targets only
+    soft-hold idle Hands via their Vivi role `tmux_target` only
 ```
 
 Steward is **not** a child of the Mind turn — Mind death does not kill it. Under **session-per-fleet**, steward is a **window** in the fleet session.
@@ -157,7 +157,7 @@ SMTP fail → still complete board + baseline; log error; do not block hold.
 ```
 
 Session-per-fleet: `"tmux_session": "mgs", "tmux_window": "steward", "tmux_target": "mgs:steward.1"`.  
-Soft-hold: script reads each hand’s `tmux_target` from fleet.json (never hardcode session==`hand-1`).
+Soft-hold: script reads each hand’s `tmux_target` from its Vivi role record (never hardcode session==`hand-1`).
 
 | Field | Notes |
 | --- | --- |

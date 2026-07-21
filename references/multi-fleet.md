@@ -43,15 +43,15 @@ tmux_target    == {fleet_id}:{role}.1
 
 Example: mail `hand-1@…`, session `mgs`, window `hand-1`, target `mgs:hand-1.1`.
 
-**Ops always use `tmux_target` from fleet.json** — never assume session name == role.
+**Ops always use `tmux_target` from the Vivi role record** — never assume session name == role.
 
-| Layout field | fleet.json |
+| Layout field | Source |
 | --- | --- |
-| `fleet_id` | short id (e.g. `mgs`) |
+| `fleet_id` | short id (e.g. `mgs`) — mailspace / role record |
 | `tmux_layout` | `legacy` \| `session_per_fleet` |
-| per-slot `tmux_session`, `tmux_window`, `tmux_target` | required when not legacy |
+| per-slot `tmux_session`, `tmux_window`, `tmux_target` | required when not legacy (Vivi role record) |
 
-Lazy Head windows: declare Heads in fleet.json; create tmux windows on first assign.
+Lazy Head windows: declare Heads as Vivi roles; create tmux windows on first assign.
 
 ## FLEET_CYCLE (multi-fleet)
 
@@ -71,7 +71,7 @@ Roots (slug → project path):
 | Rule | Detail |
 | --- | --- |
 | Coverage | Every **slug** on the first line gets a full fail-fast mini-cycle |
-| Paths | Body map, attach memory, or each fleet’s `fleet.json` → `project` — **not** `also=` / `also2=` invent-keys |
+| Paths | Body map, attach memory, or each fleet’s project root (Vivi mailspace / role record) — **not** `also=` / `also2=` invent-keys |
 | Posture | **Per fleet** (`growth` / `standby` / `dormant`) — standby/dormant mini-cycles stay quiet; never invent work so every slug “looks busy” — [`fleet-posture.md`](fleet-posture.md) |
 | Durability | Each fleet writes its **own** `last_successful_cycle_at` (+ `steward.sh rearm` **only if** that fleet’s steward is armed) |
 | Isolation | Never file To fleet A while processing fleet B |
@@ -153,9 +153,9 @@ Order: tripped stewards → operator@ union → headlines.
 
 | Script | Rule |
 | --- | --- |
-| `steward.sh` | Read steward + hands `tmux_target` from fleet.json |
+| `steward.sh` | Read steward + hands `tmux_target` from Vivi role records |
 | `codex-reinit.sh` | Already resolves `tmux_target` per hand |
-| Doorbell / capture | Always fleet.json `tmux_target` |
+| Doorbell / capture | Always `tmux_target` from the Vivi role record |
 
 ## Anti-patterns
 
@@ -171,5 +171,5 @@ Order: tripped stewards → operator@ union → headlines.
 
 - [`dead-man.md`](dead-man.md) — steward protocol  
 - [`mind-cycle.md`](mind-cycle.md) — modes, cycle prefix  
-- [`runtime-config.md`](runtime-config.md) — fleet.json / baseline schema  
+- [`runtime-config.md`](runtime-config.md) — Vivi role records / baseline schema  
 - [`dual-channel.md`](dual-channel.md) — panes and targets  

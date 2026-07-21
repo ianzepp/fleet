@@ -185,9 +185,7 @@ Reporting a blocker without acting, delegating, escalating, or recording a valid
 Every fleet helper uses the same scope vocabulary:
 
 ```text
---project/-p <project-root>   durable fleet project boundary
---fleet/-f <fleet-id>         logical fleet identity, validated against fleet.json
---fleet-file <path>           explicit fleet.json path override
+--project/-p <project-root>   durable fleet project boundary; roster resolved from Vivi roles
 --role <role>                 logical Hand/Head role (repeatable where selection needs it)
 --runtime-target <target>     concrete runtime target override for the helper call
 ```
@@ -539,7 +537,7 @@ Exit in seconds on sensors/ops. Mode first → sensors → sleep if quiet. **abs
 Skill = portable process. Overlay = roster, paths, models, ssh, maps, Status.
 
 ```text
-.vivi/fleet.json · mind-baseline.json · FLEET_CYCLE scheduler · Head prompts · Agents.md
+Vivi role records · mind-baseline.json · FLEET_CYCLE scheduler · Head prompts · Agents.md
 ```
 
 ```bash

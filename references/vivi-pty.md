@@ -59,9 +59,9 @@ vivi-pty --project <root> terminal resize <session-id> <cols> <rows>
 
 ## Session configuration
 
-Sessions are configured in fleet.json under each Hand/Head role. Capacity
-(provider/model/thinking) lives on the Vivi role record; fleet.json holds
-operational bindings only:
+Sessions are configured on the Vivi role record for each Hand/Head role. Capacity
+(provider/model/thinking) lives on the Vivi role record; the role record also
+holds operational bindings:
 
 ```json
 {
@@ -159,7 +159,7 @@ Or via the backend-neutral helper:
 scripts/fleet-doorbell.sh --project <root> --fleet <fleet-id> --role hand-1 --handle <hex>
 ```
 
-The helper resolves the runtime backend (tmux vs vivi-pty) from fleet.json and
+The helper resolves the runtime backend (tmux vs vivi-pty) from the Vivi role record and
 dispatches accordingly. Same channel split rules apply: thin boot pointer only
 in the PTY write — identity, role, task handle, one verb. Full instructions,
 persona, and scope belong in Vivi (charter, task body, mail).
@@ -192,5 +192,5 @@ python3 scripts/fleet-runtime-rebind.py --project <root> apply
 python3 scripts/fleet-runtime.py --project <root> --role <name> restart
 ```
 
-fleet.json holds only operational bindings (session id, cwd, merge rights) —
+The Vivi role record holds only operational bindings (session id, cwd, merge rights) —
 not capacity.

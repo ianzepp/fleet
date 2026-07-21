@@ -2,7 +2,7 @@
 
 Use this reference when a configured Fleet exists but its Mind loop, Hands, Heads,
 or process runtimes are dormant. Initialization is a different operation: if the
-project has no usable `.vivi/fleet.json` or mailspace, start with
+project has no usable `.vivi/` mailspace or role records, start with
 [`getting-started.md`](getting-started.md).
 
 ## Launch invariant
@@ -27,7 +27,7 @@ effect of launch.
 Before starting processes:
 
 1. Load the Fleet skill and the project overlay (`AGENTS.md`,
-   `.vivi/fleet.json`, and `.vivi/mind-baseline.json`).
+   Vivi role records, and `.vivi/mind-baseline.json`).
 2. Confirm the project root and mailspace. A workspace container may coordinate
    several child Git repositories from one `.vivi/` directory.
 3. Identify the operator-visible Mind session. The Mind is the control plane,
@@ -98,7 +98,7 @@ Typical actions:
 
 ## 3. Start configured Hand runtimes
 
-Read each Hand’s binding from `fleet.json`. Do not infer a backend from the
+Read each Hand’s binding from its Vivi role record. Do not infer a backend from the
 agent name. Use the backend-neutral runtime helper first; it wraps tmux topology
 creation and Vivi-PTY daemon/session mechanics so Mind does not hand-code either
 transport during launch.
@@ -340,8 +340,8 @@ populated process table that stacks input, invents work, or erases ownership.
 ## Dormant-to-live checklist
 
 ```text
-[ ] Project root, mailspace, overlay, and Mind authority confirmed
-[ ] fleet.json strict validation passes
+[ ] Project root, mailspace, role records, and Mind authority confirmed
+[ ] Vivi role records valid
 [ ] Posture and steward intent confirmed
 [ ] Board, assignments, packet states, cadence, and dirt inspected
 [ ] Existing tmux/PTy sessions inventoried without destructive cleanup

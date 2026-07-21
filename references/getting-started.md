@@ -11,7 +11,7 @@
 | **0 — First exposure** | Skill loaded; **no** attachable fleet visible | Operator briefing (what / how / next) | [§ First exposure](#0-first-exposure--no-fleet-to-attach) |
 | **1 — Install** | Skill only | Host tools (especially **Vivi**) | [§ Install dependencies](#1-install-dependencies) |
 | **2 — Initialize project** | Dependencies OK; project has no fleet yet | Vivi mailspace + fleet tracking files + first panes | [§ Initialize a project](#2-initialize-a-project) |
-| **3 — Attach Mind** | Fleet already exists (`.vivi/fleet.json`, board, maybe panes) | This session becomes Mind for that fleet | [§ Attach Mind to an existing fleet](#3-attach-mind-to-an-existing-fleet) |
+| **3 — Attach Mind** | Fleet already exists (`.vivi/` mailspace, board, maybe panes) | This session becomes Mind for that fleet | [§ Attach Mind to an existing fleet](#3-attach-mind-to-an-existing-fleet) |
 
 Brand-new machine: **0 → 1 → 2 → 3** (brief first if the human just loaded the skill). Returning operator, new chat with a known fleet: **3 only**.
 
@@ -19,7 +19,7 @@ Brand-new machine: **0 → 1 → 2 → 3** (brief first if the human just loaded
 
 **When (Mind detects this):** skill just loaded (or cold-loaded) and **none** of these are true:
 
-- Operator named a project/`$ROOT` that has `$ROOT/.vivi/fleet.json`
+- Operator named a project/`$ROOT` that has a Vivi mailspace (`$ROOT/.vivi/`)
 - Cwd (or an obvious active project) has a usable fleet overlay
 - Context already has a live attach set / `FLEET_CYCLE` fleet list
 - Operator said “attach to …” / “run the fleet” with a path
@@ -43,14 +43,14 @@ What it is
 
 How you use it
 1. Install host deps (Vivi is hard-required)     → case 1
-2. Initialize a project (mailspace + fleet.json + hand-1 pane) → case 2
+2. Initialize a project (mailspace + role records + hand-1 pane) → case 2
 3. Attach this session as Mind and cycle         → case 3
 Day-to-day after attach: SKILL.md + surface refs; FLEET_CYCLE wakes the loop
 
 Suggested next steps
 - Pick the project root you want to fleet (path)
 - If `vivi` missing: install Vivi (case 1)
-- If no .vivi/fleet.json yet: initialize that root (case 2)
+- If no `.vivi/` mailspace yet: initialize that root (case 2)
 - If fleet already exists: attach Mind (case 3)
 - Optional later: multi-hand, Heads, steward dead-man, multi-fleet attach
 
@@ -76,14 +76,14 @@ Once a real fleet is chosen and case 2 or 3 applies, leave this section — oper
 | **Panes** | Process (alive / idle / error) | **tmux** (Hands / Heads / steward) |
 
 **Mind** = operator’s current agent conversation — **not** a tmux pane.  
-**Fleet** = one project root + its `.vivi/` overlay (durability boundary).
+**Fleet** = one project root + its `.vivi/` mailspace (durability boundary).
 
 **No board without Vivi.** Do not invent a second tasking protocol if `vivi` is missing.
 
 | Path | Role |
 | --- | --- |
-| `$ROOT/.vivi/` | Vivi mailspace root (sqlite board, identities, blobs) |
-| `$ROOT/.vivi/fleet.json` | Roster: Hands/Heads, `tmux_target`, agents, steward, focus |
+| `$ROOT/.vivi/` | Vivi mailspace root (sqlite board, identities, role records, blobs) |
+| Vivi role records | Roster: Hands/Heads, `tmux_target`, capacity, harness, steward, focus |
 | `$ROOT/.vivi/mind-baseline.json` | Cycle counters, fingerprints, mode, `mind_session` lock, recap |
 | `$ROOT/.vivi/mind-watch.cursor` | Optional mailspace watch watermark |
 | `$ROOT/.vivi/steward.rearm` / `steward.log` | Optional dead-man bookkeeping when steward used |
@@ -145,7 +145,7 @@ Optional: `VIVI_BIN`, `TMUX_BIN`, `PYTHON_BIN`. Portability: [`runtime-config.md
 
 ## 2. Initialize a project
 
-**When:** deps installed; `$ROOT` has no usable fleet (no mailspace, or no `fleet.json`).  
+**When:** deps installed; `$ROOT` has no usable fleet (no mailspace).  
 **Goal:** durable board + fleet tracking files + ≥1 Hand pane, ready for Mind attach.
 
 ### 2.1 Pick the root
@@ -194,75 +194,46 @@ metadata) for mailboxes that are not agent seats.
 | `hand-N` | Workers |
 | `head-*` | Advisors (optional until needed) |
 
-### 2.4 Write fleet tracking files
+### 2.4 Configure role runtime bindings
 
-**Required:** `$ROOT/.vivi/fleet.json` — roster and process binding.
+Roster, capacity, harness, and steward live on the Vivi role record (created in
+§2.3). Set the operational bindings each role needs to launch.
 
 Recommended new-fleet shape: **session-per-fleet**. The tmux session is the
 `fleet_id`, and each role gets a tmux window named after the role. This keeps
-new repo families, copied overlays, and multi-fleet hosts from colliding.
+new repo families, copied fleets, and multi-fleet hosts from colliding.
 
-```json
-{
-  "version": 1,
-  "project": "/path/to/your/project",
-  "mailspace": "your-project-name",
-  "fleet_id": "myfleet",
-  "tmux_layout": "session_per_fleet",
-  "mind_inbox": "mind",
-  "operator_inbox": "operator",
-  "mind": {
-    "agent": "pi"
-  },
-  "hands": {
-    "hand-1": {
-      "mail_identity": "hand-1",
-      "tmux_session": "myfleet",
-      "tmux_window": "hand-1",
-      "tmux_target": "myfleet:hand-1.1",
-      "cwd": "/path/to/your/project",
-      "wake_mode": "tmux_send_keys",
-      "min_seconds_between_wakes": 180
-    },
-    "auditor-1": {
-      "mail_identity": "auditor-1",
-      "tmux_session": "myfleet",
-      "tmux_window": "auditor-1",
-      "tmux_target": "myfleet:auditor-1.1",
-      "cwd": "/path/to/your/project",
-      "assignment_mode": "new",
-      "wake_mode": "tmux_send_keys",
-      "min_seconds_between_wakes": 180,
-      "note": "review Hand; assignments explicitly invoke $auditor; reports To mind"
-    }
-  },
-  "fleet_posture": {
-    "mode": "growth",
-    "reason": "campaign — use standby for on-call fleets (quiet is OK)",
-    "wake_triggers": ["operator product task", "operator@ need"],
-    "ceo_continuity_min_hours": 6
-  },
-  "steward": {
-    "enabled": false,
-    "note": "default OFF — operator must set enabled:true and ask to arm per fleet"
-  }
-}
+```bash
+# session-per-fleet: tmux_session == fleet_id; tmux_window == role
+vivi role set mind --project "$ROOT" --harness pi
+
+vivi role set hand-1 --project "$ROOT" \
+  --tmux-session myfleet --tmux-window hand-1 --tmux-target 'myfleet:hand-1.1' \
+  --cwd "$ROOT" --wake-mode tmux_send_keys --min-seconds-between-wakes 180
+
+# auditor-1 is not in the canonical list above; add it in one step, then bind:
+vivi role add auditor-1 --project "$ROOT" --kind hand --harness tmux --label auditor
+vivi role set auditor-1 --project "$ROOT" \
+  --tmux-session myfleet --tmux-window auditor-1 --tmux-target 'myfleet:auditor-1.1' \
+  --cwd "$ROOT" --assignment-mode new --wake-mode tmux_send_keys \
+  --min-seconds-between-wakes 180 \
+  --note 'review Hand; assignments explicitly invoke $auditor; reports To mind'
+
+vivi role list --project "$ROOT"
 ```
 
-**Posture:** `growth` ships the map; `standby` / `dormant` = on-call or paused (Vivi-shaped fleets). Detail: [`fleet-posture.md`](fleet-posture.md).
+**Posture:** set with `fleet-posture.py` — `growth` ships the map; `standby` / `dormant` = on-call or paused. Detail: [`fleet-posture.md`](fleet-posture.md).
 
-Replace paths and `cwd`. Full schema / multi-fleet `tmux_layout`: [`runtime-config.md`](runtime-config.md), [`multi-fleet.md`](multi-fleet.md).
+Multi-fleet `tmux_layout`: [`runtime-config.md`](runtime-config.md), [`multi-fleet.md`](multi-fleet.md).
 
 ### Set capacity on Vivi roles
 
-Capacity (provider/model/thinking) and charter live on the Vivi role record, not in fleet.json. The canonical roles are already created in one step above (§2.3); tune their capacity and charter here:
+Capacity (provider/model/thinking) and charter live on the Vivi role record. The canonical roles are already created in one step above (§2.3); tune their capacity and charter here:
 
 ```bash
 vivi role set hand-1 --project "$ROOT" --provider openai-codex --model gpt-5.5 --thinking medium
 vivi role charter set hand-1 --project "$ROOT" --body 'You are a fleet product Hand. Execute assigned work, commit, report To mind.'
 
-# auditor-1 is not in the canonical list above; add it in one step, then tune:
-vivi role add auditor-1 --project "$ROOT" --kind hand --harness tmux --label auditor
 vivi role set auditor-1 --project "$ROOT" --provider openai-codex --model gpt-5.5 --thinking high
 ```
 
@@ -325,7 +296,7 @@ Project **initialized**. Open operator agent session → **[case 3 — Attach Mi
 
 ## 3. Attach Mind to an existing fleet
 
-**When:** `$ROOT/.vivi/fleet.json` (and usually mailspace) already exist. New operator chat, resume after compact, or taking over ops.  
+**When:** `$ROOT/.vivi/` mailspace (and usually role records) already exist. New operator chat, resume after compact, or taking over ops.  
 **Goal:** this conversation becomes the **Mind session**.
 
 Do **not** create a second Mind tmux pane. Do **not** re-init mailspace unless intentionally rebuilding the board.
@@ -335,7 +306,7 @@ Do **not** create a second Mind tmux pane. Do **not** re-init mailspace unless i
 ```bash
 ROOT=/path/to/existing/fleet/project
 
-test -f "$ROOT/.vivi/fleet.json" || { echo "missing fleet.json — use case 2"; exit 1; }
+test -d "$ROOT/.vivi" || { echo "missing .vivi/ mailspace — use case 2"; exit 1; }
 vivi mailspace status --project "$ROOT"
 vivi mailspace identity list --project "$ROOT"
 
@@ -428,7 +399,7 @@ If **operator→mind** mail or open/unread **To operator@** → present/absorb *
 
 Only if the operator **explicitly** wants steward **for this fleet**:
 
-1. Set `"steward": { "enabled": true, … }` in `fleet.json` (targets/notify as needed).
+1. Enable steward on the Vivi steward config (targets/notify as needed).
 2. Operator asks to arm **this** fleet (not implied by multi-fleet siblings).
 3. Then:
 
@@ -485,7 +456,7 @@ Wind-down: [`runtime-config.md`](runtime-config.md). Multi-fleet attach set: [`m
 ### Attach checklist (copy)
 
 ```text
-[ ] ROOT has .vivi/fleet.json
+[ ] ROOT has .vivi/ mailspace
 [ ] vivi mailspace status works
 [ ] Load $fleet; this chat is Mind
 [ ] mind_session advisory lock claimed via `baseline.py bump --mind-session <label>` (or takeover authorized)
@@ -503,7 +474,7 @@ Wind-down: [`runtime-config.md`](runtime-config.md). Multi-fleet attach set: [`m
 | Vivi | `vivi --version` |
 | Mailspace | `vivi mailspace status --project $ROOT` shows identities |
 | Identities | `mind`, `operator`, `hand-1` (+ Heads you use) |
-| fleet.json | Hands have `tmux_target`, `cwd` (operational only) |
+| Role records | Hands have `tmux_target`, `cwd` (operational only) |
 | baseline | file exists; get via `fleet-baseline.py get -p $ROOT` |
 | Pane | `tmux has-session` for the session in `tmux_target` |
 | Sensors | `fleet-sensors.py --text` exit 0 or 2 (partial), not 1 |
@@ -516,7 +487,7 @@ Wind-down: [`runtime-config.md`](runtime-config.md). Multi-fleet attach set: [`m
 | `vivi: command not found` | 1 | Install Vivi; fix PATH |
 | Old vivi / no `mailspace watch` | 1 | Upgrade ≥ 6.4 |
 | No `.vivi/` / empty board | 2 | `mailspace init` + identities |
-| Missing `fleet.json` | 2 | Write overlay (template above) |
+| Missing role records | 2 | Add roles + bindings via `vivi role add` / `vivi role set` |
 | Sensors `vivi_missing` | 1–3 | PATH / wrong `--project` |
 | Doorbell `no session` | 2–3 | Create tmux session; fix `tmux_target` |
 | Doorbell `running` | 3 | Wait; do not stack wakes |

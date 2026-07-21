@@ -17,7 +17,7 @@ see [`subagent.md`](subagent.md).
 
 ## Binding rule
 
-**Ops always use fleet.json `tmux_target`.** Two layouts:
+**Ops always use `tmux_target` from the Vivi role record.** Two layouts:
 
 | Layout | Mail identity | tmux session | Typical `tmux_target` |
 | --- | --- | --- | --- |
@@ -44,10 +44,10 @@ tmux new-session -d -s example -n hand-1 -c <cwd>          # Hands/Heads only
 
 Mind never has a tmux pane. The operator TUI is the Mind process.
 
-## fleet.json tmux schema
+## tmux bindings (Vivi role record)
 
-Capacity (provider/model/thinking) lives on the Vivi role record; fleet.json
-holds operational bindings only:
+Capacity (provider/model/thinking) lives on the Vivi role record; the role
+record also holds operational tmux bindings:
 
 ```json
 {
@@ -185,7 +185,7 @@ scripts/codex-reinit.sh reinit --project <root> --fleet <fleet-id> --role hand-1
 1. Runtime must be waiting for input unless the operator allows cancellation.
 2. Exit Pi cleanly and wait until pane_current_command is a shell.
 3. Recreate or retarget the tmux session/window with `-c <packet-or-main-cwd>`.
-4. Start the role's configured agent from that cwd (capacity from Vivi role or fleet.json).
+4. Start the role's configured agent from that cwd (capacity from the Vivi role record).
 5. Verify pane path and process, then send the thin boot pointer per [Role communication contract](../SKILL.md#role-communication-contract).
 ```
 
@@ -197,7 +197,7 @@ tmux has-session -t hand-N || \
 | Do | Don't |
 | --- | --- |
 | Use `tmux send-keys -t … -l -- '…'` for literal text | Stack wake messages into a busy pane |
-| Launch the exact agent command from the role's capacity (Vivi role or fleet.json) | Invent provider/model flags during recovery |
+| Launch the exact agent command from the role's capacity (Vivi role record) | Invent provider/model flags during recovery |
 | Recreate with `tmux new-session -d -s <fleet> -c <cwd>` | Assume a dead session still exists |
 | Match `tmux_target` to the real base index | Hardcode indices without checking |
 | Verify `#{pane_current_path}` and capture the prompt | Trust configuration without checking runtime |

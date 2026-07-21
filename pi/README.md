@@ -68,7 +68,7 @@ recreated with a fresh countdown at the saved cadence; the exact pre-reload
 next-fire time is not preserved. A stopped loop remains stopped.
 
 Monitor attachment is separate Pi-local state. It never claims `mind_session`,
-never writes `fleet.json` or `mind-baseline.json`, never emits `FLEET_CYCLE`, and
+never writes Vivi role records or `mind-baseline.json`, never emits `FLEET_CYCLE`, and
 uses `fleet-sensors.py --no-watch` for read-only observation. Multiple monitored
 fleets are aggregated in the human panel. Mind-attached and monitor-only fleets
 use the same detail rows: mode/posture/cycle timing, Hands, Heads, Vivi counts,

@@ -27,7 +27,7 @@ pi install /Users/ianzepp/work/ianzepp/fleet
 | Head | `scripts/pi-head` (`--no-extensions` + deny `edit,write`) | [`pi-role-wrappers.md`](pi-role-wrappers.md) |
 | Mind | full `pi` **with** extension (or Grok / other Mind harness) | this file |
 
-A detected `.vivi/fleet.json` in the current directory is only a **candidate**.
+A detected `.vivi/` mailspace in the current directory is only a **candidate**.
 Pi never becomes Mind automatically. The operator or the user must explicitly
 request attachment.
 
@@ -82,7 +82,7 @@ Parameters:
 }
 ```
 
-- `root` is the Fleet project root containing `.vivi/fleet.json`.
+- `root` is the Fleet project root containing a `.vivi/` mailspace.
 - `fleet_id` can identify the current-directory candidate or an existing
   session attachment when a root is not supplied.
 - `mode` is `"mind"` by default or `"monitor"`.
@@ -137,7 +137,7 @@ Or select one fleet:
 
 Preflight inspects:
 
-- `fleet.json`, Fleet identity, and configured role/runtime shape
+- Vivi role records, Fleet identity, and configured role/runtime shape
 - `mind-baseline.json`, last cycle, loop state, steward state, and pauses
 - canonical sensors and posture (`growth`, `standby`, or `dormant`)
 - Hands, Heads, runtime/pane observations, and external loop state
@@ -285,10 +285,10 @@ Monitor mode is for observing a Fleet owned by another Mind session:
 
 A monitor:
 
-- reads `fleet.json`, baseline, Vivi observations, and sensors with watch
+- reads Vivi role records, baseline, Vivi observations, and sensors with watch
   persistence disabled;
 - may observe multiple foreign-owned fleets;
-- never writes `fleet.json`, `mind-baseline.json`, watch cursors, sensor
+- never writes Vivi role records, `mind-baseline.json`, watch cursors, sensor
   history, or other Fleet state;
 - never claims `mind_session`;
 - never emits `FLEET_CYCLE` or wakes a Mind;

@@ -134,7 +134,7 @@ Kind ≠ severity. Critical defects are still **tasks**.
 ## Fleet files
 
 ```text
-.vivi/fleet.json          # roster, agents, cwd, hosts
+Vivi role records        # roster, capacity, cwd, tmux bindings
 .vivi/mind-baseline.json  # counters, debt, candidates, calibration
 mailspace identities      # mind, hand-N, head-*
 optional role prompts     # Head bootstraps
