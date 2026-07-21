@@ -173,7 +173,12 @@ if ! PROJECT="$(fleet_abs_project "$PROJECT")"; then
 fi
 FLEET_FILE="${FLEET_FILE:-$PROJECT/.vivi/fleet.json}"
 BASELINE="${BASELINE:-$PROJECT/.vivi/mind-baseline.json}"
-[[ -f "$FLEET_FILE" ]] || { echo "missing fleet.json: $FLEET_FILE" >&2; exit 2; }
+# fleet.json is deprecated; tmux/PTY doorbell still reads it for tmux_target.
+# Subagent fleets do not use the doorbell — the Mind spawns directly.
+if [[ ! -f "$FLEET_FILE" ]]; then
+  echo "fleet.json not found (deprecated). For tmux doorbell, recreate from fleet.md or pass --runtime-target." >&2
+  exit 2
+fi
 
 # Resolve logical role through the shared backend-neutral resolver. Wake history
 # is a separate baseline concern and is intentionally not part of target

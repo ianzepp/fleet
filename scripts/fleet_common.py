@@ -184,6 +184,9 @@ def resolve_fleet_file(
     ``--fleet`` is a logical ID. ``--fleet-file`` is the only path override.
     The project remains the durability boundary and is always required by
     callers even when a file override is used.
+
+    fleet.json is deprecated. When absent, builds a synthetic fleet dict
+    from Vivi role records and mailspace.
     """
     root = Path(project).expanduser().resolve()
     if not root.is_dir():
@@ -193,18 +196,109 @@ def resolve_fleet_file(
         if fleet_file
         else root / ".vivi" / "fleet.json"
     )
-    if not path.is_file():
-        raise FleetScopeError("fleet.json not found: %s" % path)
-    data = load_json(path, default=None)
-    if not isinstance(data, dict):
-        raise FleetScopeError("fleet.json must contain a JSON object: %s" % path)
-    actual = fleet_id_of(data, root)
-    if fleet_id and fleet_id != actual:
+    if path.is_file():
+        data = load_json(path, default=None)
+        if not isinstance(data, dict):
+            raise FleetScopeError("fleet.json must contain a JSON object: %s" % path)
+        actual = fleet_id_of(data, root)
+        if fleet_id and fleet_id != actual:
+            raise FleetScopeError(
+                "fleet ID mismatch: requested %r, configured %r (%s)"
+                % (fleet_id, actual, path)
+            )
+        return path, data
+
+    # fleet.json absent — build from Vivi
+    data = build_fleet_from_vivi(root)
+    if fleet_id and fleet_id != data.get("fleet_id", ""):
         raise FleetScopeError(
-            "fleet ID mismatch: requested %r, configured %r (%s)"
-            % (fleet_id, actual, path)
+            "fleet ID mismatch: requested %r, configured %r"
+            % (fleet_id, data.get("fleet_id", ""))
         )
     return path, data
+
+
+def build_fleet_from_vivi(root: Path) -> Dict[str, Any]:
+    """Build a synthetic fleet dict from Vivi role records and mailspace.
+
+    Called when fleet.json is absent. Derives roster, identity, and defaults
+    from Vivi-native surfaces.
+    """
+    project_str = str(root)
+    mailspace = _vivi_mailspace_name(root)
+    fleet_id = mailspace or root.name
+
+    fleet: Dict[str, Any] = {
+        "version": 3,
+        "project": project_str,
+        "mailspace": mailspace,
+        "fleet_id": fleet_id,
+        "mind_inbox": "mind",
+        "operator_inbox": "operator",
+        "head_report_inbox": "mind",
+        "fleet_posture": {"mode": "standby"},
+        "steward": {"enabled": False},
+        "mind_loop": {"interval_sec": 900},
+        "hands": {},
+        "heads": {},
+    }
+
+    roles = _vivi_role_list(root)
+    for role in roles:
+        name = role.get("name", "")
+        if not name:
+            continue
+        kind = role.get("kind") or ""
+        entry: Dict[str, Any] = {
+            "mail_identity": name,
+            "cwd": project_str,
+            "agent": role.get("provider") or "unknown",
+            "agent_model": role.get("model") or "",
+            "thinking": role.get("thinking") or "",
+            "harness": role.get("harness") or "subagent",
+        }
+        if kind == "hand":
+            fleet["hands"][name] = entry
+        elif kind == "head":
+            fleet["heads"][name] = entry
+        elif name.startswith("hand-") or name.startswith("auditor-") or name.startswith("planner-"):
+            fleet["hands"][name] = entry
+        elif name.startswith("head-"):
+            fleet["heads"][name] = entry
+
+    return fleet
+
+
+def _vivi_role_list(root: Path) -> List[Dict[str, Any]]:
+    """Get role list from Vivi; return [] on failure."""
+    rc, out = run_cmd(
+        ["vivi", "role", "list", "--project", str(root), "--json"],
+        timeout=15.0,
+    )
+    if rc != 0 or not out.strip():
+        return []
+    try:
+        data = json.loads(out)
+        return data if isinstance(data, list) else []
+    except (json.JSONDecodeError, ValueError):
+        return []
+
+
+def _vivi_mailspace_name(root: Path) -> str:
+    """Get mailspace name from Vivi; fall back to directory name."""
+    rc, out = run_cmd(
+        ["vivi", "mailspace", "status", "--project", str(root), "--json"],
+        timeout=15.0,
+    )
+    if rc == 0 and out.strip():
+        try:
+            data = json.loads(out)
+            name = data.get("name") or data.get("mailspace")
+            if isinstance(name, str) and name.strip():
+                return name.strip()
+        except (json.JSONDecodeError, ValueError):
+            pass
+    return root.name
 
 
 def add_fleet_scope_arguments(
