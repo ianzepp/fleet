@@ -23,14 +23,14 @@ When the Mind sees work that needs doing, its default action is to **route it** 
 | The Mind does directly | The Mind routes |
 | --- | --- |
 | Read sensors, mail, board state | Code implementation → Hand |
-| Read `git status` / `git diff` for classification | Test writing → Hand |
-| Classify signals and assign dispositions | Goal lowering → Head |
-| File tasks, needs, wants via Vivi | Architecture analysis → Head |
-| Write baseline state, close cycles | Code review → auditor Hand |
+| Read `git status` / `git diff` for classification | Goal-forge + delivery lowering → Planner |
+| Classify signals and assign dispositions | Code review → Auditor |
+| File tasks, needs, wants via Vivi | Architecture analysis → Head (advisory) |
+| Write baseline state, close cycles | Strategic analysis → Head (advisory) |
 | Send operator mail (escalations, acknowledgements) | Polish / housekeeping → Hand |
-| Make merge, push, branch decisions | Delivery spec authoring → Head |
-| Spawn Hands and Heads as sub-agents | Bug fixes → Hand |
-| The minimum bootstrap before a Mind exists | Factory loops → Hand |
+| Make merge, push, branch decisions | Bug fixes → Hand |
+| Spawn Hands, Planners, Auditors as sub-agents | Factory loops → Hand |
+| The minimum bootstrap before a Mind exists | |
 
 The test for any action: **could a Hand or Head do this?** If yes, file it to them. The Mind's direct actions are limited to routing, classification, sensor reading, baseline writes, and the merge/push/branch decisions that are explicitly Mind authority. Everything else is delegation.
 
@@ -42,9 +42,11 @@ A Mind that catches itself writing code, running factory, writing tests, or doin
 
 | Situation | Action |
 | --- | --- |
-| Campaign goal/stage unlowered | Assign **lower** To one Head (default head-ceo); horizon 3–5 phases |
-| Ready bag under ~3 unstarted units | Assign **horizon extension** lower before Hands empty |
+| Campaign goal/stage unlowered | Assign **goal-forge** to planner-N |
+| Goal is READY, execution imminent | Assign **delivery lower** to planner-N with horizon 3–5 phases |
+| Ready bag under ~3 unstarted units | Assign **horizon extension** to planner-N before Hands empty |
 | Delivery unit ready on disk | File Hand **task** citing unit id, path, done-when |
+| Completed work needs review | File **review task** to auditor-N |
 | Auditor findings list | File Hand **repair** task |
 | Merge / maid / housekeeping | File Hand **task** as usual |
 
@@ -128,7 +130,8 @@ Apply the fleet-autonomy test first: if the Mind can choose a reasoned default s
 | Weaken policy to make tests pass | Fix code; add debt budget or leave failure visible |
 | Re-derive a Hand's diff for commit | Hand commits own work |
 | Request implementation from a Head | Heads are advisory-only |
-| Request Hand-task filing from a Head | Filing is Mind's job |
+| Request lowering from a Head | Lowering is planner-N duty |
+| Request Hand-task filing from a Head or Planner | Filing is Mind's job |
 | File a Hand task without a delivery unit path | Hands will refuse |
 
 ## Cross-role enforcement
@@ -137,9 +140,14 @@ Hands and Heads enforce their own protocols and will refuse improper requests. W
 
 | Mind sends | Response | Mind corrects by |
 | --- | --- | --- |
-| Task without delivery unit path | Hand refuses | Lowering through a Head first |
-| Raw campaign goal to Hand | Hand refuses | Assigning **lower** to a Head |
+| Task without delivery unit path | Hand refuses | Routing through planner-N first |
+| Raw campaign goal to Hand | Hand refuses | Assigning **goal-forge + delivery** to planner-N |
+| Goal-forge request to Head | Head refuses | Assigning to planner-N |
+| Delivery lower request to Head | Head refuses | Assigning to planner-N |
 | Implement request to Head | Head refuses | Filing implement task to a Hand |
-| File-tasks request to Head | Head refuses | Filing tasks itself |
+| Implement request to Planner | Planner refuses | Filing implement task to a Hand |
+| Implement request to Auditor | Auditor refuses | Filing implement task to a Hand |
+| File-tasks request to Head/Planner | Refused | Filing tasks itself |
 | Merge request to Hand | Hand refuses | Making the merge decision itself |
-| Universal review request | Hand refuses | Filing review to auditor Hand on risk only |
+| Universal review request | Hand refuses | Filing review to auditor-N on risk only |
+| Predetermined verdict to Auditor | Auditor refuses | Letting evidence determine verdict |

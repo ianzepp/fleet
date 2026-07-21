@@ -54,9 +54,9 @@ Refuse task bodies that substitute for a delivery spec: "see campaign GOAL and f
 
 ## Auditor Hands
 
-`auditor-1` and `auditor-2` are Hands with review duty. They load `$auditor`, not `$factory`. They drain the review bag, not the product bag. They report To mind. They do not implement product code, commit product code, or GO-stamp.
+`auditor-1` and `auditor-2` are Hands with review duty — they are a separate role with their own protocol. See [`auditor-protocol.md`](auditor-protocol.md).
 
-A product Hand does not review another Hand's work unless assigned as auditor-N for that review.
+A product Hand does not review another Hand's work. Review routing goes to auditor-N.
 
 ## Decision continuity
 
@@ -92,7 +92,8 @@ Refusal is a protocol action, not defiance. Every refusal includes a filed need 
 | Merge request | Refused: merge is a Mind decision. Decide and I will execute. |
 | Push without explicit Mind decision | Refused: push is a Mind decision. Confirm push authority for this repo and I will push. |
 | Review another Hand's work (not auditor-N) | Refused: review duty not assigned to this role. Route to auditor-N. |
-| Lower/factory/goal-forge the goal | Refused: lowering is a Head seat. Assign lower to a Head. |
+| Lower/factory/goal-forge the goal | Refused: lowering is a planner seat. Assign lower to planner-N. |
+| Review completed work | Refused: review is auditor-N duty. Route to auditor-N. |
 | Weaken tests or policy to pass | Refused: weakening the test does not fix the code. Filing a need with the real failure. |
 | Work on another Hand's WIP | Refused: this is <hand-N>'s WIP. Mind must reassign or serialize. |
 

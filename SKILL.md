@@ -13,8 +13,10 @@ Abbot **Mind / Head / Hand** roles on a **multi-session fleet** (Vivi board + ex
 | --- | --- | --- |
 | **Mind** | Tasking, integrate, cycles | Operator TUI + board **`mind@…`** (no external runtime) |
 | **Operator mail** | Human escalations | Board **`operator@…`** (no external runtime) |
-| **Head** | Advise / report — not bag drain | **`head-ceo` / `head-cto` / `head-cxo`** (+ optional org Heads). Often carries cadence (Vivi ≥ 6.2) |
-| **Hand** | Execute work (implement **or** audit) | **`hand-1`…`hand-N`**, **`auditor-1` / `auditor-2`** (Hands with review duty; **`$auditor`**) |
+| **Head** | Advise / report on cadence — not bag drain | **`head-ceo` / `head-cto` / `head-cxo`** (+ optional org Heads). Often carries cadence (Vivi ≥ 6.2) |
+| **Planner** | Goal-forge and delivery lowering | **`planner-1`…`planner-N`** (Hands with planning duty; **`$campaign`** + **`$delivery`**; mid-tier) |
+| **Hand** | Execute work (implement only) | **`hand-1`…`hand-N`** (product implementers; all Hands are equivalent floaters; low-tier) |
+| **Auditor** | Review completed work | **`auditor-1` / `auditor-2`** (Hands with review duty; **`$auditor`**; high-tier) |
 
 ## Execution model
 
@@ -38,7 +40,7 @@ The parent delivers a thin pointer. The role loads its own context from Vivi.
 
 ```text
 You are fleet role <name>.
-Read your role protocol:  mind-protocol.md | hand-protocol.md | head-protocol.md
+Read your role protocol:  mind-protocol.md | planner-protocol.md | hand-protocol.md | auditor-protocol.md | head-protocol.md
 Load charter:  vivi role charter show <name> --project <root>
 Load task:     vivi task show <handle> --project <root>
 Register pid:  vivi role set <name> --pid $$ --project <root>
@@ -97,22 +99,27 @@ Hands commit their own work. The Hand has the diff context; re-deriving it in th
 ### Standard delivery flow
 
 ```text
-1. Operator + Mind   discuss feature
-2. Mind              creates goal doc
-3. Head              runs goal-check; Mind verifies
-4. Head              lowers into delivery phases; Mind reviews + prioritizes
-5. Mind              assigns phase to a Hand (picks branch strategy: main or feature)
-6. Hand              executes, commits on assigned branch, returns SHA + report
-7. Mind              sends commit to auditor
-8. Auditor           reviews; reports bugs To mind (or pass)
-9. Mind              forwards bugs to Hand as follow-up with commit ref
-10. Hand             fixes, commits, reports back
-11. Mind             sends to auditor for verification
-12. Auditor           verifies pass
-13. Mind             accepts; phase marked done
+1. Operator + Mind   discuss feature scope
+2. Mind              assigns goal-forge to planner-N
+3. Planner           runs goal-forge → goal-check; reports READY To mind
+4. Mind              reviews; queues goal or sends back with gaps
+   ─── goal sits READY in queue ───
+5. Mind              when execution imminent, assigns delivery lower to planner-N
+6. Planner           runs $delivery → ordered unit graph; reports To mind
+7. Mind              schedules units; files implement tasks to Hands
+8. Hand              executes, commits on assigned branch, returns SHA + report
+9. Mind              routes completed work to auditor-N
+10. Auditor          reviews; reports To mind (clean_pass, residual, or block_ship)
+11. Mind             files residuals to Hand as repair tasks (if any)
+12. Hand             fixes, commits, reports back
+13. Mind             routes to auditor for verification
+14. Auditor          verifies pass
+15. Mind             accepts; phase marked done
 ```
 
-The audit loop (steps 7–12) is the integration bar. `accept` means the audit loop passed, not that something is queued for merge.
+When execution is imminent and the operator is engaged, steps 2–6 collapse to one planner assignment (full pipeline). The planner self-checkpoints at goal-check READY and proceeds to delivery lowering without returning to the Mind.
+
+The audit loop (steps 9–14) is the integration bar. `accept` means the audit loop passed, not that something is queued for merge.
 
 ### Branch strategy is a Mind decision
 
@@ -166,9 +173,10 @@ Reporting a blocker without acting, delegating, escalating, or recording a valid
 | **mind** | `mind@…` | none | Board To: Mind; process = this chat |
 | **operator** | `operator@…` | none | Human only — [`operator-mail.md`](references/operator-mail.md) |
 | **steward** | optional opt-in | configured runtime | Dead-man, not Mind — **off by default**; operator must enable+arm per fleet — [`dead-man.md`](references/dead-man.md) |
-| **hand-N** | `hand-N@…` | configured runtime | Product implementers and reviewers; all Hands are equivalent floaters |
-| **auditor-N** | `auditor-N@…` | configured runtime | **Still a Hand** (same bag/wake machinery under `hands`); code-review duty; load **`$auditor`**; no merge; report To mind |
-| **head-*** | `head-*@…` | configured runtime | ceo=strategist; cto **gate honesty / architecture** (not default code-review queue); cxo purity; cso security; coo ops |
+| **planner-N** | `planner-N@…` | configured runtime | Goal-forge + delivery lowering; mid-tier model; `$campaign` + `$delivery` |
+| **hand-N** | `hand-N@…` | configured runtime | Product implementers; low-tier model; all Hands are equivalent floaters |
+| **auditor-N** | `auditor-N@…` | configured runtime | Review Hands; high-tier model; **`$auditor`**; no merge; report To mind |
+| **head-*** | `head-*@…` | configured runtime | Advisory only on cadence or direct question; ceo=strategist; cto gate honesty / architecture; cxo purity; cso security; coo ops |
 
 **Fleet** = project root + `.vivi/`.
 
@@ -211,7 +219,7 @@ Canon for absorb/accept: [`mind-cycle.md`](references/mind-cycle.md) § Absorb v
 | Process | Mind fills bag; Hand empties. Progress = open tasking + map — not GO stamps |
 | Delegation | The Mind routes, not implements. See a task → file to a Hand. See a goal → assign lower to a Head. See a bug → file to a Hand. Default action for any work = route it. Detail: [`mind-protocol.md`](references/mind-protocol.md) § Delegation principle |
 | Hand equivalence | All Hands are equivalent floaters. The Mind picks any available Hand for each assignment. No Hand has a special integration role; there is no fleet-wide main in a multi-repo container. Single-repo fleets don't need a dedicated merger either — see [Commit authority and workflow](#commit-authority-and-workflow) |
-| Lowering | **Campaign goal → Head lowers** (`$campaign` goal-forge → goal-check READY → `$delivery` docs) → Mind files Hands from those units. Hands do **not** lower raw goals via factory. — [`lowering.md`](references/lowering.md) |
+| Lowering | **Campaign goal → planner-N lowers** (`$campaign` goal-forge → goal-check READY → `$delivery` docs) → Mind files Hands from those units. Hands do **not** lower raw goals via factory. Heads do **not** lower — they are advisory-only. — [`lowering.md`](references/lowering.md) |
 | Commit authority | **Hands commit their own work.** The Hand has the diff context; re-deriving it in the Mind is waste. The Mind's job is review-after (sampling, auditor on risk), not commit-before. See [Commit authority and workflow](#commit-authority-and-workflow) |
 | Branch strategy | **Branch and worktree decisions belong to the Mind.** Default is main (Mind scopes non-overlapping work). Feature branch is the exception, created by Mind when scope is large or overlap risk is real. Hands commit to whatever branch they're assigned. |
 | Push authority | **Push is the Mind's decision.** Default off. The Mind knows per-repo deployment posture: Railway auto-deploy = do not push without explicit decision; Railway manual = safe when Mind approves; no remote = moot. |
@@ -231,7 +239,7 @@ Canon for absorb/accept: [`mind-cycle.md`](references/mind-cycle.md) § Absorb v
 | Invariant | Rule |
 | --- | --- |
 | Starvation | Empty bag + **honest unblocked product unit on the map** → file+wake. Never invent polish/makework to fill bags |
-| Growth refill | Sensors emit **`growth_refill_required`** + **`refill_hint.disposition=file_head_lower`** when growth product Hand bags are empty. Treat as act-now: Head lower / executive refill |
+| Growth refill | Sensors emit **`growth_refill_required`** + **`refill_hint.disposition=file_planner_lower`** when growth product Hand bags are empty. Treat as act-now: planner lower / refill |
 | Growth liveness | In `growth`, an idle product Hand with no queued unit is **not** a quiet cycle: trigger an executive refill sweep immediately |
 | Head backpressure | A Head that refuses or does not run is **`deferred-valid`**: record once in baseline, retry on cadence |
 | Loop continuity | Before ending a turn with delegated work outstanding, ensure a Fleet loop is active to collect the result. Create one if absent; never create a duplicate — [`mind-cycle.md`](references/mind-cycle.md#adaptive-scheduled-cadence) |
@@ -256,7 +264,7 @@ Canon for absorb/accept: [`mind-cycle.md`](references/mind-cycle.md) § Absorb v
 | --- | --- |
 | Stuck | Freeze fails — name, unstick, pivot. No status-only blocked cycles |
 | Harness | **Default:** Hands share Mind's harness. Fleet config exceptions win — [`roles-and-harness.md`](references/roles-and-harness.md) |
-| Models | **Cheap well-scoped implement → strong independent audit → cheap repair.** Volume implement only **after** Head lowering. Live strings on the Vivi role record. Process: [`model-selection.md`](references/model-selection.md) |
+| Models | **Mid-tier planner → low-tier implement → high-tier audit.** Planner runs goal-forge + delivery (mid). Hands run volume implement (low). Auditors run adversarial review (high). Volume implement only **after** planning lowering. Live strings on the Vivi role record. Process: [`model-selection.md`](references/model-selection.md) |
 
 ```text
 map → MIND ─files→ bag → HAND clears target → residuals → MIND
@@ -290,20 +298,24 @@ Core process here; detail in `references/` + `scripts/`.
 
 ### Role protocols (mandatory, checks-and-balances)
 
-Each role has a compact mandatory-read protocol. It distills the rules from the reference library into a dense runbook (~100 lines) that the role must read before acting. Each protocol enforces not only its own role's rules but the rules other roles must follow — a Hand refuses an improperly scoped task; a Head refuses an implement request; a Mind corrects its process when a refusal arrives rather than overriding it.
+Each role has a compact mandatory-read protocol. It distills the rules from the reference library into a dense runbook (~100 lines) that the role must read before acting. Each protocol enforces not only its own role's rules but the rules other roles must follow — a Hand refuses an improperly scoped task; a Planner refuses to lower without a READY goal; an Auditor refuses a predetermined verdict; a Mind corrects its process when a refusal arrives rather than overriding it.
 
 | Protocol | Who reads | What it enforces |
 | --- | --- | --- |
-| [`mind-protocol.md`](references/mind-protocol.md) | Mind | Lowering bar, tasking kinds, assignment rules, commit/push/merge authority, cycle structure, what Minds do not do |
-| [`hand-protocol.md`](references/hand-protocol.md) | Hand (incl. auditor-N) | Delivery-unit requirement, execution cycle, commit authority, refusal conditions with exact language, workspace safety |
-| [`head-protocol.md`](references/head-protocol.md) | Head (all variants) | Advisory-only boundary, lowering seat rules, write-scope exception, report contract, refusal conditions with exact language |
+| [`mind-protocol.md`](references/mind-protocol.md) | Mind | Delegation principle, lowering bar, tasking kinds, assignment rules, commit/push/merge authority, cycle structure, routing to planner-N / auditor-N |
+| [`planner-protocol.md`](references/planner-protocol.md) | Planner (planner-N) | Two-phase pipeline (goal-forge + delivery), horizon rules, write scope, refusal conditions, READY-gate enforcement |
+| [`hand-protocol.md`](references/hand-protocol.md) | Hand (hand-N) | Delivery-unit requirement, execution cycle, commit authority, refusal conditions, workspace safety |
+| [`auditor-protocol.md`](references/auditor-protocol.md) | Auditor (auditor-N) | Verdict types, audit method, clean-slate isolation, refusal conditions including predetermined-verdict refusal |
+| [`head-protocol.md`](references/head-protocol.md) | Head (all variants) | Advisory-only boundary, no lowering duty, cadence-or-direct-question, refusal conditions |
 
 **Boot must name the role's protocol.** A role that has not read its protocol will violate the process — lowering, tasking, authority boundaries, and workspace safety all depend on it. The boot text must say: `Read <protocol> before acting.`
 
 | Load when | Path |
 | --- | --- |
 | **Mind mandatory read** | [`mind-protocol.md`](references/mind-protocol.md) |
+| **Planner mandatory read** | [`planner-protocol.md`](references/planner-protocol.md) |
 | **Hand mandatory read** | [`hand-protocol.md`](references/hand-protocol.md) |
+| **Auditor mandatory read** | [`auditor-protocol.md`](references/auditor-protocol.md) |
 | **Head mandatory read** | [`head-protocol.md`](references/head-protocol.md) |
 | Sub-agent execution | [`subagent.md`](references/subagent.md) |
 | tmux execution | [`tmux.md`](references/tmux.md) |
@@ -360,9 +372,9 @@ Sleep when bag empty **and** no honest next product unit (or posture is standby/
 Growth posture has a stronger continuity contract:
 
 1. If any product Hand is idle with an empty actionable bag, trigger the configured executive sweep **in this cycle**.
-2. Run `head-ceo` first for map health and bounded next-unit proposals.
-3. Mind converts honest, unblocked Head proposals into Hand tasks in the same cycle.
-4. A configured executive that is missing, `unknown`, `down`, or in an error state is a capacity failure: reinit/recreate it in the same cycle.
+2. Run `head-ceo` first for map health and bounded next-unit proposals (advisory only).
+3. Mind converts honest, unblocked proposals into planner-N lowering assignments.
+4. A configured executive that is missing, `unknown`, `down`, or in an error state is a capacity failure: report and keep the refill path active.
 5. Repeated growth cycles with idle Hands and no executive result are a fleet-control defect. Report and keep the refill path active.
 
 ### Dirt (half-dead targets)
@@ -380,13 +392,12 @@ Growth posture has a stronger continuity contract:
 
 | Role | Does | Does not |
 | --- | --- | --- |
-| Hand (implementer) | Drain product bag; validate; commit own work; polish unit; ship | Wait for GO; erase foreign WIP; touch another Hand's WIP |
-| Hand (auditor-N) | Drain **review** bag; `$auditor`; report To mind | Product implement; commit product code; GO stamp |
-| Mind | File/wake/integrate; **triage whether to file auditor Hand**; operator mail; route all work to Hands/Heads | GO stamps; deep code review itself; **implement code, write tests, run factory, do analysis** — route to the correct role |
+| Planner (planner-N) | Goal-forge + delivery lowering; produce planning artifacts; report READY + unit specs To mind | Implement product code; file Hand tasks; merge; review; act as advisor on cadence |
+| Hand (implementer) | Drain product bag; validate; commit own work; polish unit; ship | Wait for GO; erase foreign WIP; touch another Hand's WIP; lower goals; review work |
+| Auditor (auditor-N) | Drain review bag; `$auditor`; independent adversarial review; report To mind | Product implement; commit product code; GO stamp; plan or lower goals |
+| Mind | File/wake/integrate; **route planning to planner-N, review to auditor-N**; operator mail; route all work — never implement | GO stamps; deep code review itself; **implement code, write tests, run factory, do analysis** — route to the correct role |
 | operator@ | Human escalations | Status; bag drain |
-| head-cto | Technical **gate honesty** + architecture | Default code-review queue |
-| head-ceo | **Strategist + default lowering seat** | File Hand tasks; merge; product code |
-| head-cxo | Complexity/purity | Product bag; operator mail |
+| Head | Advisory on cadence or direct question; report findings To mind | Lower goals; implement; file tasks; merge; block production; act as required step in the pipeline |
 
 Identity ≠ assignment ≠ runtime. Detail: [`roles-and-harness.md`](references/roles-and-harness.md).
 
@@ -542,8 +553,8 @@ python3 <skill>/scripts/fleet-cycle-close.py --project <root> --acted --summary 
 
 ## Anti-patterns
 
-- **Bag:** GO warden; severity-as-kind; sleep with product work; sleep in growth before executive refill sweep; invent continuity work; dual Mind; Heads own bags; idle floaters despite safe parallel work; zombie campaign lanes; **campaign goal → Hand** without Head lowering; Hand invents factory/delivery for an unlowered stage
-- **Process:** mail-only or runtime-only truth; mixed Hand harnesses; stacked wakes; unbounded watch; standby-fleet busywork; per-cycle dispatch memos; universal completion review; route review to `head-cto` instead of auditors; dispatch/refuse churn; narration mail; completion hidden in replies
+- **Bag:** GO warden; severity-as-kind; sleep with product work; sleep in growth before executive refill sweep; invent continuity work; dual Mind; Heads own bags; idle floaters despite safe parallel work; zombie campaign lanes; **campaign goal → Hand** without planner lowering; Hand invents factory/delivery for an unlowered stage; **using a Head as an inline lowering step** that production waits behind
+- **Process:** mail-only or runtime-only truth; mixed Hand harnesses; stacked wakes; unbounded watch; standby-fleet busywork; per-cycle dispatch memos; universal completion review; route review to `head-cto` instead of auditors; route lowering to a Head instead of planner-N; dispatch/refuse churn; narration mail; completion hidden in replies
 - **Integration:** equate packet-green with consumer-green; commit another Hand's WIP; treat absorb as accept
 - **Hygiene/workspace:** skip unit polish; polish foreign work; Mind runs polish or housekeeping; polish for continuity; housekeeping every land; destructive or status-only dirt handling; topic monogamy; freeze on CEO permission; omit the `FLEET_CYCLE` prefix; send status to `operator@`; arm steward without operator authority
 

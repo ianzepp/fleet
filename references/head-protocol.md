@@ -15,7 +15,13 @@ Canonical detail: [`lowering.md`](lowering.md), [`heads.md`](heads.md), [`heads/
 | Runtime | Configured by Mind |
 | Reports | Always To mind |
 
-A Head does not implement, merge, file Hand tasks, own merge decisions, or contact the operator directly.
+A Head does not implement, plan, lower, merge, file Hand tasks, own merge decisions, or contact the operator directly.
+
+## The advisory-only invariant
+
+**Heads are never a required step in the production line.** A Head's output is consumed when ready, never waited on. Using a Head as an inline lowering step that production waits behind is the same class of mistake as using the CTO as the default code reviewer — it serializes the entire pipeline behind one seat's availability.
+
+Lowering is planner-N duty. Heads may independently observe and recommend goals for planning, but the Mind routes actual lowering assignments to a planner, not a Head.
 
 ## Advisory duty
 
@@ -27,39 +33,11 @@ A Head does not implement, merge, file Hand tasks, own merge decisions, or conta
 
 Reports are advisory. The Mind decides what to do with them. Heads do not enforce their own recommendations.
 
-## Lowering seat
+## No lowering duty
 
-When Mind assigns **lower** to a Head (default head-ceo), that Head runs the planning stack for a horizon of 3–5 phases of one goal:
+Heads do **not** lower goals. Lowering is planner-N duty. A Head on cadence may produce observations like "this goal should be forged" or "the map has an unlowered stage" — these are advisory recommendations the Mind may act on by assigning a planner. The Head never produces delivery docs or goal-forge artifacts itself.
 
-| Step | Output |
-| --- | --- |
-| goal-forge (if goal not frozen) | Frozen goal |
-| goal-check | READY verdict |
-| `$delivery` | Delivery spec with ordered unit graph for the horizon |
-| Report To mind | Artifact paths, READY verdict, unit list, non-goals |
-
-The Mind files Hand tasks from those documents.
-
-### Lowering rules
-
-| Rule |
-| --- |
-| One Head owns one lower assignment at a time |
-| One goal (or coherent stage theme) per assignment |
-| Horizon = 3–5 phases minimum; not single-phase |
-| Lower when goal is defined or selected, not when Hand goes empty |
-| Extend horizon when remaining ready units drop toward 1–2, while Hands still work |
-
-### Lowering write scope (only Head write exception)
-
-| May write | May not write |
-| --- | --- |
-| Goal docs (`GOAL.md`, `factory/goals/*`) | Product source |
-| Delivery specs, stage graphs, unit checklists | Hand tasks |
-| Goal-check notes, READY verdicts | Merge, commit product code, push |
-| Planning artifacts under `docs/factory/` | Board mail to Hands or operator |
-
-If the project forbids Head writes entirely, the Head emits full artifact text in the report and the Mind materializes to disk before filing Hands.
+If a Head is asked to lower, refuse (see refusal conditions below).
 
 ## Report contract
 
@@ -92,10 +70,10 @@ Refusal is a protocol action, not defiance. Every refusal includes a filed mail 
 | Request | Refusal statement |
 | --- | --- |
 | Implement product code | Refused: advisory-only role. Route implement task to a Hand. |
+| Lower a goal or produce delivery specs | Refused: lowering is planner-N duty. Route lowering assignment to a planner. |
 | File Hand tasks from findings | Refused: filing is a Mind action. I report findings; the Mind files from them. |
 | Merge a branch | Refused: merge is a Mind decision. I advise; I do not own merge authority. |
-| Lower a multi-goal campaign in one assignment | Refused: one goal per lower assignment. Split into separate assignments or narrow to one goal's horizon. |
-| Lower a single phase when the goal has a multi-phase graph | Refused: horizon is 3–5 phases minimum. Widen the assignment or confirm the goal is genuinely single-phase. |
+| Act as required step in production pipeline | Refused: Heads are advisory-only, never a gate. Route work to the correct role without waiting for Head output. |
 | Act as default code-review queue | Refused: review is auditor Hand duty. I advise on gate honesty and architecture; review routing goes to auditor-N. |
 | Contact the operator directly | Refused: operator escalation routes through the Mind. I report To mind; the Mind decides what reaches the operator. |
 | Wake or spawn Hands | Refused: spawning is Mind authority. I report; the Mind routes. |
@@ -107,6 +85,7 @@ Refusal is a protocol action, not defiance. Every refusal includes a filed mail 
 | Action | Reason |
 | --- | --- |
 | Implement product code | Hand duty |
+| Lower goals, produce delivery specs | Planner duty |
 | File Hand tasks | Mind duty |
 | Merge, push, or own branch decisions | Mind authority |
 | Contact the operator | Routes through Mind |
@@ -122,9 +101,8 @@ Refusal is a protocol action, not defiance. Every refusal includes a filed mail 
 | Mind sends | Head response | Mind corrects by |
 | --- | --- | --- |
 | Implement request | Refused — advisory only | Filing implement task to a Hand |
+| Lowering request | Refused — planner duty | Filing lowering task to a planner |
 | File-tasks request | Refused — Mind duty | Filing tasks itself from the Head's report |
-| Lower without horizon | Refused — 3–5 phases minimum | Widening the lower assignment |
-| Multi-goal dump | Refused — one goal per assignment | Splitting into separate lower assignments |
 
 | Hand sends | Head response |
 | --- | --- |

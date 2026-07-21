@@ -1,10 +1,10 @@
-# Goal lowering (Head → delivery → Hand)
+# Goal lowering (planner → delivery → Hand)
 
 **Invariant:** Product Hands implement **already-lowered** delivery units. They do
 **not** absorb raw campaign goals and invent factory/delivery/architecture on
 the fly.
 
-Mind owns the **file clock**. One Head owns the **lowering** of a selected
+Mind owns the **file clock**. One **planner** owns the **lowering** of a selected
 campaign goal through planning skills into durable documents. Only those
 documents become Hand tasks.
 
@@ -44,14 +44,14 @@ when planning pre-work happens, not when a Hand goes empty.
 
 ```text
 campaign map selects goal / stage
-  → Mind assigns **lower** To one Head (default: head-ceo; fleet may pin another)
+  → Mind assigns **lower** To one planner (default: planner-1)
        scope: whole goal readiness + delivery graph for a **horizon** of phases
        (default 3–5 phases/units of a longer goal — not only the next one)
-  → Head runs planning stack → durable artifacts on disk
+  → Planner runs planning stack → durable artifacts on disk
        goal-forge (if goal not frozen)
        → goal-check → READY
        → $delivery → delivery spec + ordered unit graph for the horizon
-  → Head reports To mind: artifact paths, READY verdict, unit list, non-goals
+  → Planner reports To mind: artifact paths, READY verdict, unit list, non-goals
   → Mind accepts lowering (or sends back with named gaps)
   → Mind files **mechanical** / **repair** tasks To Hands from the ready bag
        each task cites delivery unit id + path; mini-spec may quote done-when
@@ -61,11 +61,11 @@ campaign map selects goal / stage
 
 | Actor | Owns | Does not |
 | --- | --- | --- |
-| **Mind** | Select what to lower; assign Head with horizon size; accept/reject; file Hand units from docs; merge clock; keep bag ahead of implement | Invent architecture inside Hand task bodies as a substitute for delivery; JIT single-phase lower after each Hand close |
-| **Lowering Head** (one seat) | Goal readiness + delivery docs for the assigned goal **horizon** (multi-phase unit graph) | Product code; merge; filing Hand bags; unbounded multi-**goal** campaign lowers |
+| **Mind** | Select what to lower; assign planner with horizon size; accept/reject; file Hand units from docs; merge clock; keep bag ahead of implement | Invent architecture inside Hand task bodies as a substitute for delivery; JIT single-phase lower after each Hand close |
+| **Lowering planner** (one seat) | Goal readiness + delivery docs for the assigned goal **horizon** (multi-phase unit graph) | Product code; merge; filing Hand bags; unbounded multi-**goal** campaign lowers |
 | **Implementer Hand** | Execute one delivery unit (or repair list) | Re-lower the campaign; rewrite architecture; open-ended factory on raw goals |
 | **Auditor Hand** | Post-land invariant review | Planning / delivery authorship |
-| **head-cto / head-cxo** | Gate honesty / purity (cadence) | Default lowering seat (unless fleet pins them) |
+| **head-cto / head-cxo** | Gate honesty / purity (cadence, advisory) | Not a lowering seat; Heads are advisory-only |
 
 ---
 
@@ -82,7 +82,7 @@ campaign map selects goal / stage
 | True **design** / **sensitive** product shape (voice, IA users feel) | Lower may still produce contracts; **implement** design-class work on design Hand (e.g. hand-5) — not volume Hand guessing |
 
 Starvation refill must **not** file raw campaign bullets To Hands. If the next map
-item is unlowered → assign **lower**, not implement. Prefer that lower never
+item is unlowered → assign **lower** to a planner, not implement. Prefer that lower never
 becomes starvation: horizon should already be on disk before Hands empty.
 
 ---
@@ -103,10 +103,10 @@ already exists but no delivery units are ready.
 
 ---
 
-## Lowering Head: write scope exception
+## Lowering planner: write scope
 
-Advisory Heads are normally report-only. The **lowering seat** is an explicit
-exception for **planning artifacts only**:
+Advisory Heads are normally report-only. The **lowering planner** is a Hand
+with planning duty and an explicit write scope for **planning artifacts only**:
 
 | May write | Must not write |
 | --- | --- |
@@ -114,13 +114,13 @@ exception for **planning artifacts only**:
 | `$delivery` specs, stage graphs, unit checklists under `docs/factory/` or project convention | Packet product branches as implementer |
 | Goal-check notes / READY verdict in-repo if project stores them | Hand tasks, merge, destroy foreign dirty |
 
-If the project forbids Head writes entirely, Head emits full artifact text in
-the report and Mind materializes to disk **before** filing Hands — same bar,
-different scribe. Prefer Head-written planning files when git-backed docs are
+If the project forbids planner writes entirely, the planner emits full artifact text in
+the report and the Mind materializes to disk **before** filing Hands — same bar,
+different scribe. Prefer planner-written planning files when git-backed docs are
 the handoff.
 
 **One goal (or coherent stage theme) per assignment** — with a **multi-phase
-horizon** inside that goal. Do **not** ask the Head to lower the whole multi-goal
+horizon** inside that goal. Do **not** ask the planner to lower the whole multi-goal
 campaign in one mail. Do **not** restrict the assignment to a single phase when
 the goal already has (or should have) a multi-phase delivery graph.
 
@@ -163,17 +163,18 @@ docs on multi-unit stages.
 
 ---
 
-## Interaction with other Head duties
+## Interaction with Head duties
 
 | Role | Relation to lowering |
 | --- | --- |
-| **head-ceo** | Default **lowering seat** when fleet does not pin another; also map health / side-lane bucket (advisory) |
+| **head-ceo** | Advisory on cadence: map health, priority, side-lane candidates. May recommend goals for planning; does not own lowering. |
 | **head-cto** | May refuse honesty of a lowered gate later; does not replace goal-check |
-| **head-cxo** | May flag unearned complexity in a delivery shape; does not own default lower |
+| **head-cxo** | May flag unearned complexity in a delivery shape; does not own lowering |
 
-Cadence sweeps (map integrity, purity, gate honesty) are **not** automatic
-lowering. Lowering is **assign-only** when Mind selects a goal/stage to execute —
-and at selection time the assignment is **horizon batch-ahead**, not single-phase JIT.
+Cadence sweeps (map integrity, purity, gate honesty) are **advisory**. They are
+not lowering and are not a required step in the production line. Lowering is
+**assign-only** to a planner when Mind selects a goal/stage to execute — and at
+selection time the assignment is **horizon batch-ahead**, not single-phase JIT.
 
 ---
 
@@ -184,8 +185,8 @@ and at selection time the assignment is **horizon batch-ahead**, not single-phas
 - Mind starvation-fills unlowered stages as implement tasks  
 - **Just-in-time single-phase lower** (wait for Hand close before any next-phase pre-work)  
 - Goal defined for days with zero ready delivery units while Hands sit idle  
-- Lowering Head implements product code “while here”  
-- Multiple Heads lowering the same goal in parallel without a single owner  
+- Lowering planner implements product code "while here"  
+- Multiple planners lowering the same goal in parallel without a single owner  
 - Filing Hands on `NOT READY` goals because a Hand is idle  
 - Dumping an entire multi-goal campaign into one lower mail (horizon is multi-**phase**, not multi-**goal**)  
 
