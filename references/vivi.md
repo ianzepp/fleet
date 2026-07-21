@@ -51,6 +51,37 @@ vivi --version                  # prefer ≥ 4.6 (watch/thread); 4.7+ fine
 
 Mind owns the spawn clock and all role routing. A Hand or Head with a question, finding, or recommendation files it **To mind**; Mind answers from context, files a task/need to the correct role and spawns it, or escalates to `operator@`. Direct peer mail dead-letters when the recipient isn't running.
 
+## Command shapes Hands/Heads must get right
+
+These are the commands a role runs at boot and report. Run one vivi command per shell call. Run `vivi <sub> --help` first if unsure of flags.
+
+```bash
+# Boot (load own context)
+vivi role charter show <name> --project <root>
+vivi task show <handle> --project <root>
+vivi role set <name> --pid $$ --project <root>
+vivi board --for <name> --project <root> --json   # optional
+
+# Report (file results)
+vivi task done <handle> --for <name> --note '<evidence>' --project <root>
+vivi mail send --from <name> --to mind --subject '<subject>' --body '<body>' --project <root>
+vivi mail send --from <name> --to mind --subject '<subject>' --body-file /tmp/report.txt --project <root>  # long bodies
+vivi role set <name> --clear-pid --project <root>
+```
+
+| Flag | Semantics |
+| --- | --- |
+| `--for <name>` (task done) | The **assignee** completing the task, not the original sender. Same axis as `task list --for` and `board --for`. |
+| `--from <name>` (mail send) | The **sender** role. Required; not inferred from charter or pid binding. |
+| `--body` / `--body-file` | `--body` for short inline text; `--body-file <path>` for long bodies (auditor reports, multi-section findings). Do not pipe stdin. |
+| `--pid $$` / `--clear-pid` | Register the live process at boot; clear on clean exit. Mind reads via `vivi board --process` or `vivi role status`. |
+
+Common mistakes (observed in proving runs):
+- Missing `--for` on `task done` → "required argument not provided"
+- Passing positional `To mind Subject "..."` → use named flags `--to --subject --body`
+- Piping body via stdin → use `--body` or `--body-file` explicitly
+- Chaining vivi commands in one shell call → masks which step failed; use one per call
+
 ## FLEET_CYCLE cheat sheet (Mind)
 
 Prefer **`fleet-sensors.py`** for the first two; raw CLI:

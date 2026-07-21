@@ -42,7 +42,13 @@ Load charter:  vivi role charter show <name> --project <root>
 Load task:     vivi task show <handle> --project <root>
 Register pid:  vivi role set <name> --pid $$ --project <root>
 Optional bag:  vivi board --for <name> --project <root> --json
-Execute per charter. Report via vivi task done + vivi mail send.
+
+Execute per charter. File results with the literal commands below (do not paraphrase flags).
+  vivi task done <handle> --for <name> --note '<evidence>' --project <root>
+  vivi mail send --from <name> --to mind --subject '<subject>' --body '<body>' --project <root>
+  vivi role set <name> --clear-pid --project <root>
+For long bodies use --body-file <path>; do not pipe stdin.
+Run one vivi command per shell call. Run `vivi <sub> --help` first if unsure of flags.
 Return only a short pointer.
 ```
 
@@ -56,6 +62,12 @@ vivi mail send --from <name>@<mailspace> --to mind@<mailspace> \
   --subject 'Re: <task subject>' --body '<durable findings>'
 vivi role set <name> --clear-pid --project <root>
 ```
+
+| Flag | Semantics |
+| --- | --- |
+| `--for <name>` (task done) | The **assignee** completing the task, not the sender. Same identity axis as `task list --for` and `board --for`. |
+| `--from <name>` (mail send) | The **sender** role. Required; not inferred from charter or pid binding. |
+| `--body` / `--body-file` | Use `--body-file <path>` for long bodies (auditor reports, multi-section findings). Do not pipe stdin. |
 
 Returns to parent: short pointer only.
 
