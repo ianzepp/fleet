@@ -112,6 +112,46 @@ def vivi_role_status(vivi: str, project: str, name: str) -> Dict[str, Any]:
     return data if isinstance(data, dict) else {}
 
 
+_BOARD_CACHE: Dict[tuple, dict] = {}
+
+
+def vivi_board(vivi: str, project: str) -> dict:
+    """Fetch and cache `vivi board --json`. One live call per (vivi, project) per process."""
+    cache_key = (vivi, project)
+    cached = _BOARD_CACHE.get(cache_key)
+    if cached is not None:
+        return cached
+    if not vivi:
+        return {}
+    rc, out = run([vivi, "board", "--project", project, "--json"], timeout=30)
+    if rc != 0 or not out:
+        return {}
+    try:
+        data = json.loads(out)
+    except (ValueError, TypeError):
+        return {}
+    if isinstance(data, dict):
+        _BOARD_CACHE[cache_key] = data
+        return data
+    return {}
+
+
+def vivi_mail_list_json(vivi: str, project: str, recipient: str, limit: int = 100) -> List[Dict[str, Any]]:
+    """Fetch `vivi mail list --json` for one recipient; [] on failure."""
+    if not vivi or not recipient:
+        return []
+    rc, out = run([vivi, "mail", "list", "--for", recipient, "--project", project, "--json"], timeout=20)
+    if rc != 0 or not out:
+        return []
+    try:
+        data = json.loads(out)
+    except (ValueError, TypeError):
+        return []
+    if not isinstance(data, list):
+        return []
+    return data[:limit]
+
+
 def map_vivi_state_to_pclass(state: Optional[str]) -> str:
     """Map vivi role status state to fleet pclass vocabulary."""
     if not state:
@@ -320,25 +360,21 @@ def parse_status_table(text: str) -> Dict[str, Dict[str, int]]:
 
 
 def list_open_handles(vivi: str, project: str, identity: str, kind: str = "task") -> List[Dict[str, str]]:
-    cmd = [vivi, kind, "list", "--for", identity, "--project", project]
-    rc, out = run(cmd, timeout=20)
-    if rc != 0:
-        return []
-    handles = []  # type: List[Dict[str, str]]
-    for line in out.splitlines():
-        # handle  status  role  date  from  subject
-        if "open" not in line or line.strip().startswith("handle"):
+    """Open tasks/needs for an identity via cached `vivi board --json`.
+
+    `kind` is "task" or "need"; board JSON key is "tasks" / "needs".
+    """
+    board = vivi_board(vivi, project)
+    for ident in board.get("identities") or []:
+        if not isinstance(ident, dict) or ident.get("identity") != identity:
             continue
-        parts = line.split()
-        if len(parts) >= 2 and re.match(r"^[a-f0-9]{6,}$", parts[0]):
-            # subject is rest after date-ish fields — crude but useful
-            subj = ""
-            if "  " in line:
-                # find subject after last ISO date fragment
-                m = re.search(r"\d{4}-\d{2}-\d{2}T\S+\s+\S+\s+(.*)$", line)
-                subj = (m.group(1).strip() if m else "").strip()
-            handles.append({"handle": parts[0], "status": "open", "subject": subj or line.strip()})
-    return handles
+        items = ident.get("%ss" % kind) or []
+        return [
+            {"handle": i.get("handle"), "subject": i.get("subject", "")}
+            for i in items
+            if isinstance(i, dict) and i.get("handle")
+        ]
+    return []
 
 
 def lane_binding(hand: dict) -> Optional[dict]:
@@ -429,46 +465,26 @@ def lane_progress_observation(
     }
 
 
-def _parse_mail_line(line):
-    """Parse one `vivi mail list` row into (handle, date, from, subject) or None.
-
-    Format is version-dependent: `handle [iso-date] from subject…` — the date
-    column may be absent. Leading whitespace is ignored; handle must be hex.
-    """
-    line = line.strip()
-    if not line or line.startswith("handle"):
-        return None
-    parts = line.split(None, 3)
-    if len(parts) < 3 or not re.match(r"^[a-f0-9]{6,}$", parts[0]):
-        return None
-    if len(parts) >= 4 and re.match(r"^\d{4}-\d{2}-\d{2}T", parts[1]):
-        return parts[0], parts[1], parts[2], parts[3].strip()
-    return parts[0], None, parts[1], (parts[2].strip() if len(parts) > 2 else "")
-
-
 def list_mail_from_operator(
     vivi: str, project: str, mind_identity: str, operator_identity: str, limit: int = 20
 ) -> List[Dict[str, str]]:
     """Cheap scan of mind@ for mail FROM operator@ (operator feedback / decisions)."""
-    if not vivi:
-        return []
-    cmd = [vivi, "mail", "list", "--for", mind_identity, "--project", project]
-    rc, out = run(cmd, timeout=20)
-    if rc != 0 or not out.strip():
+    rows = vivi_mail_list_json(vivi, project, mind_identity, limit=limit)
+    if not rows:
         return []
     op_token = (operator_identity or "operator").lower()
-    found = []  # type: List[Dict[str, str]]
-    for line in out.splitlines():
-        parsed = _parse_mail_line(line)
-        if parsed is None:
-            continue
-        handle, date, frm, subj = parsed
+    found = []
+    for row in rows:
+        frm = str(row.get("from") or "")
         fl = frm.lower()
         if op_token not in fl and not fl.startswith("operator@"):
             continue
-        found.append({"handle": handle, "from": frm, "subject": subj, "date": date})
-        if len(found) >= limit:
-            break
+        found.append({
+            "handle": row.get("handle"),
+            "from": frm,
+            "subject": str(row.get("subject") or ""),
+            "date": row.get("date"),
+        })
     return found
 
 
@@ -478,78 +494,60 @@ def list_mail_from_identity(vivi, project, recipient, sender_tokens, limit=5):
     Detects executive-head sweep completion: a head "completed" a sweep when a
     mail appears in the report inbox (default mind) from that head's mail
     identity or a configured legacy_aliases entry (e.g. strategist/correctness/
-    purity). Cheap line scan of `vivi mail list`; returns
-    [{handle, from, subject, date}], newest first (mail list is newest-first).
+    purity). Returns [{handle, from, subject, date}], newest first.
     """
-    if not vivi or not recipient:
-        return []
-    cmd = [vivi, "mail", "list", "--for", recipient, "--project", project]
-    rc, out = run(cmd, timeout=20)
-    if rc != 0 or not out.strip():
+    rows = vivi_mail_list_json(vivi, project, recipient, limit=limit)
+    if not rows:
         return []
     tokens = [str(t).lower() for t in sender_tokens if t]
     found = []
-    for line in out.splitlines():
-        parsed = _parse_mail_line(line)
-        if parsed is None:
-            continue
-        handle, date, frm, subj = parsed
+    for row in rows:
+        frm = str(row.get("from") or "")
         fl = frm.lower()
         if not any(tok and tok in fl for tok in tokens):
             continue
-        found.append({"handle": handle, "from": frm, "subject": subj, "date": date})
-        if len(found) >= limit:
-            break
+        found.append({
+            "handle": row.get("handle"),
+            "from": frm,
+            "subject": str(row.get("subject") or ""),
+            "date": row.get("date"),
+        })
     return found
 
 
 def list_ready_to_merge(vivi, project, recipient, limit=30):
     """Newest RTM mail sent to Mind, cheap enough for every sensor cycle."""
-    if not vivi or not recipient:
-        return []
-    rc, out = run([vivi, "mail", "list", "--for", recipient, "--project", project], timeout=20)
-    if rc != 0 or not out.strip():
+    rows = vivi_mail_list_json(vivi, project, recipient, limit=limit)
+    if not rows:
         return []
     found = []
-    for line in out.splitlines():
-        parsed = _parse_mail_line(line)
-        if parsed is None:
-            continue
-        handle, date, frm, subj = parsed
+    for row in rows:
+        subj = str(row.get("subject") or "")
         if not re.search(r"\bready[- ]to[- ]merge\b", subj, re.I):
             continue
         commits = re.findall(r"(?<![0-9a-f])[0-9a-f]{7,40}(?![0-9a-f])", subj, re.I)
-        found.append(
-            {
-                "handle": handle,
-                "from": frm,
-                "subject": subj,
-                "date": date,
-                "commit": commits[-1] if commits else None,
-            }
-        )
-        if len(found) >= limit:
-            break
+        found.append({
+            "handle": row.get("handle"),
+            "from": str(row.get("from") or ""),
+            "subject": subj,
+            "date": row.get("date"),
+            "commit": commits[-1] if commits else None,
+        })
     return found
 
 
 def list_recent_mail(vivi, project, recipient, limit=100):
     """Newest mail metadata for cheap subject-level reconciliation."""
-    if not vivi or not recipient:
-        return []
-    rc, out = run([vivi, "mail", "list", "--for", recipient, "--project", project], timeout=20)
-    if rc != 0 or not out.strip():
-        return []
-    found = []
-    for line in out.splitlines():
-        parsed = _parse_mail_line(line)
-        if parsed is None:
-            continue
-        handle, date, frm, subj = parsed
-        found.append({"handle": handle, "from": frm, "subject": subj, "date": date})
-        if len(found) >= limit:
-            break
-    return found
+    rows = vivi_mail_list_json(vivi, project, recipient, limit=limit)
+    return [
+        {
+            "handle": row.get("handle"),
+            "from": str(row.get("from") or ""),
+            "subject": str(row.get("subject") or ""),
+            "date": row.get("date"),
+        }
+        for row in rows
+    ]
 
 
 def list_memos(vivi, project, identity, limit=20):
@@ -560,32 +558,20 @@ def list_memos(vivi, project, identity, limit=20):
     """
     if not vivi or not identity or limit <= 0:
         return []
-    rc, out = run([vivi, "memo", "list", "--for", identity, "--project", project], timeout=20)
-    if rc != 0 or not out.strip():
+    rc, out = run([vivi, "memo", "list", "--for", identity, "--project", project, "--json"], timeout=20)
+    if rc != 0 or not out:
         return []
-    found = []
-    for line in out.splitlines():
-        parsed = _parse_memo_line(line)
-        if parsed is None:
-            continue
-        handle, date, subj = parsed
-        found.append({"handle": handle, "date": date, "subject": subj})
-        if len(found) >= limit:
-            break
-    return found
-
-
-def _parse_memo_line(line):
-    """Parse one `vivi memo list` row into (handle, date, subject) or None."""
-    line = line.strip()
-    if not line or line.startswith("handle"):
-        return None
-    parts = line.split(None, 2)
-    if len(parts) < 2 or not re.match(r"^[a-f0-9]{6,}$", parts[0]):
-        return None
-    if len(parts) >= 3 and re.match(r"^\d{4}-\d{2}-\d{2}T", parts[1]):
-        return parts[0], parts[1], parts[2].strip()
-    return parts[0], None, (parts[1].strip() if len(parts) > 1 else "")
+    try:
+        data = json.loads(out)
+    except (ValueError, TypeError):
+        return []
+    if not isinstance(data, list):
+        return []
+    return [
+        {"handle": m.get("handle"), "date": m.get("date"), "subject": str(m.get("subject") or "")}
+        for m in data
+        if isinstance(m, dict) and m.get("handle")
+    ][:limit]
 
 
 def rtm_completion_mail(rtm: dict, recent_mail: list, main_identity: str) -> Optional[dict]:
