@@ -409,8 +409,9 @@ FLEET_CYCLE fleets=mgs
 Roots:
   mgs:   /path/to/minted-geek-swarm
 
-Protocol: if mind-protocol.md is not in working memory (common after compaction), re-read before acting.
-  cat /Users/ianzepp/.agents/skills/fleet/references/mind-protocol.md
+Protocol: if the fleet skill (SKILL.md) or mind-protocol.md are not in working memory (common after compaction), re-read before acting.
+  cat $SK/SKILL.md
+  cat $SK/references/mind-protocol.md
 
 Gather state:
   python3 $SK/fleet-sensors.py --project "$ROOT" --text
@@ -434,7 +435,7 @@ Roots:
   nacht: /path/to/nachtbagger
 ```
 
-The protocol check, gather, execute, and close steps are the same per fleet. Run one fail-fast mini-cycle per fleet; each fleet writes its own `last_successful_cycle_at`.
+The protocol check, gather, execute, and close steps are the same per fleet. The protocol re-read covers both the fleet skill (SKILL.md) and mind-protocol.md. Run one fail-fast mini-cycle per fleet; each fleet writes its own `last_successful_cycle_at`.
 
 | Mode | Budget | Report |
 | --- | --- | --- |

@@ -17,7 +17,8 @@ FLEET_CYCLE fleets=mgs
 Roots:
   mgs:   /path/to/minted-geek-swarm
 
-Protocol: if mind-protocol.md is not in working memory (common after compaction), re-read before acting.
+Protocol: if the fleet skill (SKILL.md) or mind-protocol.md are not in working memory (common after compaction), re-read before acting.
+  cat $SK/SKILL.md
   cat $SK/references/mind-protocol.md
 
 Gather state:
@@ -45,7 +46,9 @@ Multi-fleet: one fire = fail-fast **mini-cycle per fleet**; each fleet writes ow
 
 ### Compaction recovery
 
-Context compaction during long sessions (12h+ cycles) drops protocol content from working memory. The cycle body's protocol line handles this: the Mind checks whether `mind-protocol.md` rules are in working memory, and re-reads if absent. This is not mandatory every cycle — only when the rules are no longer retained (after compaction, cold boot, or context pressure).
+Context compaction during long sessions (12h+ cycles) drops both the fleet skill and protocol content from working memory. The cycle body's protocol line handles this: the Mind checks whether the fleet skill (SKILL.md) and mind-protocol.md are retained, and re-reads whichever are absent. This is not mandatory every cycle — only when content is no longer retained (after compaction, cold boot, or context pressure).
+
+Load order on compaction recovery: SKILL.md first (role table, execution model, invariants, authority boundaries), then mind-protocol.md (the runbook that builds on it). Both are short; together they restore the Mind's operating grammar in under 250 lines.
 
 The Mind may also re-read specific references when a surface hits that it no longer retains: [`tasking.md`](tasking.md) for board kinds, [`lowering.md`](lowering.md) for horizon rules, [`fleet-posture.md`](fleet-posture.md) for standby/growth/dormant semantics. The cycle template's protocol line is the durable fallback — the Mind never loses access to its own rules merely because context was compacted.
 
