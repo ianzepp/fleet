@@ -426,6 +426,13 @@ vivi memo show   --project <root> <handle>
 vivi memo save   --project <root> --for <mind-or-head-id> --subject '...' --body '...'
 ```
 
+> **Known gap: no `memo search`.** `memo list` dumps every memo for a role;
+> there is no keyword or handle query to find memos mentioning a topic. This
+> forces a Mind to load all of a role's memos into context, which defeats the
+> purpose of selective durable memory. Until a `vivi memo search` command
+> exists, keep each role's memo set small and use descriptive handles/subjects
+> so a `memo list` scan stays cheap.
+
 **Transient routing state is not memory.** Per-cycle dispatch, wake/queue state, per-commit status belong in baseline — never in memos.
 
 ## Runtime channel (concept)

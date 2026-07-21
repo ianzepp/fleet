@@ -148,7 +148,8 @@ context later.
 vivi mailspace init --project "$ROOT"              # once per project (case 2)
 vivi mailspace status --project "$ROOT"            # every cheap cycle
 vivi mailspace identity list --project "$ROOT"
-vivi mailspace identity add <name> --project "$ROOT"
+vivi role add <name> --kind hand --harness subagent --project "$ROOT"   # one-step role seat (identity + role record)
+vivi mailspace identity add <name> --project "$ROOT"                     # thin identity only (no role metadata)
 # vivi mailspace identity rename <old> <new> --project "$ROOT"
 ```
 

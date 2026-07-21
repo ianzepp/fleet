@@ -165,18 +165,27 @@ vivi mailspace init --project "$ROOT"
 vivi mailspace status --project "$ROOT"
 ```
 
-### 2.3 Add canonical identities
+### 2.3 Add canonical roles
+
+`vivi role add` creates the identity and its role record in one step. Pass
+`--kind`/`--harness` (and `--provider`/`--model`/`--thinking` if you know them
+up front); tune them later with `vivi role set`. It errors if the name already
+exists, so re-running it on a role you already added is a loud signal to use
+`vivi role set` instead.
 
 ```bash
-vivi mailspace identity add mind --project "$ROOT"
-vivi mailspace identity add operator --project "$ROOT"
-vivi mailspace identity add hand-1 --project "$ROOT"
-# vivi mailspace identity add hand-2 --project "$ROOT"   # multi-hand later
-vivi mailspace identity add head-ceo --project "$ROOT"
-vivi mailspace identity add head-cto --project "$ROOT"
-vivi mailspace identity add head-cxo --project "$ROOT"
-vivi mailspace identity list --project "$ROOT"
+vivi role add mind --project "$ROOT" --kind mind
+vivi role add operator --project "$ROOT"                  # thin inbox: human escalations only
+vivi role add hand-1 --project "$ROOT" --kind hand --harness tmux
+# vivi role add hand-2 --project "$ROOT" --kind hand --harness tmux   # multi-hand later
+vivi role add head-ceo --project "$ROOT" --kind head --harness subagent
+vivi role add head-cto --project "$ROOT" --kind head --harness subagent
+vivi role add head-cxo --project "$ROOT" --kind head --harness subagent
+vivi role list --project "$ROOT"
 ```
+
+`vivi mailspace identity add` remains as a thin-identity alias (no role
+metadata) for mailboxes that are not agent seats.
 
 | Identity | Role |
 | --- | --- |
@@ -246,13 +255,13 @@ Replace paths and `cwd`. Full schema / multi-fleet `tmux_layout`: [`runtime-conf
 
 ### Set capacity on Vivi roles
 
-Capacity (provider/model/thinking) and charter live on the Vivi role record, not in fleet.json:
+Capacity (provider/model/thinking) and charter live on the Vivi role record, not in fleet.json. The canonical roles are already created in one step above (§2.3); tune their capacity and charter here:
 
 ```bash
-vivi role add hand-1 --project "$ROOT" --kind hand --harness tmux
 vivi role set hand-1 --project "$ROOT" --provider openai-codex --model gpt-5.5 --thinking medium
 vivi role charter set hand-1 --project "$ROOT" --body 'You are a fleet product Hand. Execute assigned work, commit, report To mind.'
 
+# auditor-1 is not in the canonical list above; add it in one step, then tune:
 vivi role add auditor-1 --project "$ROOT" --kind hand --harness tmux --label auditor
 vivi role set auditor-1 --project "$ROOT" --provider openai-codex --model gpt-5.5 --thinking high
 ```
