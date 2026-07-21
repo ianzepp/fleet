@@ -21,8 +21,9 @@ Protocol: if the fleet skill (SKILL.md) or mind-protocol.md are not in working m
   cat $SK/SKILL.md
   cat $SK/references/mind-protocol.md
 
-Gather state:
-  python3 $SK/fleet-sensors.py --project "$ROOT" --text
+Gather state (two calls):
+  vivi board --project "$ROOT"                                    # work truth: tasks/needs/wants per identity, Head cadence
+  python3 $SK/fleet-sensors.py --project "$ROOT" --text            # process truth: git tips, dirty paths, runtime, signals
 
 Execute cycle per mind-protocol.md: resolve mode → sensors → classify each signal → disposition → act same turn → sleep if quiet.
 
@@ -416,9 +417,20 @@ Pi Mind cycles may use the Pi-owned Fleet loop or discrete cycles with shell `sl
 
 **Thorough:** re-diff vs `last_thorough_fingerprint`. Unchanged → quiet thorough (still pane scan). Moved → all fleet scopes (main + side lanes); residuals **To owning hand-N**; update fingerprint.
 
+### Cycle orientation (two-call pattern)
+
+Start every cycle with two calls. Board is work truth; sensors is process truth.
+
+```text
+vivi board --project <root>                    # all identities, tasks/needs/wants, Head cadence
+fleet-sensors.py --project <root> --text       # git tips, dirty paths, runtime, signals, fingerprint
+```
+
+Do not call `board --for <role>` per-identity — the default shows every role in one call. Drill into a specific handle with `vivi task show <handle>` only when board surfaces something that needs detail.
+
 ### Sensors (full order — keep cheap)
 
-Prefer `fleet-sensors.py`. Manual order when helpers unavailable:
+When `fleet-sensors.py` is unavailable or you need detail beyond the two-call pattern:
 
 ```text
 0. Resolve mind_mode

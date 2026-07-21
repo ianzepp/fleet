@@ -85,8 +85,16 @@ Kind is not severity. Urgency goes in the subject/body. Never **task** To `opera
 
 ## Cycle structure
 
-1. **Sensors:** `fleet-sensors.py`, mail, runtime state.
-2. **Classify:** every material signal gets exactly one disposition:
+1. **Two-call orientation.** Start every cycle with these two commands:
+
+| Call | What it surfaces | What it does NOT |
+| --- | --- | --- |
+| `vivi board --project <root>` | All work: tasks/needs/wants per identity, Head cadence state, task handles + subjects | Git state, runtime liveness, fingerprint |
+| `fleet-sensors.py --project <root> --text` | Git tips, dirty paths, runtime state, fingerprint, signals, posture | Task contents, handles, subjects |
+
+Board is work truth. Sensors is process truth. Read both; corroborate. Do not call `board --for <role>` per-identity — the default `board --project <root>` shows every identity in one call.
+
+2. **Classify.** Every material signal gets exactly one disposition:
 
 | Disposition | Condition |
 | --- | --- |
