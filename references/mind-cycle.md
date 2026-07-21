@@ -51,7 +51,7 @@ Context compaction during long sessions (12h+ cycles) drops both the fleet skill
 
 Load order on compaction recovery: SKILL.md first (role table, execution model, invariants, authority boundaries), then mind-protocol.md (the runbook that builds on it). Both are short; together they restore the Mind's operating grammar in under 250 lines.
 
-The Mind may also re-read specific references when a surface hits that it no longer retains: [`tasking.md`](tasking.md) for board kinds, [`lowering.md`](lowering.md) for horizon rules, [`fleet-posture.md`](fleet-posture.md) for standby/growth/dormant semantics. The cycle template's protocol line is the durable fallback — the Mind never loses access to its own rules merely because context was compacted.
+The Mind may also re-read specific references when a surface hits that it no longer retains: [`tasking.md`](tasking.md) for board kinds, [`lowering.md`](lowering.md) for horizon rules, [`posture.md`](posture.md) for standby/growth/dormant semantics. The cycle template's protocol line is the durable fallback — the Mind never loses access to its own rules merely because context was compacted.
 
 ### Counters (write every cycle)
 
@@ -227,18 +227,19 @@ python3 scripts/fleet-baseline.py bump -p <ROOT> -s '<summary>' \
 # Attach/detach: --mind-session <label> (sets mind_session lock + state=attached)
 #                --detach (clears mind_session + state=detached)
 # NEVER hand-edit mind-baseline.json. Use bump flags for all state transitions.
-# only if steward enabled+armed for this fleet (default: skip):
-# scripts/steward.sh rearm --project <ROOT>
+# Steward rearm is not currently implemented (steward.sh removed; Vivi-native
+# steward pending). Skip this line until a steward implementation exists:
+# steward rearm --project <ROOT>
 ```
 
 | Also | When |
 | --- | --- |
-| `steward.sh arm` | **Only** after operator sets `steward.enabled` **and** asks to arm **this** fleet — not on attach/loop alone |
-| `steward.sh rearm` | End of successful mini-cycle **if** that fleet’s steward is armed |
-| `steward.sh disarm` | If armed: detach, stop loop, wind-down — **same turn** |
-| `steward.sh clear` | After dead-man trip recovery |
+| `steward arm` | **Only** after operator sets `steward.enabled` **and** asks to arm **this** fleet — not on attach/loop alone. Not implemented today. |
+| `steward rearm` | End of successful mini-cycle **if** that fleet’s steward is armed. Not implemented today. |
+| `steward disarm` | If armed: detach, stop loop, wind-down — **same turn**. Not implemented today. |
+| `steward clear` | After dead-man trip recovery. Not implemented today. |
 
-Progress = **successful cycle completion for that fleet**, not inject or turn start. Multi-fleet: baseline bump **each** mini-cycled fleet; rearm only fleets with steward armed. [`dead-man.md`](dead-man.md), [`multi-fleet.md`](multi-fleet.md).
+Progress = **successful cycle completion for that fleet**, not inject or turn start. Multi-fleet: baseline bump **each** mini-cycled fleet; rearm only fleets with steward armed (no implementation exists today). [`dead-man.md`](dead-man.md), [`multi-fleet.md`](multi-fleet.md).
 
 Thorough/superficial cadence still applies (`cycle % N == 0`). Autonomous thorough = residual-shaped — **not** peer review of every packet. **Code review** is a **Hand** duty on **`auditor-1` / `auditor-2`** (configured under `hands`, skill `$auditor`) — not head-cto by default. **Review triage:** do not open a review task per implementer completion — low-risk `done` evidence satisfies accept; file an **auditor Hand** task when risk signal, security/auth/persistence change, or sampled audit. Security-critical → auditor Hand and/or **head-cso** / `$black-hat`. **head-cto** = gate honesty / architecture only. Universal per-completion review is an anti-pattern.
 
@@ -264,7 +265,9 @@ python3 $SK/fleet-sensors.py --project "$ROOT" --record-cycle --cycle-id <non-ne
 python3 $SK/fleet-sensors.py --project "$ROOT" --history 10 [--role hand-1]
 
 # Doorbell for Pi and compatibility harnesses; Codex helper path uses submit-settle
-$SK/fleet-doorbell.sh --project "$ROOT" --role hand-1 --handle <hex> --note 'bag open'
+# The fleet-doorbell.sh helper is removed. Spawn a sub-agent directly, or for
+# tmux/PTY backends use `tmux send-keys` with a thin boot pointer.
+tmux send-keys -t "<tmux_target>" "HAND WAKE hand-1. Bag: <handle>. Load charter and task from Vivi." Enter
 # exit 0 sent · 1 refused (running|down|rate-limit) · 2 usage
 
 # Normal end-of-cycle path. Repeat --disposition once for every emitted signal,
@@ -276,7 +279,7 @@ python3 $SK/fleet-cycle-close.py --project "$ROOT" --acted --summary '…' \
 | Helper | Job |
 | --- | --- |
 | `fleet-sensors.py` | Board status, optional watch, handles, pane classes, git tip/divergence/dirty paths, fingerprint, `signals[]`, `quiet_hint` |
-| `fleet-doorbell.sh` | Resolve `tmux_target`; refuse running/down/rate-limit; pointer `send-keys` only; `last_hand_wake` |
+| `tmux send-keys` / sub-agent spawn | Resolve `tmux_target`; refuse running/down/rate-limit; pointer only; record `last_hand_wake` |
 | `fleet-baseline.py` | `get` / `bump` / `rearm-note` / `wound-up` — counters, mode silence, fingerprints, recap, `--mind-session` attach, `--detach` |
 
 ### Signal disposition gate

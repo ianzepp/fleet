@@ -39,8 +39,8 @@ hand-N / head-*  =  identity (mail + remote tmux session name)
 | Concern | Where |
 | --- | --- |
 | Pane scan / capture | `ssh … 'tmux capture-pane -t <target> …'` |
-| Doorbell | `ssh … 'tmux send-keys -t <target> -l -- "…"'` then Enter |
-| Codex doorbell / reinit fallback | `fleet-doorbell.sh` first; `scripts/codex-reinit.sh` **on Hand host** (or SSH-wrap) only for stuck/down/error recovery; remote `PROJECT`/`FLEET` |
+| Doorbell | `ssh … 'tmux send-keys -t <target> -l -- "…"'` then Enter (the `fleet-doorbell.sh` helper is removed) |
+| Codex doorbell / recovery fallback | Pointer doorbell via `tmux send-keys` first; recreate the pane/session directly (the `codex-reinit.sh` helper is removed) for stuck/down/error recovery on the Hand host |
 | Vivi bag / watch / thread | Host that can see board `.vivi/` |
 | Git work | Remote `cwd` checkout / worktree |
 
@@ -87,11 +87,14 @@ Same pointer-only rules as local dual-channel.
 ### Remote reinit fallback (Codex)
 
 ```bash
-$SSH 'export PATH=…; /path/to/codex-reinit.sh heal --project /path/on/remote \
-  --role hand-N'
+# Recreate the stuck Codex pane/session directly (codex-reinit.sh is removed):
+$SSH "tmux kill-window -t hand-N:1 2>/dev/null; \
+  tmux new-window -t hand-N -n main -c /path/on/remote"
+$SSH "$REMOTE_PATH; tmux send-keys -t hand-N:1 -l -- 'codex --model <model> --dangerously-bypass-approvals-and-sandbox'"
+$SSH 'tmux send-keys -t hand-N:1 Enter'
 ```
 
-For normal remote Codex wakes, use the same pointer doorbell with submit-settle on the Hand host. Copy/symlink `scripts/codex-reinit.sh` onto remote only for fallback recovery; laptop path may not exist there.
+For normal remote Codex wakes, use the same pointer doorbell (`tmux send-keys`) with submit-settle on the Hand host. There is no helper to copy onto the remote; recovery is done with plain `tmux` commands.
 
 ### Remote Head
 
@@ -146,5 +149,5 @@ Operator Mind in desktop app; product Hands (+ optional Heads) on remote tmux. D
 ## Related
 
 - Pane/wake + Vivi watch/thread: `dual-channel.md`
-- Codex: `fleet-doorbell.sh`; fallback `scripts/codex-reinit.sh` + `runtime-config.md`
+- Codex: pointer doorbell via `tmux send-keys`; fallback recovery by recreating the pane/session directly (helpers removed) + `runtime-config.md`
 - Roles / desktop Mind: `roles-and-harness.md`

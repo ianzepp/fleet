@@ -19,12 +19,15 @@ Or install the Fleet package:
 pi install /Users/ianzepp/work/ianzepp/fleet
 ```
 
-**Hands and Heads must not load this extension.** Use the Fleet skill wrappers:
+**Hands and Heads must not load this extension.** The `pi-hand` / `pi-head`
+wrappers have been removed; launch Hands/Heads with `pi` directly using the
+appropriate safety flags (Hands: `--no-extensions`; Heads: `--no-extensions
+--exclude-tools edit,write`). See [`pi-role-wrappers.md`](pi-role-wrappers.md).
 
-| Role | Wrapper | See |
+| Role | Launch policy | See |
 | --- | --- | --- |
-| Hand | `scripts/pi-hand` (`--no-extensions`) | [`pi-role-wrappers.md`](pi-role-wrappers.md) |
-| Head | `scripts/pi-head` (`--no-extensions` + deny `edit,write`) | [`pi-role-wrappers.md`](pi-role-wrappers.md) |
+| Hand | `pi --no-extensions …` (keep read/bash/edit/write; no extension discovery) | [`pi-role-wrappers.md`](pi-role-wrappers.md) |
+| Head | `pi --no-extensions --exclude-tools edit,write …` | [`pi-role-wrappers.md`](pi-role-wrappers.md) |
 | Mind | full `pi` **with** extension (or Grok / other Mind harness) | this file |
 
 A detected `.vivi/` mailspace in the current directory is only a **candidate**.

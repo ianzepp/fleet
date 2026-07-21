@@ -3,7 +3,7 @@
 Load when arming Heads, writing role prompts, or renaming identities.  
 **Personas** (depth): [`personas/`](personas/).  
 **Loops** (process): [`../heads.md`](../heads.md) — assign → report, map-health, side-lane buckets, post-main review, purity.  
-**Posture:** [`../fleet-posture.md`](../fleet-posture.md) — growth / standby / dormant dial for Head proactivity.
+**Posture:** [`../posture.md`](../posture.md) — growth / standby / dormant dial for Head proactivity.
 
 These seats continue the camp **strategist / correctness / purity** advisors. They are **not** a free-standing `$executive-team` board of directors.
 

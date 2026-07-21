@@ -103,18 +103,13 @@ evidence over stale scrollback failures.
 
 ## Doorbell (wake)
 
-When `waiting_for_input` and the Hand has open tasks, send a boot pointer per [SKILL.md § Role communication contract](../SKILL.md#role-communication-contract). The role loads charter and task from Vivi; the doorbell text is a thin pointer, not policy.
-
-```bash
-scripts/fleet-doorbell.sh --project <root> --role hand-1 --handle <hex> --note '…'
-# exit 0 sent · 1 refused · 2 usage/config
-```
-
-Or directly:
+When `waiting_for_input` and the Hand has open tasks, send a boot pointer per [SKILL.md § Role communication contract](../SKILL.md#role-communication-contract). The role loads charter and task from Vivi; the doorbell text is a thin pointer, not policy. The `fleet-doorbell.sh` helper is removed — send the pointer directly:
 
 ```bash
 tmux send-keys -t '<tmux_target>' -l -- '<boot pointer only>'
 tmux send-keys -t '<tmux_target>' Enter
+# Before sending, classify the pane: only type into panes with positive agent
+# chrome (waiting_for_input / completed). Refuse running/down/rate-limit.
 ```
 
 Typical boot pointer text (abbreviated — role loads the full boot contract from charter, including PID registration):
@@ -123,7 +118,7 @@ Typical boot pointer text (abbreviated — role loads the full boot contract fro
 HAND WAKE hand-1. Role hand-1. Task <handle>. Load charter and task from Vivi. Report via vivi task done + vivi mail send.
 ```
 
-**Doorbell fail-closed:** `fleet-doorbell.sh` only types into panes with positive agent chrome (`waiting_for_input` / `completed`). Unmatched screens and bare shells classify as `unready` and are refused — never inject a pointer into zsh/bash.
+**Doorbell fail-closed:** only type into panes with positive agent chrome (`waiting_for_input` / `completed`). Unmatched screens and bare shells classify as `unready` and are refused — never inject a pointer into zsh/bash. The helper that enforced this (`fleet-doorbell.sh`) is removed; the Mind must classify the pane before sending.
 
 **Rate-limit wakes** (`min_seconds_between_wakes`) only when that Hand already has a prior doorbell (`last_hand_wake.by_hand.<name>.count ≥ 1`). No last wake / count 0 → never rate-limit.
 
@@ -146,33 +141,37 @@ Bad: full multi-agent policy, stage graphs, long defaults lists, pasted persona 
 
 ### assignment_mode (doorbell applies it)
 
-When waking a new task/need handle, `fleet-doorbell.sh` applies the role's
-`assignment_mode` before the pointer:
+When waking a new task/need handle, apply the role's
+`assignment_mode` before the pointer (the `fleet-doorbell.sh` helper that did
+this is removed — apply the mode with direct `tmux send-keys` first):
 
 | Mode | Before pointer |
 | --- | --- |
 | `new` | Idle → `/new` → idle (or start if stopped) |
 | `compact` | Idle → `/compact` → idle |
 | `continue` | Pointer only (auto-start if stopped) |
-| `restart` | `fleet-runtime.py restart --force` → idle |
+| `restart` | recreate the pane/session, then idle |
 
 Same-handle rewakes skip prepare. Full table: [`runtime-config.md`](runtime-config.md).
 
 ## Codex reinit fallback
 
-**Policy:** normal pointer doorbell first. Reinit is recovery, not the default wake.
+**Policy:** normal pointer doorbell first. Reinit is recovery, not the default wake. The `codex-reinit.sh` helper is removed; recovery is done by recreating the pane/session directly.
 
 **Reinit when:** process down; trust/error prompt that cannot be accepted inline; Codex text remains stuck after a doorbell retry; stale bootstrap repeats.
 
 1. File next task/need before launch so a handle exists
-2. Doorbell through `fleet-doorbell.sh` so Codex gets submit-settle
-3. If it sticks, use `codex-reinit.sh doctor` / `snapshot` / `reinit`
+2. Doorbell via `tmux send-keys` (with submit-settle for Codex)
+3. If it sticks, recreate the pane/session directly with `tmux`
 4. Reinit launch must avoid `exec` and use the role's configured capacity from Vivi
 5. First message is the thin boot pointer (see [Role communication contract](../SKILL.md#role-communication-contract)) — role + task handle; charter loads from Vivi
 
 ```bash
-scripts/codex-reinit.sh doctor --project <root> --fleet <fleet-id> --role hand-1
-scripts/codex-reinit.sh reinit --project <root> --fleet <fleet-id> --role hand-1
+# Recreate a stuck Codex pane directly (codex-reinit.sh is removed):
+tmux kill-window -t '<tmux_target>' 2>/dev/null
+tmux new-window -t '<session>' -n '<window>' -c '<fleet cwd>'
+tmux send-keys -t '<tmux_target>' -l -- '<codex launch from Vivi role capacity>'
+tmux send-keys -t '<tmux_target>' Enter
 ```
 
 ## Process ops (start / rehome / restart)
@@ -241,9 +240,7 @@ Records `.vivi/fleet-loop.json`. Loop ≠ steward and never runs sensors itself.
 
 | Script | Purpose |
 | --- | --- |
-| `fleet-doorbell.sh` | Pointer doorbell with assignment_mode + submit-settle |
-| `codex-reinit.sh` | Codex doctor / heal / reinit / classify |
-| `opencode-hand-ctl.sh` | opencode Hand control |
-| `fleet-runtime.py` | Backend-neutral start/stop/restart/status |
 | `fleet-loop.py` | tmux-backed FLEET_CYCLE injector |
 | `fleet-resolve.py` | Resolve project + fleet + role → tmux target |
+
+Removed helpers (use tmux directly): `fleet-doorbell.sh` (pointer doorbell — use `tmux send-keys`), `codex-reinit.sh` (Codex recovery — recreate pane directly), `opencode-hand-ctl.sh` (opencode Hand control — operate the pane directly), `fleet-runtime.py` (backend-neutral start/stop/restart — use tmux/vivi-pty directly).

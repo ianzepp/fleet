@@ -87,8 +87,8 @@ Boot and report shapes are identical across backends. Only delivery differs.
 | Backend | Boot pointer via | Completion by |
 | --- | --- | --- |
 | **Sub-agent** | Thin spawn prompt | Notification (event) |
-| **tmux** | `fleet-doorbell.sh` / `tmux send-keys` | Pane classification (poll) |
-| **vivi-pty** | `fleet-doorbell.sh` / `terminal write` | Session diagnostics (poll) |
+| **tmux** | `tmux send-keys` | Pane classification (poll) |
+| **vivi-pty** | `vivi-pty terminal write` | Session diagnostics (poll) |
 
 Mechanics: [`subagent.md`](references/subagent.md), [`tmux.md`](references/tmux.md), [`vivi-pty.md`](references/vivi-pty.md).
 
@@ -249,7 +249,7 @@ Canon for absorb/accept: [`mind-cycle.md`](references/mind-cycle.md) § Absorb v
 | Mind memory | Memos carry rules and policy that must survive a **cold boot** — a brand-new session with no compaction history. Two tests, both must fail for a memo to be warranted: (1) would losing this across a cold boot cause a worse decision? (2) can it be recovered from a Vivi handle instead? If yes to the second, use a pointer in compaction — not a memo. Things tied to the current working arc (task status, hand progress, audit results) belong in compaction or the board, not memos. |
 | Mind mail hygiene | Mail To mind is routing and triage, not memory. Read it, act on it, absorb it. Do not accumulate open mail as a backlog; do not self-address mail as a parking lot. Absorb marks mail read (the consume lifecycle) and is not a memory mechanism — durable context belongs in memo, working context belongs in compaction. On major inflection (campaign end, stage closeout), audit memos and retire ones that reference superseded architecture. |
 | Wake on mail | Each Mind cycle is the debounce: new board mail addressed to a process role wakes that role when idle. Running agents are not interrupted |
-| Posture | Per-fleet `growth` \| `standby` \| `dormant` — [`fleet-posture.md`](references/fleet-posture.md) |
+| Posture | Per-fleet `growth` \| `standby` \| `dormant` — [`posture.md`](references/posture.md) |
 | Assignment mode | Per Hand/Head `assignment_mode`: `new` \| `compact` \| `continue` \| `restart` — [`runtime-config.md`](references/runtime-config.md) |
 | Cadence | Sub-agent fleets: **15–30m** backup loop (event-driven). tmux/PTY fleets: **3–5m** polling loop. Adapt per [`mind-cycle.md`](references/mind-cycle.md#event-driven-cadence-sub-agent-fleets) |
 | Lane lifecycle | A bound idle Hand is investigated after the configured grace; Mind reconciles map/task/worktree truth before continue, park, cooldown, or release. Runtime release never implies worktree deletion |
@@ -333,7 +333,7 @@ Each role has a compact mandatory-read protocol. It distills the rules from the 
 | operator@ | [`operator-mail.md`](references/operator-mail.md) |
 | Steward | [`dead-man.md`](references/dead-man.md) |
 | Multi-fleet | [`multi-fleet.md`](references/multi-fleet.md) |
-| Posture / sleep vs continuity | [`fleet-posture.md`](references/fleet-posture.md) |
+| Posture / sleep vs continuity | [`posture.md`](references/posture.md) |
 | Side lanes / lane lifecycle / merge | [`multi-lane.md`](references/multi-lane.md) |
 | Heads | [`heads.md`](references/heads.md), [`heads/cast.md`](references/heads/cast.md) |
 | Remote | [`ssh-remote.md`](references/ssh-remote.md) |
@@ -343,8 +343,8 @@ Each role has a compact mandatory-read protocol. It distills the rules from the 
 | Pi Hand/Head wrappers | [`pi-role-wrappers.md`](references/pi-role-wrappers.md) |
 | Sensors / baseline | [`fleet-sensors.py`](scripts/fleet-sensors.py), [`fleet-baseline.py`](scripts/fleet-baseline.py), [`fleet-resolve.py`](scripts/fleet-resolve.py) |
 | Mind loop fallback | [`scripts/fleet-loop.py`](scripts/fleet-loop.py) |
-| Runtime lifecycle | [`scripts/fleet-runtime.py`](scripts/fleet-runtime.py) |
-| Runtime rebind | [`scripts/fleet-runtime-rebind.py`](scripts/fleet-runtime-rebind.py) |
+| Runtime lifecycle | start/stop/restart directly via the configured backend (`tmux` / `vivi-pty`) — the `fleet-runtime.py` helper is removed |
+| Runtime rebind | restart affected sessions directly — the `fleet-runtime-rebind.py` helper is removed |
 | Cycle close | [`scripts/fleet-cycle-close.py`](scripts/fleet-cycle-close.py) |
 
 ## Don't get stuck

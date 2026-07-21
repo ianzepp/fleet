@@ -2,7 +2,7 @@
 
 **Read completely before the first cycle. File no task, need, or assignment until read.**
 
-Canonical detail: [`tasking.md`](tasking.md), [`lowering.md`](lowering.md), [`mind-cycle.md`](mind-cycle.md), [`fleet-posture.md`](fleet-posture.md), [`operator-mail.md`](operator-mail.md).
+Canonical detail: [`tasking.md`](tasking.md), [`lowering.md`](lowering.md), [`mind-cycle.md`](mind-cycle.md), [`posture.md`](posture.md), [`operator-mail.md`](operator-mail.md).
 
 ## Role
 

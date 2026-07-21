@@ -51,7 +51,7 @@ native desktop widget API for a persistent Fleet panel.
 - [`references/multi-fleet.md`](references/multi-fleet.md) — one Mind supervising many fleets (session-attach model)
 - [`references/multi-lane.md`](references/multi-lane.md) — side lanes, theme merge, base-update, pending merges
 - [`references/ssh-remote.md`](references/ssh-remote.md) — Hands and Heads on remote hosts
-- [`references/fleet-posture.md`](references/fleet-posture.md) — growth / standby / dormant: when to sleep vs continue
+- [`references/posture.md`](references/posture.md) — growth / standby / dormant: when to sleep vs continue
 - [`references/multi-fleet-design.md`](references/multi-fleet-design.md) — design archive for the session-attach model
 
 ## Config and fallbacks
@@ -65,13 +65,11 @@ native desktop widget API for a persistent Fleet panel.
 | --- | --- |
 | [`scripts/fleet-sensors.py`](scripts/fleet-sensors.py) | Read fleet state (panes, mail, git tips) for a wake |
 | [`scripts/fleet-baseline.py`](scripts/fleet-baseline.py) | Read / bump Mind counters and silence state |
-| [`scripts/fleet-doorbell.sh`](scripts/fleet-doorbell.sh) | Pointer-only Hand/Head wake via `tmux_target` |
-| [`scripts/codex-reinit.sh`](scripts/codex-reinit.sh) | Recover a stuck Codex Hand pane |
-| [`scripts/steward.sh`](scripts/steward.sh) | Arm / rearm / disarm the dead-man watchdog |
+| [`scripts/fleet-cycle-close.py`](scripts/fleet-cycle-close.py) | Deterministic Mind close: sensors → dispositions → receipt → baseline |
+| [`scripts/fleet-loop.py`](scripts/fleet-loop.py) | tmux-backed fallback `FLEET_CYCLE` scheduler |
+| [`scripts/fleet-resolve.py`](scripts/fleet-resolve.py) | Helper resolution used by cycle-close |
 | [`scripts/suggest-polish-files.py`](scripts/suggest-polish-files.py) | Rank files for a bounded polish task after main moves |
-| [`scripts/fleet-runtime.py`](scripts/fleet-runtime.py) | Backend-neutral start/stop/restart/status for configured Hand/Head runtimes |
-| [`scripts/fleet-runtime-rebind.py`](scripts/fleet-runtime-rebind.py) | Plan/apply atomic runtime rebinds across roles |
-| [`scripts/fleet-cycle-close.py`](scripts/fleet-cycle-close.py) | Deterministic Mind close: sensors → dispositions → receipt → baseline → optional steward rearm |
-| [`scripts/smoke-portability.sh`](scripts/smoke-portability.sh) | Env + helper portability checks |
+
+Removed (redesign pending): `steward.sh` (Vivi-native steward), `fleet-doorbell.sh` (use `tmux send-keys` / sub-agent spawn directly), `fleet-runtime.py` / `fleet-runtime-rebind.py` (start sessions directly via the configured backend), `codex-reinit.sh` (recreate panes directly), `verify-fleet-json.py` (validate via `vivi role list`), `fleet-posture.py` (set `fleet_posture.mode` on baseline/config), `smoke-portability.sh`, `vivi-pty-reinit.sh`, `opencode-hand-ctl.sh`, `pi-hand`, `pi-head`.
 
 Head personas live under [`references/heads/personas/`](references/heads/personas/).

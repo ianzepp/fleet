@@ -4,7 +4,7 @@ Load when running **head-ceo** / **head-cto** / **head-cxo**, or triaging Head m
 
 **Cast + personas:** [`heads/cast.md`](heads/cast.md), [`heads/personas/`](heads/personas/).  
 Load persona only when assigning that Head for depth — not every FLEET_CYCLE.  
-**Posture dial:** [`fleet-posture.md`](fleet-posture.md) — Head proactivity kind/intensity.
+**Posture dial:** [`posture.md`](posture.md) — Head proactivity kind/intensity.
 
 | Hard rule | |
 | --- | --- |
@@ -73,7 +73,7 @@ Set cadence per role via `vivi role set <head> --cadence <duration> --project <r
 | `overdue` | Spawn for stewardship (advisor sweep, map audit) unless posture says quiet |
 | `none` | Reactive — explicit Mind tasks only |
 
-Posture still gates whether overdue spawns happen on `dormant` (pause). Full semantics: [`fleet-posture.md`](fleet-posture.md).
+Posture still gates whether overdue spawns happen on `dormant` (pause). Full semantics: [`posture.md`](posture.md).
 
 ---
 
@@ -162,7 +162,7 @@ Answer: continue (≤N product units with effort/est_tokens) OR recommend standb
 No polish makework. Report To mind@.
 ```
 
-Standby/dormant fleets: **no** continuity spam — quiet is success. Detail: [`fleet-posture.md`](fleet-posture.md).
+Standby/dormant fleets: **no** continuity spam — quiet is success. Detail: [`posture.md`](posture.md).
 
 ### Side-lane / hand-2+ capacity bucket
 

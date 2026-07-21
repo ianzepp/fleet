@@ -105,7 +105,7 @@ compatibility exceptions.
 7. **Integration** — Hands commit own work; Mind decides branch strategy at assignment; audit loop (implement → auditor → verify → accept) is the integration bar  
 8. **Hygiene** — polish advisory after main lands; `$housekeeping` only at **major inflection**
 
-**Keep screen moving (product only):** empty bag + map has unblocked **product** work = **starvation** → file next + wake. **Posture** (`growth` / `standby` / `dormant`): growth = aggressive Head research + expansion; standby = quiet Hands, Head **stewardship** (not expansion); dormant = Heads rare. Continuity doubt → head-ceo once, not thrash — [`fleet-posture.md`](fleet-posture.md).
+**Keep screen moving (product only):** empty bag + map has unblocked **product** work = **starvation** → file next + wake. **Posture** (`growth` / `standby` / `dormant`): growth = aggressive Head research + expansion; standby = quiet Hands, Head **stewardship** (not expansion); dormant = Heads rare. Continuity doubt → head-ceo once, not thrash — [`posture.md`](posture.md).
 
 **Don't get stuck:** name class (decision, dirt, pane, capacity); unstick or pivot same turn.
 

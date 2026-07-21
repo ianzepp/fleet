@@ -135,8 +135,7 @@ vivi mailspace --help
 
 ```bash
 SK=<path-to-this-skill>/scripts
-ls "$SK/steward.sh" "$SK/fleet-sensors.py" "$SK/lib/env.sh"
-bash "$SK/smoke-portability.sh"
+ls "$SK/fleet-sensors.py" "$SK/lib/env.sh"
 bash --version; python3 --version   # ≥ 3.9
 command -v tmux && tmux -V; command -v git
 ```
@@ -222,7 +221,7 @@ vivi role set auditor-1 --project "$ROOT" \
 vivi role list --project "$ROOT"
 ```
 
-**Posture:** set with `fleet-posture.py` — `growth` ships the map; `standby` / `dormant` = on-call or paused. Detail: [`fleet-posture.md`](fleet-posture.md).
+**Posture:** set growth / standby / dormant on the fleet config (the `fleet-posture.py` helper is removed; set `fleet_posture.mode` directly on the baseline or Vivi config). `growth` ships the map; `standby` / `dormant` = on-call or paused. Detail: [`posture.md`](posture.md).
 
 Multi-fleet `tmux_layout`: [`runtime-config.md`](runtime-config.md), [`multi-fleet.md`](multi-fleet.md).
 
@@ -287,7 +286,6 @@ vivi task send --project "$ROOT" \
 
 SK=<path-to-this-skill>/scripts
 python3 "$SK/fleet-sensors.py" --project "$ROOT" --text
-bash "$SK/smoke-portability.sh" --project "$ROOT"
 ```
 
 ### 2.7 Next step
@@ -382,32 +380,33 @@ If **operator→mind** mail or open/unread **To operator@** → present/absorb *
 
 - Prefer **`fleet-sensors.py --project $ROOT`** over hand-rolled dumps.
 - `running` → do not wake.
-- `waiting_for_input` / `completed` + open bag → doorbell. Codex uses the helper's submit-settle delay.
+- `waiting_for_input` / `completed` + open bag → doorbell via `tmux send-keys`. Codex uses a longer submit-settle delay.
 - `down` / `error_*` → recreate pane or runtime ladder — do not assume init case 2.
 
 ```bash
-"$SK/fleet-doorbell.sh" --project "$ROOT" --role hand-1 --handle <hex>
+# tmux backend — pointer doorbell:
+tmux send-keys -t "<tmux_target>" "HAND WAKE hand-1. Task <hex>. Load charter and task from Vivi." Enter
 
-# Codex recovery only if the doorbell sticks:
-# "$SK/codex-reinit.sh" doctor --project "$ROOT" --role hand-1
-# "$SK/codex-reinit.sh" reinit --project "$ROOT" --role hand-1 --boot 'HAND WAKE …'
+# vivi-pty backend:
+vivi-pty --project "$ROOT" terminal write <session-id> "HAND WAKE hand-1. Task <hex>." --enter
+
+# Codex recovery (if a tmux doorbell sticks): recreate the pane/session directly.
 ```
 
 ### 3.6 Steward is OFF by default (operator opt-in)
 
-**Do not arm steward on attach or when starting `/loop`.** Dead-man is optional.
+**Do not arm steward on attach or when starting `/loop`.** Dead-man is optional,
+and the steward implementation is currently paused (`steward.sh` was removed; a
+Vivi-native steward is pending). Until it exists, steward cannot be armed.
 
-Only if the operator **explicitly** wants steward **for this fleet**:
+Only if the operator **explicitly** wants steward **for this fleet** (when an
+implementation exists):
 
 1. Enable steward on the Vivi steward config (targets/notify as needed).
 2. Operator asks to arm **this** fleet (not implied by multi-fleet siblings).
-3. Then:
+3. Arm via the future steward command (not available today).
 
-```bash
-"$SK/steward.sh" arm --project "$ROOT"
-```
-
-Otherwise leave `enabled: false` and never call `arm` / `rearm`. Detail: [`dead-man.md`](dead-man.md).
+Otherwise leave `enabled: false` and never attempt to arm/rearm. Detail: [`dead-man.md`](dead-man.md).
 
 ### 3.7 Run cycles from this session
 
@@ -432,7 +431,7 @@ Each successful mini-cycle:
 ```bash
 python3 "$SK/fleet-baseline.py" bump -p "$ROOT" -s '…' [--quiet|--acted] \
   --fingerprint-file /tmp/sensors.json
-# "$SK/steward.sh" rearm --project "$ROOT"  # only if operator armed steward for this fleet
+# steward rearm is not implemented today (steward.sh removed; Vivi-native steward pending)
 ```
 
 Mode / reports: [`mind-cycle.md`](mind-cycle.md).
@@ -446,10 +445,10 @@ Same turn as you stop supervising — use the baseline script, never hand-edit:
 python3 "$SK/fleet-baseline.py" bump -p "$ROOT" \
   -s 'detach' --acted --detach
 
-"$SK/steward.sh" disarm --project "$ROOT"   # if armed — avoid false trip
+# steward disarm is not implemented today; nothing to disarm.
 ```
 
-Leaving without detach while steward armed → steward **trips after grace** (correct failsafe). Recovery: `steward.sh clear` + re-attach (this case again).
+Leaving without detach while steward armed would trip after grace once a steward implementation exists. Today steward cannot be armed, so there is no trip path. Recovery for future trips: clear tripped baseline state + re-attach (this case again).
 
 Wind-down: [`runtime-config.md`](runtime-config.md). Multi-fleet attach set: [`multi-fleet.md`](multi-fleet.md).
 
@@ -492,7 +491,7 @@ Wind-down: [`runtime-config.md`](runtime-config.md). Multi-fleet attach set: [`m
 | Doorbell `no session` | 2–3 | Create tmux session; fix `tmux_target` |
 | Doorbell `running` | 3 | Wait; do not stack wakes |
 | Two Minds / lock conflict | 3 | One session per fleet; takeover only if authorized |
-| Steward trip after chat died | 3 | `steward.sh clear` + re-attach; disarm next time |
+| Steward trip after chat died | 3 | Clear tripped baseline state + re-attach; disarm next time (when steward implementation exists) |
 | Re-ran `mailspace init` on live fleet | 3 | Avoid; restore from backup if board wiped |
 
 ## What to read next

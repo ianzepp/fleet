@@ -110,7 +110,7 @@ Mailspace project-local. **Two fleets never share a Vivi store.**
 
 ### 4.5 Steward / dead man (today, per fleet)
 
-Fleet-local tmux `steward` + `scripts/steward.sh`. **Ops law (current):** steward is **opt-in** (`enabled` default false); rearm only when that fleet’s steward is enabled **and** armed — not every FLEET_CYCLE by default. Miss past grace → trip (baseline hold, **operator@**, optional email, soft-hold idle Hands). Already `--project` scoped — **no isolation redesign**. (This section is design archive; prefer `dead-man.md` + `SKILL.md` for live process.)
+Fleet-local tmux `steward` watchdog (historically `scripts/steward.sh`, now **removed**; a Vivi-native steward is pending). **Ops law (current):** steward is **opt-in** (`enabled` default false); rearm only when that fleet’s steward is enabled **and** armed — not every FLEET_CYCLE by default. Miss past grace → trip (baseline hold, **operator@**, optional email, soft-hold idle Hands). Already `--project` scoped — **no isolation redesign**. (This section is design archive; prefer `dead-man.md` + `SKILL.md` for live process.)
 
 ### 4.6 Scaling limit (why this design exists)
 
@@ -197,11 +197,11 @@ Attach = Mind takes steward rearm + cycle duty. **Detach is not free** — ungra
 **Detach:**
 
 1. Stop filing new work; absorb in-flight into baseline.
-2. `steward.sh disarm --project <fleet>` — **same turn** (no false trip).
+2. Disarm steward for `<fleet>` — **same turn** (no false trip). *(steward disarm is not currently implemented; `steward.sh` removed, Vivi-native steward pending.)*
 3. `mind_loop.state = detached`; clear `mind_session` (or mark `detached_at`).
 4. Leave Hands/Heads if mid-unit; else optional `tmux kill-session -t <fleet_id>`.
 
-Mind end without detach = **orphan** → stewards trip after grace (correct failsafe). Recovery: `steward.sh clear` + reattach.
+Mind end without detach = **orphan** → stewards trip after grace (correct failsafe), once a steward implementation exists. Recovery: clear tripped baseline state + reattach. *(The `steward.sh clear` helper is removed; a Vivi-native steward is pending.)*
 
 ### 6.6 Per-fleet Mind-session lock (advisory)
 
@@ -325,7 +325,7 @@ Outline only. Decoupled; all per-fleet.
 1. **Script fixes (required, topology-independent).**
    - `soft_hold_hands`: hardcodes `hand-1`/`hand-2` as **session names** → `${sess}:1.1`. Under session-per-fleet holds **silently no-op**. Rewrite to read each hand’s `tmux_target` from its Vivi role record.
    - `ensure_tmux_session`: uses `${sess}:1.1` not steward `tmux_target` — fix via fleet config.
-   - Audit `codex-reinit.sh` + doorbell for same pattern.
+   - Audit the codex recovery path + doorbell for the same pattern. *(Historical: `codex-reinit.sh` is removed; Codex recovery is now done by recreating the pane/session directly.)*
 2. **Topology.** New fleets day one; existing optional (step 4).
 3. **Attach/detach + lock.** `mind_session` in baseline; `mind_loop.state = detached`; Mind procedure (± small helper).
 4. **Existing fleet (e.g. MGS).** **Last**, only when idle, only after 1–3 proven non-prod. Don’t debug topology on the fleet you depend on.
@@ -379,7 +379,7 @@ Rollback: unset `tmux_layout` → legacy. Session-attach itself is not a rupture
 | `fleet/references/dual-channel.md` | Vivi + tmux |
 | `fleet/references/runtime-config.md` | Vivi role records / baseline / wind-down |
 | `fleet/references/ssh-remote.md` | Remote Hands/Heads |
-| `fleet/scripts/steward.sh` | Arm/rearm/disarm/trip (needs §8 fixes) |
+| `fleet/scripts/steward.sh` | Historical arm/rearm/disarm/trip helper (removed; Vivi-native steward pending) |
 | `docs/fleet-guide.md` | First-exposure vocabulary |
 
 ## 13. Recommendation (author)
@@ -400,7 +400,7 @@ Rollback: unset `tmux_layout` → legacy. Session-attach itself is not a rupture
 | 2026-07-11 | Review | Decouple topology/scheduling; flag `soft_hold_hands`; `budget_ms` unenforceable |
 | 2026-07-11 | Draft v2 session-attach | Drop roster/global/modes/budget; ephemeral Mind; one Mind/fleet; attach + advisory lock; computed recap |
 | 2026-07-11 | Draft v2.1 operator locks | Mini-cycle all supervised; per-fleet ticks; fleets on topic line; dual-attach OOS; fleet vocabulary |
-| 2026-07-11 | Skill implementation | `multi-fleet.md` + SKILL/refs; `steward.sh` uses `tmux_target`; live topology migrate not required |
+| 2026-07-11 | Skill implementation | `multi-fleet.md` + SKILL/refs; steward watchdog resolves `tmux_target` from Vivi role records; live topology migrate not required |
 
 ---
 

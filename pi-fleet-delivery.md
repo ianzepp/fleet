@@ -16,7 +16,8 @@ canonical observation tools, and owns an internal cycle timer without duplicatin
   `/fleet detach`; attachment state is persisted only in Pi custom session entries
   and validated against each fleet's baseline.
 - Observation: invoke `fleet-sensors.py`, `fleet-loop.py status`,
-  `fleet-baseline.py`, and `verify-fleet-json.py`; never reimplement Fleet policy.
+  `fleet-baseline.py`, and `vivi role list` (the `verify-fleet-json.py` helper
+  is removed); never reimplement Fleet policy.
 - Controls: internal `status/start/update/stop`, minimum 60 seconds, no steward
   action, refusal when an external helper loop is active.
 - Wake: `FLEET_CYCLE fleets=...` followed by a root map; single-flight and

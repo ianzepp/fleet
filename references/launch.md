@@ -54,7 +54,8 @@ Set the project and skill paths, then validate the overlay:
 ROOT=/path/to/fleet
 SK=/path/to/fleet-skill/scripts
 
-python3 "$SK/verify-fleet-json.py" --project "$ROOT" --strict
+# verify-fleet-json.py is removed; validate the roster via Vivi directly.
+vivi role list --project "$ROOT"
 vivi mailspace status --project "$ROOT"
 python3 "$SK/fleet-baseline.py" get --project "$ROOT"
 python3 "$SK/fleet-sensors.py" --project "$ROOT" --no-watch > /tmp/fleet-launch-before.json
@@ -99,29 +100,21 @@ Typical actions:
 ## 3. Start configured Hand runtimes
 
 Read each Hand’s binding from its Vivi role record. Do not infer a backend from the
-agent name. Use the backend-neutral runtime helper first; it wraps tmux topology
-creation and Vivi-PTY daemon/session mechanics so Mind does not hand-code either
-transport during launch.
+agent name. The backend-neutral runtime helper (`fleet-runtime.py`) has been
+removed; start runtimes directly through their configured backend. For tmux
+roles, create the configured session/window and launch the agent from the Vivi
+role record capacity. For `vivi_pty` roles, use `vivi-pty` session commands.
 
 ```bash
-python3 "$SK/fleet-runtime.py" --project "$ROOT" --hands all status
-python3 "$SK/fleet-runtime.py" --project "$ROOT" --role hand-1 start
-python3 "$SK/fleet-runtime.py" --project "$ROOT" --role hand-2 restart \
-  --boot 'HAND WAKE hand-2. Read your Vivi bag and continue only assigned work.'
+# tmux: create the configured session/window and launch the agent.
+tmux new-session -d -s <fleet_id> -n hand-1 -c "$ROOT"
+# launch command is constructed from the Vivi role record (provider/model/thinking + harness)
+tmux send-keys -t <fleet_id>:hand-1.1 '<launch-command>' Enter
+
+# vivi-pty: create/restart the configured session.
+vivi-pty --project "$ROOT" session start <session-id> -- <command...>
+vivi-pty --project "$ROOT" session restart <session-id>
 ```
-
-Helper semantics:
-
-- `start` creates/starts the configured runtime if it is absent or stopped; it
-  does not assign work.
-- `restart`/`reinit` stop then start through the configured backend, preserving
-  the role identity and assignment.
-- `stop` tears down configured runtime capacity for selected roles.
-- For tmux roles, the helper creates the configured session/window and refuses
-  to stack a launch into an existing target unless `--force` is used.
-- For `vivi_pty` roles, the helper starts the daemon if needed, restarts stopped
-  tombstones, and starts new sessions from the configured command array without
-  shell evaluation.
 
 After startup, require expected cwd, driver/agent command, model/effort
 arguments when observable, and no duplicate session for the same role. The
@@ -141,15 +134,19 @@ Starting capacity and assigning work are separate operations.
 5. **Unassigned slot:** leave ready or dormant. Never invent polish or generic
    exploration merely because the process exists.
 
-Use the doorbell helper so backend selection, state refusal, throttling, and wake
-records stay canonical:
+Use `tmux send-keys` (or `vivi-pty terminal write`) directly so backend selection,
+state refusal, throttling, and wake records stay canonical:
 
 ```bash
-"$SK/fleet-doorbell.sh" --project "$ROOT" --role hand-3 --handle <hex>
+# tmux backend — pointer doorbell:
+tmux send-keys -t <fleet_id>:hand-3.1 "HAND WAKE hand-3. Task <hex>. Load charter and task from Vivi." Enter
 
 # Assigned lane with durable campaign truth but no single handle:
-"$SK/fleet-doorbell.sh" --project "$ROOT" --role hand-3 \
-  --note 'HAND WAKE hand-3. Read your configured lane, Vivi bag, and campaign; continue the highest-priority honest unblocked unit.'
+tmux send-keys -t <fleet_id>:hand-3.1 \
+  "HAND WAKE hand-3. Read your configured lane, Vivi bag, and campaign; continue the highest-priority honest unblocked unit." Enter
+
+# vivi-pty backend:
+vivi-pty --project "$ROOT" terminal write <session-id> "HAND WAKE hand-3. Task <hex>." --enter
 ```
 
 Do not wake `starting`, `submitting`, `running`, or `approval_required` roles.
@@ -162,10 +159,16 @@ Heads are advisory capacity, not extra product Hands.
 
 For each configured Head:
 
-1. Start its configured runtime if missing with `fleet-runtime.py`:
+1. Start its configured runtime if missing. The `fleet-runtime.py` helper is
+   removed; start directly through the configured backend (tmux or vivi-pty):
 
    ```bash
-   python3 "$SK/fleet-runtime.py" --project "$ROOT" --role head-cto start
+   # tmux
+   tmux new-session -d -s <fleet_id> -n head-cto -c "$ROOT"
+   tmux send-keys -t <fleet_id>:head-cto.1 '<launch-command>' Enter
+
+   # vivi-pty
+   vivi-pty --project "$ROOT" session start <session-id> -- <command...>
    ```
 
 2. Load its persona and role prompt.
@@ -358,5 +361,5 @@ populated process table that stacks input, invents work, or erases ownership.
 
 Related references: [`dual-channel.md`](dual-channel.md),
 [`mind-cycle.md`](mind-cycle.md), [`runtime-config.md`](runtime-config.md),
-[`fleet-posture.md`](fleet-posture.md), [`heads.md`](heads.md), and
+[`posture.md`](posture.md), [`heads.md`](heads.md), and
 [`dead-man.md`](dead-man.md).

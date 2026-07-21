@@ -132,7 +132,7 @@ Self-contained when includes:
 SKILL.md
 agents/
 references/   # including this file, fleet-guide, multi-fleet-design
-scripts/      # cycle helpers + lib/env.sh + fleet_common.py + smoke-portability.sh
+scripts/      # cycle helpers + lib/env.sh + fleet_common.py
 ```
 
 No required reads outside this directory.

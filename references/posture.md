@@ -56,19 +56,24 @@ Baseline may copy `mode` / `reason` for recap; the posture record remains source
 
 ### Change posture safely
 
-Use the posture helper instead of hand-editing the overlay:
+Set posture directly on the fleet posture record / baseline (the
+`fleet-posture.py` helper is removed):
 
-```bash
-python3 scripts/fleet-posture.py get --project <root>
-python3 scripts/fleet-posture.py set --project <root> standby \
-  --reason 'maintenance by default; assigned tasks and campaigns only'
-python3 scripts/fleet-posture.py set --project <root> growth \
-  --reason 'campaign <name> activated' \
-  --wake-trigger 'operator task or need' \
-  --wake-trigger 'named campaign unit accepted'
+```text
+fleet_posture.mode = standby
+fleet_posture.reason = 'maintenance by default; assigned tasks and campaigns only'
+
+# or growth:
+fleet_posture.mode = growth
+fleet_posture.reason = 'campaign <name> activated'
+fleet_posture.wake_triggers = ['operator task or need', 'named campaign unit accepted']
 ```
 
-`set` preserves unspecified posture fields, stamps `since`, strictly validates a temporary candidate, and atomically commits it. It does **not** wake roles, bump the baseline, run sensors, or arm the steward. The current or next Mind cycle observes the new source-of-truth posture and handles runtime consequences. Use `--json` for automation.
+A posture change preserves unspecified posture fields, stamps `since`, strictly
+validates a temporary candidate, and atomically commits. It does **not** wake
+roles, bump the baseline, run sensors, or arm the steward. The current or next
+Mind cycle observes the new source-of-truth posture and handles runtime
+consequences.
 
 ## Starvation vs makework (hard)
 

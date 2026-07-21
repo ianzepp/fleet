@@ -125,21 +125,21 @@ vivi-pty doorbell uses harness diagnostics, not text classification. It still
 refuses non-input harness states. A `waiting_for_input` or `completed` session
 with open tasking gets a pointer; other states are refused.
 
-## fleet-runtime.py integration
+## Runtime lifecycle
 
-`fleet-runtime.py` is backend-neutral and dispatches to vivi-pty when the role
-binding uses PTY:
+`fleet-runtime.py` (the backend-neutral helper) has been removed. vivi-pty
+sessions are managed directly through the `vivi-pty` CLI:
 
 ```bash
-python3 scripts/fleet-runtime.py --project <root> --role hand-1 status
-python3 scripts/fleet-runtime.py --project <root> --role hand-1 start
-python3 scripts/fleet-runtime.py --project <root> --role hand-1 restart --boot 'HAND WAKE hand-1. Role hand-1. Task <handle>. Load charter and task from Vivi.'
-python3 scripts/fleet-runtime.py --project <root> --role hand-1 stop
+vivi-pty --project <root> session list
+vivi-pty --project <root> session start <session-id> -- <command...>
+vivi-pty --project <root> session restart <session-id>
+vivi-pty --project <root> session stop <session-id>
 ```
 
-For Vivi-PTY roles:
-- `start` creates the configured session if absent or stopped
-- `restart` stops then starts through the PTY backend; optional `--boot` pointer
+For vivi-pty roles:
+- `session start` creates the configured session if absent or stopped
+- `session restart` stops then starts through the PTY backend
 - Stopped tombstones are restarted through `vivi-pty session restart`
 - New sessions use the configured command array without shell evaluation
 
@@ -153,16 +153,16 @@ vivi-pty --project <root> terminal write faber-hand-1d \
   --enter
 ```
 
-Or via the backend-neutral helper:
+Or via the PTY backend directly:
 
 ```bash
-scripts/fleet-doorbell.sh --project <root> --fleet <fleet-id> --role hand-1 --handle <hex>
+vivi-pty --project <root> terminal write faber-hand-1d "HAND WAKE hand-1. Task <hex>." --enter
 ```
 
-The helper resolves the runtime backend (tmux vs vivi-pty) from the Vivi role record and
-dispatches accordingly. Same channel split rules apply: thin boot pointer only
-in the PTY write — identity, role, task handle, one verb. Full instructions,
-persona, and scope belong in Vivi (charter, task body, mail).
+The runtime backend is resolved from the Vivi role record (harness field).
+Same channel split rules apply: thin boot pointer only in the PTY write —
+identity, role, task handle, one verb. Full instructions, persona, and scope
+belong in Vivi (charter, task body, mail).
 
 ## assignment_mode
 
@@ -174,7 +174,7 @@ helper applies the configured mode before the pointer. For vivi-pty:
 | `new` | Restart session (fresh PTY) |
 | `compact` | Send `/compact` through PTY |
 | `continue` | Pointer only |
-| `restart` | `fleet-runtime.py restart --force` |
+| `restart` | `vivi-pty session restart` (optionally stop+start fresh) |
 
 ## Capacity rebind
 
@@ -185,12 +185,12 @@ vivi role set <name> --project <root> --provider <p> --model <m> --thinking <lev
 ```
 
 The next session restart picks up the new values automatically. To propagate
-sooner across multiple sessions:
+sooner across multiple sessions, restart each role's session:
 
 ```bash
-python3 scripts/fleet-runtime-rebind.py --project <root> apply
-python3 scripts/fleet-runtime.py --project <root> --role <name> restart
+vivi-pty --project <root> session restart <session-id>
 ```
 
 The Vivi role record holds only operational bindings (session id, cwd, merge rights) —
-not capacity.
+not capacity. The `fleet-runtime-rebind.py` helper has been removed; rebinds are
+applied by restarting the affected sessions directly.

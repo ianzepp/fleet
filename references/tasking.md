@@ -142,7 +142,7 @@ All Hands are equivalent floaters. The Mind picks any available Hand for each as
 
 ### Idle empty tasking
 
-Posture (`fleet_posture.mode`) gates whether empty bags are a problem — [`fleet-posture.md`](fleet-posture.md).
+Posture (`fleet_posture.mode`) gates whether empty bags are a problem — [`posture.md`](posture.md).
 
 | Situation | Meaning | Mind action |
 | --- | --- | --- |

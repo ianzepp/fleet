@@ -80,7 +80,7 @@ Before editing:
 - `pi-agent-tui-design-handoff.md`: use the status/widget/panel design language without assuming pinned top chrome is available.
 - `python3 scripts/fleet-sensors.py --project <root> --json`: integration fixture for observed sensor shape.
 - `python3 scripts/fleet-baseline.py get -p <root>`: attachment/baseline evidence before attach/detach behavior is implemented.
-- `python3 scripts/verify-fleet-json.py --project <root>`: fleet configuration validation where applicable.
+- `vivi role list --project <root>`: fleet configuration validation (the `verify-fleet-json.py` helper is removed).
 
 ## Constraints And Invariants
 
@@ -166,11 +166,11 @@ Decision: **included**.
 
 ## Validation
 
-- `python3 scripts/verify-fleet-json.py --project <root>` should validate each attached fleet configuration.
+- `vivi role list --project <root>` should validate each attached fleet configuration (the `verify-fleet-json.py` helper is removed).
 - `python3 scripts/fleet-sensors.py --project <root> --json` should produce parseable input for the panel/snapshot adapter.
 - `python3 scripts/fleet-baseline.py get -p <root>` before and after attach/detach should show only the intended canonical transition.
 - `python3 scripts/fleet-loop.py --project <root> status` should be checked before internal loop start; an active external loop must cause safe refusal or explicit replacement handling.
-- `python3 scripts/smoke-portability.sh` and relevant Fleet tests should remain green.
+- Relevant Fleet tests should remain green (the `smoke-portability.sh` helper is removed; run `bash --version`, `python3 --version`, `tmux -V`, `git --version`, `vivi --version` directly).
 - `pi -e /path/to/fleet/pi/extensions/fleet.ts --no-session` should start without extension load errors.
 - Manual flow: detect current candidate → explicitly attach → view panel → start loop → inspect status → update cadence → stop loop → reload/new session → confirm timers and duplicate state are cleaned up.
 - Manual flow: attach two explicit roots → verify one FLEET_CYCLE payload names both slugs and contains roots in the body → detach one → verify subsequent cycles cover only the remaining fleet.

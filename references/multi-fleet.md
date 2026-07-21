@@ -72,8 +72,8 @@ Roots (slug → project path):
 | --- | --- |
 | Coverage | Every **slug** on the first line gets a full fail-fast mini-cycle |
 | Paths | Body map, attach memory, or each fleet’s project root (Vivi mailspace / role record) — **not** `also=` / `also2=` invent-keys |
-| Posture | **Per fleet** (`growth` / `standby` / `dormant`) — standby/dormant mini-cycles stay quiet; never invent work so every slug “looks busy” — [`fleet-posture.md`](fleet-posture.md) |
-| Durability | Each fleet writes its **own** `last_successful_cycle_at` (+ `steward.sh rearm` **only if** that fleet’s steward is armed) |
+| Posture | **Per fleet** (`growth` / `standby` / `dormant`) — standby/dormant mini-cycles stay quiet; never invent work so every slug “looks busy” — [`posture.md`](posture.md) |
+| Durability | Each fleet writes its **own** `last_successful_cycle_at` (+ steward rearm **only if** that fleet’s steward is armed — not implemented today) |
 | Isolation | Never file To fleet A while processing fleet B |
 | Topic line | **Attached set log** — attach/detach by changing the slug list |
 | Report | One line/block per fleet including `posture=…`; mode-gated richness |
@@ -97,8 +97,8 @@ First-time single-fleet attach: [`getting-started.md`](getting-started.md) § 3.
 | Action | Steps |
 | --- | --- |
 | **Attach** | Read baseline `mind_session` lock (`baseline.py get -p $ROOT`) → refuse if live foreign unless `--takeover` → `baseline.py bump -p $ROOT -s 'attach: …' --acted --mind-session <label> [--mind-host <host>]` (writes lock + state=attached). **Do not** arm steward unless operator explicitly enabled+asked for **that** fleet |
-| **Detach** | Stop filing new work; honest in-flight in baseline → **`baseline.py bump -p $ROOT -s 'detach' --acted --detach`** → `steward.sh disarm --project <fleet>` same turn → optional leave Hands mid-unit; no kill foreign WIP |
-| **Orphan** | Mind dies without detach → steward **trips after grace**. Recovery: `steward.sh clear` + reattach |
+| **Detach** | Stop filing new work; honest in-flight in baseline → **`baseline.py bump -p $ROOT -s 'detach' --acted --detach`** → disarm steward same turn (not implemented today) → optional leave Hands mid-unit; no kill foreign WIP |
+| **Orphan** | Mind dies without detach → steward **trips after grace** (once a steward implementation exists). Recovery: clear tripped baseline state + reattach |
 
 ### Advisory lock (baseline)
 
@@ -153,9 +153,9 @@ Order: tripped stewards → operator@ union → headlines.
 
 | Script | Rule |
 | --- | --- |
-| `steward.sh` | Read steward + hands `tmux_target` from Vivi role records |
-| `codex-reinit.sh` | Already resolves `tmux_target` per hand |
-| Doorbell / capture | Always `tmux_target` from the Vivi role record |
+| Steward (removed) | Historically `steward.sh`; read steward + hands `tmux_target` from Vivi role records. Vivi-native steward pending. |
+| Codex recovery (helper removed) | Historically `codex-reinit.sh`; recreate stuck panes directly with `tmux` |
+| Doorbell / capture | Always `tmux_target` from the Vivi role record; use `tmux send-keys` directly |
 
 ## Anti-patterns
 

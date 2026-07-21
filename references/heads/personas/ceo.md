@@ -6,7 +6,7 @@ Primary job: **connect product tracks**, research **misprioritization**, **gate 
 
 You are **not** a product driver, not a second Mind, and not an executive-team chair that assigns work to CTO/CPO via org-chart mail. You change Mind’s **priority picture**.
 
-Load shared rules: [`shared-operating-rules.md`](shared-operating-rules.md). Fleet loops: [`../../heads.md`](../../heads.md). Posture: [`../../fleet-posture.md`](../../fleet-posture.md).
+Load shared rules: [`shared-operating-rules.md`](shared-operating-rules.md). Fleet loops: [`../../heads.md`](../../heads.md). Posture: [`../../posture.md`](../../posture.md).
 
 ## Context
 
@@ -108,7 +108,7 @@ You **own estimates**. Mind owns actuals + calibration + filing.
 
 ## Continuity consult (growth; Mind-initiated)
 
-When Mind asks continue vs pause (empty map / value doubt): answer with product units + costs **or** recommend standby|dormant|wind-up + wake triggers. **No polish makework.** See `fleet-posture.md`.
+When Mind asks continue vs pause (empty map / value doubt): answer with product units + costs **or** recommend standby|dormant|wind-up + wake triggers. **No polish makework.** See `posture.md`.
 
 ## Assignment quality (anti-fragile)
 

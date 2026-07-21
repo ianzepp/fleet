@@ -16,7 +16,7 @@ Paths under this skill’s `scripts/`.
 | **Overrides** | `TMUX_BIN`, `PYTHON_BIN`, `VIVI_BIN`, `CODEX_BIN`, `PS_BIN`, … |
 | **Dates** | Prefer `date -u +%s` / `+%Y-%m-%dT%H:%M:%SZ`. ISO `Z` → `+00:00` in Python for 3.9–3.10. |
 | **JSON** | UTF-8; baseline updates use same-dir temp + `os.replace`. |
-| **Smoke** | `scripts/smoke-portability.sh [--project <root>]` |
+| **Smoke** | `smoke-portability.sh` is removed; run `bash --version`, `python3 --version`, `tmux -V`, `git --version`, and `vivi --version` directly |
 
 Do **not** hardcode only `/opt/homebrew/...`. Prefer `fleet_find_*` from `lib/env.sh` or PATH + multi-candidate lists.
 
@@ -66,8 +66,8 @@ on the parent parser and on each subcommand. `bump` increments `last_cycle`,
 quiet/mode counters, stores fingerprint/runtime_states, merges `sensors.heads`
 → `head-*`.`last_report_*`, touches **`mind_loop.last_successful_cycle_at`**
 (dead-man cycle clock). It does **not** arm steward or stamp
-`steward.last_rearm_at` — that is `steward.sh arm|rearm` only (when steward is
-enabled+armed).
+`steward.last_rearm_at` — steward arm/rearm is not currently implemented
+(`steward.sh` removed; Vivi-native steward pending).
 
 ### `fleet-cycle-close.py`
 
@@ -85,58 +85,52 @@ baseline, and refreshes `.vivi/cycle-closure.json`. A quiet cycle accepts only
 `deferred-valid` or `sleep-valid` dispositions. Missing, extra, or
 partial-sensor dispositions fail before the baseline advances.
 
-### `fleet-posture.py`
+### `fleet-posture.py` (removed)
+
+The `fleet-posture.py` helper is removed. Set `fleet_posture.mode`
+(`growth` / `standby` / `dormant`) directly on the baseline or Vivi config;
+preserve unspecified posture fields, stamp `since`, and strictly validate a
+temporary candidate. Posture changes do not wake roles, run sensors, bump the
+Mind baseline, or arm the steward; normal Mind-cycle processing applies the
+transition. Detail: [`posture.md`](posture.md).
+
+### `fleet-runtime.py` (removed)
+
+The backend-neutral `fleet-runtime.py` helper is removed. Start/stop/restart
+configured Hand/Head runtimes directly through the configured backend
+(`tmux` for tmux roles, `vivi-pty session` for vivi_pty roles):
 
 ```bash
-python3 scripts/fleet-posture.py get --project <root> [--json]
-python3 scripts/fleet-posture.py set --project <root> growth|standby|dormant \
-  --reason 'why' [--wake-trigger '...']... [--json]
+# tmux role: start
+tmux new-session -d -s <fleet_id> -n <role> -c <cwd>
+tmux send-keys -t <fleet_id>:<role>.1 '<launch from Vivi role capacity>' Enter
+
+# tmux role: stop / restart
+tmux kill-window -t <fleet_id>:<role>
+# recreate as above for restart
+
+# vivi_pty role
+vivi-pty --project <root> session start <session-id> -- <command...>
+vivi-pty --project <root> session restart <session-id>
+vivi-pty --project <root> session stop <session-id>
 ```
 
-Updates only the fleet posture record, preserves unspecified posture fields, stamps `since`, strictly validates a temporary candidate, and atomically commits it. It does not wake roles, run sensors, bump the Mind baseline, or arm the steward; normal Mind-cycle processing applies the transition. Exit `0` ok · `1` data/validation error · `2` usage.
+Resolve bindings from the Vivi role record. Recreate stopped/missing runtimes
+before delivering a work pointer via `tmux send-keys` / `vivi-pty terminal write`.
 
-### `fleet-runtime.py`
+### `fleet-doorbell.sh` (removed)
+
+The `fleet-doorbell.sh` helper is removed. Deliver a work pointer directly:
 
 ```bash
-python3 scripts/fleet-runtime.py --project <root> --role head-cto status
-python3 scripts/fleet-runtime.py --project <root> --heads all start
-python3 scripts/fleet-runtime.py --project <root> --role hand-1 restart --boot 'HAND WAKE hand-1. Read your bag.'
-python3 scripts/fleet-runtime.py --project <root> --hands all stop
-python3 scripts/fleet-runtime.py --project <root> --role head-ceo doctor
+tmux send-keys -t '<tmux_target>' -l -- '<thin boot pointer only>'
+tmux send-keys -t '<tmux_target>' Enter
+# classify the pane first; refuse running/down/rate-limit; record last_hand_wake in baseline
 ```
 
-Backend-neutral process lifecycle for configured Hand/Head roles. It resolves
-bindings from the Vivi role record and dispatches to `tmux` or `vivi_pty` without changing
-assignments, posture, board state, or runtime backend. Use it when a role is
-stopped/missing before using `fleet-doorbell.sh` to deliver a work pointer.
-
-| Command | Meaning |
-| --- | --- |
-| `status` / `doctor` | Inspect configured runtime state; `doctor` exits non-zero for stopped/failed roles |
-| `start` | Create/start the configured runtime if absent or stopped; never assigns work |
-| `restart` / `reinit` | Stop then start through the configured backend; optional `--boot` pointer |
-| `stop` | Tear down the configured process/session/window for selected roles |
-
-Selectors: `--role` (repeatable), `--hands all|h1,h2`, `--heads all|head-ceo,…`.
-A boot pointer is transport-only; still use board handles for durable work truth.
-For tmux roles, `start` will not stack a launch command into an existing target
-unless `--force` is passed. For Vivi-PTY roles, stopped tombstones are restarted
-through `vivi-pty session restart` and new sessions use the configured command
-array without shell evaluation.
-
-### `fleet-doorbell.sh`
-
-```bash
-scripts/fleet-doorbell.sh --project <root> --fleet <fleet-id> --role hand-1 [--handle HEX] [--note '…'] [--force]
-scripts/fleet-doorbell.sh --project <root> --fleet <fleet-id> --role hand-1 --runtime-target <session:win.pane> --message '…'
-# optional env: FLEET_DOORBELL_SUBMIT_DELAY_SEC (Codex submit-settle)
-```
-
-Resolves the logical role through `fleet-resolve.py`; refuses running/down/rate-limit unless `--force`; records `last_hand_wake`.
-
-Prompt classification is current-state first. In particular, Codex panes must
-treat a live bottom prompt (`›` / `codex ›`) as ready even if older scrollback
-contains failed commands, connection messages, or test errors.
+For Codex panes, add a submit-settle delay before Enter. Prompt classification
+is current-state first. A live bottom prompt (`›` / `codex ›`) is ready even if
+older scrollback contains failed commands, connection messages, or test errors.
 
 ### `fleet-loop.py`
 
@@ -178,25 +172,30 @@ Loop ≠ steward. Starting this helper does not enable or arm the dead-man; rear
 still happens only after a successful Mind cycle and only when that fleet's
 steward was explicitly enabled and armed.
 
-### `codex-reinit.sh` (fallback)
+### `codex-reinit.sh` (removed)
+
+The `codex-reinit.sh` helper is removed. Recover a stuck Codex Hand pane by
+recreating it directly with `tmux`:
 
 ```bash
-scripts/codex-reinit.sh doctor --project /path/to/fleet --fleet <fleet-id>
-scripts/codex-reinit.sh heal --project /path/to/fleet --fleet <fleet-id> --role hand-3
-scripts/codex-reinit.sh reinit --project /path/to/fleet --fleet <fleet-id> --role hand-1 --boot 'HAND WAKE …'
-scripts/codex-reinit.sh classify --project /path/to/fleet --fleet <fleet-id> --role hand-2
+tmux kill-window -t '<tmux_target>' 2>/dev/null
+tmux new-window -t '<session>' -n '<window>' -c '<fleet cwd>'
+tmux send-keys -t '<tmux_target>' -l -- '<codex launch from Vivi role capacity>'
+tmux send-keys -t '<tmux_target>' Enter
 ```
 
 | Rule | Detail |
 | --- | --- |
 | Defaults | `PROJECT` from cwd; roster resolved from Vivi role records |
 | Launch | Construct launch from the role capacity (Vivi role record) + harness. Never `exec codex` |
-| Exit | reinit `0/1/2 stuck_idle/3`; doctor `0/1/2` (script header) |
-| Symlink | Fleets may wrap via `.vivi/codex-reinit.sh` |
+| First message | Thin boot pointer (role + task handle); charter loads from Vivi |
 
-### `steward.sh`
+### `steward.sh` (removed)
 
-See [`dead-man.md`](dead-man.md). Subcommands: `arm` / `rearm` / `disarm` / `check` / `status` / `clear` / `trip` / `loop`. Default **enabled false**.
+See [`dead-man.md`](dead-man.md). The `steward.sh` helper is removed; a
+Vivi-native steward is pending. Subcommand surface for the future
+implementation: `arm` / `rearm` / `disarm` / `check` / `status` / `clear` /
+`trip` / `loop`. Default **enabled false**, and nothing is invocable today.
 
 ## Runtime fallback
 
@@ -275,7 +274,7 @@ Always write fallbacks into baseline + fleet per-hand runtime fields.
 
 **Problem:** Codex parks at ready prompt after a unit. Back-to-back wake text can stay in the composer if Enter arrives before the TUI is ready.
 
-**Policy:** `agent=codex` **done** + next work exists → pointer doorbell first through `fleet-doorbell.sh`. The helper uses a Codex submit-settle delay before Enter. Reinit is fallback recovery, not the normal wake.
+**Policy:** `agent=codex` **done** + next work exists → pointer doorbell first via `tmux send-keys` (with a Codex submit-settle delay before Enter). Reinit is fallback recovery, not the normal wake. The `fleet-doorbell.sh` and `codex-reinit.sh` helpers are removed; doorbell and recovery are done with plain `tmux` commands.
 
 | Doorbell first | Reinit fallback |
 | --- | --- |
@@ -284,19 +283,18 @@ Always write fallbacks into baseline + fleet per-hand runtime fields.
 | Unblock (pin-refresh, merge) + open tasking — current one-line fact | Doorbell text remains stuck after retry; stale bootstrap repeats |
 | Theme switch in same cwd | Operator wants clean slate / cwd rehome |
 
-### Prefer project script
+### Recovery via plain tmux (helpers removed)
 
-| Command | Role |
-| --- | --- |
-| `doctor` / `doctor hand-N` | Bag-aware health; no kill |
-| `heal` / `heal hand-N` | Auto-reinit idle/done/error + open tasking |
-| `snapshot` / `snapshot hand-N` | Forensic dump (pane, board, fleet) |
-| `classify` / `status` | Pane class / status |
-| `reinit hand-N --boot '…'` | One Hand; refuse if running unless FORCE |
-| `reinit-all --boot-template '…{name}…'` | Sparingly; budget still applies |
+Recover a stuck Codex pane directly with `tmux` (the `codex-reinit.sh` helper is removed):
 
-Exit (reinit): `0` ok · `1` hard · `2` **stuck_idle** · `3` bad args. Doctor: `0` healthy · `1` unhealthy · `2` trust/stuck/starving.  
-Exit 2 → one more reinit same cycle OK; still stuck next cycle → model ladder or snapshot + operator.
+```bash
+tmux kill-window -t '<tmux_target>' 2>/dev/null
+tmux new-window -t '<session>' -n '<window>' -c '<fleet cwd>'
+tmux send-keys -t '<tmux_target>' -l -- '<codex launch from Vivi role capacity>'
+tmux send-keys -t '<tmux_target>' Enter
+```
+
+Before recovery, file the next task/need so a handle exists; never `exec codex`; construct the launch from role capacity; first message is the thin boot pointer.
 
 **Classify traps:** do not treat tool `timeout N cmd` or `error: test failed` as `failed` with connection detail when the runtime is live and working. Prefer current bottom prompt evidence and doctor evidence over raw greps of older scrollback.
 
@@ -345,7 +343,7 @@ progress wakes.
 | **`new`** | Fresh agent session for this assignment (`/new` in-pane, or recreate session leaving shell/cwd). Drop prior chat context. | Cold-cache fleets; high context cost; CEO-style one-shot analysis; default when operator wants no transcript carry-over |
 | **`compact`** | Same process; send `/compact` (or harness equivalent), then pointer doorbell with the new handle | Theme switch same cwd when context is still coherent |
 | **`continue`** | Same session; pointer doorbell only (no compact, no recreate) | Cheap follow-ups; sticky multi-step units that intentionally share context |
-| **`restart`** | Kill the agent process (or whole runtime slot) and relaunch via `fleet-runtime.py restart` from role capacity before the assignment boot | Stuck harness; model/provider flag change; dirty process that `/new` cannot clear |
+| **`restart`** | Kill the agent process (or whole runtime slot) and relaunch from role capacity before the assignment boot (recreate the tmux window / vivi-pty session directly) | Stuck harness; model/provider flag change; dirty process that `/new` cannot clear |
 
 **Resolved by:** `fleet_common.resolve_assignment_mode` / `fleet-resolve.py`
 (`assignment_mode` on the binding JSON and `RESOLVED_ASSIGNMENT_MODE` in shell).
@@ -357,7 +355,7 @@ existing pane).
 If both are set, **`assignment_mode` wins**. Prefer the new field; do not add
 `clean_slate_per_assignment` on new fleets.
 
-**Doorbell applies modes automatically** (`scripts/fleet-doorbell.sh`):
+**Modes are applied by the Mind before the pointer** (the `fleet-doorbell.sh` helper that did this automatically is removed — apply each step with direct `tmux send-keys` / `vivi-pty terminal write`):
 
 | When | Behavior |
 | --- | --- |
@@ -373,7 +371,7 @@ Prepare steps:
 - `new` — idle → send `/new` → wait idle → pointer (or start fresh process if stopped)
 - `compact` — idle → `/compact` → wait idle → pointer
 - `continue` — pointer only (auto-start if stopped)
-- `restart` — `fleet-runtime.py restart --force` → wait idle → pointer
+- `restart` — recreate the session from role capacity → wait idle → pointer
 
 Same-handle rewakes and mid-unit progress do **not** re-apply mode. Durable
 context for `new`/`restart` seats: Heads use **vivi memos**; Hands re-read the
@@ -388,7 +386,7 @@ new handle rather than hand-rolling `/new` + pointer.
 | `runtime_sticky` | Runtime binding stickiness |
 | `reinit_after_kill` / `codex_reinit_after_kill` | Recovery after process death |
 
-`verify-fleet-json.py` rejects unknown mode strings.
+The fleet JSON validator (the `verify-fleet-json.py` helper, now removed) rejected unknown mode strings; validate modes via `vivi role list` and the schema below.
 
 ## Fleet config schema
 
@@ -696,7 +694,7 @@ Orderly shutdown (lifecycle **Retire**).
 5. **Baseline** `mind_loop.state = wound_up`: dropped/kept panes, tips, residual handles, handoff
 6. Optional pointer to kept hands: fleet wound up; continue bag or idle
 7. Cancel Mind `/loop` or harness scheduler **in operator session** if stopping loop
-8. **`steward.sh disarm --project <root>`** same turn — **per fleet** if multi-attached
+8. **Disarm steward** same turn — **per fleet** if multi-attached (not implemented today; `steward.sh` removed, Vivi-native steward pending)
 9. Clear or stamp `mind_session` / `mind_loop.state = wound_up` (or `detached`)
 
 | Wind-down is not | |

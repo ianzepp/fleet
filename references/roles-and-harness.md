@@ -25,7 +25,7 @@ determines execution backend. Sub-agent is the default for new fleets.
 | **Hand** | `hand-1`…`hand-N`, **`auditor-1` / `auditor-2`** | Implement product **or** run code review — same Hand category; duty differs by identity | Done + evidence, or `auditor-N report:` To `mind` |
 | **Mind** | Board **`mind@…`** — no external runtime; process = operator TUI | Survey product; **dole out** tasking; integrate; **triage audit need**; fleet ops; operator mail | Open tasks/needs; wake Hands (incl. auditors); merge queue |
 | **Operator mail** | Board **`operator@…` only** — no external runtime | Accrue human escalations while autonomous | Need/mail To human — **not** status |
-| **Steward** | optional runtime (not Mind) | Dead-man: watch successful cycle ticks; trip → hold + page | `steward.sh` |
+| **Steward** | optional runtime (not Mind) | Dead-man: watch successful cycle ticks; trip → hold + page. **Paused** — `steward.sh` removed; Vivi-native steward pending — [`dead-man.md`](dead-man.md) |
 | **head-ceo** (Head) | `head-ceo` | **Strategist:** map health, sequencing, side-lane buckets | Mail To `mind` |
 | **head-cto** (Head) | `head-cto` | **Gate honesty / architecture** — not the code-review Hand queue | Mail To `mind` |
 | **head-cxo** (Head) | `head-cxo` | Complexity / purity | Mail To `mind` |
@@ -435,4 +435,4 @@ list the default search paths (“`~`” resolves to the current user’s home d
 
 ## Heads do not
 
-Approve/disapprove as a gate, race Mind on acceptance, merge to main, or own product tasking. **head-ceo** (strategist seat) proposes sequencing/ownership, map-health findings (inversions, false gates), and **side-lane (hand-2+) candidate buckets**; **head-cto** reviews main + technical gate honesty; **head-cxo** reports shape debt. Mind triages into the bag and coordinates live Hands. Proactivity scales with `fleet_posture` (see `fleet-posture.md`).
+Approve/disapprove as a gate, race Mind on acceptance, merge to main, or own product tasking. **head-ceo** (strategist seat) proposes sequencing/ownership, map-health findings (inversions, false gates), and **side-lane (hand-2+) candidate buckets**; **head-cto** reviews main + technical gate honesty; **head-cxo** reports shape debt. Mind triages into the bag and coordinates live Hands. Proactivity scales with `fleet_posture` (see `posture.md`).
