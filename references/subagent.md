@@ -28,6 +28,16 @@ Sub-agent specifics:
 - Completion is the report signal — no polling, no doorbell, no pane inspection.
 - Optional bag read at boot is useful when the role has multiple open items and should pick order itself.
 
+## Capacity at spawn
+
+The Mind normally knows a role's capacity because it set it. If the Mind does not know the provider, model, or thinking level for a role, inspect the role:
+
+```bash
+vivi role show <name> --project <root>
+```
+
+Map the capacity (provider/model/thinking) to the harness's available model slugs. The mapping is harness-specific. When no clean mapping exists, substitute the closest fit or pause to ask the operator — do not silently spawn on the wrong model class.
+
 ## Spawn → completion → verify flow
 
 ```text
