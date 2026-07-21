@@ -84,6 +84,13 @@ def _is_remote(entry: Dict[str, Any]) -> bool:
 def _check_tmux_target(report: Report, where: str, entry: Dict[str, Any], required: bool) -> None:
     runtime = entry.get("runtime") or {}
     wake_mode = entry.get("wake_mode")
+    harness = entry.get("harness")
+    # Sub-agent harness: no tmux or PTY required at all.
+    if harness == "subagent":
+        for tmux_key in ("tmux_target", "tmux_session", "tmux_window"):
+            if tmux_key in entry:
+                report.err(where, "subagent role must not define %s" % tmux_key)
+        return
     if wake_mode == "vivi_pty":
         report.err(where, "wake_mode=vivi_pty is retired; set runtime.kind=vivi_pty")
     runtime_kind = runtime.get("kind") if isinstance(runtime, dict) else None

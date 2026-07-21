@@ -6,8 +6,23 @@ Sensors normalize both into one nested `runtime` object.
 
 | Channel | Truth of… |
 | --- | --- |
-| **Vivi** | Board of record — what work exists and is done |
+| **Vivi board** | Work — what exists and is done |
+| **Vivi role pid/host** | Process — which pid claimed the seat |
 | **Execution runtime** | Process layer — alive, idle, or broken |
+
+## Checking role liveness
+
+`vivi board --process` (Vivi ≥ 6.1) gives the Mind one scan across all roles:
+
+```bash
+vivi board --process --project <root>           # all roles
+vivi board --process --for hand-1 --project <root>
+vivi role status hand-1 --project <root> --json  # one role, precise CPU
+```
+
+States: `alive`, `zombie`, `dead`, `sleep`, `not_set`, `remote`, `unknown`.
+`not_set` = available to assign (no process claimed the seat). `remote` = host
+mismatch; do not invent local process truth.
 
 ## Runtime backends
 

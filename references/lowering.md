@@ -130,10 +130,10 @@ the goal already has (or should have) a multi-phase delivery graph.
 
 Lowering is incomplete until:
 
-1. **Goal artifact** exists for the focused target.  
-2. **`$goal-check`** would return **`READY`** for consumer `delivery` or
+1. **Goal artifact** exists for the focused target.
+2. **goal-check** (under `$campaign`) would return **`READY`** for consumer `delivery` or
    `factory` (end state, architecture locks, boundaries, acceptance, validation,
-   implementation path — no material guessing).  
+   implementation path — no material guessing).
 3. **`$delivery`** produced a **delivery spec** with ordered units for the
    **horizon** (done-when, write scope, validation, non-goals per unit or stage).  
 4. Report lists **paths** + **implementable unit ids** for the whole horizon
@@ -142,7 +142,7 @@ Lowering is incomplete until:
 `NOT READY` → Mind does not file Hands; re-assign lower with named gaps or
 return to goal-forge.
 
-Skill detail: `$goal-check`, `$goal-forge`, `$delivery`. Fallback if skills
+Skill detail: `$campaign` (sub-refs: `goal-forge`, `goal-check`), `$delivery`. Fallback if skills
 missing: same structure in durable markdown; do not skip the bar.
 
 ---
@@ -197,4 +197,4 @@ and at selection time the assignment is **horizon batch-ahead**, not single-phas
 - [`tasking.md`](tasking.md) — board kinds; Hand vs need  
 - [`companion-fallbacks.md`](companion-fallbacks.md) — campaign / delivery / factory theses  
 - [`heads.md`](heads.md) — Head loops; lowering seat exception  
-- Skills: `$goal-forge`, `$goal-check`, `$delivery`, `$factory`, `$campaign`
+- Skills: `$campaign` (sub-refs: `goal-forge`, `goal-check`), `$delivery`, `$factory`

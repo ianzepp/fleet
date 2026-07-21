@@ -77,7 +77,7 @@ python3 <path-to-this-skill>/scripts/suggest-polish-files.py --repo <main> --jso
 
 **Fallback:** treat `factory/` or goal docs as **map** (current stage, next unblocked unit, stop conditions). Mind files Hand tasks **only from lowered units**. No invent GO/NO-GO.
 
-## Goal check (`$goal-check`) / goal-forge (`$goal-forge`)
+## Goal check / goal-forge (`$campaign` sub-references)
 
 **Thesis:** Prove a goal is mid-tier implementable (READY) before delivery/factory. Forge freezes fuzzy intent first.
 

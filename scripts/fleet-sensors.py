@@ -89,6 +89,45 @@ def is_vivi_pty_role(slot: dict) -> bool:
     return isinstance(runtime, dict) and runtime.get("kind") == "vivi_pty"
 
 
+def is_subagent_role(slot: dict) -> bool:
+    """Sub-agent hands have no pane or PTY; liveness comes from Vivi pid binding."""
+    harness = slot.get("harness")
+    if harness == "subagent":
+        return True
+    runtime = slot.get("runtime") or {}
+    return isinstance(runtime, dict) and runtime.get("kind") == "subagent"
+
+
+def vivi_role_status(vivi: str, project: str, name: str) -> Dict[str, Any]:
+    """Query vivi role status --json; return {} on failure."""
+    if not vivi:
+        return {}
+    rc, out = run([vivi, "role", "status", name, "--project", project, "--json"], timeout=10)
+    if rc != 0 or not out:
+        return {}
+    try:
+        data = json.loads(out)
+    except (ValueError, TypeError):
+        return {}
+    return data if isinstance(data, dict) else {}
+
+
+def map_vivi_state_to_pclass(state: Optional[str]) -> str:
+    """Map vivi role status state to fleet pclass vocabulary."""
+    if not state:
+        return "unknown"
+    mapping = {
+        "alive": "running",
+        "zombie": "failed",
+        "dead": "stopped",
+        "sleep": "completed",
+        "not_set": "stopped",
+        "remote": "unknown",
+        "unknown": "unknown",
+    }
+    return mapping.get(state, "unknown")
+
+
 def _model_fields(value: Any) -> Dict[str, Any]:
     """Return only structured model evidence; free-form terminal text is never evidence."""
     if not isinstance(value, dict):
@@ -2074,7 +2113,12 @@ def main() -> int:
         mid = h.get("mail_identity") or name
         runtime = h.get("runtime") or {}
         vivi_pty_role = is_vivi_pty_role(h)
-        if vivi_pty_role:
+        subagent_role = is_subagent_role(h)
+        if subagent_role:
+            # No pane or PTY: target is the role name; liveness from Vivi pid binding.
+            target = name
+            session = name
+        elif vivi_pty_role:
             session_id = (runtime.get("session_id") if isinstance(runtime, dict) else None) or mid
             socket = (runtime.get("socket") if isinstance(runtime, dict) else None) or str(project / ".vivi" / "vivi-pty.sock")
             target = session_id
@@ -2112,7 +2156,23 @@ def main() -> int:
         runtime_confidence = "medium"
         runtime_evidence = []
         observed_model = {}
-        if vivi_pty_role:
+        if subagent_role:
+            # Liveness comes from Vivi pid binding (Vivi ≥ 6.1).
+            status = vivi_role_status(vivi, str(project), name)
+            status_block = status.get("status") if isinstance(status.get("status"), dict) else {}
+            vstate = status_block.get("state")
+            pclass = map_vivi_state_to_pclass(vstate)
+            runtime_state = vstate
+            process_state = "running" if pclass == "running" else "stopped"
+            runtime_confidence = "high"
+            runtime_evidence = [
+                "vivi role status state=%s" % vstate,
+                "running=%s" % status_block.get("running"),
+            ]
+            if status_block.get("name"):
+                runtime_evidence.append("process=%s" % status_block.get("name"))
+            observed_model = {}
+        elif vivi_pty_role:
             if not vivi_pty_bin:
                 partial = True
                 out["signals"].append("vivi_pty_missing")
@@ -2150,13 +2210,14 @@ def main() -> int:
                     tail = ""
                     partial = True
 
-        pclass = (
-            classify_vivi_pty(runtime_state or "unknown", tail, sess_ok)
-            if vivi_pty_role
-            else classify_terminal(tail, sess_ok)
-        )
-        if not vivi_pty_role:
-            process_state = "running" if sess_ok else "stopped"
+        if not subagent_role:
+            pclass = (
+                classify_vivi_pty(runtime_state or "unknown", tail, sess_ok)
+                if vivi_pty_role
+                else classify_terminal(tail, sess_ok)
+            )
+            if not vivi_pty_role:
+                process_state = "running" if sess_ok else "stopped"
         runtime_states[name] = pclass
         next_handle = open_tasks[0]["handle"] if open_tasks else (open_needs[0]["handle"] if open_needs else None)
 

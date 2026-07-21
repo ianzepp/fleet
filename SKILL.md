@@ -40,6 +40,7 @@ The parent delivers a thin pointer. The role loads its own context from Vivi.
 You are fleet role <name>.
 Load charter:  vivi role charter show <name> --project <root>
 Load task:     vivi task show <handle> --project <root>
+Register pid:  vivi role set <name> --pid $$ --project <root>
 Optional bag:  vivi board --for <name> --project <root> --json
 Execute per charter. Report via vivi task done + vivi mail send.
 Return only a short pointer.
@@ -47,12 +48,13 @@ Return only a short pointer.
 
 ### Report
 
-Before returning, the role files results through Vivi:
+Before returning, the role files results through Vivi and clears its process binding:
 
 ```bash
 vivi task done <handle> --for <name> --note '<evidence: what changed, why, residuals>'
 vivi mail send --from <name>@<mailspace> --to mind@<mailspace> \
   --subject 'Re: <task subject>' --body '<durable findings>'
+vivi role set <name> --clear-pid --project <root>
 ```
 
 Returns to parent: short pointer only.
@@ -193,7 +195,7 @@ Canon for absorb/accept: [`mind-cycle.md`](references/mind-cycle.md) § Absorb v
 | --- | --- |
 | Process | Mind fills bag; Hand empties. Progress = open tasking + map — not GO stamps |
 | Hand equivalence | All Hands are equivalent floaters. The Mind picks any available Hand for each assignment. No Hand has a special integration role; there is no fleet-wide main in a multi-repo container. Single-repo fleets don't need a dedicated merger either — see [Commit authority and workflow](#commit-authority-and-workflow) |
-| Lowering | **Campaign goal → Head lowers** (`goal-forge` → `$goal-check` READY → `$delivery` docs) → Mind files Hands from those units. Hands do **not** lower raw goals via factory. — [`lowering.md`](references/lowering.md) |
+| Lowering | **Campaign goal → Head lowers** (`$campaign` goal-forge → goal-check READY → `$delivery` docs) → Mind files Hands from those units. Hands do **not** lower raw goals via factory. — [`lowering.md`](references/lowering.md) |
 | Commit authority | **Hands commit their own work.** The Hand has the diff context; re-deriving it in the Mind is waste. The Mind's job is review-after (sampling, auditor on risk), not commit-before. See [Commit authority and workflow](#commit-authority-and-workflow) |
 | Branch strategy | **Branch and worktree decisions belong to the Mind.** Default is main (Mind scopes non-overlapping work). Feature branch is the exception, created by Mind when scope is large or overlap risk is real. Hands commit to whatever branch they're assigned. |
 | Push authority | **Push is the Mind's decision.** Default off. The Mind knows per-repo deployment posture: Railway auto-deploy = do not push without explicit decision; Railway manual = safe when Mind approves; no remote = moot. |

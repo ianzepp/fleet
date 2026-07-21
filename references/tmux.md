@@ -117,7 +117,7 @@ tmux send-keys -t '<tmux_target>' -l -- '<boot pointer only>'
 tmux send-keys -t '<tmux_target>' Enter
 ```
 
-Typical boot pointer text:
+Typical boot pointer text (abbreviated — role loads the full boot contract from charter, including PID registration):
 
 ```text
 HAND WAKE hand-1. Role hand-1. Task <handle>. Load charter and task from Vivi. Report via vivi task done + vivi mail send.

@@ -74,9 +74,9 @@ list) already paid for thinking — not the implementer Hand inventing it:
 - exact write scope (repos/paths)  
 - invariants (esp. data safety, packaging law)  
 - validation commands  
-- for multi-unit stages: durable `$delivery` doc + `$goal-check` READY parent goal  
+- for multi-unit stages: durable `$delivery` doc + goal-check READY parent goal
 
-**Law:** campaign goal → **Head lowers** (`goal-forge` → `$goal-check` →
+**Law:** campaign goal → **Head lowers** (`$campaign`: goal-forge → goal-check →
 `$delivery`) → Mind files Hands. Hands do not lower raw goals through factory.
 Full pipeline: [`lowering.md`](lowering.md).
 
