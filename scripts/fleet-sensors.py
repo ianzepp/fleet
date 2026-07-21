@@ -152,10 +152,17 @@ def vivi_mail_list_json(vivi: str, project: str, recipient: str, limit: int = 10
     return data[:limit]
 
 
-def map_vivi_state_to_pclass(state: Optional[str]) -> str:
-    """Map vivi role status state to fleet pclass vocabulary."""
+def map_vivi_state_to_pclass(state: Optional[str], *, subagent: bool = False) -> str:
+    """Map vivi role status state to fleet pclass vocabulary.
+
+    For sub-agent seats, ``not_set`` means available (no pid claimed) — not a
+    broken runtime. Map it to ``completed`` so sensors do not emit false
+    ``runtime_*_stopped`` alarms for idle sub-agents.
+    """
     if not state:
         return "unknown"
+    if subagent and state == "not_set":
+        return "completed"
     mapping = {
         "alive": "running",
         "zombie": "failed",
@@ -166,6 +173,55 @@ def map_vivi_state_to_pclass(state: Optional[str]) -> str:
         "unknown": "unknown",
     }
     return mapping.get(state, "unknown")
+
+
+_VIVI_ROLES_CACHE: Dict[tuple, Dict[str, dict]] = {}
+
+
+def vivi_roles_by_name(vivi: str, project: str) -> Dict[str, dict]:
+    """Fetch and cache ``vivi role list --json`` keyed by role name."""
+    cache_key = (vivi, project)
+    cached = _VIVI_ROLES_CACHE.get(cache_key)
+    if cached is not None:
+        return cached
+    if not vivi:
+        return {}
+    rc, out = run([vivi, "role", "list", "--project", project, "--json"], timeout=20)
+    if rc != 0 or not out:
+        return {}
+    try:
+        data = json.loads(out)
+    except (ValueError, TypeError):
+        return {}
+    if not isinstance(data, list):
+        return {}
+    index: Dict[str, dict] = {}
+    for row in data:
+        if not isinstance(row, dict):
+            continue
+        name = row.get("name")
+        if isinstance(name, str) and name.strip():
+            index[name.strip()] = row
+    _VIVI_ROLES_CACHE[cache_key] = index
+    return index
+
+
+def role_capacity_overlay(vivi: str, project: str, name: str) -> Dict[str, Any]:
+    """Live capacity from the Vivi role record (provider/model/thinking/harness)."""
+    roles = vivi_roles_by_name(vivi, project) if vivi else {}
+    row = roles.get(name) or {}
+    out: Dict[str, Any] = {}
+    for src, dst in (
+        ("provider", "provider"),
+        ("model", "model"),
+        ("thinking", "thinking"),
+        ("harness", "harness"),
+        ("kind", "kind"),
+    ):
+        val = row.get(src)
+        if isinstance(val, (str, int, float, bool)) and str(val).strip():
+            out[dst] = val
+    return out
 
 
 def _model_fields(value: Any) -> Dict[str, Any]:
@@ -2147,17 +2203,23 @@ def main() -> int:
             status = vivi_role_status(vivi, str(project), name)
             status_block = status.get("status") if isinstance(status.get("status"), dict) else {}
             vstate = status_block.get("state")
-            pclass = map_vivi_state_to_pclass(vstate)
+            pclass = map_vivi_state_to_pclass(vstate, subagent=True)
             runtime_state = vstate
-            process_state = "running" if pclass == "running" else "stopped"
+            process_state = (
+                "running"
+                if pclass == "running"
+                else ("available" if vstate == "not_set" else "stopped")
+            )
             runtime_confidence = "high"
             runtime_evidence = [
                 "vivi role status state=%s" % vstate,
                 "running=%s" % status_block.get("running"),
+                "harness=subagent",
             ]
             if status_block.get("name"):
                 runtime_evidence.append("process=%s" % status_block.get("name"))
             observed_model = {}
+            agent = h.get("agent") or (role_capacity_overlay(vivi, str(project), name).get("harness") or "subagent")
         elif vivi_pty_role:
             if not vivi_pty_bin:
                 partial = True
@@ -2284,8 +2346,14 @@ def main() -> int:
             "packet_state": packet.get("state"),
             "operational_pause": hand_paused or paused_pkt,
         }
+        if subagent_role:
+            runtime_kind = "subagent"
+        elif vivi_pty_role:
+            runtime_kind = "vivi_pty"
+        else:
+            runtime_kind = "tmux"
         runtime_observation = {
-            "kind": "vivi_pty" if vivi_pty_role else "tmux",
+            "kind": runtime_kind,
             "target": target,
             "state": pclass,
             "process_state": process_state,
@@ -2299,7 +2367,11 @@ def main() -> int:
         if vivi_pty_role:
             runtime_observation["socket"] = session
         hand_row["runtime"] = runtime_observation
-        hand_row["model_provenance"] = model_provenance(h, observed_model, fleet, "hand")
+        capacity_cfg = dict(h)
+        capacity_cfg.update(role_capacity_overlay(vivi, str(project), name))
+        hand_row["model_provenance"] = model_provenance(
+            capacity_cfg, observed_model, fleet, "hand"
+        )
         out["hands"][name] = hand_row
 
         binding = lane_binding(h)
@@ -2361,11 +2433,20 @@ def main() -> int:
     for key, block in fleet.items():
         if str(key).startswith("head-") and isinstance(block, dict):
             head_blocks[str(key)] = block
-    tmux_required = any(
-        isinstance(slot, dict) and not is_vivi_pty_role(slot) for slot in hands.values()
-    ) or any(not is_vivi_pty_role(block) for block in head_blocks.values())
+    def _needs_tmux(slot: dict) -> bool:
+        return (
+            isinstance(slot, dict)
+            and not is_vivi_pty_role(slot)
+            and not is_subagent_role(slot)
+        )
+
+    tmux_required = any(_needs_tmux(slot) for slot in hands.values()) or any(
+        _needs_tmux(block) for block in head_blocks.values()
+    )
     if bool((fleet.get("steward") or {}).get("enabled")):
-        tmux_required = True
+        st_slot = fleet.get("steward") or {}
+        if isinstance(st_slot, dict) and not is_subagent_role(st_slot):
+            tmux_required = True
     if tmux_required and not tmux_bin:
         partial = True
         out["signals"].append("tmux_missing")
@@ -2373,8 +2454,14 @@ def main() -> int:
     for key, block in sorted(head_blocks.items()):
         runtime = block.get("runtime") or {}
         vivi_pty_role = is_vivi_pty_role(block)
-        if vivi_pty_role:
-            target = (runtime.get("session_id") if isinstance(runtime, dict) else None) or block.get("mail_identity") or key
+        subagent_role = is_subagent_role(block)
+        # Prefer mail_identity for Vivi role lookup (founders-council vs head-founders).
+        role_name = block.get("mail_identity") or key
+        if subagent_role:
+            target = role_name
+            session = role_name
+        elif vivi_pty_role:
+            target = (runtime.get("session_id") if isinstance(runtime, dict) else None) or role_name
             session = (runtime.get("socket") if isinstance(runtime, dict) else None) or str(project / ".vivi" / "vivi-pty.sock")
         else:
             target = block.get("tmux_target") or f"{block.get('tmux_session') or key}:1.1"
@@ -2386,7 +2473,27 @@ def main() -> int:
         runtime_confidence = "medium"
         runtime_evidence = []
         observed_model = {}
-        if vivi_pty_role:
+        if subagent_role:
+            status = vivi_role_status(vivi, str(project), role_name)
+            status_block = status.get("status") if isinstance(status.get("status"), dict) else {}
+            vstate = status_block.get("state")
+            pclass = map_vivi_state_to_pclass(vstate, subagent=True)
+            runtime_state = vstate
+            process_state = (
+                "running"
+                if pclass == "running"
+                else ("available" if vstate == "not_set" else "stopped")
+            )
+            runtime_confidence = "high"
+            runtime_evidence = [
+                "vivi role status state=%s" % vstate,
+                "running=%s" % status_block.get("running"),
+                "harness=subagent",
+            ]
+            if status_block.get("name"):
+                runtime_evidence.append("process=%s" % status_block.get("name"))
+            observed_model = {}
+        elif vivi_pty_role:
             if not vivi_pty_bin:
                 partial = True
                 out["signals"].append("vivi_pty_missing")
@@ -2418,13 +2525,14 @@ def main() -> int:
                     ],
                     timeout=5,
                 )
-        pclass = (
-            classify_vivi_pty(runtime_state or "unknown", tail, sess_ok)
-            if vivi_pty_role
-            else classify_terminal(tail, sess_ok)
-        )
-        if not vivi_pty_role:
-            process_state = "running" if sess_ok else "stopped"
+        if not subagent_role:
+            pclass = (
+                classify_vivi_pty(runtime_state or "unknown", tail, sess_ok)
+                if vivi_pty_role
+                else classify_terminal(tail, sess_ok)
+            )
+            if not vivi_pty_role:
+                process_state = "running" if sess_ok else "stopped"
         runtime_states[key] = pclass
 
         addressed_mail = list_recent_mail(vivi, str(project), block.get("mail_identity") or key, limit=1) if vivi else []
@@ -2495,9 +2603,14 @@ def main() -> int:
         # outbound mail age; this overrides the legacy every_n_loops path.
         vivi_schedule = None
         if vivi:
-            vs = vivi_role_status(vivi, str(project), key)
+            vs = vivi_role_status(vivi, str(project), role_name)
             if isinstance(vs.get("schedule"), dict):
                 vivi_schedule = vs["schedule"]
+            # Alias fallback (e.g. fleet key head-founders → founders-council)
+            if vivi_schedule is None and role_name != key:
+                vs2 = vivi_role_status(vivi, str(project), key)
+                if isinstance(vs2.get("schedule"), dict):
+                    vivi_schedule = vs2["schedule"]
         if vivi_schedule and vivi_schedule.get("state") in ("due", "overdue", "ok", "never"):
             sched_state = vivi_schedule.get("state")
             sweep_enabled = sched_state != "never"
@@ -2562,8 +2675,14 @@ def main() -> int:
             "sweep_top_handle": cur_top,
             "sweep_paused": head_paused or posture_pauses_executive_sweeps,
         }
+        if subagent_role:
+            runtime_kind = "subagent"
+        elif vivi_pty_role:
+            runtime_kind = "vivi_pty"
+        else:
+            runtime_kind = "tmux"
         runtime_observation = {
-            "kind": "vivi_pty" if vivi_pty_role else "tmux",
+            "kind": runtime_kind,
             "target": target,
             "state": pclass,
             "process_state": process_state,
@@ -2577,7 +2696,14 @@ def main() -> int:
         if vivi_pty_role:
             runtime_observation["socket"] = session
         head_row["runtime"] = runtime_observation
-        head_row["model_provenance"] = model_provenance(block, observed_model, fleet, "head")
+        capacity_cfg = dict(block)
+        capacity_cfg.update(role_capacity_overlay(vivi, str(project), role_name))
+        # head-founders fleet key maps to founders-council Vivi role via mail_identity
+        if not capacity_cfg.get("model") and key != role_name:
+            capacity_cfg.update(role_capacity_overlay(vivi, str(project), key))
+        head_row["model_provenance"] = model_provenance(
+            capacity_cfg, observed_model, fleet, "head"
+        )
         out["heads"][key] = head_row
 
     dr_state = out.get("disaster_recovery")
