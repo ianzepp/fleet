@@ -8,29 +8,46 @@ Mind = operator-opened harness conversation. Model tier is operator setup — do
 
 ### Scheduled cycle prefix
 
-Every durable scheduler / loop injection **must** start with `FLEET_CYCLE`:
+Every durable scheduler / loop injection **must** start with `FLEET_CYCLE`. The body mirrors the sub-agent boot shape: identity → protocol check → gather state → execute → close.
 
 ```text
 # Single fleet
 FLEET_CYCLE fleets=mgs
-# or: FLEET_CYCLE project=<root>
 
-# Multi-fleet — slugs only on the first line (attach log)
-FLEET_CYCLE fleets=mgs,faber,nacht
+Roots:
+  mgs:   /path/to/minted-geek-swarm
+
+Protocol: if mind-protocol.md is not in working memory (common after compaction), re-read before acting.
+  cat $SK/references/mind-protocol.md
+
+Gather state:
+  python3 $SK/fleet-sensors.py --project "$ROOT" --text
+
+Execute cycle per mind-protocol.md: resolve mode → sensors → classify each signal → disposition → act same turn → sleep if quiet.
+
+Close cycle:
+  python3 $SK/fleet-cycle-close.py --project "$ROOT" --acted --summary '…' \
+    --disposition '<signal>=<disposition>:<evidence>'
+  python3 $SK/fleet-baseline.py bump -p "$ROOT" -s '…' [--acted|--quiet] [--operator-engaged]
 ```
 
-**Paths belong in the body**, not invented topic-line keys:
-
 ```text
+# Multi-fleet — slugs only on the first line (attach log)
+FLEET_CYCLE fleets=mgs,faber,nacht
+
 Roots:
   mgs:   /path/to/minted-geek-swarm
   faber: /path/to/faberlang
   nacht: /path/to/nachtbagger
 ```
 
-First line `FLEET_CYCLE` ⇒ **not** operator message. Fix overlays that omit this.
+Multi-fleet: one fire = fail-fast **mini-cycle per fleet**; each fleet writes own `last_successful_cycle_at` (+ steward rearm only if armed). [`multi-fleet.md`](multi-fleet.md).
 
-**Multi-fleet:** one fire = fail-fast **mini-cycle per fleet**; each fleet writes own `last_successful_cycle_at` (+ steward rearm only if armed). [`multi-fleet.md`](multi-fleet.md).
+### Compaction recovery
+
+Context compaction during long sessions (12h+ cycles) drops protocol content from working memory. The cycle body's protocol line handles this: the Mind checks whether `mind-protocol.md` rules are in working memory, and re-reads if absent. This is not mandatory every cycle — only when the rules are no longer retained (after compaction, cold boot, or context pressure).
+
+The Mind may also re-read specific references when a surface hits that it no longer retains: [`tasking.md`](tasking.md) for board kinds, [`lowering.md`](lowering.md) for horizon rules, [`fleet-posture.md`](fleet-posture.md) for standby/growth/dormant semantics. The cycle template's protocol line is the durable fallback — the Mind never loses access to its own rules merely because context was compacted.
 
 ### Counters (write every cycle)
 

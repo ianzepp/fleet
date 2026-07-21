@@ -401,22 +401,40 @@ Job fixed; **budget** follows engagement. Write every cycle:
 
 ### FLEET_CYCLE prefix (required)
 
-**First line** = attach log only.
+**First line** = attach log only. The body is a thin pointer that mirrors the sub-agent boot shape: identity → protocol check → gather state → execute → close.
 
 ```text
 FLEET_CYCLE fleets=mgs
-FLEET_CYCLE fleets=mgs,faber,nacht
+
+Roots:
+  mgs:   /path/to/minted-geek-swarm
+
+Protocol: if mind-protocol.md is not in working memory (common after compaction), re-read before acting.
+  cat /Users/ianzepp/.agents/skills/fleet/references/mind-protocol.md
+
+Gather state:
+  python3 $SK/fleet-sensors.py --project "$ROOT" --text
+
+Execute cycle per mind-protocol.md: resolve mode → sensors → classify each signal → disposition → act same turn → sleep if quiet.
+
+Close cycle:
+  python3 $SK/fleet-cycle-close.py --project "$ROOT" --acted --summary '…' \
+    --disposition '<signal>=<disposition>:<evidence>'
+  python3 $SK/fleet-baseline.py bump -p "$ROOT" -s '…' [--acted|--quiet] [--operator-engaged]
 ```
 
-**Paths** live **below** the first line as a plain slug→root map:
+Multi-fleet uses slugs on the first line; the body repeats per-fleet state pointers:
 
 ```text
+FLEET_CYCLE fleets=mgs,faber,nacht
+
 Roots:
   mgs:   /path/to/minted-geek-swarm
   faber: /path/to/faberlang
+  nacht: /path/to/nachtbagger
 ```
 
-Resolve engagement first. Human prose this turn or since `last_operator_message_at` → `--operator-engaged` (reset). Else let baseline bump increment silence. Never hand-edit counters after bump.
+The protocol check, gather, execute, and close steps are the same per fleet. Run one fail-fast mini-cycle per fleet; each fleet writes its own `last_successful_cycle_at`.
 
 | Mode | Budget | Report |
 | --- | --- | --- |
