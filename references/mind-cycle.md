@@ -194,6 +194,25 @@ On engagement / “catch me up” / sensors `operator_to_mind`: (1) **op→mind*
 
 CLI: [`vivi.md`](vivi.md). N>0 → work-through table. N=0 → say empty once. Autonomous: `+op-mail:N` / `+op→mind:N` on one-liner — never status spam To operator@.
 
+### Operator mail monitor (background, alongside cycle)
+
+In addition to the per-cycle scan above, the Mind should arm a background watch that returns immediately when mail arrives **from operator → mind**. This closes the gap between 15–30 minute cycle cadences and operator expectations of near-immediate response.
+
+```bash
+vivi mail watch \
+  --for mind \
+  --match-from operator \
+  --project <root> \
+  --until-count 1 \
+  --timeout 24h \
+  --write-cursor \
+  --cursor-file <root>/.vivi/operator-to-mind.cursor
+```
+
+Run as a background task. It watches mind's inbox for mail from operator, blocking silently until one arrives (or the timeout fires). When it returns, the Mind gets a completion notification, handles the mail, and re-arms the watch. Most of the time nothing arrives and the Mind never sees it.
+
+The watch is independent of the FLEET_CYCLE loop — both run concurrently. The cycle loop handles normal fleet operations; the watch is an event-driven interrupt for operator-to-mind communication only.
+
 ### Steward rearm (every successful mini-cycle)
 
 ```bash
