@@ -38,12 +38,13 @@ The parent delivers a thin pointer. The role loads its own context from Vivi.
 
 ```text
 You are fleet role <name>.
+Read your role protocol:  mind-protocol.md | hand-protocol.md | head-protocol.md
 Load charter:  vivi role charter show <name> --project <root>
 Load task:     vivi task show <handle> --project <root>
 Register pid:  vivi role set <name> --pid $$ --project <root>
 Optional bag:  vivi board --for <name> --project <root> --json
 
-Execute per charter. File results with the literal commands below (do not paraphrase flags).
+Execute per charter and protocol. File results with the literal commands below (do not paraphrase flags).
   vivi task done <handle> --for <name> --note '<evidence>' --project <root>
   vivi mail send --from <name> --to mind --subject '<subject>' --body '<body>' --project <root>
   vivi role set <name> --clear-pid --project <root>
@@ -280,12 +281,27 @@ Core process here; detail in `references/` + `scripts/`.
 
 | Session context | Required reading |
 | --- | --- |
-| **Cold attach** | This file → [`subagent.md`](references/subagent.md) (or [`tmux.md`](references/tmux.md) / [`vivi-pty.md`](references/vivi-pty.md) for those backends) → [`mind-cycle.md`](references/mind-cycle.md). Add [`getting-started.md`](references/getting-started.md) for attach, [`multi-fleet.md`](references/multi-fleet.md) before multi-fleet. |
+| **Cold attach** | This file → **role protocol** ([`mind-protocol.md`](references/mind-protocol.md), [`hand-protocol.md`](references/hand-protocol.md), or [`head-protocol.md`](references/head-protocol.md) for your role) → [`subagent.md`](references/subagent.md) (or [`tmux.md`](references/tmux.md) / [`vivi-pty.md`](references/vivi-pty.md) for those backends) → [`mind-cycle.md`](references/mind-cycle.md). Add [`getting-started.md`](references/getting-started.md) for attach, [`multi-fleet.md`](references/multi-fleet.md) before multi-fleet. |
 | **Hot cycle** (state already in context) | This file alone if quiet; open a ref when that surface hits |
-| **Arm / first Mind turn** | This file + refs for surfaces you will touch this turn |
+| **Arm / first Mind turn** | This file + your role protocol + refs for surfaces you will touch this turn |
+
+### Role protocols (mandatory, checks-and-balances)
+
+Each role has a compact mandatory-read protocol. It distills the rules from the reference library into a dense runbook (~100 lines) that the role must read before acting. Each protocol enforces not only its own role's rules but the rules other roles must follow — a Hand refuses an improperly scoped task; a Head refuses an implement request; a Mind corrects its process when a refusal arrives rather than overriding it.
+
+| Protocol | Who reads | What it enforces |
+| --- | --- | --- |
+| [`mind-protocol.md`](references/mind-protocol.md) | Mind | Lowering bar, tasking kinds, assignment rules, commit/push/merge authority, cycle structure, what Minds do not do |
+| [`hand-protocol.md`](references/hand-protocol.md) | Hand (incl. auditor-N) | Delivery-unit requirement, execution cycle, commit authority, refusal conditions with exact language, workspace safety |
+| [`head-protocol.md`](references/head-protocol.md) | Head (all variants) | Advisory-only boundary, lowering seat rules, write-scope exception, report contract, refusal conditions with exact language |
+
+**Boot must name the role's protocol.** A role that has not read its protocol will violate the process — lowering, tasking, authority boundaries, and workspace safety all depend on it. The boot text must say: `Read <protocol> before acting.`
 
 | Load when | Path |
 | --- | --- |
+| **Mind mandatory read** | [`mind-protocol.md`](references/mind-protocol.md) |
+| **Hand mandatory read** | [`hand-protocol.md`](references/hand-protocol.md) |
+| **Head mandatory read** | [`head-protocol.md`](references/head-protocol.md) |
 | Sub-agent execution | [`subagent.md`](references/subagent.md) |
 | tmux execution | [`tmux.md`](references/tmux.md) |
 | vivi-pty execution | [`vivi-pty.md`](references/vivi-pty.md) |
