@@ -3,8 +3,8 @@
 
 One cycle-close operation collects canonical fleet sensors, requires an explicit
 disposition for every signal, records the redacted sensor observation, persists
-the baseline, writes a per-cycle close receipt, and optionally rearms the steward
-dead-man. It does not duplicate fleet-doorbell.sh's atomic successful-wake
+the baseline, writes a per-cycle close receipt, and optionally tracks
+steward state. It does not duplicate the atomic successful-wake
 recording.
 
   fleet-cycle-close.py --project <root> --acted [--summary '…'] \
@@ -30,7 +30,7 @@ with --dispositions-file instead of repeated flags.
 Steward: rearms only when fleet.json steward.enabled==true and baseline
 steward.armed==true.  Does NOT enable or arm steward.
 
-Preserves fleet-doorbell.sh last_hand_wake data (baseline bump reads only
+Preserves last_hand_wake data (baseline bump reads only
 the fingerprint/runtime/head fields from the sensors blob).
 
 Requires: Python 3.9+ (macOS / Linux). Exit: 0 ok · 1 error · 2 usage.
@@ -358,41 +358,10 @@ def cmd_close(args: argparse.Namespace, project: Path) -> int:
             except OSError:
                 pass
 
-    # Steward rearm (only if enabled+armed)
-    baseline = load_json(baseline_path_obj)
-
-    steward_config = fleet.get("steward") if isinstance(fleet.get("steward"), dict) else {}
-    steward_enabled = steward_config.get("enabled", False)
-    steward_baseline = baseline.get("steward") if isinstance(baseline.get("steward"), dict) else {}
-    steward_armed = steward_baseline.get("armed", False)
-
-    steward_rearmed = False
-    if steward_enabled and steward_armed:
-        steward_cmd = [
-            str(scripts / "steward.sh"),
-            "rearm",
-            "--project", str(project),
-        ]
-        steward_result = subprocess.run(
-            steward_cmd,
-            capture_output=True,
-            text=True,
-            encoding="utf-8",
-            errors="replace",
-            timeout=30,
-            check=False,
-        )
-        if steward_result.returncode == 0:
-            steward_rearmed = True
-            print("steward rearmed")
-        else:
-            print("warning: steward.sh rearm failed (rc=%d)" % steward_result.returncode,
-                  file=sys.stderr)
-            if steward_result.stderr:
-                print(steward_result.stderr.strip(), file=sys.stderr)
-    elif steward_enabled and not steward_armed:
-        print("info: steward enabled but not armed — skipping rearm")
-    # else: steward disabled — no output (silent skip)
+    # Steward rearm was handled by steward.sh (now removed).
+    # Steward state (enabled/armed/tripped) is still tracked in baseline
+    # and surfaced by sensors, but the rearm action is a no-op.
+    # If steward is re-enabled in the future, rearm via a Vivi-native path.
 
     # Finalize the per-cycle receipt and update the latest-close pointer.
     updated = load_json(baseline_path_obj)

@@ -373,7 +373,7 @@ def classify_terminal(text: str, session_exists: bool) -> str:
         if re.search(r"⬝|esc interrupt", bottom):
             return "running"
         return "waiting_for_input"
-    # Pi (pi-hand) — idle footer even when "Update Available" chrome sits above.
+    # Pi footer — idle footer even when "Update Available" chrome sits above.
     # Example: "0.0%/1.0M (auto) … (zai) glm-5.2 • low" or "pi v0.80.7".
     if re.search(
         r"pi v0\.|\(zai\)\s*glm-5\.2|glm-5\.2\s*•\s*(low|medium|high)|%/1\.0M\s*\(auto\)|escape interrupt|mgs-hand-\d+",
@@ -2746,7 +2746,7 @@ def main() -> int:
         "last_rearm_at"
     )
     out["steward"] = {
-        # Default OFF — match steward.sh and process law (opt-in dead-man).
+        # Default OFF — match process law (opt-in dead-man).
         "enabled": st_cfg.get("enabled", False),
         "armed": bool(st_base.get("armed")),
         "tripped": bool(st_base.get("tripped")),

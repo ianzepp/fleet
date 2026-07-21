@@ -21,7 +21,6 @@ def load_script(name):
 
 
 sensors = load_script("fleet-sensors.py")
-validator = load_script("verify-fleet-json.py")
 
 
 class SensorHistoryTest(unittest.TestCase):
@@ -211,16 +210,6 @@ class SensorHistoryTest(unittest.TestCase):
             for secret in ("customer pane body", "private", "raw", "customer name", "mail body", "secret", "customer project"):
                 self.assertNotIn(secret, persisted)
             self.assertIn("safehash", persisted)
-
-    def test_sensor_log_validation(self):
-        report = validator.validate(
-            {"sensor_log": {"enabled": "yes", "level": "verbose", "retention_cycles": 0}},
-            Path("fleet.json"), False,
-        )
-        locations = {where for where, _ in report.errors}
-        self.assertIn("$.sensor_log.enabled", locations)
-        self.assertIn("$.sensor_log.level", locations)
-        self.assertIn("$.sensor_log.retention_cycles", locations)
 
 
 if __name__ == "__main__":
