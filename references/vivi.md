@@ -118,6 +118,29 @@ Prefer **`fleet-sensors.py`**: emits `operator_mail` (To operator) and **`operat
 
 Paid path: list/show what changed; `mail thread` when lineage matters; residual **tasks** To owning Hand. **Do not** unbounded-block on `watch` during fail-fast cycles.
 
+## Communication tracing (Vivi ≥ 6.3)
+
+`vivi trace` reconstructs the cross-role communication tree around any handle. Use it to verify coordination chains instead of inferring edges from subject lines and timing.
+
+```bash
+vivi trace <handle> --project "$ROOT"
+vivi trace <handle> --project "$ROOT" --json --max-depth 5 --limit 100
+```
+
+The tree includes:
+- **Captured** edges from `In-Reply-To` / `References` reply links
+- **Event** edges from `task from` lifecycle events
+- **Inferred** edges from body handle citations and stripped subject matching
+
+| When to use | Instead of |
+| --- | --- |
+| Verify a lowering actually links to the Hand units filed from it | Guessing from subject prefixes |
+| Trace an audit chain (block_ship → repair → verify) | Reading mail list in chronological order |
+| Confirm a task has real reply edges to its parent goal | Assuming the link exists because subjects match |
+| Understand the full history of a unit before acting | Shell-diving into individual mail handles |
+
+Text output prints per-node metadata, copy list, and labeled edges. JSON output contains a stable `TraceGraph` with `seed`, `nodes`, and `edges`.
+
 ## Role memory (Mind and Heads only)
 
 Memos are durable, project-local context for a role's own future sessions. They

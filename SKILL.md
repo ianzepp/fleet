@@ -329,6 +329,7 @@ Each role has a compact mandatory-read protocol. It distills the rules from the 
 | Goal lowering | [`lowering.md`](references/lowering.md) |
 | Filing / starvation | [`tasking.md`](references/tasking.md) |
 | Board CLI | [`vivi.md`](references/vivi.md) |
+| Communication tracing (≥ 6.3) | [`vivi.md`](references/vivi.md) § Communication tracing |
 | Runtime channel concept | [`dual-channel.md`](references/dual-channel.md) |
 | Modes / fail-fast / polish / HK | [`mind-cycle.md`](references/mind-cycle.md) |
 | operator@ | [`operator-mail.md`](references/operator-mail.md) |
