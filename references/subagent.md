@@ -167,4 +167,6 @@ Tighten only if sub-agents are getting stuck or the operator is engaged.
 
 tmux and vivi-pty references: [`tmux.md`](tmux.md), [`vivi-pty.md`](vivi-pty.md).
 
-For a bounded parallel wave that needs audited campaign lowering and aggregate closeout, see [`wave.md`](wave.md). Backend mechanics remain here; wave control lives there.
+For a bounded parallel wave, use [`wave-planning.md`](wave-planning.md) for
+audited preparation and [`wave.md`](wave.md) for execution and aggregate
+closeout. Backend mechanics remain here.

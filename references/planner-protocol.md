@@ -66,10 +66,11 @@ When execution is imminent and the operator is engaged, the Mind assigns the ful
 ### Large-wave preparation override
 
 Do not use the collapsed pipeline when the Mind declares a large parallel wave.
-Follow [`wave.md`](wave.md): P1 Forge, P2 Check, and P3 Delivery are separate
-planner assignments with a Mind intent gate and independent audits after P2 and
-P3. The Mind routes audit findings. The Planner corrects the cited artifact and
-reports a new receipt; the Auditor never edits it.
+Follow [`wave-planning.md`](wave-planning.md): P1 Forge, P2 Check, and P3
+Delivery are separate planner assignments with a Mind intent gate and
+independent audits after P2 and P3. The Mind routes audit findings. The Planner
+corrects the cited artifact and reports a new receipt; the Auditor never edits
+it.
 
 ## Horizon rules
 

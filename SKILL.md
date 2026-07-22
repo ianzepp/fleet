@@ -121,7 +121,7 @@ When execution is imminent and the operator is engaged, steps 2–6 collapse to 
 
 Do not collapse planning for a large parallel wave. Use the separate Forge,
 Check, goal-audit, Delivery, and delivery-audit admission gates in
-[`wave.md`](references/wave.md) before product Hands fan out.
+[`wave-planning.md`](references/wave-planning.md) before product Hands fan out.
 
 The audit loop (steps 9–14) is the integration bar. `accept` means the audit loop passed, not that something is queued for merge.
 
@@ -356,7 +356,8 @@ Each role has a compact mandatory-read protocol. It distills the rules from the 
 | Steward | [`dead-man.md`](references/dead-man.md) |
 | Multi-fleet | [`multi-fleet.md`](references/multi-fleet.md) |
 | Posture / sleep vs continuity | [`posture.md`](references/posture.md) |
-| Large parallel wave execution | [`wave.md`](references/wave.md) |
+| Large parallel wave planning | [`wave-planning.md`](references/wave-planning.md) |
+| Large parallel wave execution and closeout | [`wave.md`](references/wave.md) |
 | Side lanes / lane lifecycle / merge | [`multi-lane.md`](references/multi-lane.md) |
 | Heads | [`heads.md`](references/heads.md), [`heads/cast.md`](references/heads/cast.md) |
 | Remote | [`ssh-remote.md`](references/ssh-remote.md) |

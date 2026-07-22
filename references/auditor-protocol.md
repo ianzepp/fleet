@@ -2,7 +2,9 @@
 
 **Read completely before executing any review. Refuse any request that violates this protocol.**
 
-Canonical detail: [`auditor`](../../auditor/SKILL.md) skill, [`tasking.md`](tasking.md), [`vivi.md`](vivi.md).
+Canonical detail: [`auditor`](../../auditor/SKILL.md) skill,
+[`tasking.md`](tasking.md), [`vivi.md`](vivi.md), and large-wave planning in
+[`wave-planning.md`](wave-planning.md).
 
 ## Role
 

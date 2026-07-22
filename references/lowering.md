@@ -164,7 +164,8 @@ docs on multi-unit stages.
 ### Large-wave preparation override
 
 Ordinary planning uses the lowering path above. New campaign goals prepared for
-a large parallel wave use the deeper chain in [`wave.md`](wave.md):
+a large parallel wave use the deeper chain in
+[`wave-planning.md`](wave-planning.md):
 
 ```text
 Mind -> Planner P1 Forge -> Mind -> Planner P2 Check -> Mind
@@ -216,5 +217,6 @@ selection time the assignment is **horizon batch-ahead**, not single-phase JIT.
 - [`tasking.md`](tasking.md) — board kinds; Hand vs need  
 - [`companion-fallbacks.md`](companion-fallbacks.md) — campaign / delivery / factory theses  
 - [`heads.md`](heads.md) — Head loops; advisory-only boundary  
-- [`wave.md`](wave.md) — audited campaign lowering, rolling inventory, wave flow, freeze, and retrospective
+- [`wave-planning.md`](wave-planning.md) — audited large-wave preparation and admission
+- [`wave.md`](wave.md) — rolling inventory, execution flow, freeze, and retrospective
 - Skills: `$campaign` (sub-refs: `goal-forge`, `goal-check`), `$delivery`, `$factory`

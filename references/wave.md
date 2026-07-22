@@ -1,15 +1,16 @@
-# Wave planning and execution
+# Wave execution and closeout
 
 A wave is a bounded delivery interval for work that needs parallel Hands,
 rolling planner inventory, independent review, and an aggregate closeout.
 
-**Invariant:** a large parallel wave admits only goals whose intent, readiness,
-and delivery graph passed independent review; routes every role handoff through
-the Mind; and cannot close until aggregate evidence is reconciled.
+**Invariant:** a large parallel wave launches only admitted units, routes every
+role handoff through the Mind, and cannot close until aggregate evidence is
+reconciled.
 
-Read [`lowering.md`](lowering.md), [`mind-cycle.md`](mind-cycle.md), and the
-reference for the selected execution backend. This document defines wave
-control; it does not repeat role boot, runtime, or partial-commit mechanics.
+Read [`wave-planning.md`](wave-planning.md), [`mind-cycle.md`](mind-cycle.md),
+and the reference for the selected execution backend. This document defines
+wave execution and closeout; it does not repeat preparation, role boot,
+runtime, or partial-commit mechanics.
 
 ## When to use a wave
 
@@ -39,83 +40,17 @@ boundary:   Wave N freezes, reconciles, and selects Wave N+1
 Wave 0 is valid work. Idle product Hands are not starvation when the declared
 posture is planning-only and planners or auditors own the active gates.
 
-### Large-wave preparation
+## Planning and admission
 
-Use this path before a large parallel launch, where one planning mistake would
-be copied into several Hand assignments or discovered only after dependent work
-has started. Typical triggers are several simultaneous Hands, a long dependency
-graph, cross-repo work, shared hot files, expensive validation, or a campaign
-goal whose claims have not been checked against live code.
+Large parallel waves use the separate P1 Forge, P2 Check, goal-reality audit,
+P3 Delivery, and delivery-reality audit gates in
+[`wave-planning.md`](wave-planning.md). Ordinary work stays on the standard
+lowering path.
 
-Already-lowered goals may be reused only when their intent, code facts, and
-delivery graph are still current. Small or sequential work uses ordinary
-lowering instead.
-
-```text
-Mind
-  -> Planner: P1 Forge
-  -> Mind: intent gate
-  -> Planner: P2 Check
-  -> Mind: audit routing
-  -> Auditor: P2 goal-reality audit
-  -> Mind: findings disposition
-  -> Planner: goal corrections, when required
-  -> Mind: correction gate
-  -> Planner: P3 Delivery
-  -> Mind: audit routing
-  -> Auditor: P3 delivery-reality audit
-  -> Mind: findings disposition
-  -> Planner: delivery corrections, when required
-  -> Mind: admission
-```
-
-| Handoff | Owner and output | Gate |
-| --- | --- | --- |
-| 1. Select | Mind selects one goal and states its invariant, horizon, authority, and decision owner | No raw campaign dump |
-| 2. P1 Forge | Planner freezes intent, boundaries, acceptance criteria, and open operator decisions | Do not run goal-check or write a delivery graph |
-| 3. Intent gate | Mind accepts intent, resolves operator decisions, or returns named gaps | Review campaign fit, not code truth |
-| 4. P2 Check | Planner proves READY criteria, dependencies, validation, and factual assumptions | Do not write a delivery graph |
-| 5. Goal audit | Auditor checks the goal and goal-check claims against live code and named authorities | Report findings To Mind; do not edit artifacts |
-| 6. Goal disposition | Mind classifies every finding as blocking, required correction, accepted residual, or false finding | No direct Auditor -> Planner handoff |
-| 7. Goal correction | Planner corrects the goal artifact when required and reports the receipt | Every blocking or required finding is closed before P3 |
-| 8. P3 Delivery | Planner writes the ordered unit graph, write scopes, dependencies, done-when, and validation commands | Base every unit on the corrected READY goal |
-| 9. Delivery audit | Auditor fact-checks code references, scopes, dependencies, commands, and claimed coverage | Review the executable specification, not the goal again |
-| 10. Delivery disposition | Mind classifies and routes every finding | No finding disappears between roles |
-| 11. Delivery correction | Planner corrects the delivery artifact when required and reports the receipt | Every blocking or required finding is closed before filing |
-| 12. Admit | Mind checks both audit receipts, corrections, dependency graph, write scopes, and review policy | Only then file product Hands |
-
-The Mind is the router at every boundary. Planner and Auditor sessions report
-To Mind because the Mind owns tasking, context continuity, and the next spawn.
-The Auditor supplies factual review; the Mind decides disposition; the Planner
-authors the corrected plan. A no-findings audit skips only its correction step,
-not the Mind gate or audit receipt.
-
-Wave 0 called the delivery-reality audit a **bonus round**. It caught false test
-names, missing assertions, unsupported contention claims, and incomplete write
-scopes after the goals had already passed the first audit. For future large
-waves it is a standard admission gate, not discretionary cleanup.
-
-For several goals, pipeline this chain across goals. Keep one Planner owner per
-goal or coherent theme. Batch only the Mind's short intent reviews; never merge
-unrelated goals into one lowering assignment.
-
-### READY admission packet
-
-Before launch, the wave must have:
-
-- bounded objective, non-goals, cutoff, and closeout decision owner;
-- baseline Git tips for every affected repository;
-- durable goal and delivery artifacts;
-- goal-reality and delivery-reality audit receipts with every required finding closed;
-- ordered unit and dependency graph;
-- exact write scopes and hot-file serialization rules;
-- validation commands and audit policy by risk family;
-- enough READY inventory to cover at least one planner turnaround; and
-- explicit blocked and no-Hand lists.
-
-READY inventory means implementable units, not goal documents or unchecked
-delivery drafts. Size the buffer from observed Hand drain and planner latency.
-Refill before the buffer can reach zero.
+Launch only from one admission receipt with corrected planning artifacts, both
+audit receipts, closed required findings, repository baselines, an ordered unit
+graph, exact write scopes, validation policy, READY inventory, and a no-Hand
+list. A delivery file or chat claim alone is not admission.
 
 ## Wave lifecycle
 
@@ -399,6 +334,7 @@ CLOSE
 
 | Reference | Covers |
 | --- | --- |
+| [`wave-planning.md`](wave-planning.md) | Large-wave preparation, planning audits, and admission |
 | [`subagent.md`](subagent.md) | Sub-agent backend mechanics (spawn, completion, partial-commit) |
 | [`tmux.md`](tmux.md) | Persistent tmux backend mechanics |
 | [`vivi-pty.md`](vivi-pty.md) | Structured PTY backend mechanics |
