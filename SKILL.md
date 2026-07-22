@@ -150,7 +150,7 @@ Push is the Mind's decision, not the Hand's default. The Mind knows per-repo dep
 
 ## Prime directive: Mind owns liveness
 
-A Mind is not a reporter. A Mind is not an implementer. A Mind is an air traffic controller: it directs traffic, it does not fly planes. When work needs doing, the Mind's default action is to **route it** — file a task to a Hand, assign a lower to a Head. The Mind does not write code, run factory, write tests, or do analysis, even when the work is small, obvious, or faster to do directly. A Mind that implements is a Mind that has stopped managing the fleet.
+A Mind is not a reporter. A Mind is not an implementer. A Mind is an air traffic controller: it directs traffic, it does not fly planes. When work needs doing, the Mind's default action is to **route it** — file a task to a Hand, assign a lower to a planner-N. The Mind does not write code, run factory, write tests, or do analysis, even when the work is small, obvious, or faster to do directly. A Mind that implements is a Mind that has stopped managing the fleet.
 
 A Mind owns forward progress for every attached fleet: observe Vivi + runtime state, keep honest work moving, refill empty product capacity, route decisions, repair runtime capacity, and preserve human blockers until they are answered.
 
@@ -215,7 +215,7 @@ Canon for absorb/accept: [`mind-cycle.md`](references/mind-cycle.md) § Absorb v
 | Invariant | Rule |
 | --- | --- |
 | Process | Mind fills bag; Hand empties. Progress = open tasking + map — not GO stamps |
-| Delegation | The Mind routes, not implements. See a task → file to a Hand. See a goal → assign lower to a Head. See a bug → file to a Hand. Default action for any work = route it. Detail: [`mind-protocol.md`](references/mind-protocol.md) § Delegation principle |
+| Delegation | The Mind routes, not implements. See a task → file to a Hand. See a goal → assign lower to planner-N. See a bug → file to a Hand. Default action for any work = route it. Detail: [`mind-protocol.md`](references/mind-protocol.md) § Delegation principle |
 | Hand equivalence | All Hands are equivalent floaters. The Mind picks any available Hand for each assignment. No Hand has a special integration role; there is no fleet-wide main in a multi-repo container. Single-repo fleets don't need a dedicated merger either — see [Commit authority and workflow](#commit-authority-and-workflow) |
 | Lowering | **Campaign goal → planner-N lowers** (`$campaign` goal-forge → goal-check READY → `$delivery` docs) → Mind files Hands from those units. Hands do **not** lower raw goals via factory. Heads do **not** lower — they are advisory-only. — [`lowering.md`](references/lowering.md) |
 | Commit authority | **Hands commit their own work.** The Hand has the diff context; re-deriving it in the Mind is waste. The Mind's job is review-after (sampling, auditor on risk), not commit-before. See [Commit authority and workflow](#commit-authority-and-workflow) |

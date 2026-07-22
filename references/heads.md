@@ -11,18 +11,17 @@ Load persona only when assigning that Head for depth — not every FLEET_CYCLE.
 | Not product lanes | No keep-screen-moving refill with map packages |
 | No merge | Never own merge decisions; Mind owns branch/merge |
 | Progress via priority picture | Advise To mind; Mind files Hands |
-| Harness | Prefer **Pi** harness, model by role (CEO/CXO → GLM 5.2, CTO → Codex 5.5) — one-shot assign→report |
+| Harness | Prefer **Pi** harness, model by role (all Heads → GLM 5.2 (high or xhigh)) — one-shot assign→report |
 | Identity | `head-*` (mail + tmux when armed) |
 | Reports | **To: mind** (board only) |
-| **Lowering seat** | When Mind assigns **lower**: one Head (default **head-ceo**) runs goal-forge → goal-check READY → `$delivery` docs. Planning-artifact write scope only — not product code, not Hand filing. Detail: [`lowering.md`](lowering.md) |
+| **Advisory only** | Heads are never a required step in the production line. Lowering is planner-N duty — Heads do not lower. Detail: [`lowering.md`](lowering.md) |
 
 See `roles-and-harness.md`. Shared finding schema: [`heads/personas/shared-operating-rules.md`](heads/personas/shared-operating-rules.md).
 
-### Lowering vs advisory
+### Advisory vs lowering
 
-Cadence sweeps stay report-only. **Lowering is assign-only** and produces durable
-goal + delivery documents Mind files from. Do not conflate map-health mail with
-a READY delivery graph.
+Cadence sweeps stay report-only. **Heads do not lower** — lowering is planner-N
+duty. Do not conflate map-health mail with a READY delivery graph.
 
 ## Cold-boot recovery / exec warm-up
 

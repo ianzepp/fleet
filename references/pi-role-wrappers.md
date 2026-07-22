@@ -87,8 +87,8 @@ vivi role set hand-1 --project <root> --harness tmux \
 
 ```bash
 vivi role set head-cto --project <root> --harness tmux \
-  --provider openai-codex --model gpt-5.5 --thinking high
-# launch: pi --no-extensions --exclude-tools edit,write --provider openai-codex --model gpt-5.5 --thinking high --name head-cto --approve
+  --provider zai --model glm-5.2 --thinking high
+# launch: pi --no-extensions --exclude-tools edit,write --provider zai --model glm-5.2 --thinking high --name head-cto --approve
 ```
 
 **Mind** sessions (Grok or Pi with Fleet UI) should **not** use the Hand/Head

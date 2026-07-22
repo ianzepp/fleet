@@ -95,7 +95,7 @@ Once a real fleet is chosen and case 2 or 3 applies, leave this section — oper
 | Dependency | Why | Min / notes |
 | --- | --- | --- |
 | **Vivi** (`vivi` CLI) | **Only** supported board | **≥ 6.4** |
-| **bash** | Shell helpers (`steward`, `doorbell`, …) | **3.2+** (not `sh` / not zsh-as-script) |
+| **bash** | Shell helpers (`scripts/lib/env.sh`, Python fleet scripts) | **3.2+** (not `sh` / not zsh-as-script) |
 | **Python 3** | Cycle helpers | **≥ 3.9** |
 | **Project root** | Where `.vivi/` lives | Writable directory |
 

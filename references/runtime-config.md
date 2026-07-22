@@ -388,152 +388,35 @@ new handle rather than hand-rolling `/new` + pointer.
 
 The fleet JSON validator (the `verify-fleet-json.py` helper, now removed) rejected unknown mode strings; validate modes via `vivi role list` and the schema below.
 
-## Fleet config schema
+## Role record fields (vivi role)
 
-Recommended keys (extend freely; skill cares about meanings):
+Role configuration is done through `vivi role add/set`. The fields below map
+old fleet.json concepts to their current homes.
 
-```json
-{
-  "version": 1,
-  "legacy_hand_identity": "codex",
-  "fleet_id": "mgs",
-  "tmux_layout": "legacy",
-  "git": {
-    "main_cwd": "/path/to/primary/git/checkout",
-    "note": "optional — workspace containers without .git at fleet root; sensors use this tip"
-  },
-  "fleet_posture": {
-    "mode": "growth",
-    "reason": "campaign spine — or standby for on-call fleets",
-    "since": "2026-07-11T00:00:00Z",
-    "wake_triggers": ["operator product task", "operator@ need"],
-    "ceo_continuity_min_hours": 6
-  },
-  "lane_lifecycle": {
-    "stale_after_cycles": 5,
-    "resume_stale_after_hours": 24,
-    "release_grace_cycles": 2,
-    "worktree_cleanup": "manual"
-  },
-  "mind_inbox": "mind",
-  "operator_inbox": "operator",
-  "operator_inbox_note": "Human escalations only (problems/blockers/guidance). Not status. No tmux.",
-  "head_report_inbox": "mind",
-  "head_report_inbox_note": "Inbox Heads report into for sweep-completion detection. Default mind (process law: To mind@). Legacy camps may set reviewer until renamed.",
-  "steward": {
-    "enabled": false,
-    "note": "default OFF — operator must enable:true and explicitly ask to arm per fleet; loop ≠ steward",
-    "tmux_session": "steward",
-    "tmux_window": "steward",
-    "tmux_target": "steward:1.1",
-    "grace_sec": 900,
-    "poll_sec": 60,
-    "mode": "hold",
-    "notify": {
-      "operator_board": true,
-      "external_email": false,
-      "account": "personal-proton",
-      "to": [],
-      "dedupe_hours": 6,
-      "preauthorized_exec_send": false
-    }
-  },
-  "binding_rule": "legacy: mail_identity==tmux_session; session_per_fleet: mail_identity==role, tmux_session==fleet_id, tmux_window==role; always use tmux_target",
-  "mind": {
-    "note": "Pi is the product harness; Mind is not a fleet process slot"
-  },
-  "agent_policy": {
-    "hands_follow_mind_harness": true,
-    "heads_prefer_pi": true
-  },
-  "preferred_models": {
-    "pi": {
-      "mind": { "provider": "openai-codex", "model": "gpt-5.5", "thinking": "medium" },
-      "hand": { "provider": "openai-codex", "model": "gpt-5.5", "thinking": "medium" },
-      "head": { "provider": "zai", "model": "glm-5.2", "thinking": "high|xhigh" }
-    }
-  },
-  "tooling": {
-    "pi": { "binary": "/abs/path/to/pi" },
-    "codex": { "binary": "/abs/path/to/codex" },
-    "opencode": { "binary": "/abs/path/to/opencode" },
-    "kimi": { "binary": "/abs/path/to/kimi" },
-    "vivi": { "binary": "/abs/path/to/vivi" }
-  },
-  "runtime_fallback": {
-    "pi_model_ladder_mind": ["openai-codex/gpt-5.5", "zai/glm-5.2"],
-    "pi_model_ladder_hand": ["openai-codex/gpt-5.5", "zai/glm-5.2"],
-    "pi_model_ladder_head": ["zai/glm-5.2"],
-    "hand_harness_follows_mind": true,
-    "heads_prefer_pi": true
-  },
-  "hands": {
-    "hand-1": {
-      "mail_identity": "hand-1",
-      "host": "local",
-      "tmux_session": "hand-1",
-      "tmux_target": "hand-1:1.1",
-      "cwd": "/path/to/main",
-                "assignment_sticky": true,
-      "runtime_sticky": false,
-      "assignment_mode": "new",
-      "wake_mode": "tmux_send_keys",
-      "min_seconds_between_wakes": 180
-    },
-    "hand-2": {
-      "mail_identity": "hand-2",
-      "host": "remote.example",
-      "ssh": "ssh -o BatchMode=yes remote.example",
-      "cwd": "/path/on/remote/side-lane",
-              "wake_mode": "tmux_send_keys_via_ssh",
-      "assignment_sticky": false,
-      "assignment_mode": "continue",
-      "packet": { "slug": "…", "branch": "…", "state": "assigned" }
-    },
-    "auditor-1": {
-      "mail_identity": "auditor-1",
-      "host": "local",
-      "tmux_session": "auditor-1",
-      "tmux_target": "auditor-1:1.1",
-      "cwd": "/path/to/main",
-                "assignment_sticky": false,
-      "assignment_mode": "new",
-      "wake_mode": "tmux_send_keys",
-      "min_seconds_between_wakes": 180,
-      "note": "review Hand; assignments explicitly invoke $auditor; reports To mind"
-    },
-    "hand-3": {
-      "mail_identity": "hand-3",
-      "tmux_session": "hand-3",
-      "tmux_target": "hand-3:1.1",
-      "cwd": "/path/to/campaign-worktree",
-        "assignment_mode": "continue",
-      "lane": {
-        "campaign": "docs/CAMPAIGN.md",
-        "goal": "factory/goals/example.md",
-        "branch": "campaign/example",
-        "state": "active",
-        "wake_trigger": null
-      }
-    }
-  },
-  "head-ceo": {
-    "mail_identity": "head-ceo",
-    "assignment_mode": "new",
-    "role_prompt": "<fleet-path>/head-ceo-role-prompt.txt"
-  },
-  "head-cto": {
-    "mail_identity": "head-cto"
-  },
-  "head-cxo": {
-    "mail_identity": "head-cxo",
-    "tmux_session": "head-cxo"
-  },
-  "head-cso": {
-    "mail_identity": "head-cso"
-  }
-}
-```
+| Old field | Current home | Notes |
+| --- | --- | --- |
+| `fleet_id`, `version`, `tmux_layout` | — | Removed; fleet identity is the Vivi mailspace root |
+| `git.main_cwd` | Baseline | Project-level; not a role field |
+| `fleet_posture` | Baseline | Set directly on baseline or Vivi config |
+| `lane_lifecycle` | Baseline | Set on baseline |
+| `steward` | Baseline | Set on baseline (future Vivi-native steward) |
+| `preferred_models`, `runtime_fallback` | Role record | `vivi role set <role> --provider --model --thinking` |
+| `tooling.binary` paths | Environment | Resolved from PATH or `VIVI_BIN` / `TMUX_BIN` |
+| `harness` | Role record | `vivi role set <role> --harness <value>` |
+| `provider` / `model` / `thinking` | Role record | `vivi role set <role> --provider --model --thinking` |
+| `host` | Role record | `vivi role set <role> --host <host>` |
+| `cadence` | Role record | `vivi role set <role> --cadence <duration>` |
+| `status` | Role record | `vivi role set <role> --status active\|parked\|retired` |
+| `pid` | Role record | `vivi role set <role> --pid $$` / `--clear-pid` |
+| `labels` | Role record | `vivi role set <role> --label <slug>` |
+| `tmux_target`, `cwd`, `wake_mode` | — | Backend-specific; Mind passes these at assignment time |
+| `assignment_mode` | — | Mind decision at assignment time, not stored config |
+| `min_seconds_between_wakes` | — | Backend-specific rate-limiting, not stored config |
+| `assignment_sticky`, `runtime_sticky` | — | Mind tracks in baseline |
+| `packet` / `lane` | Baseline | Mind tracks active campaign bindings in baseline |
+
+The old `fleet.json` format is removed. All role configuration lives on Vivi
+role records or baseline files. See `vivi role add --help` and `vivi role set --help`.
 
 ### Head cadence (Vivi ≥ 6.2)
 

@@ -48,7 +48,7 @@ hand-N  =  identity (mail + role)
 | **Assignment** | What work that slot is on | Transient; Mind assigns per unit |
 | **Runtime** | Harness + model + wake/reinit | Hand harness follows Mind. Model within harness may rebind. Heads free |
 
-Product law talks in H-numbers + current assignment. Ops read runtime capacity from the Vivi role record and apply wake/reinit by harness, not H-number. Fleet.json holds operational bindings only (tmux targets, cwd, wake mode). Do not hardcode model strings into role tables as Hand identity.
+Product law talks in H-numbers + current assignment. Ops read runtime capacity from the Vivi role record and apply wake/reinit by harness, not H-number. Vivi role records hold operational bindings (harness, tmux targets, cwd, cadence). Do not hardcode model strings into role tables as Hand identity.
 
 ## Harness alignment (Mind ↔ Hands vs Heads)
 

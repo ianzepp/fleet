@@ -96,7 +96,7 @@ becomes starvation: horizon should already be on disk before Hands empty.
 | **Long goals** | A 10-phase goal does **not** require all ten lowered at once; lower the next horizon and extend before the bag goes empty |
 | **Short goals** | If the whole goal is ≤ horizon size, lower the **entire** goal in one assignment |
 | **Overlap** | Extend when remaining unstarted ready units drop toward **~1–2** (or half the last horizon is done) — while Hands still work |
-| **Still one owner** | One Head, one goal (or coherent stage theme) per lower mail — multi-**phase** horizon is expected; multi-**goal** campaign dump is not |
+| **Still one owner** | One planner, one goal (or coherent stage theme) per lower mail — multi-**phase** horizon is expected; multi-**goal** campaign dump is not |
 
 Lowering is **planning pre-work**. Implement capacity is wasted when definition
 already exists but no delivery units are ready.
@@ -197,5 +197,5 @@ selection time the assignment is **horizon batch-ahead**, not single-phase JIT.
 - [`model-selection.md`](model-selection.md) — well-defined packet; unit tags  
 - [`tasking.md`](tasking.md) — board kinds; Hand vs need  
 - [`companion-fallbacks.md`](companion-fallbacks.md) — campaign / delivery / factory theses  
-- [`heads.md`](heads.md) — Head loops; lowering seat exception  
+- [`heads.md`](heads.md) — Head loops; advisory-only boundary  
 - Skills: `$campaign` (sub-refs: `goal-forge`, `goal-check`), `$delivery`, `$factory`

@@ -100,33 +100,26 @@ For normal remote Codex wakes, use the same pointer doorbell (`tmux send-keys`) 
 
 Identity = session name; `agent=pi` (or fleet preference); clean-slate/reinit policy unchanged — transport is SSH.
 
-## Fleet config sketch
+## Fleet config via vivi role
 
-```json
-{
-  "hands": {
-    "hand-2": {
-      "mail_identity": "hand-2",
-      "host": "remote.example",
-      "ssh": "ssh -o BatchMode=yes remote.example",
-      "tmux_session": "hand-2",
-      "tmux_target": "hand-2:1.1",
-      "cwd": "/home/user/work/fleet",
-      "agent": "codex",
-      "wake_mode": "tmux_send_keys_via_ssh"
-    }
-  },
-  "head-cto": {
-    "mail_identity": "head-cto",
-    "host": "remote.example",
-    "ssh": "ssh -o BatchMode=yes remote.example",
-    "agent": "pi",
-    "cwd": "/home/user/work/fleet"
-  }
-}
+Configure remote role capacity on Vivi role records:
+
+```bash
+# Remote Hand (tmux over SSH)
+vivi role set hand-2 --project <root> \
+  --harness tmux \
+  --provider openai-codex --model gpt-5.5 --thinking medium
+
+# Remote Head
+vivi role set head-cto --project <root> \
+  --harness pi \
+  --provider zai --model glm-5.2 --thinking high
 ```
 
-Wrapper (`fleet-ssh hand-2 tmux …`) OK; skill cares about meanings.
+SSH connection details (`ssh -o BatchMode=yes remote.example`), tmux targets
+(`hand-2:1.1`), and working directories are operational bindings the Mind
+passes at assignment time or configures directly on the tmux backend — they
+are not stored on the Vivi role record.
 
 ## Mind cycle with remote slots
 

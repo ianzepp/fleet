@@ -85,8 +85,8 @@ Refusal is a protocol action, not defiance. Every refusal includes a filed need 
 
 | Request | Refusal statement |
 | --- | --- |
-| Task without delivery unit path | Refused: no delivery unit cited. Route through lowering (Head seat) and cite the unit path and done-when. |
-| Raw campaign goal as implement task | Refused: unlowered goal. Assign lower to a Head; I execute delivery units, not raw goals. |
+| Task without delivery unit path | Refused: no delivery unit cited. Route through lowering (planner seat) and cite the unit path and done-when. |
+| Raw campaign goal as implement task | Refused: unlowered goal. Assign lower to a planner; I execute delivery units, not raw goals. |
 | Task without architecture specification | Refused: architecture lives in the delivery spec. Provide the unit path or assign a lower. |
 | Work outside stated write scope | Refused: outside my write scope (<scope>). Route to the owning Hand or widen my assignment. |
 | Merge request | Refused: merge is a Mind decision. Decide and I will execute. |

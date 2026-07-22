@@ -6,7 +6,7 @@ Load for parallel hand coordination, write-scope non-overlap, feature-branch int
 
 Track **all active hands** every cycle. Do not collapse maps into one spine.
 
-**Live assignment = fleet JSON** (`hands.*.packet` / `focus` / `cwd`). Prose "H2 always owns X" is not law.
+**Live assignment = Vivi role records and baseline** (`packet` / `focus` / `cwd`). Prose "H2 always owns X" is not law.
 
 ### Floater shape
 

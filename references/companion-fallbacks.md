@@ -73,7 +73,7 @@ python3 <path-to-this-skill>/scripts/suggest-polish-files.py --repo <main> --jso
 | Term | Meaning |
 | --- | --- |
 | Campaign artifact | Top-level routing document |
-| Campaign stage | **Must be lowered** (Head: goal-check → delivery) before Hand implement — not a code task |
+| Campaign stage | **Must be lowered** (planner: goal-check → delivery) before Hand implement — not a code task |
 
 **Fallback:** treat `factory/` or goal docs as **map** (current stage, next unblocked unit, stop conditions). Mind files Hand tasks **only from lowered units**. No invent GO/NO-GO.
 
@@ -81,7 +81,7 @@ python3 <path-to-this-skill>/scripts/suggest-polish-files.py --repo <main> --jso
 
 **Thesis:** Prove a goal is mid-tier implementable (READY) before delivery/factory. Forge freezes fuzzy intent first.
 
-**Fleet:** **Lowering Head** (default head-ceo) owns this on assign — not the product Hand. See [`lowering.md`](lowering.md).
+**Fleet:** **Lowering planner** (planner-N) owns this on assign — not the product Hand. See [`lowering.md`](lowering.md).
 
 **Fallback:** durable goal markdown with end state, architecture locks, non-goals, acceptance, validation, first touch path; explicit READY/NOT READY.
 
@@ -89,7 +89,7 @@ python3 <path-to-this-skill>/scripts/suggest-polish-files.py --repo <main> --jso
 
 **Thesis:** Compile intake into a **delivery spec** (plan only). Does not implement.
 
-**Fleet:** produced by the **lowering Head** after goal-check READY. Mind files Hands from delivery **unit ids**, not from raw campaign prose.
+**Fleet:** produced by the **lowering planner** after goal-check READY. Mind files Hands from delivery **unit ids**, not from raw campaign prose.
 
 **Fallback (single residual only):** task done-when + context = mini-spec (where, done-when, validation, out of scope). **Not** a substitute for multi-unit stage lowering.
 
@@ -110,10 +110,10 @@ GOAL.md, ROADMAP.md, docs/goals/
 docs/factory/*  (delivery specs after lowering)
 ```
 
-**Mind:** if next stage unlowered → assign **lower** To Head; if delivery unit exists → file Hand task citing path/id.  
+**Mind:** if next stage unlowered → assign **lower** To planner-N; if delivery unit exists → file Hand task citing path/id.  
 **Hand:** update goal checkboxes/Status only for what this unit proved.
 
-No map → Head lowers from operator intent, or Mind files only if a single well-defined residual already meets the mini-spec bar.
+No map → Planner lowers from operator intent, or Mind files only if a single well-defined residual already meets the mini-spec bar.
 
 ## Optional companions
 

@@ -38,7 +38,7 @@ Every review task must contain:
 | Hunt failures | Correctness, security, architecture, test honesty, false assurance |
 | Classify findings | `critical`, `high`, `medium`, `low` |
 | Report To mind | One report per assignment via Vivi mail |
-| Mark done | `vivi task done <handle> --for auditor-N --note '<verdict: clean_pass, residual, or block_ship>'` |
+| Mark done | `vivi task done --for auditor-N <handle> --verdict clean_pass|residual|block_ship --note '<evidence summary>'` |
 | Clear pid | `vivi role set auditor-N --clear-pid --project <root>` |
 
 ## Verdict types

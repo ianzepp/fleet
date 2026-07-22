@@ -268,7 +268,7 @@ python3 $SK/fleet-sensors.py --project "$ROOT" --history 10 [--role hand-1]
 # The fleet-doorbell.sh helper is removed. Spawn a sub-agent directly, or for
 # tmux/PTY backends use `tmux send-keys` with a thin boot pointer.
 tmux send-keys -t "<tmux_target>" "HAND WAKE hand-1. Bag: <handle>. Load charter and task from Vivi." Enter
-# exit 0 sent · 1 refused (running|down|rate-limit) · 2 usage
+# exit 0 = keys sent; nonzero = error (e.g. session not found)
 
 # Normal end-of-cycle path. Repeat --disposition once for every emitted signal,
 # or use --dispositions-file with the same signal → disposition/evidence mapping.
@@ -740,12 +740,12 @@ is empty.
 
 **`refill_hint` / `growth_refill_required`:** when growth product Hand bags are
 empty, sensors also emit signal `growth_refill_required` and structured
-`refill_hint` with `disposition=file_head_lower`. That is a **Mind act-now path**,
+`refill_hint` with `disposition=file_planner_lower`. That is a **Mind act-now path**,
 not a go-faster cadence cue:
 
 | Do | Do not |
 | --- | --- |
-| Assign **Head lower** (batch-ahead horizon) if map has unlowered work | Invent Hand implement units |
+| Assign **planner lower** (batch-ahead horizon) if map has unlowered work | Invent Hand implement units |
 | Executive refill same cycle in growth | Report the cycle as quiet/sleep-valid |
 | Parcel Hands only from citable delivery units | Shorten FLEET_CYCLE solely because Hands are empty |
 

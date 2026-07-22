@@ -77,7 +77,7 @@ On return: present operator mail list first.
 | **operator@** | Accrue human problems/blockers/guidance | Status; Hand bag drain |
 | **hand-N** | Execute assigned work; commit own work; validate; polish unit | Wait for GO mail; erase foreign WIP; touch another Hand's WIP |
 | **head-ceo** | **Strategist:** map health, misprioritization, gate honesty; **side-lane buckets** (+ effort/token ballparks); posture-scaled | File Hand tasks; stamp GO/NO-GO |
-| **head-cto** | **Code review / bugs on main after merge** | Own product tasking; block merges as license |
+| **head-cto** | **Gate honesty / architecture** | Own product tasking; block merges as license |
 | **head-cxo** | Complexity / purity (not operator-facing) | Own product tasking; operator email |
 | *optional* | `head-cpo` / `head-cso` / … (`heads/`) | Lazy Heads when needed |
 
@@ -165,7 +165,7 @@ optional role prompts     # Head bootstraps
 2. This guide once for vocabulary  
 3. `$fleet` (`SKILL.md`) when arming / acting as Mind  
 4. Open **references/** only as surface hits them  
-5. Bind project overlay (identities + fleet JSON + map)  
+5. Bind project overlay (identities + Vivi role records + map)  
 6. Fail-fast cycles: sensors → act on signal → sleep when quiet  
 
 ## Design drafts (not ops process)

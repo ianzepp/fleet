@@ -41,7 +41,7 @@ Map the capacity (provider/model/thinking) to the harness's available model slug
 ## Spawn → completion → verify flow
 
 ```text
-1. Mind files task:        vivi task send --to <name> --subject '...' --body '...'
+1. Mind files task:        vivi task send --from mind --to <name> --subject '...' --body '...'
 2. Mind spawns sub-agent:  thin boot with role + task handle
 3. Sub-agent runs:         reads task, writes code, validates, reports
 4. Sub-agent completes:    notification arrives to Mind

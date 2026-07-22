@@ -54,7 +54,7 @@ During iterative review, consolidate findings from the same root cause + accepta
 | stage closeout GO/NO-GO | tasking empty of stage residuals; Status reflects reality |
 | “NO-GO next stage” | next stage not selected / no package — file charting work or leave planned |
 | dual approval thrash | one tasking bag; Hand drains; Mind refills |
-| Hand “does factory on the goal” | **Head lowers** first — [`lowering.md`](lowering.md) |
+| Hand “does factory on the goal” | **Planner lowers** first — [`lowering.md`](lowering.md) |
 
 Hard stop for Hand: open tasks/needs for current assignment.  
 Not a hard stop: missing Mind congratulations or “GO” mail.
@@ -63,20 +63,20 @@ Not a hard stop: missing Mind congratulations or “GO” mail.
 
 | Map state | Mind files To | Not |
 | --- | --- | --- |
-| Campaign goal/stage **unlowered** | **Head** assign: `lower` with **batch-ahead horizon** (default 3–5 phases; goal-check → delivery) | Product Hand; single-phase JIT lower |
-| Ready bag thin (under ~3 unstarted units) while goal continues | **Head** horizon **extension** lower (overlap implement) | Wait for empty bag then lower next phase |
+| Campaign goal/stage **unlowered** | **Planner** assign: `lower` with **batch-ahead horizon** (default 3–5 phases; goal-check → delivery) | Product Hand; single-phase JIT lower |
+| Ready bag thin (under ~3 unstarted units) while goal continues | **Planner** horizon **extension** lower (overlap implement) | Wait for empty bag then lower next phase |
 | Delivery unit ready on disk | **Hand** task citing unit path/id + done-when | Raw campaign bullet |
 | Auditor findings closed list | **Hand** `repair` | New goal-forge unless redesign |
 | Merge / maid / HK | **hand-1** (or owner) as usual | Lowering |
 
 Starvation refill follows the same table: empty Hand + unlowered next stage →
-wake **lowering Head**, not invent an implement task that forces the Hand to
+wake **planner-N**, not invent an implement task that forces the Hand to
 lower. Prefer starvation never happens: when a goal is **defined**, lower a
 horizon immediately so pre-work exists before implement need. Detail:
 [`lowering.md`](lowering.md) **Horizon (batch-ahead lowering)**.
 
 **Sensor bridge:** `fleet-sensors.py` surfaces this as `signals+=growth_refill_required`
-and `refill_hint: {disposition: file_head_lower, …}` whenever growth product Hand
+and `refill_hint: {disposition: file_planner_lower, …}` whenever growth product Hand
 bags are empty. Mind cycles must disposition that hint every fire (file lower,
 executive refill, or sleep-valid only after an honest empty-map sweep) — not
 absorb-only quiet, and not cadence shorten for emptiness.

@@ -18,7 +18,7 @@ Canonical detail: [`tasking.md`](tasking.md), [`lowering.md`](lowering.md), [`mi
 
 The Mind is an air traffic controller, not a pilot. The Mind directs traffic. The Mind does not fly planes.
 
-When the Mind sees work that needs doing, its default action is to **route it** — file a task to a Hand, file a need to an owner, assign a lower to a Head. The Mind does not do the work itself, even when the work is small, obvious, or faster to do directly. A Mind that implements is a Mind that has stopped managing the fleet.
+When the Mind sees work that needs doing, its default action is to **route it** — file a task to a Hand, file a need to an owner, assign a lower to a planner. The Mind does not do the work itself, even when the work is small, obvious, or faster to do directly. A Mind that implements is a Mind that has stopped managing the fleet.
 
 | The Mind does directly | The Mind routes |
 | --- | --- |
