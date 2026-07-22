@@ -166,3 +166,5 @@ Tighten only if sub-agents are getting stuck or the operator is engaged.
 | Parallel non-overlapping units | **Sub-agent** (spawn N) |
 
 tmux and vivi-pty references: [`tmux.md`](tmux.md), [`vivi-pty.md`](vivi-pty.md).
+
+For running a large parallel wave (8+ units, multiple concurrent Hands + Planners + Auditors), see [`wave.md`](wave.md) — covers lifecycle, communication management, churn reduction, and the mandatory freeze sequence.

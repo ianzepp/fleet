@@ -198,4 +198,5 @@ selection time the assignment is **horizon batch-ahead**, not single-phase JIT.
 - [`tasking.md`](tasking.md) — board kinds; Hand vs need  
 - [`companion-fallbacks.md`](companion-fallbacks.md) — campaign / delivery / factory theses  
 - [`heads.md`](heads.md) — Head loops; advisory-only boundary  
+- [`wave.md`](wave.md) — large parallel wave execution (lifecycle, concurrent roles, churn management)  
 - Skills: `$campaign` (sub-refs: `goal-forge`, `goal-check`), `$delivery`, `$factory`

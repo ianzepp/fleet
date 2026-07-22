@@ -352,6 +352,7 @@ Each role has a compact mandatory-read protocol. It distills the rules from the 
 | Steward | [`dead-man.md`](references/dead-man.md) |
 | Multi-fleet | [`multi-fleet.md`](references/multi-fleet.md) |
 | Posture / sleep vs continuity | [`posture.md`](references/posture.md) |
+| Large parallel wave execution | [`wave.md`](references/wave.md) |
 | Side lanes / lane lifecycle / merge | [`multi-lane.md`](references/multi-lane.md) |
 | Heads | [`heads.md`](references/heads.md), [`heads/cast.md`](references/heads/cast.md) |
 | Remote | [`ssh-remote.md`](references/ssh-remote.md) |
