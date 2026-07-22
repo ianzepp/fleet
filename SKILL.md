@@ -9,6 +9,34 @@ description: Multi-agent fleet management with Mind/Head/Hand roles (Abbot patte
 
 Abbot **Mind / Head / Hand** roles on a **multi-session fleet** (Vivi board + execution runtime), not an in-process kernel.
 
+## The whole skill in one graph
+
+Every edge below is a Vivi handle moved by the chain helper (`fleet.py prepare → claim → settle → advance`). No prepared handle, no spawn; no settled report, no gate advance.
+
+```mermaid
+flowchart LR
+    Operator["operator@<br/>human escalations"]
+    Mind["Mind<br/>routes, never implements"]
+    Planner["planner-N<br/>goal-forge → delivery"]
+    Hand["hand-N<br/>implements, commits"]
+    Auditor["auditor-N<br/>independent review"]
+    Head["head-*<br/>advisory only"]
+    Gate(["accept / admit"])
+
+    Operator <-->|"needs / decisions"| Mind
+    Mind -->|"fleet prepare → boot prompt"| Planner
+    Mind -->|"fleet prepare → boot prompt"| Hand
+    Mind -->|"fleet prepare → boot prompt"| Auditor
+    Mind -->|"fleet prepare --pass advisory"| Head
+    Planner -->|"claim → settle: READY goal + unit graph"| Mind
+    Hand -->|"claim → settle: commit SHA + evidence"| Mind
+    Auditor -->|"claim → settle: verdict"| Mind
+    Head -->|"claim → settle: findings"| Mind
+    Mind -->|"fleet advance --gate acceptance/admission"| Gate
+```
+
+Hub-and-spoke is the invariant, not a simplification: all settlements route **To mind**; roles never hand work to each other directly.
+
 | Role | Job | Identity |
 | --- | --- | --- |
 | **Mind** | Tasking, integrate, cycles | Operator TUI + board **`mind@…`** (no external runtime) |
