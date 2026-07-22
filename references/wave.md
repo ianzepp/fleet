@@ -4,8 +4,8 @@ A wave is a bounded delivery interval for work that needs parallel Hands,
 rolling planner inventory, independent review, and an aggregate closeout.
 
 **Invariant:** a large parallel wave launches only admitted units, routes every
-role handoff through the Mind, and cannot close until aggregate evidence is
-reconciled.
+role handoff through the Mind as a Vivi handle, and cannot close until aggregate
+evidence is reconciled.
 
 Read [`wave-planning.md`](wave-planning.md), [`mind-cycle.md`](mind-cycle.md),
 and the reference for the selected execution backend. This document defines
@@ -50,7 +50,9 @@ lowering path.
 Launch only from one admission receipt with corrected planning artifacts, both
 audit receipts, closed required findings, repository baselines, an ordered unit
 graph, exact write scopes, validation policy, READY inventory, and a no-Hand
-list. A delivery file or chat claim alone is not admission.
+list. Its root Vivi handles must reconstruct the planning assignments, reports,
+dispositions, corrections, and admission decision. A delivery file, Git commit,
+or chat claim alone is not admission.
 
 ## Wave lifecycle
 
@@ -87,11 +89,20 @@ Do not rely on a mental collision table during a long wave.
 
 ## Communication during a wave
 
+Vivi handles are the primary references for every wave communication. File the
+assignment, question, decision, finding, disposition, or escalation in Vivi
+first. Chat and runtime messages carry the relevant handle and may add brief
+supporting context; they cannot replace or silently widen the durable record.
+
+**No handle, no spawn or wake. No completed task and report, no gate advance or
+acceptance.** If supporting chat changes scope, ordering, or a decision, update
+the Vivi chain before dependent work proceeds.
+
 A completion has three surfaces:
 
 | Surface | Meaning |
 | --- | --- |
-| Runtime notification | Wake signal only |
+| Runtime notification or chat return | Wake signal and supporting context only |
 | Vivi task and mail | Durable assignment, evidence, verdict, and disposition trail |
 | Git receipt | Repository fact: commit, diff, and tip |
 
@@ -100,6 +111,12 @@ confirm that the receipt exists and matches the declared scope, route required
 review or repair, update dependency and scope state, then absorb the Mind's
 mail. A repeated notification is duplicate only when the same task handle and
 receipt already have a recorded disposition.
+
+A runtime completion without `task done` and report mail is an interrupted
+handoff, not a completed unit. Resume the role to file its durable result when
+possible. Otherwise file a new recovery task or need to the actual owner, label
+the process deviation, and link the surviving evidence. Never backfill an
+ordinary task and claim the missing chronology existed.
 
 Never bulk-absorb unread mail. Absorption means the recipient read and
 processed that item; it is not inbox cleanup or memory. Do not absorb mail for
@@ -118,19 +135,22 @@ Keep durable state in artifacts and Vivi handles:
 During active execution, the Mind repeats a short routing loop:
 
 1. Observe completions, mail, runtime failures, dependencies, and repo tips.
-2. Give every material signal a Fleet disposition.
-3. Route required audits before accepting the affected unit.
-4. On a finding, file one bounded repair with the exact finding, expected
+2. Reconcile each runtime signal to its Vivi handle; stop and file a labeled
+   recovery task or need when no contemporaneous handle exists.
+3. Give every material signal a Fleet disposition.
+4. Route required audits before accepting the affected unit.
+5. On a finding, file one bounded repair with the exact finding, expected
    behavior, scope, and validation.
-5. Re-audit required repairs. Do not treat a repair author's validation as
+6. Re-audit required repairs. Do not treat a repair author's validation as
    independent verification.
-6. Free the completed scope and file the next qualified READY unit when
+7. Free the completed scope and file the next qualified READY unit when
    capacity, inventory, cutoff, and policy allow.
-7. Refill through Planners before READY inventory reaches the configured floor.
+8. Refill through Planners before READY inventory reaches the configured floor.
 
-Sub-agent completion events drive the loop; the scheduled cadence is only a
-backup. Use the adaptive cadence in [`mind-cycle.md`](mind-cycle.md), not
-wave-specific hard-coded intervals.
+Sub-agent completion events wake the loop; the scheduled cadence is only a
+backup. Vivi handles remain the work and communication truth. Use the adaptive
+cadence in [`mind-cycle.md`](mind-cycle.md), not wave-specific hard-coded
+intervals.
 
 ### Audit policy
 
@@ -228,7 +248,9 @@ The receipt must name:
 - aggregate findings with dispositions;
 - campaign and ledger changes with evidence;
 - unexplained or foreign dirt without altering it;
-- unresolved operator decisions; and
+- unresolved operator decisions;
+- root Vivi handles whose trace proves assignment, completion, review,
+  disposition, correction, and acceptance continuity; and
 - the next posture: launch, hold, planning-only, or campaign close.
 
 No chat estimate substitutes for this receipt.
@@ -293,6 +315,12 @@ every shared tree and every role inbox is globally empty.
 
 | Failure | Correction |
 | --- | --- |
+| Role spawned or woken before a Vivi handle exists | Stop; file a labeled recovery task or need; resume from its handle |
+| Chat/runtime result treated as durable completion | Require task completion, report mail, and receipts before advance or accept |
+| Retroactive stub presented as the original assignment | Mark chronology reconstructed; do not claim a valid original trace |
+| Runtime gets several unrelated scopes | Split into one bounded Vivi handle per runtime |
+| Auditor spawned with task-shaped substitute capacity | Use the Auditor's live Vivi role binding; rebind explicitly before spawn if policy changes |
+| Aggregate wait loses runtime ids | Use the per-handle runtime map and Vivi state; do not infer completion from file changes |
 | Hands launch from raw campaign bullets | Return to large-wave preparation or ordinary lowering |
 | Planner and Auditor coordinate directly | Route report and disposition through Mind |
 | Fixed seat or READY counts treated as universal | Derive limits from current bottlenecks and campaign policy |
@@ -312,6 +340,10 @@ every shared tree and every role inbox is globally empty.
 ```text
 PREPARE
 [ ] objective, cutoff, decision owner, baselines
+[ ] every planning/audit runtime started from a pre-existing Vivi task handle
+[ ] every completed pass has task-done, report, receipt, and disposition handles
+[ ] each runtime owns one bounded handle; runtime ids are mapped per handle
+[ ] Planner/Auditor runtime capacity matches live Vivi role bindings
 [ ] P1 intent gate; P2 goal audit and required corrections closed
 [ ] P3 delivery audit and required corrections closed
 [ ] admitted READY artifacts and no-Hand list
@@ -319,6 +351,7 @@ PREPARE
 
 FLOW
 [ ] every signal dispositioned
+[ ] every runtime completion reconciled to its Vivi task and report handles
 [ ] review debt tracked; required audits before accept
 [ ] acceptance-critical build and test claims have independent receipts
 [ ] systemic failures propagated to sibling packets
@@ -326,6 +359,7 @@ FLOW
 
 FREEZE
 [ ] filing stopped; in-flight work classified
+[ ] root Vivi traces reconstruct all wave handoffs and decisions
 [ ] accepted set and repo tips reconciled
 [ ] aggregate findings dispositioned
 [ ] ledgers, validation, retrospective, and freeze receipt complete

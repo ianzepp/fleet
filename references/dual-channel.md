@@ -1,12 +1,17 @@
-# Dual channel: Vivi + execution runtime
+# Vivi-first dual channel: Vivi + execution runtime
 
-Vivi is the board of record (what work exists and is done). The execution runtime
+Vivi is the communication and work system of record. The execution runtime
 (sub-agent, tmux, or vivi-pty) is the process layer (alive, idle, or broken).
 Sensors normalize both into one nested `runtime` object.
 
+**Invariant:** file or reply in Vivi first, then pass the resulting handle
+through the runtime. Chat and runtime text may support a Vivi record, but may
+not replace its assignment, decision, evidence, or disposition. No handle means
+there is no valid role handoff to execute.
+
 | Channel | Truth of… |
 | --- | --- |
-| **Vivi board** | Work — what exists and is done |
+| **Vivi board and handles** | Communication and work — what was asked, decided, reported, and done |
 | **Vivi role pid/host** | Process — which pid claimed the seat |
 | **Execution runtime** | Process layer — alive, idle, or broken |
 
@@ -72,9 +77,11 @@ Hands are usually event-driven (mail arrives, Hand spawns) and don't need cadenc
 | "No mail and no runtime signal" | Do not invent progress; sleep or escalate if bag stale |
 | "Fix landed upstream; consumer still red" | Check **pin-relative done** before re-verify |
 
-Do not rely on completion mail alone (crash prevents send). Idle alone ≠ done:
-idle + empty may be quiet; idle + open tasking = wake; idle after HEAD move
-without done-handles still needs bag/Status honesty on thorough cycles.
+Do not rely on runtime state or notification alone. A crash may prevent a role
+from filing its report, so runtime completion without a Vivi task completion or
+advisory reply is an interrupted handoff to reconcile, not success. Idle alone
+≠ done: idle + empty may be quiet; idle + open tasking = wake; idle after HEAD
+move without done-handles still needs bag/Status honesty on thorough cycles.
 
 ## Canonical runtime states
 
@@ -126,13 +133,21 @@ Prefer `show` first; `thread` for multi-hop / residual / RTM. `--infer` = histor
 
 ## Channel split (mandatory)
 
-Applies to all backends — tight pointers in the runtime channel, full instructions in Vivi.
+Applies to all backends — file the durable record first, then carry its handle
+through the runtime. If supporting chat changes scope, acceptance, ordering, or
+a decision, update or reply to the Vivi record before the role acts on it.
 
 | Channel | Allowed content |
 | --- | --- |
-| **Runtime (send-keys / terminal write / sub-agent boot)** | **Tight pointers only** — identity, where to look (handle / folder / doc path), one verb. No essays, no policy dumps |
+| **Runtime (send-keys / terminal write / sub-agent boot)** | **Tight handle pointers only** — identity, Vivi handle, project root, one verb. A folder or doc path may support the handle but cannot replace it. No essays, policy dumps, or new authoritative instructions. |
 | **Vivi mail / task / need** | Full done-when, evidence bar, scope, approach, residuals |
 | **Agents.md / factory goal / campaign** | Durable multi-agent law, architecture, stage criteria |
+
+The ordering is strict: `Vivi item -> handle -> runtime pointer -> Vivi
+completion/report -> Mind disposition`. If a runtime started before its handle,
+do not backfill a normal-looking task and claim continuity. File a process
+deviation in a new recovery task or need to the actual owner, link the surviving
+chat/Git evidence, and restart or continue only from that valid handle.
 
 ## Ready-to-merge mail (hand-2+ preferred template)
 

@@ -2,7 +2,7 @@
 
 **Read completely before executing any review. Refuse any request that violates this protocol.**
 
-Canonical detail: [`auditor`](../../auditor/SKILL.md) skill,
+Canonical detail: `$auditor` skill,
 [`tasking.md`](tasking.md), [`vivi.md`](vivi.md), and large-wave planning in
 [`wave-planning.md`](wave-planning.md).
 
@@ -33,13 +33,18 @@ Audit modes:
 
 ## Task acceptance requirements
 
-Every review task must contain:
+An Auditor runtime must start from a Vivi task handle created before runtime
+start. Every review task body must contain:
 
 | Field | If missing |
 | --- | --- |
 | Review mode and target: commit range/SHA(s) or planning artifact | Refused — no review scope |
 | Repository path | Refused — no review target |
 | Review context (what landed, what the goal claims, or what the delivery graph will file) | Refused — cannot assess the target |
+
+The runtime prompt is a pointer to the Vivi task. It cannot supply a hidden
+target, predetermined verdict, scope change, or evidence that is absent from
+the durable task or its linked artifacts.
 
 ## Review cycle
 
@@ -120,7 +125,9 @@ Distinguish fact, inference, contradiction, and unknown in every report.
 
 ## Report contract
 
-One report per assignment, To mind via Vivi mail.
+One report per assignment, To mind via Vivi mail. The runtime return contains
+only the task and report handles. The Mind may not disposition the audit or
+advance its gate from a chat-only verdict.
 
 | Include |
 | --- |
@@ -153,6 +160,7 @@ One report per assignment, To mind via Vivi mail.
 | Review with a predetermined verdict | Refused: verdict follows evidence, not assignment. Report the pressure To mind. |
 | Approve or GO-stamp work | Refused: auditors report findings; Mind accepts. No stamps. |
 | Skip a finding because the Hand says it is fine | Refused: independent review. Verify independently or report the gap. |
+| Start from chat/runtime instructions without a Vivi task handle | Refused: no durable review assignment. Ask the Mind to file the task, then restart from its handle. |
 
 ## Prohibited actions
 

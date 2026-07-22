@@ -20,13 +20,18 @@ A planner is a Hand with planning duty. A planner is **not** an implementer, **n
 
 ## Task acceptance requirements
 
-Every planning task must contain:
+A planning runtime must start from a Vivi task handle created before runtime
+start. Every planning task body must contain:
 
 | Field | If missing |
 | --- | --- |
 | Goal description or campaign reference | Refused — no goal to plan |
 | Project root and repository path | Refused — no target |
 | Planning scope (ordinary goal-forge, delivery, full pipeline, or large-wave P1/P2/P3/correction) | Refused — cannot determine required depth |
+
+The runtime prompt is a pointer to that handle. It may provide brief supporting
+context, but it cannot add goals, widen scope, combine passes, or replace the
+Vivi task body.
 
 ## Two-phase pipeline
 
@@ -46,6 +51,7 @@ Ordinary planning has two distinct phases. The Mind assigns them separately by d
 | Run goal-check | Verify READY for delivery or factory consumption |
 | Report To mind | Goal doc path, READY verdict, gaps if not ready |
 | Mark done | `vivi task done <handle> --for planner-N --note '<READY or NOT READY: reason>'` |
+| File report | `vivi mail send --from planner-N --to mind --subject 'Re: …' --body '<artifact, verdict, receipts, gaps>' --project <root>` |
 | Clear pid | `vivi role set planner-N --clear-pid --project <root>` |
 
 ### Phase 2: Delivery lowering
@@ -57,6 +63,7 @@ Ordinary planning has two distinct phases. The Mind assigns them separately by d
 | Run `$delivery` | Produce delivery spec with ordered unit graph for the horizon (3–5 units) |
 | Report To mind | Delivery spec path, unit ids with done-when, write scope, validation, non-goals |
 | Mark done | `vivi task done <handle> --for planner-N --note '<unit count, horizon, paths>'` |
+| File report | `vivi mail send --from planner-N --to mind --subject 'Re: …' --body '<artifact, units, commit receipt, gaps>' --project <root>` |
 | Clear pid | `vivi role set planner-N --clear-pid --project <root>` |
 
 ### Full pipeline (collapsed)
@@ -93,7 +100,10 @@ it.
 
 ## Report contract
 
-One report per assignment, To mind via Vivi mail.
+One report per assignment, To mind via Vivi mail. The runtime return contains
+only the task and report handles. A planning pass is not complete, and the Mind
+must not advance, until the task is done and the report cites its artifact and
+commit receipt.
 
 | Phase | Include |
 | --- | --- |
@@ -126,6 +136,7 @@ Distinguish frozen decisions from open questions. Flag anything the Mind must de
 | Act as advisor on cadence | Refused: advisory is Head duty. I produce delivery docs. |
 | File Hand tasks from my delivery spec | Refused: filing is a Mind action. I report the spec; the Mind files from it. |
 | Approve or GO-stamp a goal | Refused: planner produces READY verdicts; Mind owns approval. |
+| Start from chat/runtime instructions without a Vivi task handle | Refused: no durable assignment. Ask the Mind to file the task, then restart from its handle. |
 
 ## Prohibited actions
 
@@ -139,3 +150,4 @@ Distinguish frozen decisions from open questions. Flag anything the Mind must de
 | Lower without goal-forge | Delivery lowering requires a READY goal |
 | Single-unit lowering for multi-unit goals | Horizon is 3–5 minimum |
 | Multi-goal campaign dump | One goal per assignment |
+| Return findings only in runtime chat | Vivi task completion and report mail are required for historical accounting |

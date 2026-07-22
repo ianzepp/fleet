@@ -9,6 +9,12 @@ Two directions. Both are **cheap-cycle** surfaces for Mind — not optional deep
 
 Distinct from `operator_recap` (chat memory of status while operator was away).
 
+Human chat remains the natural interactive surface, but any operator statement
+that changes Fleet scope, priority, policy, acceptance, or routing must be
+recorded in Vivi before dependent role work starts. The Mind creates or replies
+to the appropriate operator/mind handle and uses that handle as the primary
+reference. Chat supports the record; it is not the only historical account.
+
 ## Identity
 
 | Field | Value |

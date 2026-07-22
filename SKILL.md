@@ -28,27 +28,65 @@ Fleet Hands and Heads run via one of three execution backends:
 | **tmux** | Polled | Persistent interactive sessions; harness lacks sub-agents; remote SSH | [`tmux.md`](references/tmux.md) |
 | **vivi-pty** | Polled | Structured PTY sessions without tmux | [`vivi-pty.md`](references/vivi-pty.md) |
 
-**Sub-agent is the default** for harnesses that support it (Grok Build, Codex, etc.) — completion notifications drive the Mind; no polling or pane management. Capacity (provider/model/thinking) and charter live on the Vivi role record; boot and report are backend-neutral — see [Role communication contract](#role-communication-contract).
+**Sub-agent is the default** for harnesses that support it (Grok Build, Codex, etc.) — completion notifications wake the Mind; no polling or pane management. Capacity (provider/model/thinking) and charter live on the Vivi role record; boot and report are backend-neutral — see [Role communication contract](#role-communication-contract).
+
+## Vivi-first communication invariant
+
+Inside a Fleet, **Vivi handles are the primary references for communication and
+historical accounting**. Every assignment, question, decision, report, finding,
+disposition, correction, acceptance, and escalation must exist as a Vivi task,
+need, want, or mail as appropriate. Stable role memory may use a Vivi memo, but
+memos do not replace routed communication.
+
+Chat and execution runtimes support that record. They do not replace it:
+
+- file the Vivi item and obtain its handle **before** spawning or waking a role;
+- pass the handle through chat, a sub-agent prompt, tmux, or vivi-pty as the
+  authoritative pointer;
+- give each runtime exactly one assignment handle and one bounded scope; file
+  unrelated findings or passes as separate handles;
+- keep full instructions, evidence, and decisions in the Vivi item or a linked
+  repository artifact;
+- record any operator-chat decision that changes Fleet work in Vivi before
+  routing dependent work; and
+- do not advance a gate or accept work until the assigned role has completed
+  its Vivi task or advisory reply and filed the required report receipts To Mind.
+
+**No handle, no spawn. No durable report, no gate advance.** A runtime
+notification is only a wake signal. Git proves repository state, not who asked,
+answered, decided, or dispositioned. A retroactive task stub does not make an
+unrecorded handoff compliant. File a new recovery task or need to the actual
+owner, label the missing handoff as a process deviation, link only the surviving
+evidence, and resume from that valid Vivi handle.
 
 ## Role communication contract
 
-Every Hand and Head session — regardless of backend — follows one boot and report shape. The Vivi role record is the single source for identity, capacity, and charter; the Vivi board is the single source for work and results.
+Every Planner, Hand, Auditor, and Head session — regardless of backend — follows
+one boot and report shape. The Vivi role record is the single source for
+identity, capacity, and charter; the Vivi board is the single source for work
+and results.
 
 ### Boot
 
-The parent delivers a thin pointer. The role loads its own context from Vivi.
+The Mind first files the assignment in Vivi, then delivers a thin pointer. The
+role loads its own context from Vivi. A boot prompt without a valid assignment
+handle is invalid and the role must refuse it.
 
 ```text
 You are fleet role <name>.
 Read your role protocol:  mind-protocol.md | planner-protocol.md | hand-protocol.md | auditor-protocol.md | head-protocol.md
 Load charter:  vivi role charter show <name> --project <root>
-Load task:     vivi task show <handle> --project <root>
+Load assignment: vivi task show <handle> --project <root>
+                 # or: vivi mail show <handle> --project <root>
 Register pid:  vivi role set <name> --pid $$ --project <root>
-Optional bag:  vivi board --for <name> --project <root> --json
+Optional bag:  vivi board --for <name> --project <root> --json  # awareness only; execute the named handle
 
-Execute per charter and protocol. File results with the literal commands below (do not paraphrase flags).
+Execute per charter and protocol. File results with the applicable literal commands below (do not paraphrase flags).
+  # Task-backed assignment:
   vivi task done <handle> --for <name> --note '<evidence>' --project <root>
   vivi mail send --from <name> --to mind --subject '<subject>' --body '<body>' --project <root>
+  # Mail-backed advisory assignment:
+  vivi mail reply <handle> --from <name> --body '<durable findings>' --project <root>
   vivi role set <name> --clear-pid --project <root>
 For long bodies use --body-file <path>; do not pipe stdin.
 Run one vivi command per shell call. Run `vivi <sub> --help` first if unsure of flags.
@@ -57,12 +95,19 @@ Return only a short pointer.
 
 ### Report
 
-Before returning, the role files results through Vivi and clears its process binding:
+Before returning, the role files results through Vivi and clears its process
+binding. Task-backed roles complete the task and send their report. A
+mail-backed advisory role replies to the source handle so the report has an
+explicit communication edge.
 
 ```bash
-vivi task done <handle> --for <name> --note '<evidence: what changed, why, residuals>'
+vivi task done <handle> --for <name> \
+  --note '<evidence: what changed, why, residuals>' --project <root>
 vivi mail send --from <name>@<mailspace> --to mind@<mailspace> \
-  --subject 'Re: <task subject>' --body '<durable findings>'
+  --subject 'Re: <task subject>' --body '<durable findings>' --project <root>
+# Or, for a mail-backed advisory assignment:
+vivi mail reply <handle> --from <name>@<mailspace> \
+  --body '<durable findings>' --project <root>
 vivi role set <name> --clear-pid --project <root>
 ```
 
@@ -78,7 +123,11 @@ Returns to parent: short pointer only.
 Done. Commit <sha>. Mail <handle> has the full report.
 ```
 
-Detailed report lives in Vivi for audit; parent context stays lean.
+Detailed report lives in Vivi for audit; parent context stays lean. The Mind
+reconciles the returned pointer against the Vivi task completion or advisory
+reply, report receipts, and repository receipts before advancing or accepting.
+Chat content may explain the pointer, but it cannot supply missing durable
+evidence.
 
 ### Backend delivery
 
@@ -100,21 +149,21 @@ Hands commit their own work. The Hand has the diff context; re-deriving it in th
 
 ```text
 1. Operator + Mind   discuss feature scope
-2. Mind              assigns goal-forge to planner-N
-3. Planner           runs goal-forge → goal-check; reports READY To mind
+2. Mind              files goal-forge task; passes handle to planner-N
+3. Planner           runs goal-forge → goal-check; completes task + reports READY To mind
 4. Mind              reviews; queues goal or sends back with gaps
    ─── goal sits READY in queue ───
-5. Mind              when execution imminent, assigns delivery lower to planner-N
-6. Planner           runs $delivery → ordered unit graph; reports To mind
-7. Mind              schedules units; files implement tasks to Hands
-8. Hand              executes, commits on assigned branch, returns SHA + report
-9. Mind              routes completed work to auditor-N
-10. Auditor          reviews; reports To mind (clean_pass, residual, or block_ship)
-11. Mind             files residuals to Hand as repair tasks (if any)
-12. Hand             fixes, commits, reports back
-13. Mind             routes to auditor for verification
-14. Auditor          verifies pass
-15. Mind             accepts; phase marked done
+5. Mind              when execution imminent, files delivery task; passes handle to planner-N
+6. Planner           runs $delivery → ordered unit graph; completes task + reports To mind
+7. Mind              files implement tasks; passes handles to Hands
+8. Hand              executes, commits, completes task + reports SHA/evidence
+9. Mind              files review task; passes handle to auditor-N
+10. Auditor          reviews; completes task + reports verdict To mind
+11. Mind             files residual repair tasks; passes handles to Hands
+12. Hand             fixes, commits, completes task + reports back
+13. Mind             files verification task; passes handle to auditor
+14. Auditor          verifies; completes task + reports pass
+15. Mind             records acceptance disposition; phase marked done
 ```
 
 When execution is imminent and the operator is engaged, steps 2–6 collapse to one planner assignment (full pipeline). The planner self-checkpoints at goal-check READY and proceeds to delivery lowering without returning to the Mind.
@@ -237,6 +286,7 @@ Canon for absorb/accept: [`mind-cycle.md`](references/mind-cycle.md) § Absorb v
 | Invariant | Rule |
 | --- | --- |
 | Process | Mind fills bag; Hand empties. Progress = open tasking + map — not GO stamps |
+| Communication | Vivi handles are the primary references for all Fleet communication. Runtime/chat carries pointers and supporting context only. No handle, no spawn; no durable completion/report chain, no advance or accept. |
 | Delegation | The Mind routes, not implements. See a task → file to a Hand. See a goal → assign lower to planner-N. See a bug → file to a Hand. Default action for any work = route it. Detail: [`mind-protocol.md`](references/mind-protocol.md) § Delegation principle |
 | Hand equivalence | All Hands are equivalent floaters. The Mind picks any available Hand for each assignment. No Hand has a special integration role; there is no fleet-wide main in a multi-repo container. Single-repo fleets don't need a dedicated merger either — see [Commit authority and workflow](#commit-authority-and-workflow) |
 | Lowering | **Campaign goal → planner-N lowers** (`$campaign` goal-forge → goal-check READY → `$delivery` docs) → Mind files Hands from those units. Hands do **not** lower raw goals via factory. Heads do **not** lower — they are advisory-only. — [`lowering.md`](references/lowering.md) |
@@ -284,7 +334,7 @@ Canon for absorb/accept: [`mind-cycle.md`](references/mind-cycle.md) § Absorb v
 | --- | --- |
 | Stuck | Freeze fails — name, unstick, pivot. No status-only blocked cycles |
 | Harness | **Default:** Hands share Mind's harness. Fleet config exceptions win — [`roles-and-harness.md`](references/roles-and-harness.md) |
-| Models | **Mid-tier planner → low-tier implement → high-tier audit.** Planner runs goal-forge + delivery (mid). Hands run volume implement (low). Auditors run adversarial review (high). Volume implement only **after** planning lowering. Live strings on the Vivi role record. Process: [`model-selection.md`](references/model-selection.md) |
+| Models | **Mid-tier planner → low-tier implement → high-tier audit.** Before every spawn, resolve provider/model/thinking from that role's live Vivi record. Task shape may justify a deliberate Vivi rebind before spawn; it never authorizes an invocation-only substitution. Auditor independence is part of the review contract. Process: [`model-selection.md`](references/model-selection.md) |
 
 ```text
 map → MIND ─files→ bag → HAND clears target → residuals → MIND
@@ -572,7 +622,7 @@ python3 <skill>/scripts/fleet-cycle-close.py --project <root> --acted --summary 
 ## Anti-patterns
 
 - **Bag:** GO warden; severity-as-kind; sleep with product work; sleep in growth before executive refill sweep; invent continuity work; dual Mind; Heads own bags; idle floaters despite safe parallel work; zombie campaign lanes; **campaign goal → Hand** without planner lowering; Hand invents factory/delivery for an unlowered stage; **using a Head as an inline lowering step** that production waits behind
-- **Process:** mail-only or runtime-only truth; mixed Hand harnesses; stacked wakes; unbounded watch; standby-fleet busywork; per-cycle dispatch memos; universal completion review; route review to `head-cto` instead of auditors; route lowering to a Head instead of planner-N; dispatch/refuse churn; narration mail; completion hidden in replies
+- **Process:** spawn/wake before filing a Vivi handle; multiple unrelated scopes on one runtime; retroactive task stubs presented as original routing; authoritative instructions or decisions held only in chat/runtime; aggregate waits without a per-handle runtime-ID map; task-shaped model substitution that bypasses the Vivi role binding; mail-only or runtime-only truth; mixed Hand harnesses; stacked wakes; unbounded watch; standby-fleet busywork; per-cycle dispatch memos; universal completion review; route review to `head-cto` instead of auditors; route lowering to a Head instead of planner-N; dispatch/refuse churn; narration mail; completion hidden in replies
 - **Integration:** equate packet-green with consumer-green; commit another Hand's WIP; treat absorb as accept
 - **Hygiene/workspace:** skip unit polish; polish foreign work; Mind runs polish or housekeeping; polish for continuity; housekeeping every land; destructive or status-only dirt handling; topic monogamy; freeze on CEO permission; omit the `FLEET_CYCLE` prefix; send status to `operator@`; arm steward without operator authority
 

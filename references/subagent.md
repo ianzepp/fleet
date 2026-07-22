@@ -15,35 +15,50 @@ completion. No polling. No doorbell. No tmux pane to keep alive.
 | Capacity rebind = kill pane, edit role record, relaunch | Capacity rebind = `vivi role set`; next spawn uses new values |
 | Doorbell text into a pane; hope it lands | Direct spawn with thin boot context |
 | Report lands in mail; Mind polls to find it | Report lands in Vivi (durable); short pointer returns to Mind |
-| Head consult = paste persona + poll pane | Head consult = spawn with charter pointer + task handle |
+| Head consult = paste persona + poll pane | Head consult = spawn with charter pointer + Vivi mail handle |
 | Pane death, stuck prompts, wrong-host tmux | No pane to die |
 
 ## Thin boot pattern
 
-Boot and report shape are fleet-wide — see [SKILL.md § Role communication contract](../SKILL.md#role-communication-contract). The parent delivers a thin pointer; the sub-agent loads charter, task, and bag from Vivi; results file through Vivi; only a short pointer returns.
+Boot and report shape are fleet-wide — see [SKILL.md § Role communication contract](../SKILL.md#role-communication-contract). The parent delivers a thin pointer; the sub-agent loads its charter and assignment handle from Vivi; results file through Vivi; only a short pointer returns.
+
+**No handle, no spawn.** The Mind must create the Vivi assignment before the
+sub-agent exists. Do not spawn with full instructions and backfill a task after
+execution starts. A retroactive stub records a process deviation; it does not
+reconstruct the missing assignment chain.
 
 Sub-agent specifics:
 
 - Boot pointer is the spawn prompt (the first thing the sub-agent reads).
-- Completion is the report signal — no polling, no doorbell, no pane inspection.
-- Optional bag read at boot is useful when the role has multiple open items and should pick order itself.
+- Completion notification wakes the Mind; the Vivi task completion or advisory
+  reply and required report receipts are the durable completion record.
+- Optional bag read is awareness only. One spawn executes the one handle named
+  in its boot pointer; it does not aggregate other open items.
 
 ## Capacity at spawn
 
-The Mind normally knows a role's capacity because it set it. If the Mind does not know the provider, model, or thinking level for a role, inspect the role:
+Before every spawn, inspect the role's live capacity:
 
 ```bash
 vivi role show <name> --project <root>
 ```
 
-Map the capacity (provider/model/thinking) to the harness's available model slugs. The mapping is harness-specific. When no clean mapping exists, substitute the closest fit or pause to ask the operator — do not silently spawn on the wrong model class.
+Use the recorded harness, provider, model, and thinking level. Task shape may
+justify a deliberate `vivi role set` rebind before spawn; it does not authorize
+an invocation-only substitution. This is especially strict for Auditors:
+configured model-family independence is part of the review contract, not an
+optional capability preference.
+
+Map the live capacity to the harness's available model slugs. The mapping is
+harness-specific. When no clean mapping exists, pause or choose a correctly
+bound role. Do not silently spawn on the wrong model class or provider.
 
 ## Spawn → completion → disposition flow
 
 ```text
-1. Mind files task:        vivi task send --from mind --to <name> --subject '...' --body '...'
-2. Mind spawns sub-agent:  thin boot with role + task handle
-3. Sub-agent runs:         reads task, executes, validates, commits, marks done, reports
+1. Mind files assignment:  vivi task send ... or vivi mail send ...
+2. Mind spawns sub-agent:  thin boot with role + assignment handle
+3. Sub-agent runs:         reads assignment, executes, files completion/reply and report
 4. Sub-agent completes:    notification arrives to Mind
 5. Mind reconciles:        report + task handle + commit receipt + declared scope
 6. Mind routes:            audit, repair, accept, or next unit under policy
@@ -51,8 +66,22 @@ Map the capacity (provider/model/thinking) to the harness's available model slug
 ```
 
 Step 4 is the key difference: the Mind does not poll. The sub-agent's completion
-is the signal. Between spawns, the Mind can file other work, spawn other Hands,
-or respond to the operator.
+notification is the wake signal, not authority to advance. The Mind first
+reconciles the assigned handle, `task done`, report mail, and required receipts.
+Between spawns, the Mind can file other work, spawn other Hands, or respond to
+the operator.
+
+### Runtime receipt map
+
+Record each spawn as `{vivi_handle -> runtime_id, role, resolved capacity}` in
+the Mind's current process state. Capture the runtime id immediately from the
+individual spawn result. Do not rely on a later aggregate wait to reconstruct
+which runtime owned which assignment.
+
+If the harness loses a runtime id or an aggregate wait returns `not_found`, use
+the Vivi handle as the durable root and treat the missing runtime id as process
+failure. Reconcile through Vivi task/mail state and explicit per-runtime events.
+Do not infer completion from modified files, commits, or a batch summary alone.
 
 ## Parallel spawning
 
@@ -67,12 +96,18 @@ spawn hand-4 → unit C (hosts/webgpu-browser)
 
 Each sub-agent:
 - Gets its own task handle
+- Executes exactly that one bounded handle
 - Writes only to its assigned scope
 - Reports independently when done
 - Does not coordinate with peer sub-agents
 
 Non-overlap rule: no shared files, modules, lockfiles, or generated artifacts.
 If scopes collide, serialize or use a worktree.
+
+Spawn calls may be parallel, but the Mind must capture each returned runtime id
+and bind it to its Vivi handle before waiting. When a harness's aggregate wait
+loses ids, use individual event completion or per-id waits; do not make
+filesystem forensics the completion protocol.
 
 ### Concurrent commits on a shared working tree
 
@@ -115,11 +150,20 @@ interaction point.
 
 ## Report-back pattern
 
-Report shape is fleet-wide — see [SKILL.md § Role communication contract](../SKILL.md#role-communication-contract). The sub-agent files `vivi task done` + `vivi mail send` before returning, then returns a short pointer only. The detailed report lives in Vivi for audit.
+Report shape is fleet-wide — see [SKILL.md § Role communication contract](../SKILL.md#role-communication-contract). A task-backed sub-agent files `vivi task done` + `vivi mail send`; a mail-backed advisory role replies to its source handle. It then returns a short pointer only. The detailed report lives in Vivi for audit.
+
+If the sub-agent returns details only in chat, the assignment is not durably
+complete. The Mind sends it back to file the task completion and report, or
+files a recovery task or need with an honest process-deviation label if the
+runtime can no longer resume. The Mind does not advance a planning gate, accept
+implementation, or route a dependent task from the chat-only result.
 
 ## Head consultation via sub-agent
 
-Heads are advisory, not implementers. A Head sub-agent uses the same boot shape as any role — charter + task pointer from Vivi — with one distinction: the charter encodes "advise only, do not implement, report To mind."
+Heads are advisory, not implementers. A Head sub-agent uses the same boot shape
+as any role — charter + Vivi mail pointer — with one distinction: the charter
+encodes "advise only, do not implement, report To mind." The Head replies to
+that mail handle before returning its short runtime pointer.
 
 Head sub-agents are cold-boot by design: no accumulated state, fresh context per question. The charter provides enough standing definition to make cold boot sufficient.
 

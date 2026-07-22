@@ -2,6 +2,12 @@
 
 Filing work, listing bags, managing role memory, marking done, watching board events, threads, `operator@` escalations.
 
+**Fleet communication invariant:** Vivi handles are the primary references for
+assignments, questions, decisions, reports, findings, dispositions,
+corrections, acceptance, and escalation. File or reply in Vivi before passing
+the handle through chat or an execution runtime. Chat may support the Vivi
+record; it cannot replace or silently widen it.
+
 **Scope:** project-local **mailspace** only (`.vivi/` under fleet root). Not personal IMAP (`vivi sync` / Proton) unless steward external page.
 
 **Hard dependency:** `vivi` binary — [`getting-started.md`](getting-started.md). Normal fleet command set so Mind/Hands do not re-scan full CLI every cycle.
@@ -51,6 +57,11 @@ vivi --version                  # prefer ≥ 6.4 (trace, memo search, task deps,
 
 Mind owns the spawn clock and all role routing. A Hand or Head with a question, finding, or recommendation files it **To mind**; Mind answers from context, files a task/need to the correct role and spawns it, or escalates to `operator@`. Direct peer mail dead-letters when the recipient isn't running.
 
+The order is mandatory: file the Vivi item, obtain the handle, then spawn or
+wake with that handle. No handle means no valid runtime handoff. A role's
+runtime return is not completion until its task completion or advisory reply
+and required report receipts are present in Vivi.
+
 ## Command shapes Hands/Heads must get right
 
 These are the commands a role runs at boot and report. Run one vivi command per shell call. Run `vivi <sub> --help` first if unsure of flags.
@@ -58,7 +69,8 @@ These are the commands a role runs at boot and report. Run one vivi command per 
 ```bash
 # Boot (load own context)
 vivi role charter show <name> --project <root>
-vivi task show <handle> --project <root>
+vivi task show <handle> --project <root>      # task-backed role
+vivi mail show <handle> --project <root>      # mail-backed advisory role
 vivi role set <name> --pid $$ --project <root>
 vivi board --for <name> --project <root> --json   # optional
 
@@ -69,6 +81,7 @@ vivi task done <handle> --for <name> --verdict clean_pass --project <root>      
 vivi task done <handle> --for <name> --repo examples --tip e968cc3 --project <root>     # land receipts
 vivi mail send --from <name> --to mind --subject '<subject>' --body '<body>' --project <root>
 vivi mail send --from <name> --to mind --subject '<subject>' --body-file /tmp/report.txt --project <root>  # long bodies
+vivi mail reply <handle> --from <name> --body '<durable findings>' --project <root>  # mail-backed advisory role
 vivi role set <name> --clear-pid --project <root>
 ```
 
@@ -137,6 +150,12 @@ The tree includes:
 - **Captured** edges from `In-Reply-To` / `References` reply links
 - **Event** edges from `task from` lifecycle events
 - **Inferred** edges from body handle citations and stripped subject matching
+
+Captured and event edges are preferred historical evidence. Inferred edges are
+best-effort recovery, not proof that a required contemporaneous handoff occurred.
+If a task was created after its runtime started, record that as a process
+deviation in a new recovery task or need to the actual owner. Link the surviving
+evidence instead of treating the later handle as the original assignment.
 
 | When to use | Instead of |
 | --- | --- |

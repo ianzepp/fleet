@@ -279,7 +279,7 @@ python3 $SK/fleet-cycle-close.py --project "$ROOT" --acted --summary '…' \
 | Helper | Job |
 | --- | --- |
 | `fleet-sensors.py` | Board status, optional watch, handles, pane classes, git tip/divergence/dirty paths, fingerprint, `signals[]`, `quiet_hint` |
-| `tmux send-keys` / sub-agent spawn | Resolve `tmux_target`; refuse running/down/rate-limit; pointer only; record `last_hand_wake` |
+| `tmux send-keys` / sub-agent spawn | Require a pre-existing Vivi handle; resolve `tmux_target`; refuse running/down/rate-limit; pointer only; record `last_hand_wake` |
 | `fleet-baseline.py` | `get` / `bump` / `rearm-note` / `wound-up` — counters, mode silence, fingerprints, recap, `--mind-session` attach, `--detach` |
 
 ### Signal disposition gate
@@ -334,6 +334,14 @@ mail-channel form of cycle-dispatch memos: the record belongs in baseline /
 routing, triage, or deliberation — or just the loop writing itself a note.
 Prefer a structured `done` (evidence + commit) over burying a completion inside
 a reply chain.
+
+**Vivi completion gate:** a runtime notification or chat return only wakes the
+Mind. Before advancing, accepting, or filing dependent work, verify the assigned
+Vivi task is done or advisory mail has a reply, its report exists, and required
+artifact/Git receipts match. If the runtime began without a contemporaneous
+handle, record a process deviation in a new recovery task or need to the actual
+owner and resume from that handle; do not create a normal-looking retroactive
+stub.
 
 **Sleep immediately** only after the disposition gate passes and when:
 

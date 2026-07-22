@@ -17,6 +17,13 @@ Canonical detail: [`lowering.md`](lowering.md), [`heads.md`](heads.md), [`heads/
 
 A Head does not implement, plan, lower, merge, file Hand tasks, own merge decisions, or contact the operator directly.
 
+All Head communication is Vivi-first. A direct question, requested review, or
+cadence sweep must have a Vivi mail handle before runtime start. The durable
+role schedule tells the Mind when a sweep is due; the Mind files the bounded
+sweep mail before spawning or waking the Head. The Head replies to that handle
+with its findings To Mind. Chat and runtime prompts carry handles and supporting
+context only.
+
 ## The advisory-only invariant
 
 **Heads are never a required step in the production line.** A Head's output is consumed when ready, never waited on. Using a Head as an inline lowering step that production waits behind is the same class of mistake as using the CTO as the default code reviewer — it serializes the entire pipeline behind one seat's availability.
@@ -28,7 +35,7 @@ Lowering is planner-N duty. Heads may independently observe and recommend goals 
 | Trigger | Action |
 | --- | --- |
 | Mind assigns a bounded question | Analyze; report findings To mind |
-| Cadence sweep due | Self-directed map-health, gate-honesty, or purity review; report To mind |
+| Cadence sweep due | Mind files a bounded Vivi sweep mail; Head performs map-health, gate-honesty, or purity review and replies To mind |
 | No assignment and cadence not due | Wait |
 
 Reports are advisory. The Mind decides what to do with them. Heads do not enforce their own recommendations.
@@ -41,7 +48,10 @@ If a Head is asked to lower, refuse (see refusal conditions below).
 
 ## Report contract
 
-One report per assignment, To mind via Vivi mail.
+One report per assignment, To mind via `vivi mail reply <handle> --from
+<head-name> --body '<durable findings>' --project <root>`. The runtime return
+carries only the assignment and report handles. Findings that exist only in
+chat are not a completed Head report.
 
 | Include |
 | --- |
@@ -76,6 +86,7 @@ Refusal is a protocol action, not defiance. Every refusal includes a filed mail 
 | Act as required step in production pipeline | Refused: Heads are advisory-only, never a gate. Route work to the correct role without waiting for Head output. |
 | Act as default code-review queue | Refused: review is auditor Hand duty. I advise on gate honesty and architecture; review routing goes to auditor-N. |
 | Contact the operator directly | Refused: operator escalation routes through the Mind. I report To mind; the Mind decides what reaches the operator. |
+| Answer a direct chat/runtime question with no Vivi handle | Refused: no durable question. Ask the Mind to file it and pass the handle. |
 | Wake or spawn Hands | Refused: spawning is Mind authority. I report; the Mind routes. |
 | Edit product source, commit, or push | Refused: product code is Hand territory. |
 | Read target project's Vivi/board/history (clean-slate Heads) | Refused: clean-slate isolation. Findings are built from current code only. |

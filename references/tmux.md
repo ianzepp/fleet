@@ -105,6 +105,9 @@ evidence over stale scrollback failures.
 
 When `waiting_for_input` and the Hand has open tasks, send a boot pointer per [SKILL.md § Role communication contract](../SKILL.md#role-communication-contract). The role loads charter and task from Vivi; the doorbell text is a thin pointer, not policy. The `fleet-doorbell.sh` helper is removed — send the pointer directly:
 
+The task or mail handle must exist before `tmux send-keys`. Do not place new
+authoritative instructions in the pane and backfill Vivi afterward.
+
 ```bash
 tmux send-keys -t '<tmux_target>' -l -- '<boot pointer only>'
 tmux send-keys -t '<tmux_target>' Enter

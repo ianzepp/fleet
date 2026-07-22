@@ -4,6 +4,13 @@ Filing targets, queue kind, multi-hand routing, Hand decision continuity.
 
 Board CLI: [`vivi.md`](vivi.md). Install: `getting-started.md`.
 
+**Handle-first rule:** file the Vivi item before spawning, waking, or asking a
+role to act. Pass its handle as the primary reference through chat or the
+runtime. Supporting chat cannot replace or widen the filed scope. A role result
+is durable only when its Vivi completion or reply and report receipts exist.
+One runtime receives one handle and one bounded scope; unrelated findings,
+passes, or goals get separate handles.
+
 ## Board kinds
 
 | Kind | Meaning |
@@ -85,6 +92,7 @@ absorb-only quiet, and not cadence shorten for emptiness.
 
 - File targets **to a specific Hand** (`To: hand-1`), not broadcast
 - One handle → one owner — do not put the same P1 on two hands
+- One runtime → one bounded handle — do not combine unrelated repairs or passes for throughput
 - Partition by focus (campaign track, repo, or package) when possible
 - Legacy `codex` may remain readable during migration; **new** targets go to `hand-N`
 - In multi-repo containers, all Hands are equivalent floaters. The Mind picks any available Hand for each assignment; no Hand has a special integration role.
@@ -162,7 +170,8 @@ Do not sleep merely because bags are empty **if** map still has unblocked **prod
 
 ## Hand decision continuity
 
-**Unsent questions do not exist.** Other agents only see the board and commits.
+**Unsent questions do not exist.** Durable Fleet history exists only in Vivi
+and repository receipts; runtime chat is supporting context.
 
 | Situation | Required action |
 | --- | --- |

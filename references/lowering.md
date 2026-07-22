@@ -8,6 +8,11 @@ Mind owns the **file clock**. One **planner** owns the **lowering** of a selecte
 campaign goal through planning skills into durable documents. Only those
 documents become Hand tasks.
 
+The file clock is Vivi-first: the Mind files the Planner task before runtime
+start and passes its handle as the primary reference. The Planner completes the
+task and reports through Vivi before the Mind accepts lowering or files any
+dependent Hand task. Chat and runtime returns only support those handles.
+
 **Batch-ahead (required):** when a goal is defined (or selected for execution),
 Mind runs it through lowering for a **horizon of phases/units immediately** —
 not one phase at a time after each Hand close. Pre-work must exist before
@@ -44,15 +49,15 @@ when planning pre-work happens, not when a Hand goes empty.
 
 ```text
 campaign map selects goal / stage
-  → Mind assigns **lower** To one planner (default: planner-1)
+  → Mind files **lower** task To one planner (default: planner-1); passes handle
        scope: whole goal readiness + delivery graph for a **horizon** of phases
        (default 3–5 phases/units of a longer goal — not only the next one)
   → Planner runs planning stack → durable artifacts on disk
        goal-forge (if goal not frozen)
        → goal-check → READY
        → $delivery → delivery spec + ordered unit graph for the horizon
-  → Planner reports To mind: artifact paths, READY verdict, unit list, non-goals
-  → Mind accepts lowering (or sends back with named gaps)
+  → Planner completes task + reports To mind: artifact paths, commit, READY verdict, unit list, non-goals
+  → Mind records acceptance/disposition in Vivi (or files correction task)
   → Mind files **mechanical** / **repair** tasks To Hands from the ready bag
        each task cites delivery unit id + path; mini-spec may quote done-when
   → Hands implement + polish; no re-architecture of the goal

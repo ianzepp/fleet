@@ -18,6 +18,12 @@ With Vivi 6.0+ roles, capacity (provider/model/thinking) lives on the role
 record (`vivi role set`). The harness field on the role (or the role's `agent`)
 determines execution backend. Sub-agent is the default for new fleets.
 
+Before every spawn, resolve the live role record and launch exactly that
+harness/provider/model/thinking binding. Task-shape guidance informs which role
+to choose or whether to rebind it in Vivi first. It does not permit a different
+per-invocation model. For Auditors, a configured independent provider/model is
+part of the review boundary.
+
 ## Roles
 
 | Role | Typical identity | Job | Output |

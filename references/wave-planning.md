@@ -5,7 +5,14 @@ out. It is a deep-planning override, not the default for ordinary Fleet work.
 
 **Invariant:** every admitted goal has accepted intent, proved readiness,
 independently checked code facts, an executable delivery graph, and an
-independent fact-check of that graph. Every role handoff routes through Mind.
+independent fact-check of that graph. Every role handoff routes through Mind as
+a first-class Vivi handle.
+
+**Handle gate:** no planning or audit role starts without a Vivi task created
+first. No pass advances from a runtime/chat result alone. The assigned task
+must be complete, the role report must be filed To Mind, and the trace must
+name the artifact and commit receipt. Retroactive task stubs record deviations;
+they do not satisfy this gate.
 
 Read [`lowering.md`](lowering.md), [`planner-protocol.md`](planner-protocol.md),
 and [`auditor-protocol.md`](auditor-protocol.md). Execution, freeze, and
@@ -35,25 +42,26 @@ dependencies, write scopes, and validation commands are still current.
 
 ```text
 Mind
-  -> Planner: P1 Forge
-  -> Mind: intent gate
-  -> Planner: P2 Check
-  -> Mind: audit routing
-  -> Auditor: P2 goal-reality audit
-  -> Mind: findings disposition
-  -> Planner: goal corrections, when required
-  -> Mind: correction gate
-  -> Planner: P3 Delivery
-  -> Mind: audit routing
-  -> Auditor: P3 delivery-reality audit
-  -> Mind: findings disposition
-  -> Planner: delivery corrections, when required
-  -> Mind: admission
+  -> [task handle] Planner: P1 Forge
+  -> [done + report handles] Mind: intent gate and disposition
+  -> [task handle] Planner: P2 Check
+  -> [done + report handles] Mind: audit routing
+  -> [task handle] Auditor: P2 goal-reality audit
+  -> [verdict + report handles] Mind: findings disposition
+  -> [task handle] Planner: goal corrections, when required
+  -> [done + report handles] Mind: correction gate
+  -> [task handle] Planner: P3 Delivery
+  -> [done + report handles] Mind: audit routing
+  -> [task handle] Auditor: P3 delivery-reality audit
+  -> [verdict + report handles] Mind: findings disposition
+  -> [task handle] Planner: delivery corrections, when required
+  -> [trace + admission handle] Mind: admission
 ```
 
 A clean audit skips only its correction assignment. It does not skip the audit
 receipt or Mind gate. Planner and Auditor never hand work directly to each
-other.
+other. Each arrow is a Vivi edge created before the downstream runtime starts;
+chat and runtime notifications only carry or support its handle.
 
 ## Pass contracts
 
@@ -71,6 +79,11 @@ other.
 | Disposition | Mind | Every finding classified and routed | No filing while required findings remain |
 | Delivery correction | Planner | Corrected graph and receipt, when required | Required findings closed before admission |
 | Admit | Mind | Admission receipt and filed-unit authority | Only admitted units reach product Hands |
+
+For every Planner or Auditor row, the required output includes the completed
+assignment handle and report handle. Every Mind gate or disposition row has its
+own Vivi reply or decision handle. A file, commit, or sub-agent return without
+that durable chain cannot satisfy the row's stop condition.
 
 ## P1: Forge
 
@@ -115,6 +128,10 @@ design authorities, child campaigns, and ledgers. Hunt especially:
 
 The Auditor reports facts and counterevidence. Mind decides disposition.
 Planner makes corrections.
+
+Before spawning the Auditor, the Mind resolves the Auditor seat's live Vivi
+capacity. The configured review model and provider independence are part of the
+gate. Task shape does not permit substituting the Planner's model family.
 
 ## P3: Delivery and delivery-reality audit
 
@@ -219,6 +236,8 @@ Goal C            P1 -> Mind -> P2 -> Audit -> fix -> P3 -> Audit -> admit
 Rules:
 
 - one Planner owns one goal or coherent theme at a time;
+- one runtime executes one bounded task handle; never batch unrelated goals,
+  passes, or findings into one sub-agent for throughput;
 - batch only short Mind intent reviews and dispositions;
 - respect goal dependencies before starting a deeper pass;
 - never combine unrelated goals to fill a model context;
@@ -240,26 +259,50 @@ Mind may file product Hands only when one receipt names:
 - ordered units and dependencies;
 - exact write scopes and collision policy;
 - validation and implementation-audit policy;
-- READY inventory and explicit no-Hand list; and
-- remaining residuals with owners and reopen conditions.
+- READY inventory and explicit no-Hand list;
+- remaining residuals with owners and reopen conditions;
+- the root Vivi handles whose trace reconstructs every planning assignment,
+  role report, Mind disposition, correction, and admission decision; and
+- the resolved role bindings used for Planner and Auditor runtimes, including
+  the independent Auditor provider/model/thinking receipts.
 
 A commit subject, chat statement, or delivery file on disk is not admission.
 The authoritative inventory must record the unit READY after both audits.
 
 ## Communication evidence
 
-Use first-class Vivi tasks from P1 onward. Each task states the pass, one goal,
-allowed artifact paths, inputs, done-when, and prohibition on deeper-pass work.
-Each role returns its artifact or report path and commit receipt To Mind.
+Use first-class Vivi tasks from P1 onward. The Mind files each task before it
+spawns or wakes the role. Each task states the pass, one goal, allowed artifact
+paths, inputs, done-when, and prohibition on deeper-pass work. Each role marks
+the task done and returns its artifact or report path and commit receipt To Mind
+through Vivi mail before its runtime returns a short pointer.
 
 Use `vivi trace <handle> --project <root>` to preserve the assignment, reply,
 disposition, correction, and admission chain. Git proves artifact chronology;
 Vivi proves routing. Neither substitutes for the other.
 
+Chat may explain a Vivi record, but it is never the primary planning reference.
+If chat changes intent, scope, ordering, or a decision, the Mind records that
+change in Vivi before filing dependent work. A runtime notification only wakes
+the Mind to inspect the durable chain.
+
+If work started without a handle, stop the affected gate. File a new recovery
+task or need to the actual owner. Its body states when the missing handoff was
+discovered, labels the process deviation, links the available chat, artifact,
+and Git evidence, and marks chronology as reconstructed. Then restart or
+continue from that valid new handle. Do not backfill an ordinary task stub and
+present it as the original assignment.
+
 ## Failure patterns
 
 | Failure | Correction |
 | --- | --- |
+| Planner or Auditor spawned before its Vivi task exists | Stop the gate; file a labeled recovery task or need; restart from its handle |
+| Runtime/chat return used as the planning report | Require `task done`, report mail, and receipts before advancing |
+| Task stub backfilled after runtime start | Label it reconstructed; never claim contemporaneous routing |
+| Auditor spawned on Planner/implementer capacity instead of its Vivi role binding | Stop the gate; respawn on the configured independent Auditor binding |
+| Unrelated goals, passes, or findings combined in one runtime | Split into one bounded handle per runtime |
+| Aggregate wait loses runtime ids | Reconcile from the per-handle runtime map and Vivi; never infer completion from file changes |
 | One Planner forges, checks, and delivers a high-fan-out goal in one session | Split P1, P2, and P3 into fresh assignments |
 | Mind reviews code truth during the intent gate | Keep the gate short; route code facts to the Auditor |
 | Auditor edits the artifact | Report To Mind; Planner owns corrections |

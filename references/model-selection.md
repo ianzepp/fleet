@@ -6,6 +6,13 @@ duty** and **unit shape**. Live bindings always win from the Vivi role record
 when **filing**, **rebinding**, or **capacity-stepping** — not a second source
 of truth for which string is running.
 
+Before every spawn, resolve `harness`, `provider`, `model`, and `thinking` from
+the assigned role's live Vivi record. Unit shape may justify a deliberate
+`vivi role set` rebind before spawn. It never authorizes an invocation-only
+override. In particular, do not replace an Auditor's configured independent
+model with the Planner or implementer model merely because that model appears
+capable of the review.
+
 **Do not** pin product marketing names or operator subscription details here.
 Project overlays may name concrete models; the skill stays capability-class
 based.
@@ -90,7 +97,7 @@ is real. Loose tickets recreate “green tests, high-severity miss.”
 | Role | Default class | Thinking | Notes |
 | --- | --- | --- | --- |
 | **Implementer Hand** | Volume for `mechanical` / `repair`; design class for `design` / `sensitive` / hard `ambiguous` | Low–medium (volume); high (design) | Identity (`hand-N`) ≠ model. Rebind per unit when shape changes. |
-| **Auditor Hand** | **Review / honesty** | **High** (default) | Spend quality budget here. Same harness as product Hands when alignment requires it; prefer model **independence** from the implementer when risk is high. Process remains **`$auditor`**. |
+| **Auditor Hand** | **Review / honesty** | **High** (default) | Spawn from the Auditor role's live binding. Preserve configured provider/model independence from the Planner or implementer; change it only through an explicit Vivi rebind. Process remains **`$auditor`**. |
 | **head-cto** | Review / honesty for claim-gates and architecture truth; design class when residual is taste/structure | High when used | **Not** the default code-review queue (auditors own that). |
 | **head-ceo** | Design class for chapter/vision/**goal lowering**; volume OK for mechanical map hygiene | Medium–high | Advisory on cadence; does not lower |
 | **head-cxo** / other Heads | Volume often enough; design class when purity is structural feel | Medium–high | Cadence-bound; not bag drain. |
@@ -145,6 +152,7 @@ not on every factory grind.**
 | “109 green tests” as accept without invariant review | Known failure mode for data safety |
 | Upgrade model for repair without ranked findings | Redesign theater; no regression focus |
 | Hardcoding model strings as Hand identity | Axes: identity ≠ assignment ≠ runtime |
+| Selecting an invocation model by task shape while leaving a different Vivi role binding | Destroys capacity accounting and may erase Auditor independence |
 | Treating head-cto as universal code review | Auditors own review; CTO owns gate honesty |
 
 ---
@@ -156,7 +164,8 @@ not on every factory grind.**
 3. Choose implementer class from the table; rebind Hand runtime if needed.  
 4. Decide auditor: mandatory (risk) / sample / none (low-risk evidence).  
 5. File auditor on **review-class @ high** when used.  
-6. Repair stays on original implementer class unless redesign.  
+6. Resolve the selected role's live Vivi binding immediately before spawn; if it does not match the intended class, rebind in Vivi or choose another role.
+7. Repair stays on original implementer class unless redesign.
 
 Project-specific model names and thinking defaults: project overlay (e.g.
 `.vivi/model-selection.md` or Agents.md pointer). Skill stays portable.

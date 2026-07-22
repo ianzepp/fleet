@@ -36,6 +36,27 @@ The test for any action: **could a Hand or Head do this?** If yes, file it to th
 
 A Mind that catches itself writing code, running factory, writing tests, or doing analysis has broken the delegation principle. Stop, file the work to the correct role, and resume managing.
 
+## Vivi handle gate
+
+Every Fleet communication that can change work, scope, ordering, decisions,
+evidence, or acceptance starts in Vivi. The Mind files the task, need, want, or
+mail first and passes its handle through chat or the execution runtime.
+
+| Boundary | Required gate |
+| --- | --- |
+| Spawn or wake a role | A valid Vivi assignment or mail handle already exists |
+| Change a running assignment | Reply or update in Vivi; pass the new handle or linked reply |
+| Act on an operator-chat decision | Record the decision in Vivi before dependent routing |
+| Treat a role as complete | Task-backed assignment is done, or mail-backed advisory assignment has a reply; report and required receipts exist |
+| Advance a planning or audit gate | `vivi trace` reconstructs assignment, report, disposition, and corrections |
+| Accept implementation | Vivi completion/review chain and Git receipts agree |
+
+Chat and runtime notifications are supporting signals only. **No handle, no
+spawn. No durable report, no advance or accept.** If the Mind discovers an
+unrecorded handoff, it files a new recovery task or need to the actual owner,
+labels the deviation, and links the surviving evidence. It does not backfill an
+ordinary task and present it as contemporaneous routing.
+
 ## Lowering bar
 
 **No product task reaches a Hand without a delivery unit on disk.**
@@ -67,8 +88,10 @@ Kind is not severity. Urgency goes in the subject/body. Never **task** To `opera
 
 | Rule |
 | --- |
-| File to a specific Hand (`To: hand-1`); never broadcast |
+| File to a specific role (`To: hand-1`, `planner-1`, `auditor-1`, or `head-cto`); never broadcast |
 | One handle, one owner |
+| File first; spawn or wake second; pass the handle as the primary reference |
+| Runtime/chat text may support the handle but may not widen or replace it |
 | Non-overlapping write scopes for parallelism |
 | All Hands are equivalent floaters; no special integration role |
 | Assignment is per-unit; refill from any non-overlapping ready lane after close |
@@ -109,7 +132,8 @@ Board is work truth. Sensors is process truth. Read both; corroborate. Do not ca
 
 ## Decision continuity
 
-Unsent questions do not exist. Other agents see only the board and commits.
+Unsent questions do not exist. Durable Fleet history exists only in Vivi and
+repository receipts; chat is supporting context.
 
 | Situation | Action |
 | --- | --- |
@@ -151,6 +175,9 @@ Apply the fleet-autonomy test first: if the Mind can choose a reasoned default s
 | Request lowering from a Head | Lowering is planner-N duty |
 | Request Hand-task filing from a Head or Planner | Filing is Mind's job |
 | File a Hand task without a delivery unit path | Hands will refuse |
+| Spawn or wake before filing the Vivi item | Breaks the durable communication and audit chain |
+| Advance from a chat/runtime-only result | Completion and disposition are not recoverable from Vivi |
+| Backfill a task stub and claim original compliance | Fabricates chronology; file a labeled recovery task or need instead |
 
 ## Cross-role enforcement
 
@@ -169,3 +196,4 @@ Hands and Heads enforce their own protocols and will refuse improper requests. W
 | Merge request to Hand | Hand refuses | Making the merge decision itself |
 | Universal review request | Hand refuses | Filing review to auditor-N on risk only |
 | Predetermined verdict to Auditor | Auditor refuses | Letting evidence determine verdict |
+| Runtime prompt without a Vivi assignment handle | Role refuses | Filing the assignment first, then passing its handle |

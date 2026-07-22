@@ -147,6 +147,9 @@ For vivi-pty roles:
 
 Doorbell through vivi-pty delivers the thin boot pointer per [SKILL.md § Role communication contract](../SKILL.md#role-communication-contract). The role loads charter and task from Vivi; the PTY write is a thin pointer, not policy.
 
+The task or mail handle must exist before the PTY write. Do not place new
+authoritative instructions in the terminal and backfill Vivi afterward.
+
 ```bash
 vivi-pty --project <root> terminal write faber-hand-1d \
   "HAND WAKE hand-1. Role hand-1. Task <handle>. Load charter and task from Vivi. Report via vivi task done + vivi mail send." \
