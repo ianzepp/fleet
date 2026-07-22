@@ -471,6 +471,64 @@ manageable and prevents write-scope collisions from cascading.
 
 ---
 
+## Post-wave cleanup (mandatory)
+
+After the freeze completes and the operator reviews, run a cleanup cycle
+before the next wave begins. This prevents transient state from accumulating
+across waves and keeps the board, mail, and memory surfaces honest.
+
+### Cleanup checklist
+
+Run each item across **all roles** (mind, heads, planners, auditors, hands):
+
+| Surface | What to clean | How |
+| --- | --- | --- |
+| **Memos** | Retire transient status/cycle-dispatch. Keep only durable law, policy, capacity, and milestone memos that would matter after a cold boot. | `vivi memo list --for <role>` → review → `vivi memo delete <handle> --for <role>` for each transient one |
+| **Tasks** | Close any stale tasks (completed but not marked done, obsolete, or superseded). | `vivi task list --for <role>` → `vivi task done <handle> --for <role> --note 'stale: <reason>'` |
+| **Needs** | Review open needs — close resolved ones, keep genuine open decisions. | `vivi need list --for <role>` → close or keep |
+| **Wants** | Close resolved residuals and obsolete items. Keep genuine follow-ups. | `vivi want list --for <role>` → `vivi want done <handle> --for <role> --note 'resolved: <reason>'` |
+| **Mail** | Absorb all unabsorbed mail across every role. | `vivi mail list --for <role>` → bulk absorb everything `absorbed=false` |
+
+### Memo retention test
+
+A memo earns its place only if **both** tests pass:
+
+1. Would losing this across a cold boot cause a worse decision?
+2. Can it be recovered from a Vivi handle, git history, or a document instead?
+
+If yes to #2, it belongs in a document or compaction pointer — not a memo.
+Transient routing state (cycle dispatch, per-commit status, Hand progress,
+audit results) is **loop state**, not memory.
+
+Typical memo survivors after cleanup: 5-10 durable items (law, policy,
+capacity bindings, campaign milestones, operator mandates).
+
+### Bulk mail absorption
+
+During a dense wave, mail accumulates across all roles — not just Mind. A
+3-hour wave with 12 concurrent agents can produce 300+ mail items. Bulk-absorb
+at cleanup time:
+
+```bash
+for role in mind head-ceo head-cto head-cxo head-cso head-cmo head-cpo \
+            planner-1 planner-2 auditor-1 auditor-2 \
+            hand-1 hand-2 hand-3 hand-4 hand-5 hand-6; do
+  vivi mail list --for "$role" --project <root> | grep "absorbed=false" | awk '{print $1}' | while read h; do
+    vivi mail absorb "$h" --for "$role" --project <root>
+  done
+done
+```
+
+### When to run cleanup
+
+- **Always** after wave freeze + operator review (before next wave launch)
+- **Optionally** during long idle periods (quiet_streak 5+) if mail has
+  accumulated
+- **Never** during active execution — cleanup mid-wave risks absorbing
+  verdicts before processing them
+
+---
+
 ## Related references
 
 | Reference | Covers |
