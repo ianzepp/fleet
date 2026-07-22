@@ -519,6 +519,34 @@ for role in mind head-ceo head-cto head-cxo head-cso head-cmo head-cpo \
 done
 ```
 
+### Tree hygiene (housekeeping)
+
+A wave should leave the working tree **clean and green** before the next wave
+begins. Run `$housekeeping` on each repo that received wave commits. This is
+part of the post-wave cleanup, not optional.
+
+The default is: every wave ends with housekeeping. The only exception is a
+wave that **deliberately** leaves something broken (e.g., a red test that
+documents a known gap for the next wave to fix) — and that is bad wave design.
+If the tree is red after a wave, the freeze failed to catch it.
+
+**What housekeeping covers** (per the `$housekeeping` skill):
+- `cargo fmt` / formatter output committed (Class A dirt)
+- `cargo clippy` / lint passes
+- Build verification
+- Test suite green
+- README / docs truth
+- Hygiene ratchet
+
+**Filing pattern:** file one `$housekeeping` task per repo that received
+commits during the wave. Use a doc Hand or `hand-1` on main checkout. Serial
+per repo (housekeeping touches the whole tree, so no parallelism within a
+repo).
+
+**Do not** skip housekeeping to save time. A wave that leaves 199 uncommitted
+formatter changes, stale lint warnings, or a red test suite transfers debt to
+the next wave — where it will cost more context to diagnose and fix.
+
 ### When to run cleanup
 
 - **Always** after wave freeze + operator review (before next wave launch)
