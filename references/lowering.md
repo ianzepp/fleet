@@ -64,7 +64,7 @@ campaign map selects goal / stage
 | **Mind** | Select what to lower; assign planner with horizon size; accept/reject; file Hand units from docs; merge clock; keep bag ahead of implement | Invent architecture inside Hand task bodies as a substitute for delivery; JIT single-phase lower after each Hand close |
 | **Lowering planner** (one seat) | Goal readiness + delivery docs for the assigned goal **horizon** (multi-phase unit graph) | Product code; merge; filing Hand bags; unbounded multi-**goal** campaign lowers |
 | **Implementer Hand** | Execute one delivery unit (or repair list) | Re-lower the campaign; rewrite architecture; open-ended factory on raw goals |
-| **Auditor Hand** | Post-land invariant review; planning reality audit in the audited wave path | Planning / delivery authorship |
+| **Auditor Hand** | Post-land invariant review; goal- and delivery-reality audits in large-wave preparation | Planning / delivery authorship |
 | **head-cto / head-cxo** | Gate honesty / purity (cadence, advisory) | Not a lowering seat; Heads are advisory-only |
 
 ---
@@ -161,18 +161,23 @@ Volume / low–medium thinking Hands are legal **only** after this bar. Loose
 Mind mini-specs that re-encode architecture are not a substitute for delivery
 docs on multi-unit stages.
 
-### Audited wave override
+### Large-wave preparation override
 
-New campaign goals admitted to a wave use the planning reality-check chain in
-[`wave.md`](wave.md):
+Ordinary planning uses the lowering path above. New campaign goals prepared for
+a large parallel wave use the deeper chain in [`wave.md`](wave.md):
 
 ```text
-Mind -> Planner -> Mind -> Auditor -> Mind -> Planner -> Mind
+Mind -> Planner P1 Forge -> Mind -> Planner P2 Check -> Mind
+     -> Auditor P2 goal audit -> Mind -> Planner corrections -> Mind
+     -> Planner P3 Delivery -> Mind -> Auditor P3 delivery audit -> Mind
+     -> Planner corrections -> Mind admission
 ```
 
-This splits goal readiness from delivery lowering and inserts an independent
-fact audit. It does not change ownership: all reports route To Mind, the Auditor
-does not edit the goal, and the Planner authors the corrected delivery graph.
+This keeps Forge, Check, and Delivery as separate passes and independently
+fact-checks both the READY goal and its executable delivery specification. It
+does not change ownership: all reports route To Mind, Auditors never edit
+planning artifacts, and Planners author corrections. A clean audit may skip its
+correction assignment, but not the audit receipt or Mind gate.
 
 ---
 

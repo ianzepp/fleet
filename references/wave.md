@@ -3,9 +3,9 @@
 A wave is a bounded delivery interval for work that needs parallel Hands,
 rolling planner inventory, independent review, and an aggregate closeout.
 
-**Invariant:** a wave admits only reality-audited READY goals, routes every
-role handoff through the Mind, and cannot close until aggregate evidence is
-reconciled.
+**Invariant:** a large parallel wave admits only goals whose intent, readiness,
+and delivery graph passed independent review; routes every role handoff through
+the Mind; and cannot close until aggregate evidence is reconciled.
 
 Read [`lowering.md`](lowering.md), [`mind-cycle.md`](mind-cycle.md), and the
 reference for the selected execution backend. This document defines wave
@@ -18,8 +18,10 @@ write-scope, review, and campaign truth coherent. Typical signals are several
 concurrent Hands, multiple delivery graphs, shared hot files, cross-repo work,
 or a required aggregate review.
 
-A small low-risk batch can remain an ordinary Fleet loop. If the work does not
-need a freeze and evidence reconciliation, do not call it a wave.
+A small low-risk batch can remain an ordinary Fleet loop. Use ordinary lowering
+from [`lowering.md`](lowering.md); do not impose this preparation cycle on every
+plan. If the work does not need a freeze and evidence reconciliation, do not
+call it a wave.
 
 Campaign overlays set numeric seat, inventory, sampling, and lock thresholds.
 This reference intentionally does not make one campaign's numbers universal.
@@ -37,31 +39,61 @@ boundary:   Wave N freezes, reconciles, and selects Wave N+1
 Wave 0 is valid work. Idle product Hands are not starvation when the declared
 posture is planning-only and planners or auditors own the active gates.
 
-### Audited campaign lowering
+### Large-wave preparation
 
-Use this path for every new campaign goal admitted to a wave. Already-lowered
-goals may be reused only when their intent, code facts, and delivery graph are
-still current. Small work that does not justify this path should remain an
-ordinary Fleet loop instead of becoming a wave.
+Use this path before a large parallel launch, where one planning mistake would
+be copied into several Hand assignments or discovered only after dependent work
+has started. Typical triggers are several simultaneous Hands, a long dependency
+graph, cross-repo work, shared hot files, expensive validation, or a campaign
+goal whose claims have not been checked against live code.
+
+Already-lowered goals may be reused only when their intent, code facts, and
+delivery graph are still current. Small or sequential work uses ordinary
+lowering instead.
 
 ```text
-Mind -> Planner -> Mind -> Auditor -> Mind -> Planner -> Mind
+Mind
+  -> Planner: P1 Forge
+  -> Mind: intent gate
+  -> Planner: P2 Check
+  -> Mind: audit routing
+  -> Auditor: P2 goal-reality audit
+  -> Mind: findings disposition
+  -> Planner: goal corrections, when required
+  -> Mind: correction gate
+  -> Planner: P3 Delivery
+  -> Mind: audit routing
+  -> Auditor: P3 delivery-reality audit
+  -> Mind: findings disposition
+  -> Planner: delivery corrections, when required
+  -> Mind: admission
 ```
 
 | Handoff | Owner and output | Gate |
 | --- | --- | --- |
-| 1. Select | Mind selects one goal, states the invariant, horizon, authority, and decision owner | No raw campaign dump |
-| 2. Forge + check | Planner runs goal-forge and goal-check; writes the goal artifact and READY evidence | No delivery graph yet |
-| 3. Intent review | Mind accepts, rejects, or returns named intent gaps | Review intent and campaign fit, not code |
-| 4. Reality audit | Auditor checks the accepted goal against live code, authorities, dependencies, and validation claims | Report findings To Mind; do not edit planning artifacts |
-| 5. Disposition | Mind classifies every finding as blocking, required correction, accepted residual, or false finding | No direct Auditor -> Planner handoff |
-| 6. Delivery lower | Planner incorporates the Mind-routed findings and writes the ordered delivery graph | Cite each material finding's disposition |
-| 7. Admit | Mind checks the artifact receipt, READY verdict, dependency graph, write scopes, and review policy | Only then file product Hands |
+| 1. Select | Mind selects one goal and states its invariant, horizon, authority, and decision owner | No raw campaign dump |
+| 2. P1 Forge | Planner freezes intent, boundaries, acceptance criteria, and open operator decisions | Do not run goal-check or write a delivery graph |
+| 3. Intent gate | Mind accepts intent, resolves operator decisions, or returns named gaps | Review campaign fit, not code truth |
+| 4. P2 Check | Planner proves READY criteria, dependencies, validation, and factual assumptions | Do not write a delivery graph |
+| 5. Goal audit | Auditor checks the goal and goal-check claims against live code and named authorities | Report findings To Mind; do not edit artifacts |
+| 6. Goal disposition | Mind classifies every finding as blocking, required correction, accepted residual, or false finding | No direct Auditor -> Planner handoff |
+| 7. Goal correction | Planner corrects the goal artifact when required and reports the receipt | Every blocking or required finding is closed before P3 |
+| 8. P3 Delivery | Planner writes the ordered unit graph, write scopes, dependencies, done-when, and validation commands | Base every unit on the corrected READY goal |
+| 9. Delivery audit | Auditor fact-checks code references, scopes, dependencies, commands, and claimed coverage | Review the executable specification, not the goal again |
+| 10. Delivery disposition | Mind classifies and routes every finding | No finding disappears between roles |
+| 11. Delivery correction | Planner corrects the delivery artifact when required and reports the receipt | Every blocking or required finding is closed before filing |
+| 12. Admit | Mind checks both audit receipts, corrections, dependency graph, write scopes, and review policy | Only then file product Hands |
 
 The Mind is the router at every boundary. Planner and Auditor sessions report
 To Mind because the Mind owns tasking, context continuity, and the next spawn.
 The Auditor supplies factual review; the Mind decides disposition; the Planner
-authors the corrected plan.
+authors the corrected plan. A no-findings audit skips only its correction step,
+not the Mind gate or audit receipt.
+
+Wave 0 called the delivery-reality audit a **bonus round**. It caught false test
+names, missing assertions, unsupported contention claims, and incomplete write
+scopes after the goals had already passed the first audit. For future large
+waves it is a standard admission gate, not discretionary cleanup.
 
 For several goals, pipeline this chain across goals. Keep one Planner owner per
 goal or coherent theme. Batch only the Mind's short intent reviews; never merge
@@ -74,6 +106,7 @@ Before launch, the wave must have:
 - bounded objective, non-goals, cutoff, and closeout decision owner;
 - baseline Git tips for every affected repository;
 - durable goal and delivery artifacts;
+- goal-reality and delivery-reality audit receipts with every required finding closed;
 - ordered unit and dependency graph;
 - exact write scopes and hot-file serialization rules;
 - validation commands and audit policy by risk family;
@@ -106,7 +139,7 @@ repair extension; it does not become a successful closeout.
 | **Mind** | Board, dependencies, write scopes, review debt, cutoff, dispositions | Product implementation, test execution, planning authorship, code review |
 | **Planner** | Selected next-wave goal and routed audit findings | Product source, Hand filing, direct Auditor coordination |
 | **Hand** | One admitted delivery unit or bounded repair | Raw campaign lowering, acceptance |
-| **Auditor** | Planning reality-check or selected landed unit | Planning corrections, product repair, acceptance |
+| **Auditor** | Goal-reality audit, delivery-reality audit, or selected landed unit | Planning corrections, product repair, acceptance |
 | **Head** | Aggregate architecture, priority, or complexity trends | Unit review, GO stamp, unfreeze decision |
 
 Concurrency is bounded by the smallest real bottleneck: write scopes, planner
@@ -276,6 +309,11 @@ Separate facts from interpretations:
 | **Inference** | a gate saved time, a model was mismatched, a buffer was healthy | Reasoning plus counterevidence |
 | **Unknown** | missing timing, unrecorded idle, unverifiable causal claim | State unknown; do not estimate as fact |
 
+For each material planning defect, record where it entered, which gate detected
+it, its disposition, and whether the same defect class escaped into execution.
+The preparation measure is fewer avoidable execution interruptions, not a high
+finding count.
+
 Use one compact structure:
 
 1. objective and outcome against the admission packet;
@@ -316,7 +354,7 @@ every shared tree and every role inbox is globally empty.
 
 | Failure | Correction |
 | --- | --- |
-| Hands launch from raw campaign bullets | Return to audited lowering or standard lowering |
+| Hands launch from raw campaign bullets | Return to large-wave preparation or ordinary lowering |
 | Planner and Auditor coordinate directly | Route report and disposition through Mind |
 | Fixed seat or READY counts treated as universal | Derive limits from current bottlenecks and campaign policy |
 | Mind runs tests, reviews code, or commits role work | File verification, audit, or receipt repair to the correct role |
@@ -334,7 +372,9 @@ every shared tree and every role inbox is globally empty.
 ```text
 PREPARE
 [ ] objective, cutoff, decision owner, baselines
-[ ] audited READY artifacts and no-Hand list
+[ ] P1 intent gate; P2 goal audit and required corrections closed
+[ ] P3 delivery audit and required corrections closed
+[ ] admitted READY artifacts and no-Hand list
 [ ] dependency, scope, validation, audit, and inventory policy
 
 FLOW

@@ -119,6 +119,10 @@ Hands commit their own work. The Hand has the diff context; re-deriving it in th
 
 When execution is imminent and the operator is engaged, steps 2–6 collapse to one planner assignment (full pipeline). The planner self-checkpoints at goal-check READY and proceeds to delivery lowering without returning to the Mind.
 
+Do not collapse planning for a large parallel wave. Use the separate Forge,
+Check, goal-audit, Delivery, and delivery-audit admission gates in
+[`wave.md`](references/wave.md) before product Hands fan out.
+
 The audit loop (steps 9–14) is the integration bar. `accept` means the audit loop passed, not that something is queued for merge.
 
 ### Branch strategy is a Mind decision

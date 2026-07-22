@@ -26,11 +26,11 @@ Every planning task must contain:
 | --- | --- |
 | Goal description or campaign reference | Refused — no goal to plan |
 | Project root and repository path | Refused — no target |
-| Planning scope (goal-forge only, delivery only, or full pipeline) | Refused — cannot determine required depth |
+| Planning scope (ordinary goal-forge, delivery, full pipeline, or large-wave P1/P2/P3/correction) | Refused — cannot determine required depth |
 
 ## Two-phase pipeline
 
-Planning has two distinct phases. The Mind assigns them separately by default, or as one assignment when execution is imminent.
+Ordinary planning has two distinct phases. The Mind assigns them separately by default, or as one assignment when execution is imminent.
 
 | Phase | Skill | Question answered | When to run |
 | --- | --- | --- | --- |
@@ -62,6 +62,14 @@ Planning has two distinct phases. The Mind assigns them separately by default, o
 ### Full pipeline (collapsed)
 
 When execution is imminent and the operator is engaged, the Mind assigns the full pipeline in one task. The planner runs goal-forge → goal-check internally; if READY, proceeds to delivery lowering without returning to the Mind. If NOT READY, stops and reports gaps.
+
+### Large-wave preparation override
+
+Do not use the collapsed pipeline when the Mind declares a large parallel wave.
+Follow [`wave.md`](wave.md): P1 Forge, P2 Check, and P3 Delivery are separate
+planner assignments with a Mind intent gate and independent audits after P2 and
+P3. The Mind routes audit findings. The Planner corrects the cited artifact and
+reports a new receipt; the Auditor never edits it.
 
 ## Horizon rules
 
