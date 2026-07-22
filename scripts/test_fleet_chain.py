@@ -55,8 +55,32 @@ def _task_json(
     to: str = "hand-1",
     body: str = "test assignment body",
     status: str = "open",
+    include_report: bool = True,
 ) -> str:
-    return json.dumps({"handle": handle, "to": to, "body": body, "status": status})
+    role = "done" if status == "done" else "tasks"
+    rows: List[Dict[str, Any]] = [
+        {
+            "handle": handle,
+            "account": to,
+            "role": role,
+            "kind": "task",
+            "to": "%s@test.local" % to,
+            "body": body + "\r\n",
+        }
+    ]
+    if status == "done" and include_report:
+        rows.append(
+            {
+                "handle": "mail-1",
+                "account": to,
+                "role": "sent",
+                "kind": "mail",
+                "from": "%s@test.local" % to,
+                "to": "mind@test.local",
+                "body": "fleet-report:\r\ndurable report\r\n",
+            }
+        )
+    return json.dumps(rows)
 
 
 def _role_json(
@@ -73,9 +97,47 @@ def _role_json(
 def _trace_json(
     edges: List[Dict[str, Any]],
 ) -> str:
-    return json.dumps(
-        {"seed": "task-abc", "nodes": [], "edges": edges}
-    )
+    has_report = any(str(edge.get("kind") or "") == "mail" for edge in edges)
+    nodes: List[Dict[str, Any]] = [
+        {
+            "handle": "task-abc",
+            "messages": [{"handle": "task-abc", "kind": "task", "role": "done"}],
+        }
+    ]
+    if has_report:
+        nodes.append(
+            {
+                "handle": "mail-1",
+                "body": "fleet-report:\ndurable report",
+                "messages": [
+                    {
+                        "handle": "mail-1",
+                        "kind": "mail",
+                        "from": "hand-1@test.local",
+                        "to": "mind@test.local",
+                    }
+                ],
+            }
+        )
+    return json.dumps({"seed": "task-abc", "nodes": nodes})
+
+
+class CliParsingTests(unittest.TestCase):
+    """Exercise live-shaped output parsing and top-level dispatch."""
+
+    def test_parse_live_vivi_send_output_uses_recipient_copy(self) -> None:
+        output = "created hand-1 3256f67d\nsent 93441a2b\n"
+        self.assertEqual(
+            fleet._parse_handle_from_send_output(output, "hand-1"),
+            "3256f67d",
+        )
+
+    def test_main_dispatches_non_prepare_command(self) -> None:
+        with tempfile.TemporaryDirectory() as d:
+            rc = fleet.main(
+                ["claim", "--project", d, "missing", "--role", "hand-1"]
+            )
+        self.assertEqual(rc, 1)
 
 
 # ---------------------------------------------------------------------------
@@ -163,6 +225,7 @@ class PrepareTests(unittest.TestCase):
             self.assertIsNone(receipt["claim"])
             self.assertIsNone(receipt["settlement"])
             self.assertTrue(receipt["assignment_body_hash"].startswith("sha256:"))
+            self.assertIn("task-abc123", receipt["boot_prompt"])
             # Hash must match the body
             self.assertEqual(
                 receipt["assignment_body_hash"],
@@ -182,6 +245,7 @@ class PrepareTests(unittest.TestCase):
                     "prepare", "--project", d,
                     "--to", "hand-1",
                     "--pass", "implement",
+                    "--scope", "scripts/fleet.py",
                     "--subject", "test",
                     "--body", "body",
                 ]
@@ -198,6 +262,15 @@ class PrepareTests(unittest.TestCase):
             self.assertIn("task-xyz", output)
             self.assertIn("settle", output)
 
+            prompt_args = fleet.parser().parse_args(
+                ["prompt", "--project", d, "task-xyz"]
+            )
+            replay = io.StringIO()
+            with contextlib.redirect_stdout(replay):
+                rc = fleet.cmd_prompt(prompt_args)
+            self.assertEqual(rc, 0)
+            self.assertEqual(replay.getvalue(), output)
+
     def test_prepare_role_resolution_failure(self) -> None:
         mock = ViviMock()
         mock.add("role", "show", "unknown", rc=1, output="not found")
@@ -209,6 +282,7 @@ class PrepareTests(unittest.TestCase):
                     "prepare", "--project", d,
                     "--to", "unknown",
                     "--pass", "implement",
+                    "--scope", "scripts/fleet.py",
                     "--subject", "test",
                     "--body", "body",
                 ]
@@ -402,6 +476,7 @@ class SettleTests(unittest.TestCase):
             args = fleet.parser().parse_args(
                 [
                     "settle", "--project", d, "task-abc", "--role", "hand-1",
+                    "--note", "done", "--report", "durable report",
                     "--repo", "examples", "--tip", "deadbee",
                 ]
             )
@@ -416,13 +491,60 @@ class SettleTests(unittest.TestCase):
             self.assertEqual(receipt["settlement"]["git_tip"], "deadbee")
             self.assertEqual(receipt["settlement"]["report_handle"], "mail-1")
 
+    def test_settle_completes_task_and_creates_report(self) -> None:
+        task_show_calls = 0
+
+        def live_mock(
+            cmd: Sequence[str],
+            timeout: float = 30.0,
+            cwd: Any = None,
+            env: Any = None,
+        ) -> Tuple[int, str]:
+            nonlocal task_show_calls
+            joined = " ".join(str(part) for part in cmd)
+            if "task show task-abc" in joined:
+                task_show_calls += 1
+                if task_show_calls == 1:
+                    return 0, _task_json(status="open")
+                if task_show_calls == 2:
+                    return 0, _task_json(status="done", include_report=False)
+                return 0, _task_json(status="done")
+            if "task done task-abc" in joined:
+                return 0, "completed task-abc\n"
+            if "mail reply task-abc" in joined:
+                return 0, "replied mind mail-1\nsent mail-sender-1\n"
+            return 127, "mock: command not configured for: %s" % joined
+
+        fleet.run_cmd = live_mock
+
+        with tempfile.TemporaryDirectory() as d:
+            self._setup_claimed_receipt(d)
+            args = fleet.parser().parse_args(
+                [
+                    "settle", "--project", d, "task-abc", "--role", "hand-1",
+                    "--note", "done", "--report", "durable report",
+                    "--repo", "examples", "--tip", "deadbee",
+                ]
+            )
+            rc = fleet.cmd_settle(args)
+            self.assertEqual(rc, 0)
+            receipt = fleet_common.load_receipt(d, "task-abc")
+            assert receipt is not None
+            self.assertEqual(receipt["settlement"]["report_handle"], "mail-1")
+            self.assertEqual(task_show_calls, 3)
+
     def test_settle_double_fails(self) -> None:
         mock = ViviMock()
         mock.add("task", "show", "task-abc", output=_task_json(status="done"))
         mock.add(
             "mail", "list",
             output=json.dumps([
-                {"handle": "mail-1", "from": "hand-1", "subject": "task-abc", "body": "done"}
+                {
+                    "handle": "mail-1",
+                    "from": "hand-1",
+                    "subject": "task-abc",
+                    "body": "done",
+                }
             ]),
         )
         fleet.run_cmd = mock
@@ -430,7 +552,10 @@ class SettleTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as d:
             self._setup_claimed_receipt(d)
             args = fleet.parser().parse_args(
-                ["settle", "--project", d, "task-abc", "--role", "hand-1"]
+                [
+                    "settle", "--project", d, "task-abc", "--role", "hand-1",
+                    "--note", "done", "--report", "durable report",
+                ]
             )
             # First settle
             rc = fleet.cmd_settle(args)
@@ -454,7 +579,10 @@ class SettleTests(unittest.TestCase):
             }
             fleet_common.save_receipt(d, "task-abc", receipt)
             args = fleet.parser().parse_args(
-                ["settle", "--project", d, "task-abc", "--role", "hand-1"]
+                [
+                    "settle", "--project", d, "task-abc", "--role", "hand-1",
+                    "--note", "done", "--report", "durable report",
+                ]
             )
             rc = fleet.cmd_settle(args)
             self.assertEqual(rc, 1)
@@ -467,7 +595,10 @@ class SettleTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as d:
             self._setup_claimed_receipt(d)
             args = fleet.parser().parse_args(
-                ["settle", "--project", d, "task-abc", "--role", "hand-1"]
+                [
+                    "settle", "--project", d, "task-abc", "--role", "hand-1",
+                    "--note", "done", "--report", "durable report",
+                ]
             )
             rc = fleet.cmd_settle(args)
             self.assertEqual(rc, 1)
@@ -486,15 +617,17 @@ class AdvanceTests(unittest.TestCase):
         fleet.run_cmd = self._orig_run_cmd
 
     def _setup_settled_receipt(
-        self, project: str, handle: str = "task-abc", role: str = "hand-1",
-        body: str = "test body",
+        self, project: str, handle: str = "task-abc", role: str = "auditor-1",
+        body: str = "test body", pass_name: str = "review",
+        verdict: str = "clean_pass", depends_on: Any = None,
     ) -> Dict[str, Any]:
         receipt: Dict[str, Any] = {
             "handle": handle,
             "kind": "task",
             "role": role,
             "scope": "src/",
-            "pass": "implement",
+            "pass": pass_name,
+            "depends_on": list(depends_on or []),
             "expected_role_binding": {
                 "provider": "anthropic",
                 "model": "sonnet",
@@ -515,12 +648,24 @@ class AdvanceTests(unittest.TestCase):
                 "report_handle": "mail-1",
                 "git_repo": "examples",
                 "git_tip": "abc123",
-                "verdict": None,
+                "verdict": verdict,
                 "scope_declared": "src/",
             },
         }
         fleet_common.save_receipt(project, handle, receipt)
         return receipt
+
+    def _setup_dependency(
+        self, project: str, handle: str, pass_name: str,
+        role: str = "hand-1", verdict: Any = None,
+    ) -> None:
+        self._setup_settled_receipt(
+            project,
+            handle=handle,
+            role=role,
+            pass_name=pass_name,
+            verdict=verdict,
+        )
 
     def test_advance_missing_claim_fails(self) -> None:
         mock = ViviMock()
@@ -573,6 +718,44 @@ class AdvanceTests(unittest.TestCase):
             rc = fleet.cmd_advance(args)
             self.assertEqual(rc, 1)
 
+    def test_advance_dependency_cycle_fails(self) -> None:
+        body = "test body"
+        mock = ViviMock()
+        mock.add(
+            "task", "show", "task-abc",
+            output=_task_json(body=body, to="auditor-1", status="done"),
+        )
+        mock.add(
+            "task", "show", "task-impl",
+            output=_task_json(handle="task-impl", body=body, status="done"),
+        )
+        mock.add(
+            "trace", "task-abc",
+            output=_trace_json([{"kind": "mail"}]),
+        )
+        mock.add(
+            "trace", "task-impl",
+            output=_trace_json([{"kind": "mail"}]),
+        )
+        fleet.run_cmd = mock
+
+        with tempfile.TemporaryDirectory() as d:
+            self._setup_settled_receipt(
+                d, body=body, depends_on=["task-impl"]
+            )
+            self._setup_settled_receipt(
+                d,
+                handle="task-impl",
+                role="hand-1",
+                body=body,
+                pass_name="implement",
+                verdict=None,
+                depends_on=["task-abc"],
+            )
+            result = fleet._check_chain(d, "task-abc", "acceptance")
+            self.assertEqual(result["verdict"], "fail")
+            self.assertIn("dependency cycle at task-abc", result["gaps"])
+
     def test_advance_hash_mismatch_fails(self) -> None:
         body = "original body"
         mock = ViviMock()
@@ -604,7 +787,16 @@ class AdvanceTests(unittest.TestCase):
     def test_advance_acceptance_pass(self) -> None:
         body = "test body"
         mock = ViviMock()
-        mock.add("task", "show", "task-abc", output=_task_json(body=body))
+        mock.add("role", "show", "auditor-1", output=_role_json(role="auditor-1"))
+        mock.add("role", "show", "hand-1", output=_role_json())
+        mock.add(
+            "task", "show", "task-abc",
+            output=_task_json(body=body, to="auditor-1", status="done"),
+        )
+        mock.add(
+            "task", "show", "task-impl",
+            output=_task_json(handle="task-impl", body=body, status="done"),
+        )
         mock.add(
             "trace", "task-abc",
             output=_trace_json([
@@ -613,10 +805,15 @@ class AdvanceTests(unittest.TestCase):
                 {"kind": "event-done", "verdict": "clean_pass"},
             ]),
         )
+        mock.add(
+            "trace", "task-impl",
+            output=_trace_json([{"kind": "mail", "source": "hand-1"}]),
+        )
         fleet.run_cmd = mock
 
         with tempfile.TemporaryDirectory() as d:
-            self._setup_settled_receipt(d, body=body)
+            self._setup_dependency(d, "task-impl", "implement")
+            self._setup_settled_receipt(d, body=body, depends_on=["task-impl"])
             args = fleet.parser().parse_args(
                 [
                     "advance", "--project", d,
@@ -640,7 +837,7 @@ class AdvanceTests(unittest.TestCase):
         fleet.run_cmd = mock
 
         with tempfile.TemporaryDirectory() as d:
-            self._setup_settled_receipt(d, body=body)
+            self._setup_settled_receipt(d, body=body, verdict="residual")
             args = fleet.parser().parse_args(
                 [
                     "advance", "--project", d,
@@ -653,7 +850,39 @@ class AdvanceTests(unittest.TestCase):
     def test_advance_admission_pass(self) -> None:
         body = "test body"
         mock = ViviMock()
-        mock.add("task", "show", "task-abc", output=_task_json(body=body))
+        mock.add("role", "show", "auditor-1", output=_role_json(role="auditor-1"))
+        mock.add("role", "show", "planner-1", output=_role_json(role="planner-1"))
+        mock.add(
+            "task", "show", "task-abc",
+            output=_task_json(body=body, to="auditor-1", status="done"),
+        )
+        mock.add(
+            "task", "show", "task-p1",
+            output=_task_json(
+                handle="task-p1", body=body, to="planner-1", status="done"
+            ),
+        )
+        mock.add(
+            "task", "show", "task-plan-p2",
+            output=_task_json(
+                handle="task-plan-p2", body=body, to="planner-1", status="done"
+            ),
+        )
+        mock.add(
+            "task", "show", "task-goal-audit",
+            output=_task_json(
+                handle="task-goal-audit",
+                body=body,
+                to="auditor-1",
+                status="done",
+            ),
+        )
+        mock.add(
+            "task", "show", "task-p3",
+            output=_task_json(
+                handle="task-p3", body=body, to="planner-1", status="done"
+            ),
+        )
         mock.add(
             "trace", "task-abc",
             output=_trace_json([
@@ -663,10 +892,46 @@ class AdvanceTests(unittest.TestCase):
                 {"label": "delivery-reality audit", "verdict": "clean_pass"},
             ]),
         )
+        mock.add(
+            "trace", "task-p1",
+            output=_trace_json([{"kind": "mail", "source": "planner-1"}]),
+        )
+        mock.add(
+            "trace", "task-plan-p2",
+            output=_trace_json([{"kind": "mail", "source": "planner-1"}]),
+        )
+        mock.add(
+            "trace", "task-goal-audit",
+            output=_trace_json([{"kind": "mail", "source": "auditor-1"}]),
+        )
+        mock.add(
+            "trace", "task-p3",
+            output=_trace_json([{"kind": "mail", "source": "planner-1"}]),
+        )
         fleet.run_cmd = mock
 
         with tempfile.TemporaryDirectory() as d:
-            self._setup_settled_receipt(d, body=body)
+            self._setup_settled_receipt(
+                d, handle="task-p1", role="planner-1", pass_name="p1",
+                verdict=None,
+            )
+            self._setup_settled_receipt(
+                d, handle="task-plan-p2", role="planner-1", pass_name="p2",
+                verdict=None, depends_on=["task-p1"],
+            )
+            self._setup_settled_receipt(
+                d, handle="task-goal-audit", role="auditor-1",
+                pass_name="goal-audit", verdict="clean_pass",
+                depends_on=["task-plan-p2"],
+            )
+            self._setup_settled_receipt(
+                d, handle="task-p3", role="planner-1", pass_name="p3",
+                verdict=None, depends_on=["task-goal-audit"],
+            )
+            self._setup_settled_receipt(
+                d, body=body, pass_name="delivery-audit",
+                depends_on=["task-p3", "task-goal-audit"],
+            )
             args = fleet.parser().parse_args(
                 [
                     "advance", "--project", d,
@@ -691,7 +956,7 @@ class AdvanceTests(unittest.TestCase):
         fleet.run_cmd = mock
 
         with tempfile.TemporaryDirectory() as d:
-            self._setup_settled_receipt(d, body=body)
+            self._setup_settled_receipt(d, body=body, pass_name="goal-audit")
             args = fleet.parser().parse_args(
                 [
                     "advance", "--project", d,
@@ -718,7 +983,16 @@ class AdvanceTests(unittest.TestCase):
     def test_advance_json_output(self) -> None:
         body = "test body"
         mock = ViviMock()
-        mock.add("task", "show", "task-abc", output=_task_json(body=body))
+        mock.add("role", "show", "auditor-1", output=_role_json(role="auditor-1"))
+        mock.add("role", "show", "hand-1", output=_role_json())
+        mock.add(
+            "task", "show", "task-abc",
+            output=_task_json(body=body, to="auditor-1", status="done"),
+        )
+        mock.add(
+            "task", "show", "task-impl",
+            output=_task_json(handle="task-impl", body=body, status="done"),
+        )
         mock.add(
             "trace", "task-abc",
             output=_trace_json([
@@ -727,13 +1001,18 @@ class AdvanceTests(unittest.TestCase):
                 {"kind": "event-done", "verdict": "clean_pass"},
             ]),
         )
+        mock.add(
+            "trace", "task-impl",
+            output=_trace_json([{"kind": "mail", "source": "hand-1"}]),
+        )
         fleet.run_cmd = mock
 
         import io
         import contextlib
 
         with tempfile.TemporaryDirectory() as d:
-            self._setup_settled_receipt(d, body=body)
+            self._setup_dependency(d, "task-impl", "implement")
+            self._setup_settled_receipt(d, body=body, depends_on=["task-impl"])
             args = fleet.parser().parse_args(
                 [
                     "advance", "--project", d,

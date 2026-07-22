@@ -8,10 +8,9 @@ Mind owns the **file clock**. One **planner** owns the **lowering** of a selecte
 campaign goal through planning skills into durable documents. Only those
 documents become Hand tasks.
 
-The file clock is Vivi-first: the Mind files the Planner task before runtime
-start and passes its handle as the primary reference. The Planner completes the
-task and reports through Vivi before the Mind accepts lowering or files any
-dependent Hand task. Chat and runtime returns only support those handles.
+The file clock uses the Fleet helper: the Mind prepares each Planner pass before
+runtime start, the Planner claims and settles it, and every downstream pass
+names the prior handle with `--depends-on`.
 
 **Batch-ahead (required):** when a goal is defined (or selected for execution),
 Mind runs it through lowering for a **horizon of phases/units immediately** —
@@ -49,16 +48,13 @@ when planning pre-work happens, not when a Hand goes empty.
 
 ```text
 campaign map selects goal / stage
-  → Mind files **lower** task To one planner (default: planner-1); passes handle
-       scope: whole goal readiness + delivery graph for a **horizon** of phases
+  → if not READY: Mind `fleet prepare --pass goal-forge` to planner-N
+  → Planner claims, runs goal-forge + goal-check, settles READY report
+  → Mind `fleet prepare --pass delivery --depends-on <goal-forge>`
+       scope: delivery graph for a **horizon** of phases
        (default 3–5 phases/units of a longer goal — not only the next one)
-  → Planner runs planning stack → durable artifacts on disk
-       goal-forge (if goal not frozen)
-       → goal-check → READY
-       → $delivery → delivery spec + ordered unit graph for the horizon
-  → Planner completes task + reports To mind: artifact paths, commit, READY verdict, unit list, non-goals
-  → Mind records acceptance/disposition in Vivi (or files correction task)
-  → Mind files **mechanical** / **repair** tasks To Hands from the ready bag
+  → Planner claims, runs $delivery, settles artifact paths + unit graph
+  → Mind prepares **implement** assignments depending on the delivery handle
        each task cites delivery unit id + path; mini-spec may quote done-when
   → Hands implement + polish; no re-architecture of the goal
   → While Hands drain the bag, Mind extends the horizon (next 3–5) before empty
@@ -66,8 +62,8 @@ campaign map selects goal / stage
 
 | Actor | Owns | Does not |
 | --- | --- | --- |
-| **Mind** | Select what to lower; assign planner with horizon size; accept/reject; file Hand units from docs; merge clock; keep bag ahead of implement | Invent architecture inside Hand task bodies as a substitute for delivery; JIT single-phase lower after each Hand close |
-| **Lowering planner** (one seat) | Goal readiness + delivery docs for the assigned goal **horizon** (multi-phase unit graph) | Product code; merge; filing Hand bags; unbounded multi-**goal** campaign lowers |
+| **Mind** | Select what to lower; prepare planner passes with horizon size; prepare Hand units from settled docs; merge clock; keep bag ahead of implement | Invent architecture inside Hand task bodies as a substitute for delivery; JIT single-phase lower after each Hand close |
+| **Lowering planner** (one seat) | Goal readiness + delivery docs for the assigned goal **horizon** (multi-phase unit graph) | Product code; merge; preparing Hand bags; unbounded multi-**goal** campaign lowers |
 | **Implementer Hand** | Execute one delivery unit (or repair list) | Re-lower the campaign; rewrite architecture; open-ended factory on raw goals |
 | **Auditor Hand** | Post-land invariant review; goal- and delivery-reality audits in large-wave preparation | Planning / delivery authorship |
 | **head-cto / head-cxo** | Gate honesty / purity (cadence, advisory) | Not a lowering seat; Heads are advisory-only |
@@ -81,12 +77,12 @@ campaign map selects goal / stage
 | New campaign stage / theme / North-Star slice with no READY goal + delivery | **Yes** — batch-ahead horizon, not only phase 1 |
 | Goal defined / selected for execution; fewer than ~3 ready units remain ahead | **Yes** — horizon extension (overlap with implement) |
 | Goal exists but stale or not goal-check READY | **Yes** (re-check / re-delivery for the horizon) |
-| Delivery unit already on disk; Mind filing next slice from that graph | **No** — file Hand from existing unit |
+| Delivery unit already on disk; Mind preparing next slice from that graph | **No** — prepare Hand from existing unit |
 | **`repair`** from auditor findings + regressions | **No** — findings *are* the spec |
 | Pure merge / base-update / maid / housekeeping | **No** |
 | True **design** / **sensitive** product shape (voice, IA users feel) | Lower may still produce contracts; **implement** design-class work on design Hand (e.g. hand-5) — not volume Hand guessing |
 
-Starvation refill must **not** file raw campaign bullets To Hands. If the next map
+Starvation refill must **not** prepare raw campaign bullets To Hands. If the next map
 item is unlowered → assign **lower** to a planner, not implement. Prefer that lower never
 becomes starvation: horizon should already be on disk before Hands empty.
 
@@ -119,10 +115,10 @@ with planning duty and an explicit write scope for **planning artifacts only**:
 | `$delivery` specs, stage graphs, unit checklists under `docs/factory/` or project convention | Packet product branches as implementer |
 | Goal-check notes / READY verdict in-repo if project stores them | Hand tasks, merge, destroy foreign dirty |
 
-If the project forbids planner writes entirely, the planner emits full artifact text in
-the report and the Mind materializes to disk **before** filing Hands — same bar,
-different scribe. Prefer planner-written planning files when git-backed docs are
-the handoff.
+If the project forbids planner writes entirely, the planner attaches full
+artifact text in its settlement report. The Mind then routes materialization as
+a separate prepared assignment before implementation. Prefer planner-written
+planning files when git-backed docs are the handoff.
 
 **One goal (or coherent stage theme) per assignment** — with a **multi-phase
 horizon** inside that goal. Do **not** ask the planner to lower the whole multi-goal
@@ -144,8 +140,8 @@ Lowering is incomplete until:
 4. Report lists **paths** + **implementable unit ids** for the whole horizon
    Mind can file (not only “next unit”).
 
-`NOT READY` → Mind does not file Hands; re-assign lower with named gaps or
-return to goal-forge.
+`NOT READY` → Mind does not prepare Hands; prepare a corrected goal-forge pass
+with named dependencies.
 
 Skill detail: `$campaign` (sub-refs: `goal-forge`, `goal-check`), `$delivery`. Fallback if skills
 missing: same structure in durable markdown; do not skip the bar.
@@ -174,9 +170,9 @@ a large parallel wave use the deeper chain in
 
 ```text
 Mind -> Planner P1 Forge -> Mind -> Planner P2 Check -> Mind
-     -> Auditor P2 goal audit -> Mind -> Planner corrections -> Mind
-     -> Planner P3 Delivery -> Mind -> Auditor P3 delivery audit -> Mind
-     -> Planner corrections -> Mind admission
+     -> Auditor goal-audit -> Mind -> Planner corrections -> Mind
+     -> Planner P3 Delivery -> Mind -> Auditor delivery-audit -> Mind
+     -> Planner corrections -> Mind -> fleet admission check
 ```
 
 This keeps Forge, Check, and Delivery as separate passes and independently

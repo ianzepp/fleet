@@ -59,9 +59,9 @@ or chat claim alone is not admission.
 | Phase | Mind action | Exit evidence |
 | --- | --- | --- |
 | **Prepare** | Complete admission; record baseline, policies, and cutoff | READY packet exists |
-| **Launch** | File a bounded burst that fits capacity and non-overlapping scopes | Active assignment ledger |
+| **Launch** | Prepare a bounded burst that fits capacity and non-overlapping scopes | Active assignment ledger |
 | **Flow** | Route completions, audits, repairs, and refills; planners build the next inventory | Every signal has a disposition |
-| **Drain** | Stop new implementation filing at the cutoff; finish or park in-flight work | No unclassified in-flight unit |
+| **Drain** | Stop new implementation preparation at the cutoff; finish or park in-flight work | No unclassified in-flight unit |
 | **Freeze** | Reconcile audit debt, aggregate findings, campaign state, repo evidence, and decisions | Freeze receipt passes |
 | **Close** | Decision owner closes, extends, or holds the wave; clean transient state | Next posture is explicit |
 
@@ -74,7 +74,7 @@ repair extension; it does not become a successful closeout.
 | Role | Looks at | Does not own |
 | --- | --- | --- |
 | **Mind** | Board, dependencies, write scopes, review debt, cutoff, dispositions | Product implementation, test execution, planning authorship, code review |
-| **Planner** | Selected next-wave goal and routed audit findings | Product source, Hand filing, direct Auditor coordination |
+| **Planner** | Selected next-wave goal and routed audit findings | Product source, Hand preparation, direct Auditor coordination |
 | **Hand** | One admitted delivery unit or bounded repair | Raw campaign lowering, acceptance |
 | **Auditor** | Goal-reality audit, delivery-reality audit, or selected landed unit | Planning corrections, product repair, acceptance |
 | **Head** | Aggregate architecture, priority, or complexity trends | Unit review, GO stamp, unfreeze decision |
@@ -83,19 +83,20 @@ Concurrency is bounded by the smallest real bottleneck: write scopes, planner
 refill rate, audit capacity, or Mind routing bandwidth. A nominal Hand cap is
 not a target.
 
-Before filing, record each active unit's exact scope. If scopes overlap, file a
+Before preparing, record each active unit's exact scope. If scopes overlap, prepare a
 different unit, serialize them, or use a Mind-created isolated branch/worktree.
 Do not rely on a mental collision table during a long wave.
 
 ## Communication during a wave
 
-Vivi handles are the primary references for every wave communication. File the
-assignment, question, decision, finding, disposition, or escalation in Vivi
-first. Chat and runtime messages carry the relevant handle and may add brief
-supporting context; they cannot replace or silently widen the durable record.
+Vivi handles are the primary references for every wave communication. Prepare
+role assignments with the helper; file questions, decisions, dispositions, or
+escalations in Vivi. Chat and runtime messages carry the relevant handle and
+may add brief supporting context; they cannot replace or silently widen the
+durable record.
 
-**No handle, no spawn or wake. No completed task and report, no gate advance or
-acceptance.** If supporting chat changes scope, ordering, or a decision, update
+**No prepared handle, no spawn or wake. No successful settlement, no gate
+advance or acceptance.** If supporting chat changes scope, ordering, or a decision, update
 the Vivi chain before dependent work proceeds.
 
 A completion has three surfaces:
@@ -103,18 +104,17 @@ A completion has three surfaces:
 | Surface | Meaning |
 | --- | --- |
 | Runtime notification or chat return | Wake signal and supporting context only |
-| Vivi task and mail | Durable assignment, evidence, verdict, and disposition trail |
+| Fleet settlement chain | Durable assignment, evidence, verdict, and dependency trail |
 | Git receipt | Repository fact: commit, diff, and tip |
 
-Process a completion by task handle plus commit receipt. Read the report,
-confirm that the receipt exists and matches the declared scope, route required
-review or repair, update dependency and scope state, then absorb the Mind's
-mail. A repeated notification is duplicate only when the same task handle and
-receipt already have a recorded disposition.
+Process a completion by settled handle plus commit receipt. Confirm that the
+receipt exists and matches the declared scope, then prepare review or repair.
+A repeated notification is duplicate only when the same settlement already has
+a recorded disposition.
 
-A runtime completion without `task done` and report mail is an interrupted
-handoff, not a completed unit. Resume the role to file its durable result when
-possible. Otherwise file a new recovery task or need to the actual owner, label
+A runtime completion without `fleet settle` is an interrupted handoff, not a
+completed unit. Resume the role to settle when possible. Otherwise prepare a
+new recovery assignment or file a need to the actual owner, label
 the process deviation, and link the surviving evidence. Never backfill an
 ordinary task and claim the missing chronology existed.
 
@@ -315,10 +315,10 @@ every shared tree and every role inbox is globally empty.
 
 | Failure | Correction |
 | --- | --- |
-| Role spawned or woken before a Vivi handle exists | Stop; file a labeled recovery task or need; resume from its handle |
-| Chat/runtime result treated as durable completion | Require task completion, report mail, and receipts before advance or accept |
+| Role spawned or woken before `fleet prepare` | Stop; prepare a labeled recovery assignment; resume from its generated prompt |
+| Chat/runtime result treated as durable completion | Require `fleet settle`, then `fleet advance` for admission/acceptance |
 | Retroactive stub presented as the original assignment | Mark chronology reconstructed; do not claim a valid original trace |
-| Runtime gets several unrelated scopes | Split into one bounded Vivi handle per runtime |
+| Runtime gets several unrelated scopes | Split into one prepared handle per runtime |
 | Auditor spawned with task-shaped substitute capacity | Use the Auditor's live Vivi role binding; rebind explicitly before spawn if policy changes |
 | Aggregate wait loses runtime ids | Use the per-handle runtime map and Vivi state; do not infer completion from file changes |
 | Hands launch from raw campaign bullets | Return to large-wave preparation or ordinary lowering |

@@ -2,7 +2,7 @@
 
 Load when arming Heads, writing role prompts, or renaming identities.  
 **Personas** (depth): [`personas/`](personas/).  
-**Loops** (process): [`../heads.md`](../heads.md) — assign → report, map-health, side-lane buckets, post-main review, purity.  
+**Loops** (process): [`../heads.md`](../heads.md) — prepare → claim → settle, map-health, side-lane buckets, post-main review, purity.
 **Posture:** [`../posture.md`](../posture.md) — growth / standby / dormant dial for Head proactivity.
 
 These seats continue the camp **strategist / correctness / purity** advisors. They are **not** a free-standing `$executive-team` board of directors.
@@ -28,7 +28,7 @@ Other Heads: mail identity + pane only when Mind assigns them.
 
 ### CEO = strategist (not org-chart CEO)
 
-`head-ceo` is the **priority / sequencing / map-research** seat. Job language is camp **strategist**: connect tracks, catch inverted priorities, name producer work for blocked consumers, propose parallel work with costs. It is **not** Proton daily-summary automation or “create tasks for the CTO” theater — Mind files Hands from CEO reports.
+`head-ceo` is the **priority / sequencing / map-research** seat. Job language is camp **strategist**: connect tracks, catch inverted priorities, name producer work for blocked consumers, propose parallel work with costs. It is **not** Proton daily-summary automation or “create tasks for the CTO” theater — Mind prepares Hands from CEO settlements.
 
 ### CXO = purity (not operator voice)
 
@@ -58,7 +58,7 @@ In fleet, **CXO ≠ external/operator communications.** That is **Mind** (human 
 | Mind | Heads |
 | --- | --- |
 | **Is** the operator conversation | Never operator-facing email or dual Mind |
-| FLEET_CYCLE, file/wake Hands, merge clock | Advise To: mind only |
+| FLEET_CYCLE, prepare/wake roles, merge clock | Advise To: mind only |
 | Interactive rich status / recap for human | Reports for Mind triage |
 
 ## Archived skill

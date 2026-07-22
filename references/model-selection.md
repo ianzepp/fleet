@@ -3,7 +3,7 @@
 Generic guidance for choosing **provider / model / thinking effort** by **role
 duty** and **unit shape**. Live bindings always win from the Vivi role record
 (`vivi role show <name> --project <root>`). This file is process law for Mind
-when **filing**, **rebinding**, or **capacity-stepping** — not a second source
+when **preparing**, **rebinding**, or **capacity-stepping** — not a second source
 of truth for which string is running.
 
 Before every spawn, resolve `harness`, `provider`, `model`, and `thinking` from
@@ -62,7 +62,7 @@ for roster uniformity.
 
 ---
 
-## Unit tags (Mind labels when filing)
+## Unit tags (Mind labels when preparing)
 
 Tag each unit in the task body (or Mind memo) with one primary shape:
 
@@ -84,7 +84,7 @@ list) already paid for thinking — not the implementer Hand inventing it:
 - for multi-unit stages: durable `$delivery` doc + goal-check READY parent goal
 
 **Law:** campaign goal → **planner lowers** (`$campaign`: goal-forge → goal-check →
-`$delivery`) → Mind files Hands. Hands do not lower raw goals through factory.
+`$delivery`) → Mind prepares Hands. Hands do not lower raw goals through factory.
 Full pipeline: [`lowering.md`](lowering.md).
 
 Volume implementers at low thinking **only** pay off when that packet quality
@@ -107,7 +107,9 @@ is real. Loose tickets recreate “green tests, high-severity miss.”
 
 - Product Hands ship unit quality.  
 - **Code review** → **`auditor-1` / `auditor-2`** + **`$auditor`**, not head-cto by default.  
-- Mind triages: low-risk may accept implementer evidence; **risk / auth-persistence / packaging law / sample** → auditor.  
+- Mind triages: low-risk work may be absorbed and batched, but `acceptance`
+  requires an Auditor `review` settlement with `clean_pass`. **Risk /
+  auth-persistence / packaging law / sample** routes to an Auditor immediately.
 - **Never** universal review on every completion (quota and latency).  
 - Prefer **fewer, deeper** auditor passes over every-unit skim.
 
@@ -157,14 +159,14 @@ not on every factory grind.**
 
 ---
 
-## Mind checklist when filing a unit
+## Mind checklist when preparing a unit
 
 1. Tag shape: `mechanical` | `design` | `sensitive` | `ambiguous` | `repair`.  
 2. If not well-defined and shape is mechanical → **forge/delivery first**, or retag.  
 3. Choose implementer class from the table; rebind Hand runtime if needed.  
 4. Decide auditor: mandatory (risk) / sample / none (low-risk evidence).  
-5. File auditor on **review-class @ high** when used.  
-6. Resolve the selected role's live Vivi binding immediately before spawn; if it does not match the intended class, rebind in Vivi or choose another role.
+5. Prepare the Auditor `review` assignment on **review-class @ high** when used.
+6. Resolve the selected role's live Vivi binding before `fleet prepare`; if it does not match the intended class, rebind in Vivi or choose another role.
 7. Repair stays on original implementer class unless redesign.
 
 Project-specific model names and thinking defaults: project overlay (e.g.

@@ -116,14 +116,15 @@ vivi-pty --project <root> session stop <session-id>
 ```
 
 Resolve bindings from the Vivi role record. Recreate stopped/missing runtimes
-before delivering a work pointer via `tmux send-keys` / `vivi-pty terminal write`.
+before delivering the exact `fleet prepare` output via `tmux send-keys` /
+`vivi-pty terminal write`.
 
 ### `fleet-doorbell.sh` (removed)
 
-The `fleet-doorbell.sh` helper is removed. Deliver a work pointer directly:
+The `fleet-doorbell.sh` helper is removed. Deliver the generated prompt directly:
 
 ```bash
-tmux send-keys -t '<tmux_target>' -l -- '<thin boot pointer only>'
+tmux send-keys -t '<tmux_target>' -l -- '<exact fleet prepare output>'
 tmux send-keys -t '<tmux_target>' Enter
 # classify the pane first; refuse running/down/rate-limit; record last_hand_wake in baseline
 ```
@@ -188,7 +189,7 @@ tmux send-keys -t '<tmux_target>' Enter
 | --- | --- |
 | Defaults | `PROJECT` from cwd; roster resolved from Vivi role records |
 | Launch | Construct launch from the role capacity (Vivi role record) + harness. Never `exec codex` |
-| First message | Thin boot pointer (role + task handle); charter loads from Vivi |
+| First message | Exact `fleet prepare` output |
 
 ### `steward.sh` (removed)
 
@@ -274,7 +275,11 @@ Always write fallbacks into baseline + fleet per-hand runtime fields.
 
 **Problem:** Codex parks at ready prompt after a unit. Back-to-back wake text can stay in the composer if Enter arrives before the TUI is ready.
 
-**Policy:** `agent=codex` **done** + next work exists → pointer doorbell first via `tmux send-keys` (with a Codex submit-settle delay before Enter). Reinit is fallback recovery, not the normal wake. The `fleet-doorbell.sh` and `codex-reinit.sh` helpers are removed; doorbell and recovery are done with plain `tmux` commands.
+**Policy:** `agent=codex` **done** + next prepared assignment exists → exact
+generated prompt first via `tmux send-keys` (with a Codex submit-settle delay
+before Enter). Reinit is fallback recovery, not the normal wake. The
+`fleet-doorbell.sh` and `codex-reinit.sh` helpers are removed; prompt delivery
+and recovery use plain `tmux` commands.
 
 | Doorbell first | Reinit fallback |
 | --- | --- |
@@ -294,7 +299,9 @@ tmux send-keys -t '<tmux_target>' -l -- '<codex launch from Vivi role capacity>'
 tmux send-keys -t '<tmux_target>' Enter
 ```
 
-Before recovery, file the next task/need so a handle exists; never `exec codex`; construct the launch from role capacity; first message is the thin boot pointer.
+Before recovery, run `fleet prepare` so a generated prompt exists; never `exec
+codex`; construct the launch from role capacity; first message is that exact
+prompt.
 
 **Classify traps:** do not treat tool `timeout N cmd` or `error: test failed` as `failed` with connection detail when the runtime is live and working. Prefer current bottom prompt evidence and doctor evidence over raw greps of older scrollback.
 
@@ -341,8 +348,8 @@ progress wakes.
 | Value | Meaning | Typical use |
 | --- | --- | --- |
 | **`new`** | Fresh agent session for this assignment (`/new` in-pane, or recreate session leaving shell/cwd). Drop prior chat context. | Cold-cache fleets; high context cost; CEO-style one-shot analysis; default when operator wants no transcript carry-over |
-| **`compact`** | Same process; send `/compact` (or harness equivalent), then pointer doorbell with the new handle | Theme switch same cwd when context is still coherent |
-| **`continue`** | Same session; pointer doorbell only (no compact, no recreate) | Cheap follow-ups; sticky multi-step units that intentionally share context |
+| **`compact`** | Same process; send `/compact` (or harness equivalent), then the generated prompt for the new handle | Theme switch same cwd when context is still coherent |
+| **`continue`** | Same session; generated prompt only (no compact, no recreate) | Cheap follow-ups; sticky multi-step units that intentionally share context |
 | **`restart`** | Kill the agent process (or whole runtime slot) and relaunch from role capacity before the assignment boot (recreate the tmux window / vivi-pty session directly) | Stuck harness; model/provider flag change; dirty process that `/new` cannot clear |
 
 **Resolved by:** `fleet_common.resolve_assignment_mode` / `fleet-resolve.py`

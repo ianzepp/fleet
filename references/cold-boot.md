@@ -54,7 +54,8 @@ pending integration state. A stopped lane whose product fingerprint predates
 the configured resume threshold is a **reconciliation candidate**, not proof
 that work is complete or abandoned.
 
-Disposition through `mind-cycle.md` lane lifecycle: continue with a fresh task,
+Disposition through `mind-cycle.md` lane lifecycle: continue with a fresh
+prepared assignment,
 park behind an explicit wake trigger, or release the runtime after all gates.
 Do not manufacture five successful cycles from offline elapsed time, revive a
 stale task blindly, or remove a worktree during cold boot.

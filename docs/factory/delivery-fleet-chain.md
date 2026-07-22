@@ -1,5 +1,10 @@
 # Delivery spec: Fleet chain gate (`fleet.py`)
 
+> Historical delivery artifact. The shipped helper was repaired and expanded
+> after live Vivi schema review. Canonical behavior is
+> [`../../references/fleet-helper.md`](../../references/fleet-helper.md) and
+> `scripts/fleet.py`; this artifact is not an operating runbook.
+
 Source goal: [`goal-fleet-chain.md`](goal-fleet-chain.md)
 
 ## Interpreted Unit

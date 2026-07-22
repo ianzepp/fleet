@@ -90,7 +90,7 @@ Typical actions:
 | --- | --- |
 | Process running + role actively working | Leave it alone |
 | Process ready + open addressed work | Pointer doorbell |
-| Process absent/stopped + assigned actionable lane | Start, then pointer doorbell |
+| Process absent/stopped + prepared actionable assignment | Start, then deliver the generated prompt |
 | Process absent/stopped + paused lane | Start only if warm capacity is desired; do not wake |
 | Process absent/stopped + unassigned lane | Usually leave dormant, or start ready capacity without inventing work |
 | `approval_required` | Resolve approval; never stack input |
@@ -126,27 +126,27 @@ after a harmless first turn.
 
 Starting capacity and assigning work are separate operations.
 
-1. **Open actionable task/need:** wake with the handle.
-2. **Addressed mail:** wake with a short pointer when the role is ready.
-3. **Assigned active lane with an explicit next campaign unit:** wake it to read
-   its bag and durable campaign, then continue the highest-priority honest unit.
+1. **Prepared open assignment:** run `fleet prompt <handle>` and deliver its
+   exact output.
+2. **Addressed mail that creates work:** Mind converts it to `fleet prepare`;
+   mail is not a role assignment.
+3. **Explicit next campaign unit without a receipt:** prepare the correct pass
+   before waking.
 4. **Paused packet:** preserve it; do not silently resume.
 5. **Unassigned slot:** leave ready or dormant. Never invent polish or generic
    exploration merely because the process exists.
 
-Use `tmux send-keys` (or `vivi-pty terminal write`) directly so backend selection,
-state refusal, throttling, and wake records stay canonical:
+Use the configured backend to deliver exact `fleet prepare` / `fleet prompt`
+output so state refusal, throttling, and wake records stay canonical:
 
 ```bash
-# tmux backend — pointer doorbell:
-tmux send-keys -t <fleet_id>:hand-3.1 "HAND WAKE hand-3. Task <hex>. Load charter and task from Vivi." Enter
-
-# Assigned lane with durable campaign truth but no single handle:
-tmux send-keys -t <fleet_id>:hand-3.1 \
-  "HAND WAKE hand-3. Read your configured lane, Vivi bag, and campaign; continue the highest-priority honest unblocked unit." Enter
+# Reprint the prepared prompt, then deliver that multiline output unchanged:
+python3 <skill>/scripts/fleet.py prompt <handle> --project "$ROOT"
+tmux send-keys -t <fleet_id>:hand-3.1 -l -- '<exact prompt output>'
+tmux send-keys -t <fleet_id>:hand-3.1 Enter
 
 # vivi-pty backend:
-vivi-pty --project "$ROOT" terminal write <session-id> "HAND WAKE hand-3. Task <hex>." --enter
+vivi-pty --project "$ROOT" terminal write <session-id> '<exact prompt output>' --enter
 ```
 
 Do not wake `starting`, `submitting`, `running`, or `approval_required` roles.
@@ -183,7 +183,7 @@ For each configured Head:
    - Head schedule: `executive_cadence.every_n_loops` — **0** on-call, **N≥1**
      scheduled (`N × mind_loop.interval_sec`). No separate `enabled` /
      `self_directed`.
-5. Require reports to the configured Mind inbox. Heads do not file Hand work,
+5. Require `fleet settle` reports to the configured Mind inbox. Heads do not prepare Hand work,
    merge, or create approval gates.
 
 Cadence (when scheduled):

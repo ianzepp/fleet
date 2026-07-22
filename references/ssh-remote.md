@@ -40,7 +40,7 @@ hand-N / head-*  =  identity (mail + remote tmux session name)
 | --- | --- |
 | Pane scan / capture | `ssh … 'tmux capture-pane -t <target> …'` |
 | Doorbell | `ssh … 'tmux send-keys -t <target> -l -- "…"'` then Enter (the `fleet-doorbell.sh` helper is removed) |
-| Codex doorbell / recovery fallback | Pointer doorbell via `tmux send-keys` first; recreate the pane/session directly (the `codex-reinit.sh` helper is removed) for stuck/down/error recovery on the Hand host |
+| Codex prompt / recovery fallback | Exact `fleet prepare`/`prompt` output via `tmux send-keys` first; recreate the pane/session directly (the `codex-reinit.sh` helper is removed) for stuck/down/error recovery on the Hand host |
 | Vivi bag / watch / thread | Host that can see board `.vivi/` |
 | Git work | Remote `cwd` checkout / worktree |
 
@@ -54,7 +54,7 @@ One board of record per fleet:
 | --- | --- |
 | **1. Remote owns `.vivi/`** | Prefer when Hand git root is remote. Mind: `ssh host 'vivi --project /remote/root …'` |
 | **2. Shared/synced tree** | Both hosts same path (rare; document) |
-| **3. Mind-local only** | Hands implement from pointers — weaker if remote Hands need bag CLI |
+| **3. Mind-local only** | Observation only; not valid for an active remote role because claim/settle cannot reach the ledger |
 
 Watch/thread must hit the same SQLite ledger. Rsync is wrong-direction for live board.
 
@@ -78,11 +78,14 @@ Discover real `tmux_target` once; store in fleet.
 
 ```bash
 $SSH 'tmux capture-pane -t hand-N:1.1 -p -S -25'
-$SSH "tmux send-keys -t hand-N:1.1 -l -- 'HAND WAKE hand-N. Bag: show <handle>. Continue.'"
+# Run fleet prepare/prompt on the board-owning host, then send its exact output.
+$SSH "tmux send-keys -t hand-N:1.1 -l -- '<exact generated prompt>'"
 $SSH 'tmux send-keys -t hand-N:1.1 Enter'
 ```
 
-Same pointer-only rules as local dual-channel.
+The generated prompt's helper and project paths must be valid on the remote
+host. Prefer running `fleet prepare` over SSH against the remote-owned
+mailspace, then delivering that output in the same host context.
 
 ### Remote reinit fallback (Codex)
 
@@ -94,7 +97,9 @@ $SSH "$REMOTE_PATH; tmux send-keys -t hand-N:1 -l -- 'codex --model <model> --da
 $SSH 'tmux send-keys -t hand-N:1 Enter'
 ```
 
-For normal remote Codex wakes, use the same pointer doorbell (`tmux send-keys`) with submit-settle on the Hand host. There is no helper to copy onto the remote; recovery is done with plain `tmux` commands.
+For normal remote wakes, run `fleet prepare` / `fleet prompt` where the shared
+`.vivi` project and helper are available, then deliver the exact output with
+remote `tmux send-keys`. Runtime recovery still uses plain tmux commands.
 
 ### Remote Head
 
@@ -142,5 +147,5 @@ Operator Mind in desktop app; product Hands (+ optional Heads) on remote tmux. D
 ## Related
 
 - Pane/wake + Vivi watch/thread: `dual-channel.md`
-- Codex: pointer doorbell via `tmux send-keys`; fallback recovery by recreating the pane/session directly (helpers removed) + `runtime-config.md`
+- Codex: exact generated Fleet prompt via `tmux send-keys`; fallback recovery by recreating the pane/session directly (helpers removed) + `runtime-config.md`
 - Roles / desktop Mind: `roles-and-harness.md`

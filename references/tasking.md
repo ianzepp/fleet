@@ -1,15 +1,15 @@
 # Tasking bag
 
-Filing targets, queue kind, multi-hand routing, Hand decision continuity.
+Prepared assignment targets, queue kind, multi-hand routing, Hand decision continuity.
 
-Board CLI: [`vivi.md`](vivi.md). Install: `getting-started.md`.
+Assignment transitions: [`fleet-helper.md`](fleet-helper.md). Board CLI:
+[`vivi.md`](vivi.md). Install: `getting-started.md`.
 
-**Handle-first rule:** file the Vivi item before spawning, waking, or asking a
-role to act. Pass its handle as the primary reference through chat or the
-runtime. Supporting chat cannot replace or widen the filed scope. A role result
-is durable only when its Vivi completion or reply and report receipts exist.
-One runtime receives one handle and one bounded scope; unrelated findings,
-passes, or goals get separate handles.
+**Prepared-chain rule:** use `fleet prepare` before spawning, waking, or asking
+a role to act. Deliver its generated prompt unchanged. A role result is durable
+only after `fleet claim` and `fleet settle`. One runtime receives one prepared
+handle and one bounded scope; unrelated findings, passes, or goals get separate
+handles linked with `--depends-on` when ordered.
 
 ## Board kinds
 
@@ -39,7 +39,8 @@ Choose kind by **what response is required**, then state severity in subject/bod
 
 Urgency on the item, not kind. Needs-only bag may be treated as decision hold; misfiling defects there parks a healthy Hand.
 
-When a need is answered: close/reply the decision; file resulting work as a **task**. Do not leave concrete work hidden inside a resolved need.
+When a need is answered: close/reply the decision; prepare the resulting role
+assignment. Do not leave concrete work hidden inside a resolved need.
 
 ### To: routing
 
@@ -48,7 +49,7 @@ When a need is answered: close/reply the decision; file resulting work as a **ta
 | **`hand-N`** | Product work the Hand drains (tasks/needs) |
 | **`mind`** | Fleet board: done/evidence, Head reports, RTM, bag bookkeeping |
 | **`operator`** | Human-only escalations: problems, critical blockers, bugs needing guidance |
-| **Heads** | Assigns / research — reports come back To mind |
+| **Heads** | Prepared `advisory` assignments — settlements come back To mind |
 
 Never **task** To `operator`. Prefer subject prefixes `operator: problem|blocker|bug-guidance|need — …`.
 
@@ -68,7 +69,7 @@ Not a hard stop: missing Mind congratulations or “GO” mail.
 
 ### Product units require lowered specs
 
-| Map state | Mind files To | Not |
+| Map state | Mind prepares To | Not |
 | --- | --- | --- |
 | Campaign goal/stage **unlowered** | **Planner** assign: `lower` with **batch-ahead horizon** (default 3–5 phases; goal-check → delivery) | Product Hand; single-phase JIT lower |
 | Ready bag thin (under ~3 unstarted units) while goal continues | **Planner** horizon **extension** lower (overlap implement) | Wait for empty bag then lower next phase |
@@ -90,7 +91,7 @@ absorb-only quiet, and not cadence shorten for emptiness.
 
 ## Multi-hand bags
 
-- File targets **to a specific Hand** (`To: hand-1`), not broadcast
+- Prepare targets **to a specific Hand** (`To: hand-1`), not broadcast
 - One handle → one owner — do not put the same P1 on two hands
 - One runtime → one bounded handle — do not combine unrelated repairs or passes for throughput
 - Partition by focus (campaign track, repo, or package) when possible
@@ -102,7 +103,7 @@ absorb-only quiet, and not cadence shorten for emptiness.
 | Role | Duty |
 | --- | --- |
 | **head-ceo** | Maintain / report **side-lane candidate bucket** with **effort + est_tokens** — bounded packages safe off main |
-| **Mind** | Choose from bucket (or map) using size + calibration; bind packet; **file** tasks; wake/reinit; record actual vs est |
+| **Mind** | Choose from bucket (or map) using size + calibration; `fleet prepare`; deliver generated prompt; record actual vs est |
 | **hand-2+** | Execute only assigned targets in packet cwd or assigned repo — never invent main spine |
 
 Empty floater + no non-overlapping candidates and no map side track → operational pause (record why) **or** assign head-ceo “what should the floater pool run in parallel (with cost ballparks)?” — not silent multi-cycle empty while INDEX has a second unblocked goal.
@@ -116,7 +117,7 @@ no longer describes executable work, Mind must choose one explicit disposition:
 
 | Reality | Board action |
 | --- | --- |
-| Work remains and is unblocked | Close/supersede the stale task with evidence; file a fresh bounded task and wake/rebind |
+| Work remains and is unblocked | Close/supersede the stale task with evidence; prepare a fresh bounded assignment and wake/rebind |
 | Human/authority decision blocks work | File/link a `need`; close the executable task with the blocker handle in its note |
 | Work is intentionally deferred | File/link a `want`; close the task as superseded by that want |
 | Work completed | Mark done with commit/validation/integration evidence |
@@ -126,8 +127,10 @@ Never leave a task open merely to remember that a campaign or lane once
 existed. Campaign/factory artifacts hold map truth; baseline holds lane state;
 Vivi tasks hold currently executable work.
 
-Vivi has no separate `superseded` task state. Close explicitly and preserve the
-replacement in the event ledger:
+For a prepared Fleet assignment, use `fleet settle` so the close, report, and
+receipt remain one transition. Vivi has no separate `superseded` task state.
+The raw command below is only an administrative escape hatch for legacy tasks
+that predate a Fleet prepare receipt:
 
 ```bash
 vivi task done --project "$ROOT" --for <hand> <handle> \
@@ -144,7 +147,7 @@ All Hands are equivalent floaters. The Mind picks any available Hand for each as
 
 1. File work to whichever Hand is available. Hand↔assignment bindings are **current assignment**, not permanent types. The Mind scopes non-overlapping work so multiple Hands can run in parallel.
 2. Any Hand runs while map has packages or residuals. Idle + empty = starvation: refill next target.
-3. Hands never touch another Hand's WIP. After **unit**: commit + mark done + turn-end; Mind refills the next non-overlapping map unit (or reassigns). After **theme** boundary: ready-to-merge mail if on a feature branch; Mind owns merge decision.
+3. Hands never touch another Hand's WIP. After **unit**: commit + `fleet settle`; Mind refills the next non-overlapping map unit (or reassigns). After **theme** boundary: settlement reports ready-to-merge state if on a feature branch; Mind owns merge decision.
 4. Mind absorbs unit lands; at theme accept, if work is on a feature branch, Mind merges when ready (see [SKILL.md § Commit authority and workflow](../SKILL.md#commit-authority-and-workflow)).
 5. **Runtime vs assignment:** assignment orthogonal to **model** within harness. **Hand harness is not free** — follows Mind. Rebind model/launch without renaming Hand or moving assignment; rebind Hand harness only when Mind's harness changes or operator records exception.
 

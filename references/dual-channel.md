@@ -68,7 +68,7 @@ Hands are usually event-driven (mail arrives, Hand spawns) and don't need cadenc
 
 | Concern | Prefer |
 | --- | --- |
-| "Unit done; evidence is …" | Vivi tasking done (+ optional mail **To mind**) |
+| "Unit done; evidence is …" | `fleet settle` on the prepared handle |
 | "Runtime idle with open tasking" | Backend-specific wake (see backend ref) |
 | "Doorbell leaves text stuck / pane down" | Backend-specific reinit fallback (see backend ref) |
 | "Over capacity / connection failed / hung" | Ops intervene (model / retry / restart) |
@@ -78,8 +78,8 @@ Hands are usually event-driven (mail arrives, Hand spawns) and don't need cadenc
 | "Fix landed upstream; consumer still red" | Check **pin-relative done** before re-verify |
 
 Do not rely on runtime state or notification alone. A crash may prevent a role
-from filing its report, so runtime completion without a Vivi task completion or
-advisory reply is an interrupted handoff to reconcile, not success. Idle alone
+from settling, so runtime completion without a Fleet settlement is an
+interrupted handoff to reconcile, not success. Idle alone
 ≠ done: idle + empty may be quiet; idle + open tasking = wake; idle after HEAD
 move without done-handles still needs bag/Status honesty on thorough cycles.
 
@@ -129,7 +129,9 @@ vivi mail watch --for mind --project "$ROOT" \
 vivi mail thread <handle> --project <root> [--json] [--infer] [--limit 50]
 ```
 
-Prefer `show` first; `thread` for multi-hop / residual / RTM. `--infer` = historical best-effort only. Reply: `vivi mail reply <handle>`; `--reply-to` / lifecycle `--note` captured.
+Prefer `show` first; `thread` for multi-hop / residual / RTM. `--infer` =
+historical best-effort only. Fleet role reports use `fleet settle`; direct mail
+replies remain valid for needs, wants, operator mail, and administration.
 
 ## Channel split (mandatory)
 
@@ -139,12 +141,12 @@ a decision, update or reply to the Vivi record before the role acts on it.
 
 | Channel | Allowed content |
 | --- | --- |
-| **Runtime (send-keys / terminal write / sub-agent boot)** | **Tight handle pointers only** — identity, Vivi handle, project root, one verb. A folder or doc path may support the handle but cannot replace it. No essays, policy dumps, or new authoritative instructions. |
+| **Runtime (send-keys / terminal write / sub-agent boot)** | Exact prompt emitted by `fleet prepare`, or reprinted by `fleet prompt` for the same handle. Do not reconstruct or extend it. |
 | **Vivi mail / task / need** | Full done-when, evidence bar, scope, approach, residuals |
 | **Agents.md / factory goal / campaign** | Durable multi-agent law, architecture, stage criteria |
 
-The ordering is strict: `Vivi item -> handle -> runtime pointer -> Vivi
-completion/report -> Mind disposition`. If a runtime started before its handle,
+The ordering is strict: `fleet prepare -> generated prompt -> fleet claim ->
+fleet settle -> fleet advance -> Mind disposition`. If a runtime started before its handle,
 do not backfill a normal-looking task and claim continuity. File a process
 deviation in a new recovery task or need to the actual owner, link the surviving
 chat/Git evidence, and restart or continue only from that valid handle.

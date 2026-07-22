@@ -155,7 +155,7 @@ Order: tripped stewards → operator@ union → headlines.
 | --- | --- |
 | Steward (removed) | Historically `steward.sh`; read steward + hands `tmux_target` from Vivi role records. Vivi-native steward pending. |
 | Codex recovery (helper removed) | Historically `codex-reinit.sh`; recreate stuck panes directly with `tmux` |
-| Doorbell / capture | Always `tmux_target` from the Vivi role record; use `tmux send-keys` directly |
+| Doorbell / capture | Always `tmux_target` from the Vivi role record; deliver exact `fleet prepare`/`fleet prompt` output with `tmux send-keys` |
 
 ## Anti-patterns
 

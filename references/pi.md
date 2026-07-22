@@ -60,8 +60,8 @@ For a user asking Pi to become Mind and get ready:
 repository warm-up remains useful for understanding code, history, and local
 `AGENTS.md` instructions, but it is not a substitute for Fleet preflight.
 
-There is currently no `fleet_launch` tool. Starting runtimes, waking agents,
-changing posture, filing tasks, reinitializing panes, and steward operations
+There is currently no `fleet_launch` tool. Starting runtimes, delivering
+prepared prompts, changing posture, reinitializing panes, and steward operations
 remain explicit Fleet operations governed by [`launch.md`](launch.md),
 [`mind-cycle.md`](mind-cycle.md), and the other canonical references.
 

@@ -143,7 +143,7 @@ else:
 
 | Mode | Cognitive budget | **Cycle report** |
 | --- | --- | --- |
-| **Autonomous** | Limited reasoning even if high available. Ops: sensors, classify, file/wake/reinit, short absorb/accept, sleep. **Decide now** on reversible defaults. | **Compact:** one-line quiet or short acted headline/table. Update `operator_recap` internally. |
+| **Autonomous** | Limited reasoning even if high available. Ops: sensors, classify, prepare/wake/reinit, short absorb/accept, sleep. **Decide now** on reversible defaults. | **Compact:** one-line quiet or short acted headline/table. Update `operator_recap` internally. |
 | **Interactive** | Full reasoning for human exchanges; ops still fail-fast. | **Rich status every FLEET_CYCLE**. Sleep/in-flight multi-section, not one-liner. |
 
 **Invariant:** report richness tracks `mind_mode`, not whether the cycle “acted.”
@@ -153,7 +153,7 @@ else:
 | Still | Does not |
 | --- | --- |
 | Cheap sensors + pane scan | Deep-plan “because the model can” |
-| Refill starvation; doorbells/reinits | Perform post-merge code audit itself (file an **auditor Hand** task when triage requires one) |
+| Refill starvation; doorbells/reinits | Perform post-merge code audit itself (prepare an **auditor Hand** review when triage requires one) |
 | Absorb moved HEADs; residual **tasks** | Wait multi-cycle on head-ceo when safe default exists |
 | **needs** for real decision holds (default + options) | Freeze on class A dirt without opening diff |
 | Update **operator_recap** | Dump status into **operator@** |
@@ -241,7 +241,13 @@ python3 scripts/fleet-baseline.py bump -p <ROOT> -s '<summary>' \
 
 Progress = **successful cycle completion for that fleet**, not inject or turn start. Multi-fleet: baseline bump **each** mini-cycled fleet; rearm only fleets with steward armed (no implementation exists today). [`dead-man.md`](dead-man.md), [`multi-fleet.md`](multi-fleet.md).
 
-Thorough/superficial cadence still applies (`cycle % N == 0`). Autonomous thorough = residual-shaped — **not** peer review of every packet. **Code review** is a **Hand** duty on **`auditor-1` / `auditor-2`** (configured under `hands`, skill `$auditor`) — not head-cto by default. **Review triage:** do not open a review task per implementer completion — low-risk `done` evidence satisfies accept; file an **auditor Hand** task when risk signal, security/auth/persistence change, or sampled audit. Security-critical → auditor Hand and/or **head-cso** / `$black-hat`. **head-cto** = gate honesty / architecture only. Universal per-completion review is an anti-pattern.
+Thorough/superficial cadence still applies (`cycle % N == 0`). Autonomous
+thorough = residual-shaped — **not** peer review of every unit. Code review is
+an Auditor duty, not head-cto. Low-risk unit completions may be absorbed and
+batched into one bounded theme review; they are not accepted yet. Every
+acceptance still terminates at a clean prepared auditor review and passing
+`fleet advance --gate acceptance`. Security-critical work gets its own review
+and, when useful, head-cso / `$black-hat` advice.
 
 ## Fail-fast wake (context budget)
 
@@ -264,11 +270,10 @@ python3 $SK/fleet-sensors.py --project "$ROOT" --record-cycle --cycle-id <non-ne
 # Warm-up or post-compaction context may read history without collecting/writing sensors:
 python3 $SK/fleet-sensors.py --project "$ROOT" --history 10 [--role hand-1]
 
-# Doorbell for Pi and compatibility harnesses; Codex helper path uses submit-settle
-# The fleet-doorbell.sh helper is removed. Spawn a sub-agent directly, or for
-# tmux/PTY backends use `tmux send-keys` with a thin boot pointer.
-tmux send-keys -t "<tmux_target>" "HAND WAKE hand-1. Bag: <handle>. Load charter and task from Vivi." Enter
-# exit 0 = keys sent; nonzero = error (e.g. session not found)
+# Prepare before any spawn/wake, then deliver its exact multiline output through
+# the selected backend. See fleet-helper.md.
+python3 $SK/fleet.py prepare --project "$ROOT" --to hand-1 --pass implement \
+  --scope '<scope>' --subject '<subject>' --body-file <assignment-file>
 
 # Normal end-of-cycle path. Repeat --disposition once for every emitted signal,
 # or use --dispositions-file with the same signal → disposition/evidence mapping.
@@ -279,7 +284,7 @@ python3 $SK/fleet-cycle-close.py --project "$ROOT" --acted --summary '…' \
 | Helper | Job |
 | --- | --- |
 | `fleet-sensors.py` | Board status, optional watch, handles, pane classes, git tip/divergence/dirty paths, fingerprint, `signals[]`, `quiet_hint` |
-| `tmux send-keys` / sub-agent spawn | Require a pre-existing Vivi handle; resolve `tmux_target`; refuse running/down/rate-limit; pointer only; record `last_hand_wake` |
+| `fleet.py prepare` + backend delivery | Prepare assignment first; deliver generated prompt unchanged; refuse running/down/rate-limit; record handle→runtime map |
 | `fleet-baseline.py` | `get` / `bump` / `rearm-note` / `wound-up` — counters, mode silence, fingerprints, recap, `--mind-session` attach, `--detach` |
 
 ### Signal disposition gate
@@ -292,11 +297,15 @@ under `.vivi/logs/sensors/`, writes a per-cycle receipt under
 `.vivi/logs/cycles/`, then advances the baseline. Direct baseline bumps are for
 repair and tests only.
 
-Examples: `operator_to_mind` must be absorbed first; `operator_mail` must be presented/carry-forwarded; `wake_candidate_*` must be doorbelled/reinit'd or validly deferred; `runtime_*_stopped|failed|approval_required` must be repaired, assigned to ops, or escalated; `starvation_candidate_*` in growth must trigger file+wake or executive refill/valid pause; repeated dirty blockers must be diff-classified A/B/C.
+Examples: `operator_to_mind` must be absorbed first; `operator_mail` must be presented/carry-forwarded; `wake_candidate_*` must be doorbelled/reinit'd or validly deferred; `runtime_*_stopped|failed|approval_required` must be repaired, assigned to ops, or escalated; `starvation_candidate_*` in growth must trigger prepare+wake or executive refill/valid pause; repeated dirty blockers must be diff-classified A/B/C.
 
-**Head backpressure is a valid defer.** A Head that refuses or does not run (running/down/rate-limit, or an explicit refusal) is `deferred-valid` for that cycle: record it once in baseline and retry on the Head's cadence. Do **not** re-dispatch to it this cycle and do **not** memo the stall — dispatch/refuse churn is a failed cycle, not a disposition. Head review is filed on main after merge by risk/cadence, not as a task per Hand completion (see *Residual scan* below).
+**Head backpressure is a valid defer.** A Head that refuses or does not run (running/down/rate-limit, or an explicit refusal) is `deferred-valid` for that cycle: record it once in baseline and retry on the Head's cadence. Do **not** re-dispatch to it this cycle and do **not** memo the stall — dispatch/refuse churn is a failed cycle, not a disposition. Head review is prepared on main after merge by risk/cadence, not per Hand completion (see *Residual scan* below).
 
-`mail_for_<role>` means new mail was addressed to a process role since the prior successful cycle. The cycle is the debounce boundary: if `mail_wake_candidate_<role>` is also present, doorbell that idle role immediately with the mail handle. Do not wait for an executive cadence interval. If the pane is running, leave it uninterrupted and carry the mail signal forward for the next idle cycle. Cadence controls unsolicited sweeps only; addressed work is demand-driven.
+`mail_for_<role>` means new mail was addressed to a process role since the prior
+successful cycle. If it answers a running prepared assignment, wake the idle
+role with its original generated prompt. If it creates new work, the Mind first
+converts it into a prepared assignment. Do not treat mail itself as a new role
+assignment.
 
 A compact autonomous report may summarize dispositions in one clause. An interactive report must surface unresolved non-quiet obligations until they are disposed.
 
@@ -335,11 +344,11 @@ routing, triage, or deliberation — or just the loop writing itself a note.
 Prefer a structured `done` (evidence + commit) over burying a completion inside
 a reply chain.
 
-**Vivi completion gate:** a runtime notification or chat return only wakes the
-Mind. Before advancing, accepting, or filing dependent work, verify the assigned
-Vivi task is done or advisory mail has a reply, its report exists, and required
-artifact/Git receipts match. If the runtime began without a contemporaneous
-handle, record a process deviation in a new recovery task or need to the actual
+**Fleet completion gate:** a runtime notification or chat return only wakes the
+Mind. Before filing dependent work, verify `fleet settle`. Before admission or
+acceptance, run `fleet advance` on the terminal audit handle and reconcile Git.
+If the runtime began without a contemporaneous prepared handle, record a
+process deviation in a new recovery task or need to the actual
 owner and resume from that handle; do not create a normal-looking retroactive
 stub.
 
@@ -596,7 +605,7 @@ safe.
 2. **Check live work:** dirty state, unmerged/unpushed commits, running turn, RTM,
    review debt, deploy/rollback observation. Any unresolved item preserves the lane.
 3. **Check map truth:** if campaign/factory status disagrees with evidence, ask
-   `head-ceo` for a bounded truth consult and file one `$zombie-docs` repair task.
+   `head-ceo` for a bounded truth consult and prepare one `$zombie-docs` repair assignment.
    Do not decide from stale prose.
 4. **Disposition stale board work:** fresh task for real next work; linked `need`
    for authority; linked `want` for deferral; done/superseded note for completed
@@ -639,18 +648,18 @@ every cycle or shut a Hand down immediately when one stage closes.
 
 ## Residual scan (Mind) — not peer code review
 
-Implementer Hands: throughput + **own ship quality**. Mind: **bag honesty, Status honesty, integration**, and **whether to file an auditor Hand**. Deep **code review** = Hands **`auditor-1` / `auditor-2`** + **`$auditor`** — same Mind/Hand machinery, different duty — not the CTO Head by default.
+Implementer Hands: throughput + **own ship quality**. Mind: **bag honesty, Status honesty, integration**, and **whether to prepare an auditor Hand**. Deep **code review** = Hands **`auditor-1` / `auditor-2`** + **`$auditor`** — same Mind/Hand machinery, different duty — not the CTO Head by default.
 
 **When (bounded):** thorough (`cycle % N == 0` / paid), **or** superficial if new HEAD / dirty product / Status flip without evidence. Autonomous: residual-shaped, short; **decide now**; no head-ceo wait for reversible defaults.
 
 1. Owner from fleet (main dirty → hand-1; packet dirty → that worker)
 2. Diff only in-scope; cheap scan: Status lies, missing done marks, scope bleed, empty bag starvation
-3. **Integration accept** (green enough): clear matching `pending_reviews` / advance packet toward merge when evidence + scope honest — not full audit
-4. **Red flag residual:** **task** **To: hand-N**; **need** only for real decision hold; short tmux pointer
+3. **Integration accept:** only after a clean terminal auditor settlement and passing `fleet advance`; otherwise absorb and retain review debt
+4. **Red flag residual:** prepared `implement` assignment **To: hand-N**; **need** only for real decision hold; exact generated prompt
 5. Do **not** paste essays into tmux. Do **not** `git` cleanup foreign WIP
 6. Do **not** re-litigate style as multi-cycle freeze — class A clears same turn
 
-Safety-critical implementable findings: high-priority **task** with fail-closed default; wake immediately.
+Safety-critical implementable findings: high-priority prepared `implement` assignment with fail-closed default; wake immediately.
 
 **Status honesty bar:** static/manual evidence fine **if Status says so**. Reject accept when Status says complete/product-run but evidence is only static or env-faked without disclosure.
 
@@ -668,7 +677,7 @@ Other skill files only **link** here; do not invent alternate meanings.
 | --- | --- |
 | **Hand (implementer)** | Delivered / task **done** (evidence) — never “absorb” or “accept” |
 | **Hand (auditor)** | Audit report To mind → Mind triages residuals To implementer Hands |
-| **Mind** | **Absorb** when moved; **integration accept** when evidence honest enough; **file auditor Hand** when review needed |
+| **Mind** | **Absorb** when moved; prepare auditor review; **accept** only after passing helper gate |
 | **head-cto** | Gate honesty / architecture (not the code-review Hand queue) |
 | **Operator** | May force priority |
 
@@ -684,9 +693,9 @@ pending_reviews[]: { hand, range or shas, paths, reason, since_cycle, status }
 
 | Event | Mind duty |
 | --- | --- |
-| Hand marks done / git tip jumps | **Absorb**; add `pending_reviews` if not yet **accepted** |
-| Thorough or opportunistic review | **Accept** (clear debt) or file residuals; drain backlog |
-| Feature branch theme ready-to-merge | **Absorb** → review → **accept** → Mind merges when ready (see [SKILL.md § Commit authority and workflow](../SKILL.md#commit-authority-and-workflow)) |
+| Hand settles / git tip jumps | **Absorb**; add `pending_reviews` if not yet accepted |
+| Bounded auditor review settles | Run `fleet advance`; accept on pass or prepare residuals |
+| Feature branch theme ready-to-merge | **Absorb** → prepared review → `fleet advance` → **accept** → Mind merges when ready |
 | Long-term branch unit (not theme) | **Absorb**/review; next target to worker; no merge needed yet |
 
 Feature-branch merges are Mind decisions, not queue-driven. The Mind tracks branches it created through ordinary task/need flow. No `pending_merges` object or `queued_for_hand1` state.

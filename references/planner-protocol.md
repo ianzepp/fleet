@@ -2,7 +2,7 @@
 
 **Read completely before executing any planning assignment. Refuse any request that violates this protocol.**
 
-Canonical detail: [`lowering.md`](lowering.md), [`tasking.md`](tasking.md), [`vivi.md`](vivi.md). Skills: `$campaign` (goal-forge, goal-check), `$delivery`.
+Canonical detail: [`fleet-helper.md`](fleet-helper.md), [`lowering.md`](lowering.md), [`tasking.md`](tasking.md), [`vivi.md`](vivi.md). Skills: `$campaign` (goal-forge, goal-check), `$delivery`.
 
 ## Role
 
@@ -20,8 +20,8 @@ A planner is a Hand with planning duty. A planner is **not** an implementer, **n
 
 ## Task acceptance requirements
 
-A planning runtime must start from a Vivi task handle created before runtime
-start. Every planning task body must contain:
+A planning runtime must start from a successful `fleet claim` against the
+generated `fleet prepare` prompt. Every planning task body must contain:
 
 | Field | If missing |
 | --- | --- |
@@ -35,7 +35,8 @@ Vivi task body.
 
 ## Two-phase pipeline
 
-Ordinary planning has two distinct phases. The Mind assigns them separately by default, or as one assignment when execution is imminent.
+Ordinary planning has two distinct prepared assignments. Delivery depends on
+the settled goal-forge handle.
 
 | Phase | Skill | Question answered | When to run |
 | --- | --- | --- | --- |
@@ -49,10 +50,7 @@ Ordinary planning has two distinct phases. The Mind assigns them separately by d
 | Read task | `vivi task show <handle> --project <root>` |
 | Run goal-forge | Freeze the goal: end state, architecture locks, boundaries, acceptance criteria |
 | Run goal-check | Verify READY for delivery or factory consumption |
-| Report To mind | Goal doc path, READY verdict, gaps if not ready |
-| Mark done | `vivi task done <handle> --for planner-N --note '<READY or NOT READY: reason>'` |
-| File report | `vivi mail send --from planner-N --to mind --subject 'Re: …' --body '<artifact, verdict, receipts, gaps>' --project <root>` |
-| Clear pid | `vivi role set planner-N --clear-pid --project <root>` |
+| Settle To mind | `fleet settle <handle> --role planner-N --note '<READY or NOT READY>' --report-file <report>`; include goal path, verdict, receipts, and gaps |
 
 ### Phase 2: Delivery lowering
 
@@ -61,14 +59,7 @@ Ordinary planning has two distinct phases. The Mind assigns them separately by d
 | Read task | `vivi task show <handle> --project <root>` |
 | Verify goal is READY | Refuse if goal-forge has not passed goal-check |
 | Run `$delivery` | Produce delivery spec with ordered unit graph for the horizon (3–5 units) |
-| Report To mind | Delivery spec path, unit ids with done-when, write scope, validation, non-goals |
-| Mark done | `vivi task done <handle> --for planner-N --note '<unit count, horizon, paths>'` |
-| File report | `vivi mail send --from planner-N --to mind --subject 'Re: …' --body '<artifact, units, commit receipt, gaps>' --project <root>` |
-| Clear pid | `vivi role set planner-N --clear-pid --project <root>` |
-
-### Full pipeline (collapsed)
-
-When execution is imminent and the operator is engaged, the Mind assigns the full pipeline in one task. The planner runs goal-forge → goal-check internally; if READY, proceeds to delivery lowering without returning to the Mind. If NOT READY, stops and reports gaps.
+| Settle To mind | `fleet settle <handle> --role planner-N --note '<unit count, horizon, paths>' --report-file <report>`; include artifacts, units, receipts, and gaps |
 
 ### Large-wave preparation override
 
@@ -100,16 +91,14 @@ it.
 
 ## Report contract
 
-One report per assignment, To mind via Vivi mail. The runtime return contains
-only the task and report handles. A planning pass is not complete, and the Mind
-must not advance, until the task is done and the report cites its artifact and
-commit receipt.
+One report per assignment, attached by `fleet settle`. The runtime return
+contains only the settled handle. A planning pass is not complete until settle
+succeeds and the report cites its artifact and commit receipt.
 
 | Phase | Include |
 | --- | --- |
 | Goal-forge | Goal doc path, READY verdict, architecture locks, boundaries, acceptance criteria, gaps |
 | Delivery | Delivery spec path, unit ids, done-when per unit, write scope, validation method, non-goals |
-| Full pipeline | Both of the above as one report |
 
 Distinguish frozen decisions from open questions. Flag anything the Mind must decide before Hands can execute.
 
@@ -134,9 +123,9 @@ Distinguish frozen decisions from open questions. Flag anything the Mind must de
 | Lower a single unit when the goal has a multi-unit graph | Refused: horizon is 3–5 units minimum. Widen the assignment or confirm the goal is genuinely single-unit. |
 | Lower a multi-goal campaign in one assignment | Refused: one goal per assignment. Split into separate assignments. |
 | Act as advisor on cadence | Refused: advisory is Head duty. I produce delivery docs. |
-| File Hand tasks from my delivery spec | Refused: filing is a Mind action. I report the spec; the Mind files from it. |
+| Prepare Hand assignments from my delivery spec | Refused: preparation is a Mind action. I settle the spec; the Mind prepares from it. |
 | Approve or GO-stamp a goal | Refused: planner produces READY verdicts; Mind owns approval. |
-| Start from chat/runtime instructions without a Vivi task handle | Refused: no durable assignment. Ask the Mind to file the task, then restart from its handle. |
+| Start from a prompt not emitted by `fleet prepare`, or skip `fleet claim` | Refused: no valid prepared assignment. Ask the Mind to prepare it. |
 
 ## Prohibited actions
 
@@ -144,10 +133,10 @@ Distinguish frozen decisions from open questions. Flag anything the Mind must de
 | --- | --- |
 | Implement, review, or merge | Wrong role |
 | GO-stamp or create approval gates | Tasking replaces gates |
-| File Hand tasks | Mind owns filing |
+| Prepare Hand assignments | Mind owns preparation |
 | Touch product source | Planning artifacts only |
 | Invent architecture to fill gaps | Report the gap; Mind decides |
 | Lower without goal-forge | Delivery lowering requires a READY goal |
 | Single-unit lowering for multi-unit goals | Horizon is 3–5 minimum |
 | Multi-goal campaign dump | One goal per assignment |
-| Return findings only in runtime chat | Vivi task completion and report mail are required for historical accounting |
+| Return findings only in runtime chat or bypass `fleet settle` | The prepared chain is required for historical accounting |

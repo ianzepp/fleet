@@ -23,10 +23,10 @@ Roles: **Mind / Head / Hand** — coordinator, advisors, workers.
 campaign / map
       │
       ▼
-  MIND ──files targets──► tasking bag
+  MIND ──fleet prepare──► tasking bag
       ▲                        │
       │                        ▼
-      └── residuals ────── HAND clears one target
+      └── settlements ──── HAND clears one target
 
   Heads (head-ceo / head-cto / head-cxo) ──mail To: mind──► Mind triages
 ```
@@ -73,7 +73,7 @@ On return: present operator mail list first.
 
 | Who | Does | Does not |
 | --- | --- | --- |
-| **Mind** | File/refill bags, wake/reinit, absorb (bookkeeping), branch/merge decisions, pack capacity; file/present **operator mail** | Peer-review every unit; run full `$polish`/`$housekeeping`; status To `operator@` |
+| **Mind** | Prepare/refill assignments, wake/reinit, absorb, run gate checks, branch/merge decisions; file/present **operator mail** | Implement; peer-review every unit; run `$polish`/`$housekeeping` |
 | **operator@** | Accrue human problems/blockers/guidance | Status; Hand bag drain |
 | **hand-N** | Execute assigned work; commit own work; validate; polish unit | Wait for GO mail; erase foreign WIP; touch another Hand's WIP |
 | **head-ceo** | **Strategist:** map health, misprioritization, gate honesty; **side-lane buckets** (+ effort/token ballparks); posture-scaled | File Hand tasks; stamp GO/NO-GO |
@@ -85,10 +85,10 @@ On return: present operator mail list first.
 
 ## Dual channel
 
-- **Board** holds full done-when, evidence, To: ownership.
-- **tmux** = **pointers only** (“show handle X; continue”).
+- **Board** holds full done-when, evidence, and ownership through prepared chains.
+- **Runtime delivery** carries exact `fleet prepare` / `fleet prompt` output.
 - Runtime states: `starting`/`submitting`/`running` → no wake; `waiting_for_input`/`completed` + open bag → doorbell; `failed`/`stopped` → ops or reinit fallback.
-- **opencode:** pane classification uses opencode's TUI markers (`Ask anything...` idle, `⬝` progress bar running, `▣` completed). Plain pointer doorbell with no submit-settle delay.
+- **opencode:** pane classification uses opencode's TUI markers (`Ask anything...` idle, `⬝` progress bar running, `▣` completed). Deliver the exact generated Fleet prompt with no submit-settle delay.
 
 Mind, Hands, and Heads use **Pi by default**. Heads preserve independence through
 provider/model, prompt, and role diversity; Codex and opencode remain documented
@@ -98,14 +98,14 @@ compatibility exceptions.
 
 1. **Arm** — identities, fleet config, baselines; Hands/Heads in tmux; Mind = this chat  
 2. **Map focus** — campaign/factory goal names spine (+ optional side tracks)  
-3. **Hands** — show one task; implement; validate; end-of-unit `$polish`; mark done  
+3. **Hands** — claim one task; implement; validate; end-of-unit `$polish`; settle
 4. **Mind cycles** — cheap sensors; act on signal; sleep when quiet  
 5. **Scheduled wakes** — `FLEET_CYCLE …` (not human prose)  
 6. **Mode** — engaged → **interactive**; silent cycles → **autonomous**; on return: **operator@** before recap  
 7. **Integration** — Hands commit own work; Mind decides branch strategy at assignment; audit loop (implement → auditor → verify → accept) is the integration bar  
 8. **Hygiene** — polish advisory after main lands; `$housekeeping` only at **major inflection**
 
-**Keep screen moving (product only):** empty bag + map has unblocked **product** work = **starvation** → file next + wake. **Posture** (`growth` / `standby` / `dormant`): growth = aggressive Head research + expansion; standby = quiet Hands, Head **stewardship** (not expansion); dormant = Heads rare. Continuity doubt → head-ceo once, not thrash — [`posture.md`](posture.md).
+**Keep screen moving (product only):** empty bag + map has unblocked **product** work = **starvation** → prepare next + wake. **Posture** (`growth` / `standby` / `dormant`): growth = aggressive Head research + expansion; standby = quiet Hands, Head **stewardship** (not expansion); dormant = Heads rare. Continuity doubt → head-ceo once, not thrash — [`posture.md`](posture.md).
 
 **Don't get stuck:** name class (decision, dirt, pane, capacity); unstick or pivot same turn.
 
@@ -146,7 +146,7 @@ optional role prompts     # Head bootstraps
 2. **No GO/NO-GO game warden** — residuals and empty bags, not stage licenses  
 3. **No destructive git on foreign dirty** — classify A/B/C; never stash/reset/clean  
 4. **No touching another Hand's WIP** — respect write-scope boundaries; Mind coordinates overlap  
-5. **No Heads owning product bags** — advise; Mind files  
+5. **No Heads owning product bags** — advise; Mind prepares
 6. **No housekeeping after every land** — inflection only  
 7. **No treating FLEET_CYCLE as operator silence** if human chatted between fires  
 8. **No compact one-line status while interactive**

@@ -1,12 +1,12 @@
 # Vivi board CLI (fleet)
 
-Filing work, listing bags, managing role memory, marking done, watching board events, threads, `operator@` escalations.
+Observing Fleet work, managing non-assignment communication and role memory,
+watching board events, threads, and `operator@` escalations.
 
-**Fleet communication invariant:** Vivi handles are the primary references for
-assignments, questions, decisions, reports, findings, dispositions,
-corrections, acceptance, and escalation. File or reply in Vivi before passing
-the handle through chat or an execution runtime. Chat may support the Vivi
-record; it cannot replace or silently widen it.
+**Fleet communication invariant:** role assignments, claims, settlements, and
+admission/acceptance checks use [`fleet-helper.md`](fleet-helper.md). Vivi
+remains the durable store and the direct surface for observation, needs, wants,
+operator mail, decisions, memos, and administration.
 
 **Scope:** project-local **mailspace** only (`.vivi/` under fleet root). Not personal IMAP (`vivi sync` / Proton) unless steward external page.
 
@@ -45,7 +45,7 @@ vivi --version                  # prefer ≥ 6.4 (trace, memo search, task deps,
 | **task** | `vivi task …` | Implementable work + done-when (incl. defects) | **Yes** |
 | **need** | `vivi need …` | Decision / authority / external input (default + options) | **Yes** |
 | **want** | `vivi want …` | Non-blocking later idea | No |
-| **mail** | `vivi mail …` | Deliberation, status, Head reports, RTM, handoff | No |
+| **mail** | `vivi mail …` | Deliberation, status, operator/admin messages; Fleet reports are emitted by `fleet settle` | No |
 | **memo** | `vivi memo …` | Private durable context for Mind/Head identities | No |
 
 | To | Content |
@@ -53,50 +53,35 @@ vivi --version                  # prefer ≥ 6.4 (trace, memo search, task deps,
 | `hand-N` | Work that Hand drains (tasks/needs) |
 | `mind` | Done/evidence, Head reports, RTM, bag bookkeeping, **all role mail needing response or action** |
 | `operator` | Human escalations only — not status ([`operator-mail.md`](operator-mail.md)) |
-| `head-*` | Assigns / research; reports return **To mind** |
+| `head-*` | Prepared advisory assignments; settlements return **To mind** |
 
-Mind owns the spawn clock and all role routing. A Hand or Head with a question, finding, or recommendation files it **To mind**; Mind answers from context, files a task/need to the correct role and spawns it, or escalates to `operator@`. Direct peer mail dead-letters when the recipient isn't running.
+Mind owns the spawn clock and all role routing. A role with a question or
+finding files it **To mind**; Mind answers from context, prepares the next role
+assignment or files a need, then spawns it, or escalates to `operator@`.
 
-The order is mandatory: file the Vivi item, obtain the handle, then spawn or
-wake with that handle. No handle means no valid runtime handoff. A role's
-runtime return is not completion until its task completion or advisory reply
-and required report receipts are present in Vivi.
+The order is mandatory: `fleet prepare`, deliver its generated prompt, `fleet
+claim`, work, `fleet settle`, then `fleet advance` where a gate applies.
 
-## Command shapes Hands/Heads must get right
+## Command shapes roles must get right
 
-These are the commands a role runs at boot and report. Run one vivi command per shell call. Run `vivi <sub> --help` first if unsure of flags.
+The helper owns role transitions:
 
 ```bash
-# Boot (load own context)
-vivi role charter show <name> --project <root>
-vivi task show <handle> --project <root>      # task-backed role
-vivi mail show <handle> --project <root>      # mail-backed advisory role
-vivi role set <name> --pid $$ --project <root>
-vivi board --for <name> --project <root> --json   # optional
-
-# Report (file results)
-vivi task done <handle> --for <name> --note '<evidence>' --project <root>
-# Optional structured close fields (≥ 6.4):
-vivi task done <handle> --for <name> --verdict clean_pass --project <root>              # auditor verdicts
-vivi task done <handle> --for <name> --repo examples --tip e968cc3 --project <root>     # land receipts
-vivi mail send --from <name> --to mind --subject '<subject>' --body '<body>' --project <root>
-vivi mail send --from <name> --to mind --subject '<subject>' --body-file /tmp/report.txt --project <root>  # long bodies
-vivi mail reply <handle> --from <name> --body '<durable findings>' --project <root>  # mail-backed advisory role
-vivi role set <name> --clear-pid --project <root>
+python3 <skill>/scripts/fleet.py claim <handle> --role <name> --project <root>
+python3 <skill>/scripts/fleet.py settle <handle> --role <name> --project <root> \
+  --note '<evidence>' --report-file <path> \
+  [--repo <repo> --tip <sha>] [--verdict clean_pass|residual|block_ship]
 ```
 
-| Flag | Semantics |
+| Helper flag | Semantics |
 | --- | --- |
-| `--for <name>` (task done) | The **assignee** completing the task, not the original sender. Same axis as `task list --for` and `board --for`. |
-| `--from <name>` (mail send) | The **sender** role. Required; not inferred from charter or pid binding. |
-| `--body` / `--body-file` | `--body` for short inline text; `--body-file <path>` for long bodies (auditor reports, multi-section findings). Do not pipe stdin. |
-| `--pid $$` / `--clear-pid` | Register the live process at boot; clear on clean exit. Mind reads via `vivi board --process` or `vivi role status`. |
+| `--note` | Concise task-completion evidence. |
+| `--report-file` | Full reply body linked to the assignment. |
+| `--repo` + `--tip` | Paired land receipt. |
+| `--verdict` | Required on auditor passes. |
 
-Common mistakes (observed in proving runs):
-- Missing `--for` on `task done` → "required argument not provided"
-- Passing positional `To mind Subject "..."` → use named flags `--to --subject --body`
-- Piping body via stdin → use `--body` or `--body-file` explicitly
-- Chaining vivi commands in one shell call → masks which step failed; use one per call
+Common mistakes: hand-writing task/report transitions, skipping claim, settling
+without a report, or accepting from chat without `fleet advance`.
 
 ## FLEET_CYCLE cheat sheet (Mind)
 
@@ -139,7 +124,9 @@ Paid path: list/show what changed; `mail thread` when lineage matters; residual 
 
 ## Communication tracing
 
-`vivi trace` reconstructs the cross-role communication tree around any handle. Use it to verify coordination chains instead of inferring edges from subject lines and timing.
+`vivi trace` reconstructs the cross-role communication tree around any handle.
+The helper consumes it during `settle` and `advance`; use it directly for
+diagnosis, not as a hand-operated substitute for the helper gate.
 
 ```bash
 vivi trace <handle> --project "$ROOT"
@@ -159,20 +146,21 @@ evidence instead of treating the later handle as the original assignment.
 
 | When to use | Instead of |
 | --- | --- |
-| Verify a lowering actually links to the Hand units filed from it | Guessing from subject prefixes |
+| Verify a lowering actually links to the Hand units prepared from it | Guessing from subject prefixes |
 | Trace an audit chain (block_ship → repair → verify) | Reading mail list in chronological order |
 | Confirm a task has real reply edges to its parent goal | Assuming the link exists because subjects match |
 | Understand the full history of a unit before acting | Shell-diving into individual mail handles |
 
-Text output prints per-node metadata, copy list, and labeled edges. JSON output contains a stable `TraceGraph` with `seed`, `nodes`, and `edges`.
+Text output prints per-node metadata, copy lists, and labeled edges. JSON output
+contains `seed` and `nodes`; each node carries its own `edges` list.
 
 ## Role memory (Mind and Heads only)
 
 Memos are durable, project-local context for a role's own future sessions. They
 are not board traffic, routed work, communication, or a Hand work product.
 Only **Mind and Head identities** use this surface; Hands do not create, read,
-or maintain memos. A Hand's findings return through its assigned task or normal
-advisory mail, and Mind or a Head decides what should persist.
+or maintain memos. A Hand's findings return through `fleet settle`, and Mind or
+a Head decides what should persist.
 
 At cold attach or resume, Mind and Heads must review their own memory before
 reconstructing state from chat. Save only stable decisions, recurring
@@ -298,20 +286,9 @@ vivi task dump --project "$ROOT" --status open
 vivi mail dump --project "$ROOT"                 # heavy
 ```
 
-## Send (Mind files; Heads report; Hands rarely file)
+## Send (non-assignment communication)
 
 ```bash
-vivi task send --project "$ROOT" \
-  --from mind --to hand-1 \
-  --subject 'unit: …' \
-  --body 'done-when: … evidence: …'
-
-# Task dependencies (≥ 6.4): declare structured ordering
-vivi task send --project "$ROOT" \
-  --from mind --to hand-3 \
-  --depends-on <handle-A> --depends-on <handle-B> \
-  --subject 'unit: … (after A+B)' --body '…'
-
 # Query blocked tasks (≥ 6.4)
 vivi task list --for hand-3 --project "$ROOT" --blocked
 vivi task list --for hand-3 --project "$ROOT" --blocking <handle>
@@ -326,34 +303,19 @@ vivi want send --project "$ROOT" \
   --subject 'want: later polish …' \
   --body '…'
 
-vivi mail send --project "$ROOT" \
-  --from head-cto --to mind \
-  --subject 'head-cto report: main review …' \
-  --body '…'
-
-vivi task send … --reply-to <handle> --body '…'
 ```
 
-Long bodies: `--body-file /tmp/body.md` or `--body @/tmp/body.md`.
+Role assignments and reports use `fleet prepare` and `fleet settle`, not this
+section. Long bodies use their `--body-file` / `--report-file` flags.
 
-### Hand turn-end patterns
+### Role turn-end pattern
 
 ```bash
-vivi task done --for hand-1 --project "$ROOT" <handle> \
-  --note 'evidence: tests … commit abc123'
-
-vivi mail send --project "$ROOT" \
-  --from hand-1 --to mind \
-  --subject 'done: <short unit>' \
-  --body 'handle … evidence …'
-
-vivi mail send --project "$ROOT" \
-  --from hand-2 --to mind \
-  --subject 'ready-to-merge: <packet>' \
-  --body '…'
+python3 <skill>/scripts/fleet.py settle <handle> --role hand-1 \
+  --project "$ROOT" --note 'tests … commit abc123' \
+  --report-file /tmp/hand-1-report.md --repo <repo> --tip abc123
 
 vivi need done --for hand-1 --project "$ROOT" <handle> [--note '…']
-vivi task reopen --for hand-1 --project "$ROOT" <handle>   # rare
 vivi need reopen --for hand-1 --project "$ROOT" <handle>
 ```
 
@@ -412,11 +374,11 @@ vivi exec send --account <account> path/to/draft.eml
 | Who | Typical vivi |
 | --- | --- |
 | **Mind (cheap cycle)** | `mailspace status`, `mailspace watch --once`, `task|need list` per Hand, operator list if engaged; memo list at attach/resume |
-| **Mind (file work)** | `task send` / `need send` To `hand-N`; rare `want send` |
-| **Mind (integrate)** | `mail list/show` To mind; `mail thread`; residual **tasks** |
+| **Mind (route work)** | `fleet prepare` for roles; direct `need send` / rare `want send` |
+| **Mind (integrate)** | `mail list/show` To mind; `mail thread`; prepare residual assignments |
 | **Mind (operator return)** | `need|mail list --for operator` first |
-| **Hand** | `task|need list --for self`; `show` / `thread`; `task done` (+ optional mail To mind) |
-| **Head** | `mail send --to mind` reports; read assigns via `mail|task list --for head-*`; memo list/show/save for durable role context |
+| **Hand** | `fleet claim`; `show` / `thread`; `fleet settle`; direct needs when blocked |
+| **Head** | `fleet claim` / `fleet settle`; memo list/show/save for durable role context |
 | **Steward** | board notify To operator; optional `compose`+`exec send` |
 | **Sensors helper** | wraps status + watch + lists — `scripts/fleet-sensors.py` |
 
@@ -460,7 +422,7 @@ vivi <family> <verb> --help          # e.g. vivi mailspace watch --help
 | Use IMAP `sync` as bag sensor | `mailspace watch` / status |
 | Task To `operator` | need/mail To `operator` |
 | Status To `operator` | `operator_recap` + mind board |
-| Treat mail alone as process truth | dual channel — panes via tmux |
+| Treat mail or runtime alone as process truth | Require the prepared helper chain |
 | Re-scan full `vivi --help` every action | **this file** + one targeted `--help` |
 
 ## Related

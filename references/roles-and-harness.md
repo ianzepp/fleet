@@ -36,7 +36,7 @@ part of the review boundary.
 | **head-cto** (Head) | `head-cto` | **Gate honesty / architecture** — not the code-review Hand queue | Mail To `mind` |
 | **head-cxo** (Head) | `head-cxo` | Complexity / purity | Mail To `mind` |
 
-**CTO is a kind of Head; auditor is a kind of Hand** — not a fourth top-level class. Configure `auditor-1` / `auditor-2` as Hand role records (skill **`$auditor`**; auditor Hands review, never commit product code). Mind files and wakes; Heads advise; implementer Hands ship; auditor Hands review when assigned.
+**CTO is a kind of Head; auditor is a kind of Hand** — not a fourth top-level class. Configure `auditor-1` / `auditor-2` as Hand role records (skill **`$auditor`**; auditor Hands review, never commit product code). Mind prepares and wakes; Heads advise; implementer Hands ship; auditor Hands review when assigned.
 
 Prefer numbered hands (`hand-N`) over harness-named identities. Keep the product plane on Pi by default; Heads may use different Pi providers or models for independent review.
 
@@ -403,7 +403,7 @@ list the default search paths (“`~`” resolves to the current user’s home d
 - **Integration absorb/accept** — *absorb = bookkeeping when something moved; accept = audit loop passed (not code review)* — canon [`mind-cycle.md`](mind-cycle.md); not deep peer review of every unit
 - Stay quiet when fingerprint unchanged, panes healthy, no ops signal
 - Each wake: cheap **runtime scan**; wake idle/done agents with open targets; use backend-specific reinit (see [`tmux.md`](tmux.md) or [`vivi-pty.md`](vivi-pty.md)) only as fallback for stuck/down/error sessions
-- Residual → **task** to Hand; agent decision hold → **need**; **human** wall / problem / blocker / bug-guidance → **`operator@`** (`operator-mail.md`); **runtime pointer only**
+- Residual → prepared `implement` assignment to Hand; agent decision hold → **need**; **human** wall / problem / blocker / bug-guidance → **`operator@`** (`operator-mail.md`); runtime receives only the generated Fleet prompt
 - **Branch and merge decisions:** Mind decides branch strategy at assignment time (main vs feature vs worktree); Mind owns feature-branch merge decisions
 - **Push decisions:** Mind decides when to push; default off for Railway-linked repos
 - **Post-main polish advisory:** main git tip moves → `suggest-polish-files.py` (JSON, capped); scores ≥ threshold → bounded polish **task** — Mind does not run polish loop

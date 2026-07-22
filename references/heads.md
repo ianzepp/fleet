@@ -10,7 +10,7 @@ Load persona only when assigning that Head for depth — not every FLEET_CYCLE.
 | --- | --- |
 | Not product lanes | No keep-screen-moving refill with map packages |
 | No merge | Never own merge decisions; Mind owns branch/merge |
-| Progress via priority picture | Advise To mind; Mind files Hands |
+| Progress via priority picture | Advise To mind; Mind prepares Hands |
 | Harness | Prefer **Pi** harness, model by role (all Heads → GLM 5.2 (high or xhigh)) — one-shot assign→report |
 | Identity | `head-*` (mail + tmux when armed) |
 | Reports | **To: mind** (board only) |
@@ -31,12 +31,13 @@ re-decide the company from memory.
 
 1. Add local identities first: `head-ceo`, `head-cto`, `head-cso` when used,
    and `head-cxo`.
-2. Build one assignment file per Head under `.vivi/head-assignments/` with:
+2. Build one assignment body file per Head under `.vivi/head-assignments/` with:
    persona path, shared operating rules, exact doc packet, and the instruction
    to report **To: mind** only.
 3. Prefer session-per-fleet panes for new recovery fleets: tmux session =
    `fleet_id`, window = Head identity (`<fleet>:head-ceo.1`).
-4. Launch each Head with the configured high-reasoning model/harness, then use
+4. Run `fleet prepare --pass advisory --body-file <assignment>` and launch each
+   Head with the generated prompt using its configured model/harness; then use
    a doorbell or short pointer to the Vivi assignment handle. Do not paste long
    briefing bodies into the TUI argv.
 5. Heads may summarize and identify gaps, but they must not edit files, file
@@ -88,11 +89,11 @@ Identity: `head-ceo` (legacy: `strategist` / `head-strategist`). Persona: [`head
 2. `awaiting_report` + no report → **do not re-assign**; note in flight; continue hands
 3. Report arrived → absorb (see below); `awaiting_report=false`
 4. Not awaiting + ready for new question → apply role **`assignment_mode`** (often `new`) + one assign:
-   1. File assignment mail **To: head-ceo** first (handle exists)
-   2. Quit/kill agent; **fresh** launch from the role's configured harness + capacity (Vivi role record)
-   3. Bootstrap: role prompt path, show assign handle, research, report **To: mind**, idle
-   4. `awaiting_report=true`; record `last_reinit_at` + assign handle
-5. Prefer mail for body; short tmux pointer after reinit OK
+   1. Run `fleet prepare --to head-ceo --pass advisory --scope <bounded scope>`
+   2. Quit/kill agent; **fresh** launch from the role's configured harness + capacity
+   3. Deliver the exact generated prompt; Head claims, researches, and settles
+   4. `awaiting_report=true`; record `last_reinit_at` + prepared handle
+5. Put the full body in `prepare`; never add authoritative pane text
 6. Reports 5–10+ min — **do not thrash** while outstanding
 
 ### Map-health / cadence sweep (self-directed when due)
@@ -146,7 +147,8 @@ Advises ownership, sequencing, seams, **gate honesty**, **misprioritization**, *
 | **head-ceo** | Priority picture + side-lane **bucket** with effort + est_tokens — not bag drain |
 | **Hands** | Execute assigned targets only |
 
-Mind needs no head-ceo permission for obvious next spine unit. head-ceo does not file Hand tasks or own empty-bag refill.
+Mind needs no head-ceo permission for obvious next spine unit. head-ceo does
+not prepare Hand assignments or own empty-bag refill.
 
 ### Continuity consult (continue vs pause)
 
@@ -227,7 +229,10 @@ Fleet **technical gate-honesty and architecture** Head. Mind does **not** peer-r
 
 **Surface: claimed gates, producer facts, architectural boundaries, and technical sequencing.** Findings → advisory report To Mind; product work remains To owning Hands.
 
-Code review is **not** this cadence. Low-risk `done` evidence may satisfy accept; risk or sampling causes Mind to file an `auditor-N` Hand task. If head-cto refuses or is not running, that is `deferred-valid` for gate/architecture advice only — Mind records it once and retries on cadence.
+Code review is **not** this cadence. Low-risk unit settlements may be absorbed
+and batched, but acceptance still requires a prepared auditor review and
+passing helper gate. If head-cto refuses or is not running, that is
+`deferred-valid` for gate/architecture advice only.
 
 1. Sensors: has-session; pane class; Mind inbox for reports; cadence `head_due_cto` (gate honesty — code review is **Hand auditor-*** not this seat)
 2. Session **down** → recreate + role-prompt bootstrap (unless operator/dormant paused)

@@ -1,5 +1,10 @@
 # Goal: Fleet chain gate (`fleet.py`)
 
+> Historical design input. The shipped helper was repaired and expanded after
+> live Vivi schema review. Canonical behavior is
+> [`../../references/fleet-helper.md`](../../references/fleet-helper.md) and
+> `scripts/fleet.py`; this artifact is not an operating runbook.
+
 ## Summary
 
 A single Python CLI (`scripts/fleet.py`) that provides a fail-closed mechanical

@@ -12,7 +12,7 @@ Track **all active hands** every cycle. Do not collapse maps into one spine.
 
 All Hands are equivalent floaters. The Mind picks any available Hand for each assignment. See [SKILL.md § Commit authority and workflow](../SKILL.md#commit-authority-and-workflow).
 
-Before filing a floater task:
+Before preparing a floater assignment:
 
 1. Name the writable repo/worktree scope in the task body.
 2. Check active Hand scopes; avoid parallel writes to the same repo unless the
@@ -26,7 +26,7 @@ Before filing a floater task:
 | --- | --- | --- |
 | **any hand-N** | **current assignment** (repo/crate/worktree) | starvation if any non-overlapping ready unit exists — refill same cycle; valid defer if only overlapping/dependent work remains |
 
-File **To the Hand that owns that assignment**. Never cross-file continuous work.
+Prepare **To the Hand that owns that assignment**. Never cross-route continuous work.
 
 ## Branch integration
 
@@ -34,8 +34,8 @@ Most work lands on main because the Mind scopes non-overlapping work across repo
 
 | Event | Mind action |
 | --- | --- |
-| Worker finishes **unit** on main | **Absorb** + review → auditor if risk; residual/next To: **same worker** |
-| Worker finishes **unit** on feature branch | **Absorb** + review; worker keeps committing on the branch |
+| Worker finishes **unit** on main | **Absorb**; prepare Auditor review now or batch it; residual/next To: **same worker** |
+| Worker finishes **unit** on feature branch | **Absorb**; prepare review now or batch it; worker keeps committing on the branch |
 | Worker finishes **theme** on feature branch | Review → **accept** → Mind merges when ready (see [Integration decision](#integration-decision)) |
 | Operator forces mid-theme integrate | Exception only when explicit |
 
@@ -45,9 +45,9 @@ Most work lands on main because the Mind scopes non-overlapping work across repo
 
 When a feature branch is ready to merge:
 
-1. Worker signals **theme ready-to-merge** (branch name + tip + evidence) **or** Mind judges done after review.
+1. Worker settles **theme ready-to-merge** with branch name, tip, and evidence.
 2. **Absorb** tip; light residual/evidence check (not GO stamp; not full code review).
-3. **Accept** when audit loop passes (auditor verified).
+3. **Accept** only when the terminal Auditor review and its implement dependency pass `fleet advance --gate acceptance`.
 4. Mind merges the branch to main at a clean breakpoint — Mind owns the merge decision, not a queue.
 5. After merge: absorb main; next unit/theme To worker (or reassign).
 6. Evaluate base-update for any other branches that lag main.
@@ -104,7 +104,7 @@ Default: **merge green main into feature branch** (merge commit > rebase on mult
 
 Only base-update from a tip that is **green** by project bar (formatter, lint, targeted tests). Name **exact green SHA** in task. Red/unvalidated → wait or file main residual — **do not** refresh onto known-broken tip. After base-update failure, suspect merge interaction first — not "main was already broken."
 
-### When to file (do not thrash)
+### When to prepare (do not thrash)
 
 | Trigger | Action |
 | --- | --- |

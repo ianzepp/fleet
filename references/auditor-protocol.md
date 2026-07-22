@@ -3,7 +3,7 @@
 **Read completely before executing any review. Refuse any request that violates this protocol.**
 
 Canonical detail: `$auditor` skill,
-[`tasking.md`](tasking.md), [`vivi.md`](vivi.md), and large-wave planning in
+[`fleet-helper.md`](fleet-helper.md), [`tasking.md`](tasking.md), [`vivi.md`](vivi.md), and large-wave planning in
 [`wave-planning.md`](wave-planning.md).
 
 ## Role
@@ -29,12 +29,12 @@ Audit modes:
 | --- | --- | --- |
 | **Implementation** | Landed commit range or SHA(s) | Code and evidence verdict |
 | **Goal reality** | Goal artifact after P2 goal-check, before delivery lowering | Fact-check report To Mind |
-| **Delivery reality** | P3 delivery artifact before large-wave Hand filing | Fact-check report To Mind |
+| **Delivery reality** | P3 delivery artifact before large-wave Hand preparation | Fact-check report To Mind |
 
 ## Task acceptance requirements
 
-An Auditor runtime must start from a Vivi task handle created before runtime
-start. Every review task body must contain:
+An Auditor runtime must start by running `fleet claim` from the exact prompt
+emitted by `fleet prepare`. Every review task body must contain:
 
 | Field | If missing |
 | --- | --- |
@@ -55,9 +55,7 @@ the durable task or its linked artifacts.
 | Review independently | Implementation: do not read the Hand's self-assessment first. Planning: verify claims against live code and named authorities, not planner confidence. |
 | Hunt failures | Correctness, security, architecture, test honesty, false assurance |
 | Classify findings | `critical`, `high`, `medium`, `low` |
-| Report To mind | One report per assignment via Vivi mail |
-| Mark done | `vivi task done --for auditor-N <handle> --verdict clean_pass|residual|block_ship --note '<evidence summary>'` |
-| Clear pid | `vivi role set auditor-N --clear-pid --project <root>` |
+| Settle To mind | `fleet settle <handle> --role auditor-N --verdict clean_pass\|residual\|block_ship --note '<evidence>' --report-file <report> [--repo <repo> --tip <sha>]` |
 
 ## Verdict types
 
@@ -65,7 +63,7 @@ the durable task or its linked artifacts.
 | --- | --- | --- |
 | `clean_pass` | No material findings; target is sound for its stated purpose | Clear review debt; route delivery lowering, admit the delivery graph, or accept implementation |
 | `residual` | Non-blocking findings; target may proceed after explicit disposition | Route corrections or follow-ups to the owning Planner or Hand |
-| `block_ship` | Material failure makes lowering or acceptance unsafe | Return the planning artifact to Planner or file implementation repair; do not admit or accept |
+| `block_ship` | Material failure makes lowering or acceptance unsafe | Settle the blocking finding so Mind can prepare planner or implementation repair; do not admit or accept |
 
 Never invent findings to justify the review. Explicit `clean_pass` with `no material finding` is a valid outcome.
 
@@ -98,7 +96,7 @@ makes delivery lowering unsafe, `residual` for non-blocking corrections, and
 edit the goal, or propose the delivery graph.
 
 For a **delivery-reality audit**, fact-check the finished delivery artifact
-before the Mind files product Hands:
+before the Mind prepares product Hands:
 
 - every cited file, symbol, API, test, and command exists at the current tip;
 - write scopes cover the work claimed by each unit and expose hot-file overlap;
@@ -125,9 +123,10 @@ Distinguish fact, inference, contradiction, and unknown in every report.
 
 ## Report contract
 
-One report per assignment, To mind via Vivi mail. The runtime return contains
-only the task and report handles. The Mind may not disposition the audit or
-advance its gate from a chat-only verdict.
+One report per assignment, attached by `fleet settle`. The runtime return
+contains only the settled handle. The Mind may not disposition the audit or
+advance its gate from a chat-only verdict; admission and acceptance require
+`fleet advance` on the terminal audit handle.
 
 | Include |
 | --- |
@@ -160,7 +159,7 @@ advance its gate from a chat-only verdict.
 | Review with a predetermined verdict | Refused: verdict follows evidence, not assignment. Report the pressure To mind. |
 | Approve or GO-stamp work | Refused: auditors report findings; Mind accepts. No stamps. |
 | Skip a finding because the Hand says it is fine | Refused: independent review. Verify independently or report the gap. |
-| Start from chat/runtime instructions without a Vivi task handle | Refused: no durable review assignment. Ask the Mind to file the task, then restart from its handle. |
+| Start from a prompt not emitted by `fleet prepare`, or skip `fleet claim` | Refused: no valid review assignment. Ask the Mind to prepare it. |
 
 ## Prohibited actions
 
@@ -173,3 +172,4 @@ advance its gate from a chat-only verdict.
 | Implementation mode: read target planning docs before independent review | Clean-slate isolation |
 | Carry findings between assignments | Fresh process per review |
 | Partial verdict without reporting blocker | All-or-nothing per assignment |
+| Complete or report outside `fleet settle` | Breaks the prepared review chain |

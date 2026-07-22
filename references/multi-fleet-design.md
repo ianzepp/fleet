@@ -91,7 +91,7 @@ Single-fleet is already session-attach with set of one. v2 generalizes to ≥1 +
 | Channel | Truth of |
 | --- | --- |
 | **Vivi mailspace** | Work: tasks, needs, done, Head reports, operator mail |
-| **tmux** | Process: alive/idle/running/error; pointer doorbells only |
+| **tmux** | Process: alive/idle/running/error; exact generated Fleet prompts only |
 
 **Binding (skill default):** `mail_identity == tmux_session` (Hands/Heads/steward only; mind+operator no tmux). Example: `hand-1@….local` → target `hand-1:1.1`.
 
@@ -301,7 +301,7 @@ Scripts must prefer **`tmux_target`** over session-name==role.
 tmux attach -t mgs          # whole fleet
 tmux kill-session -t mgs
 tmux select-window -t mgs:hand-1
-tmux send-keys -t mgs:hand-1.1 …
+tmux send-keys -t mgs:hand-1.1 -l -- '<exact fleet prepare output>'
 ```
 
 ## 7. Alternatives considered

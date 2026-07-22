@@ -15,12 +15,14 @@ completion. No polling. No doorbell. No tmux pane to keep alive.
 | Capacity rebind = kill pane, edit role record, relaunch | Capacity rebind = `vivi role set`; next spawn uses new values |
 | Doorbell text into a pane; hope it lands | Direct spawn with thin boot context |
 | Report lands in mail; Mind polls to find it | Report lands in Vivi (durable); short pointer returns to Mind |
-| Head consult = paste persona + poll pane | Head consult = spawn with charter pointer + Vivi mail handle |
+| Head consult = paste persona + poll pane | Head consult = spawn with generated advisory prompt |
 | Pane death, stuck prompts, wrong-host tmux | No pane to die |
 
-## Thin boot pattern
+## Generated boot pattern
 
-Boot and report shape are fleet-wide — see [SKILL.md § Role communication contract](../SKILL.md#role-communication-contract). The parent delivers a thin pointer; the sub-agent loads its charter and assignment handle from Vivi; results file through Vivi; only a short pointer returns.
+Boot and report shape are fleet-wide — see
+[`fleet-helper.md`](fleet-helper.md). The Mind spawns with the exact output of
+`fleet prepare`; the role claims and settles through that helper.
 
 **No handle, no spawn.** The Mind must create the Vivi assignment before the
 sub-agent exists. Do not spawn with full instructions and backfill a task after
@@ -30,10 +32,10 @@ reconstruct the missing assignment chain.
 Sub-agent specifics:
 
 - Boot pointer is the spawn prompt (the first thing the sub-agent reads).
-- Completion notification wakes the Mind; the Vivi task completion or advisory
-  reply and required report receipts are the durable completion record.
+- Completion notification wakes the Mind; the Fleet settlement is the durable
+  completion record.
 - Optional bag read is awareness only. One spawn executes the one handle named
-  in its boot pointer; it does not aggregate other open items.
+  in its generated prompt; it does not aggregate other open items.
 
 ## Capacity at spawn
 
@@ -56,19 +58,19 @@ bound role. Do not silently spawn on the wrong model class or provider.
 ## Spawn → completion → disposition flow
 
 ```text
-1. Mind files assignment:  vivi task send ... or vivi mail send ...
-2. Mind spawns sub-agent:  thin boot with role + assignment handle
-3. Sub-agent runs:         reads assignment, executes, files completion/reply and report
+1. Mind prepares:          fleet prepare ... → generated boot prompt
+2. Mind spawns sub-agent:  exact generated prompt
+3. Sub-agent runs:         fleet claim → execute → fleet settle
 4. Sub-agent completes:    notification arrives to Mind
-5. Mind reconciles:        report + task handle + commit receipt + declared scope
-6. Mind routes:            audit, repair, accept, or next unit under policy
+5. Mind reconciles:        settlement + commit receipt + declared scope
+6. Mind routes:            dependent review/repair or fleet advance
 7. Mind absorbs mail:      only after the report has a disposition
 ```
 
 Step 4 is the key difference: the Mind does not poll. The sub-agent's completion
 notification is the wake signal, not authority to advance. The Mind first
-reconciles the assigned handle, `task done`, report mail, and required receipts.
-Between spawns, the Mind can file other work, spawn other Hands, or respond to
+reconciles the prepared chain and settlement receipt.
+Between spawns, the Mind can prepare other work, spawn other Hands, or respond to
 the operator.
 
 ### Runtime receipt map
@@ -150,20 +152,21 @@ interaction point.
 
 ## Report-back pattern
 
-Report shape is fleet-wide — see [SKILL.md § Role communication contract](../SKILL.md#role-communication-contract). A task-backed sub-agent files `vivi task done` + `vivi mail send`; a mail-backed advisory role replies to its source handle. It then returns a short pointer only. The detailed report lives in Vivi for audit.
+Report shape is fleet-wide — see [`fleet-helper.md`](fleet-helper.md). Every
+role calls `fleet settle`, then returns a short pointer only. The detailed
+report lives on the prepared Vivi chain.
 
 If the sub-agent returns details only in chat, the assignment is not durably
-complete. The Mind sends it back to file the task completion and report, or
-files a recovery task or need with an honest process-deviation label if the
+complete. The Mind sends it back to run `fleet settle`, or prepares a recovery
+assignment / files a need with an honest process-deviation label if the
 runtime can no longer resume. The Mind does not advance a planning gate, accept
 implementation, or route a dependent task from the chat-only result.
 
 ## Head consultation via sub-agent
 
-Heads are advisory, not implementers. A Head sub-agent uses the same boot shape
-as any role — charter + Vivi mail pointer — with one distinction: the charter
-encodes "advise only, do not implement, report To mind." The Head replies to
-that mail handle before returning its short runtime pointer.
+Heads are advisory, not implementers. A Head sub-agent uses the same generated
+boot shape with `--pass advisory`. Its charter encodes "advise only"; it settles
+findings on the prepared handle before returning.
 
 Head sub-agents are cold-boot by design: no accumulated state, fresh context per question. The charter provides enough standing definition to make cold boot sufficient.
 

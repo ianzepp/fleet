@@ -28,7 +28,7 @@ Fleet Hands and Heads run via one of three execution backends:
 | **tmux** | Polled | Persistent interactive sessions; harness lacks sub-agents; remote SSH | [`tmux.md`](references/tmux.md) |
 | **vivi-pty** | Polled | Structured PTY sessions without tmux | [`vivi-pty.md`](references/vivi-pty.md) |
 
-**Sub-agent is the default** for harnesses that support it (Grok Build, Codex, etc.) — completion notifications wake the Mind; no polling or pane management. Capacity (provider/model/thinking) and charter live on the Vivi role record; boot and report are backend-neutral — see [Role communication contract](#role-communication-contract).
+**Sub-agent is the default** for harnesses that support it (Grok Build, Codex, etc.) — completion notifications wake the Mind; no polling or pane management. Capacity (provider/model/thinking) and charter live on the Vivi role record; boot and report are backend-neutral — see [Fleet helper communication contract](#fleet-helper-communication-contract).
 
 ## Vivi-first communication invariant
 
@@ -40,9 +40,10 @@ memos do not replace routed communication.
 
 Chat and execution runtimes support that record. They do not replace it:
 
-- file the Vivi item and obtain its handle **before** spawning or waking a role;
-- pass the handle through chat, a sub-agent prompt, tmux, or vivi-pty as the
-  authoritative pointer;
+- use `scripts/fleet.py prepare` to file the assignment and emit the boot
+  prompt before spawning or waking a role;
+- deliver that generated prompt through chat, a sub-agent prompt, tmux, or
+  vivi-pty without reconstructing it;
 - give each runtime exactly one assignment handle and one bounded scope; file
   unrelated findings or passes as separate handles;
 - keep full instructions, evidence, and decisions in the Vivi item or a linked
@@ -50,84 +51,69 @@ Chat and execution runtimes support that record. They do not replace it:
 - record any operator-chat decision that changes Fleet work in Vivi before
   routing dependent work; and
 - do not advance a gate or accept work until the assigned role has completed
-  its Vivi task or advisory reply and filed the required report receipts To Mind.
+  `fleet settle` and the required dependency chain passes `fleet advance`.
 
-**No handle, no spawn. No durable report, no gate advance.** A runtime
+**No prepared handle, no spawn. No durable report, no gate advance.** A runtime
 notification is only a wake signal. Git proves repository state, not who asked,
 answered, decided, or dispositioned. A retroactive task stub does not make an
-unrecorded handoff compliant. File a new recovery task or need to the actual
+unrecorded handoff compliant. Prepare a new recovery assignment or file a need to the actual
 owner, label the missing handoff as a process deviation, link only the surviving
 evidence, and resume from that valid Vivi handle.
 
-## Role communication contract
+## Fleet helper communication contract
 
 Every Planner, Hand, Auditor, and Head session — regardless of backend — follows
-one boot and report shape. The Vivi role record is the single source for
-identity, capacity, and charter; the Vivi board is the single source for work
-and results.
+one `prepare → claim → settle` shape. The Mind uses `prepare`; the runtime uses
+the emitted prompt to `claim` and `settle`; the Mind uses `advance` before
+acceptance or admission. Full commands and recovery rules:
+[`fleet-helper.md`](references/fleet-helper.md).
 
 ### Boot
 
-The Mind first files the assignment in Vivi, then delivers a thin pointer. The
-role loads its own context from Vivi. A boot prompt without a valid assignment
-handle is invalid and the role must refuse it.
+The Mind prepares the assignment. The helper creates the task, freezes the
+assignment and role binding, writes the chain receipt, and prints the only
+valid boot prompt.
 
-```text
-You are fleet role <name>.
-Read your role protocol:  mind-protocol.md | planner-protocol.md | hand-protocol.md | auditor-protocol.md | head-protocol.md
-Load charter:  vivi role charter show <name> --project <root>
-Load assignment: vivi task show <handle> --project <root>
-                 # or: vivi mail show <handle> --project <root>
-Register pid:  vivi role set <name> --pid $$ --project <root>
-Optional bag:  vivi board --for <name> --project <root> --json  # awareness only; execute the named handle
-
-Execute per charter and protocol. File results with the applicable literal commands below (do not paraphrase flags).
-  # Task-backed assignment:
-  vivi task done <handle> --for <name> --note '<evidence>' --project <root>
-  vivi mail send --from <name> --to mind --subject '<subject>' --body '<body>' --project <root>
-  # Mail-backed advisory assignment:
-  vivi mail reply <handle> --from <name> --body '<durable findings>' --project <root>
-  vivi role set <name> --clear-pid --project <root>
-For long bodies use --body-file <path>; do not pipe stdin.
-Run one vivi command per shell call. Run `vivi <sub> --help` first if unsure of flags.
-Return only a short pointer.
+```bash
+python3 <skill>/scripts/fleet.py prepare --project <root> \
+  --to <role> --pass <pass> --scope '<bounded scope>' \
+  [--depends-on <prior-handle>] \
+  --subject '<subject>' --body-file <assignment-file>
 ```
+
+No prepared handle, no spawn. A runtime must run the generated `claim` command
+first and refuse the work if claim fails. This applies to Heads too: direct
+questions and cadence assignments use `--pass advisory`; mail is the linked
+report channel, not an alternate assignment path.
 
 ### Report
 
-Before returning, the role files results through Vivi and clears its process
-binding. Task-backed roles complete the task and send their report. A
-mail-backed advisory role replies to the source handle so the report has an
-explicit communication edge.
+Before returning, the role calls `settle`. The helper completes the task,
+replies to the assignment with the durable report, verifies the linked state,
+and records settlement.
 
 ```bash
-vivi task done <handle> --for <name> \
-  --note '<evidence: what changed, why, residuals>' --project <root>
-vivi mail send --from <name>@<mailspace> --to mind@<mailspace> \
-  --subject 'Re: <task subject>' --body '<durable findings>' --project <root>
-# Or, for a mail-backed advisory assignment:
-vivi mail reply <handle> --from <name>@<mailspace> \
-  --body '<durable findings>' --project <root>
-vivi role set <name> --clear-pid --project <root>
+python3 <skill>/scripts/fleet.py settle <handle> --role <role> --project <root> \
+  --note '<concise evidence>' --report-file <report-path> \
+  [--repo <repo> --tip <sha>] [--verdict clean_pass|residual|block_ship]
 ```
 
-| Flag | Semantics |
+| Helper field | Semantics |
 | --- | --- |
-| `--for <name>` (task done) | The **assignee** completing the task, not the sender. Same identity axis as `task list --for` and `board --for`. |
-| `--from <name>` (mail send) | The **sender** role. Required; not inferred from charter or pid binding. |
-| `--body` / `--body-file` | Use `--body-file <path>` for long bodies (auditor reports, multi-section findings). Do not pipe stdin. |
+| `--note` | Concise completion evidence stored on task completion. |
+| `--report` / `--report-file` | Durable full report attached as a reply to the assignment. Prefer a file for long reports. |
+| `--repo` + `--tip` | Paired repository receipt. |
+| `--verdict` | Required for `review`, `goal-audit`, and `delivery-audit`. |
 
 Returns to parent: short pointer only.
 
 ```text
-Done. Commit <sha>. Mail <handle> has the full report.
+Settled <handle>. Full report is attached to that Vivi chain.
 ```
 
-Detailed report lives in Vivi for audit; parent context stays lean. The Mind
-reconciles the returned pointer against the Vivi task completion or advisory
-reply, report receipts, and repository receipts before advancing or accepting.
-Chat content may explain the pointer, but it cannot supply missing durable
-evidence.
+Detailed report lives in the chain; parent context stays lean. The Mind runs
+`fleet.py advance` on the terminal auditor handle before acceptance or
+admission. Chat content cannot supply a missing receipt.
 
 ### Backend delivery
 
@@ -135,7 +121,7 @@ Boot and report shapes are identical across backends. Only delivery differs.
 
 | Backend | Boot pointer via | Completion by |
 | --- | --- | --- |
-| **Sub-agent** | Thin spawn prompt | Notification (event) |
+| **Sub-agent** | Exact generated prompt | Notification (event) |
 | **tmux** | `tmux send-keys` | Pane classification (poll) |
 | **vivi-pty** | `vivi-pty terminal write` | Session diagnostics (poll) |
 
@@ -149,24 +135,26 @@ Hands commit their own work. The Hand has the diff context; re-deriving it in th
 
 ```text
 1. Operator + Mind   discuss feature scope
-2. Mind              files goal-forge task; passes handle to planner-N
-3. Planner           runs goal-forge → goal-check; completes task + reports READY To mind
+2. Mind              prepares goal-forge assignment; delivers generated prompt to planner-N
+3. Planner           claims; runs goal-forge → goal-check; settles READY report
 4. Mind              reviews; queues goal or sends back with gaps
    ─── goal sits READY in queue ───
-5. Mind              when execution imminent, files delivery task; passes handle to planner-N
-6. Planner           runs $delivery → ordered unit graph; completes task + reports To mind
-7. Mind              files implement tasks; passes handles to Hands
-8. Hand              executes, commits, completes task + reports SHA/evidence
-9. Mind              files review task; passes handle to auditor-N
-10. Auditor          reviews; completes task + reports verdict To mind
-11. Mind             files residual repair tasks; passes handles to Hands
-12. Hand             fixes, commits, completes task + reports back
-13. Mind             files verification task; passes handle to auditor
-14. Auditor          verifies; completes task + reports pass
-15. Mind             records acceptance disposition; phase marked done
+5. Mind              prepares delivery assignment depending on goal-forge handle
+6. Planner           claims; runs $delivery → ordered unit graph; settles report
+7. Mind              prepares implement assignments depending on delivery handle
+8. Hand              claims; executes, commits, and settles SHA/evidence
+9. Mind              prepares review assignment depending on implement handle
+10. Auditor          claims; reviews; settles verdict
+11. Mind             prepares residual repairs depending on review handle
+12. Hand              claims; fixes, commits, and settles
+13. Mind             prepares verification review depending on repair handle
+14. Auditor          claims; verifies; settles clean_pass
+15. Mind             runs `fleet advance --gate acceptance`; records acceptance
 ```
 
-When execution is imminent and the operator is engaged, steps 2–6 collapse to one planner assignment (full pipeline). The planner self-checkpoints at goal-check READY and proceeds to delivery lowering without returning to the Mind.
+Do not collapse distinct helper passes into one receipt. A normal planning chain
+uses goal-forge → delivery. A large wave uses P1 → P2 → goal-audit → P3 →
+delivery-audit and ends with `fleet advance --gate admission`.
 
 Do not collapse planning for a large parallel wave. Use the separate Forge,
 Check, goal-audit, Delivery, and delivery-audit admission gates in
@@ -221,7 +209,7 @@ git -c user.name="$MODEL" -c user.email="<name>@<mailspace>" commit --only -m '�
 
 ## Prime directive: Mind owns liveness
 
-A Mind is not a reporter. A Mind is not an implementer. A Mind is an air traffic controller: it directs traffic, it does not fly planes. When work needs doing, the Mind's default action is to **route it** — file a task to a Hand, assign a lower to a planner-N. The Mind does not write code, run factory, write tests, or do analysis, even when the work is small, obvious, or faster to do directly. A Mind that implements is a Mind that has stopped managing the fleet.
+A Mind is not a reporter. A Mind is not an implementer. A Mind is an air traffic controller: it directs traffic, it does not fly planes. When work needs doing, the Mind's default action is to **route it** — prepare the correct role assignment and deliver its generated prompt. The Mind does not write code, run factory, write tests, or do analysis, even when the work is small, obvious, or faster to do directly. A Mind that implements is a Mind that has stopped managing the fleet.
 
 A Mind owns forward progress for every attached fleet: observe Vivi + runtime state, keep honest work moving, refill empty product capacity, route decisions, repair runtime capacity, and preserve human blockers until they are answered.
 
@@ -261,6 +249,11 @@ Every fleet helper uses the same scope vocabulary:
 --runtime-target <target>     concrete runtime target override for the helper call
 ```
 
+The chain helper adds `--to`, `--pass`, `--scope`, and repeatable
+`--depends-on` during `prepare`. See
+[`fleet-helper.md`](references/fleet-helper.md). These are assignment fields,
+not alternate fleet-scope vocabulary.
+
 ### Tokens (disambiguation)
 
 | Token | Means | Not |
@@ -287,13 +280,13 @@ Canon for absorb/accept: [`mind-cycle.md`](references/mind-cycle.md) § Absorb v
 | --- | --- |
 | Process | Mind fills bag; Hand empties. Progress = open tasking + map — not GO stamps |
 | Communication | Vivi handles are the primary references for all Fleet communication. Runtime/chat carries pointers and supporting context only. No handle, no spawn; no durable completion/report chain, no advance or accept. |
-| Delegation | The Mind routes, not implements. See a task → file to a Hand. See a goal → assign lower to planner-N. See a bug → file to a Hand. Default action for any work = route it. Detail: [`mind-protocol.md`](references/mind-protocol.md) § Delegation principle |
+| Delegation | The Mind routes, not implements. See an implementable task or bug → prepare a Hand assignment. See a goal → prepare the planner pass. Default action for any work = route it. Detail: [`mind-protocol.md`](references/mind-protocol.md) § Delegation principle |
 | Hand equivalence | All Hands are equivalent floaters. The Mind picks any available Hand for each assignment. No Hand has a special integration role; there is no fleet-wide main in a multi-repo container. Single-repo fleets don't need a dedicated merger either — see [Commit authority and workflow](#commit-authority-and-workflow) |
-| Lowering | **Campaign goal → planner-N lowers** (`$campaign` goal-forge → goal-check READY → `$delivery` docs) → Mind files Hands from those units. Hands do **not** lower raw goals via factory. Heads do **not** lower — they are advisory-only. — [`lowering.md`](references/lowering.md) |
+| Lowering | **Campaign goal → planner-N lowers** (`$campaign` goal-forge → goal-check READY → `$delivery` docs) → Mind prepares Hands from those units. Hands do **not** lower raw goals via factory. Heads do **not** lower — they are advisory-only. — [`lowering.md`](references/lowering.md) |
 | Commit authority | **Hands commit their own work.** The Hand has the diff context; re-deriving it in the Mind is waste. The Mind's job is review-after (sampling, auditor on risk), not commit-before. See [Commit authority and workflow](#commit-authority-and-workflow) |
 | Branch strategy | **Branch and worktree decisions belong to the Mind.** Default is main (Mind scopes non-overlapping work). Feature branch is the exception, created by Mind when scope is large or overlap risk is real. Hands commit to whatever branch they're assigned. |
 | Push authority | **Push is the Mind's decision.** Default off. The Mind knows per-repo deployment posture: Railway auto-deploy = do not push without explicit decision; Railway manual = safe when Mind approves; no remote = moot. |
-| Role routing | All role mail routes **To mind**. Mind owns the spawn clock; direct peer mail dead-letters when the recipient isn't running. Mind answers from context, files to the correct role and spawns it, or escalates to `operator@` |
+| Role routing | All role settlements route **To mind**. Mind owns the spawn clock; direct peer mail dead-letters when the recipient isn't running. Mind answers from context, prepares the correct role assignment and spawns it, or escalates to `operator@` |
 
 ### Quality
 
@@ -302,7 +295,7 @@ Canon for absorb/accept: [`mind-cycle.md`](references/mind-cycle.md) § Absorb v
 | Audit loop | The audit loop is the integration bar: implement → commit → auditor review → repair → verify → accept. `accept` means the loop passed, not that something is queued for merge. Green self-authored tests ≠ ready. |
 | Charter sufficiency | The boot pattern fails if charters are thin. A charter must encode: who the seat is (role, lens, report style), process law that applies to every unit, report-back expectations, and non-goals. If cold-boot fails, extend the charter — do not rely on accumulated state. |
 | Quality | Product Hands ship unit quality. **Code review** is a **Hand duty** on **`auditor-1` / `auditor-2`** — **not** head-cto by default. **Never** universal review on every completion |
-| Campaign truth | `head-ceo` periodically audits campaign/factory status against Git, board, validation, release, and deploy evidence; Mind files bounded `$zombie-docs` repair when prose lies |
+| Campaign truth | `head-ceo` periodically audits campaign/factory status against Git, board, validation, release, and deploy evidence; Mind prepares bounded `$zombie-docs` repair when prose lies |
 
 ### Capacity and continuity
 
@@ -325,7 +318,7 @@ Canon for absorb/accept: [`mind-cycle.md`](references/mind-cycle.md) § Absorb v
 | Assignment mode | Per Hand/Head `assignment_mode`: `new` \| `compact` \| `continue` \| `restart` — [`runtime-config.md`](references/runtime-config.md) |
 | Cadence | Sub-agent fleets: **15–30m** backup loop (event-driven). tmux/PTY fleets: **3–5m** polling loop. Adapt per [`mind-cycle.md`](references/mind-cycle.md#event-driven-cadence-sub-agent-fleets) |
 | Lane lifecycle | A bound idle Hand is investigated after the configured grace; Mind reconciles map/task/worktree truth before continue, park, cooldown, or release. Runtime release never implies worktree deletion |
-| Multi-hand | Mind files/wakes on the assignment clock; head-ceo side-lane bucket (`effort`+`est_tokens`); Mind calibrates est vs actual |
+| Multi-hand | Mind prepares/wakes on the assignment clock; head-ceo side-lane bucket (`effort`+`est_tokens`); Mind calibrates est vs actual |
 | Hygiene | Mind never runs `$polish`/`$housekeeping` itself; never thrash polish for continuity |
 
 ### Safety
@@ -362,7 +355,7 @@ Core process here; detail in `references/` + `scripts/`.
 
 | Session context | Required reading |
 | --- | --- |
-| **Cold attach** | This file → **role protocol** ([`mind-protocol.md`](references/mind-protocol.md), [`hand-protocol.md`](references/hand-protocol.md), or [`head-protocol.md`](references/head-protocol.md) for your role) → [`subagent.md`](references/subagent.md) (or [`tmux.md`](references/tmux.md) / [`vivi-pty.md`](references/vivi-pty.md) for those backends) → [`mind-cycle.md`](references/mind-cycle.md). Add [`getting-started.md`](references/getting-started.md) for attach, [`multi-fleet.md`](references/multi-fleet.md) before multi-fleet. |
+| **Cold attach** | This file → **role protocol** ([`mind-protocol.md`](references/mind-protocol.md), [`hand-protocol.md`](references/hand-protocol.md), or [`head-protocol.md`](references/head-protocol.md) for your role) → [`fleet-helper.md`](references/fleet-helper.md) → [`subagent.md`](references/subagent.md) (or [`tmux.md`](references/tmux.md) / [`vivi-pty.md`](references/vivi-pty.md) for those backends) → [`mind-cycle.md`](references/mind-cycle.md). Add [`getting-started.md`](references/getting-started.md) for attach, [`multi-fleet.md`](references/multi-fleet.md) before multi-fleet. |
 | **Hot cycle** (state already in context) | This file alone if quiet; open a ref when that surface hits |
 | **Arm / first Mind turn** | This file + your role protocol + refs for surfaces you will touch this turn |
 
@@ -383,6 +376,7 @@ Each role has a compact mandatory-read protocol. It distills the rules from the 
 | Load when | Path |
 | --- | --- |
 | **Mind mandatory read** | [`mind-protocol.md`](references/mind-protocol.md) |
+| Assignment / claim / settle / gates | [`fleet-helper.md`](references/fleet-helper.md) |
 | **Planner mandatory read** | [`planner-protocol.md`](references/planner-protocol.md) |
 | **Hand mandatory read** | [`hand-protocol.md`](references/hand-protocol.md) |
 | **Auditor mandatory read** | [`auditor-protocol.md`](references/auditor-protocol.md) |
@@ -415,6 +409,7 @@ Each role has a compact mandatory-read protocol. It distills the rules from the 
 | Missing companions | [`companion-fallbacks.md`](references/companion-fallbacks.md) |
 | Pi Mind extension | [`pi.md`](references/pi.md) |
 | Pi Hand/Head wrappers | [`pi-role-wrappers.md`](references/pi-role-wrappers.md) |
+| Chain transitions | [`fleet.py`](scripts/fleet.py), [`fleet-helper.md`](references/fleet-helper.md) |
 | Sensors / baseline | [`fleet-sensors.py`](scripts/fleet-sensors.py), [`fleet-baseline.py`](scripts/fleet-baseline.py), [`fleet-resolve.py`](scripts/fleet-resolve.py) |
 | Mind loop fallback | [`scripts/fleet-loop.py`](scripts/fleet-loop.py) |
 | Runtime lifecycle | start/stop/restart directly via the configured backend (`tmux` / `vivi-pty`) — the `fleet-runtime.py` helper is removed |
@@ -465,12 +460,12 @@ Growth posture has a stronger continuity contract:
 
 | Role | Does | Does not |
 | --- | --- | --- |
-| Planner (planner-N) | Goal-forge + delivery lowering; produce planning artifacts; report READY + unit specs To mind | Implement product code; file Hand tasks; merge; review; act as advisor on cadence |
+| Planner (planner-N) | Goal-forge + delivery lowering; produce planning artifacts; settle READY + unit specs To mind | Implement product code; prepare Hand assignments; merge; review; act as advisor on cadence |
 | Hand (implementer) | Drain product bag; validate; commit own work; polish unit; ship | Wait for GO; erase foreign WIP; touch another Hand's WIP; lower goals; review work |
-| Auditor (auditor-N) | Drain review bag; `$auditor`; independently review landed work or assigned planning facts; report To mind | Product implement; commit product code; GO stamp; plan or lower goals |
-| Mind | File/wake/integrate; **route planning to planner-N, review to auditor-N**; operator mail; route all work — never implement | GO stamps; deep code review itself; **implement code, write tests, run factory, do analysis** — route to the correct role |
+| Auditor (auditor-N) | Drain review bag; `$auditor`; independently review landed work or assigned planning facts; settle verdict To mind | Product implement; commit product code; GO stamp; plan or lower goals |
+| Mind | Prepare/wake/integrate; **route planning to planner-N, review to auditor-N**; operator mail; route all work — never implement | GO stamps; deep code review itself; **implement code, write tests, run factory, do analysis** — route to the correct role |
 | operator@ | Human escalations | Status; bag drain |
-| Head | Advisory on cadence or direct question; report findings To mind | Lower goals; implement; file tasks; merge; block production; act as required step in the pipeline |
+| Head | Advisory on cadence or direct question; settle findings To mind | Lower goals; implement; prepare tasks; merge; block production; act as required step in the pipeline |
 
 Identity ≠ assignment ≠ runtime. Detail: [`roles-and-harness.md`](references/roles-and-harness.md).
 
@@ -551,7 +546,10 @@ The protocol check, gather, execute, and close steps are the same per fleet. The
 
 Kind ≠ severity. Hard stop = open tasks/needs. Not a stop = missing GO mail.
 
-Starvation: empty product bag + **product** map unit → file+wake. If the next map item is **unlowered**, assign **lower** to planner-N — do **not** dump the raw goal on a Hand. [`lowering.md`](references/lowering.md)
+Starvation: empty product bag + **product** map unit → `fleet prepare` +
+wake using the generated prompt. If the next map item is **unlowered**, prepare
+the correct planner pass — do **not** dump the raw goal on a Hand.
+[`lowering.md`](references/lowering.md)
 
 ## Role memory (memos)
 
@@ -622,7 +620,7 @@ python3 <skill>/scripts/fleet-cycle-close.py --project <root> --acted --summary 
 ## Anti-patterns
 
 - **Bag:** GO warden; severity-as-kind; sleep with product work; sleep in growth before executive refill sweep; invent continuity work; dual Mind; Heads own bags; idle floaters despite safe parallel work; zombie campaign lanes; **campaign goal → Hand** without planner lowering; Hand invents factory/delivery for an unlowered stage; **using a Head as an inline lowering step** that production waits behind
-- **Process:** spawn/wake before filing a Vivi handle; multiple unrelated scopes on one runtime; retroactive task stubs presented as original routing; authoritative instructions or decisions held only in chat/runtime; aggregate waits without a per-handle runtime-ID map; task-shaped model substitution that bypasses the Vivi role binding; mail-only or runtime-only truth; mixed Hand harnesses; stacked wakes; unbounded watch; standby-fleet busywork; per-cycle dispatch memos; universal completion review; route review to `head-cto` instead of auditors; route lowering to a Head instead of planner-N; dispatch/refuse churn; narration mail; completion hidden in replies
+- **Process:** spawn/wake before `fleet prepare`; reconstruct or edit the generated boot prompt; bypass `fleet claim` or `fleet settle`; accept/admit without `fleet advance`; multiple unrelated scopes on one runtime; retroactive task stubs presented as original routing; authoritative instructions or decisions held only in chat/runtime; aggregate waits without a per-handle runtime-ID map; task-shaped model substitution that bypasses the Vivi role binding; mail-only or runtime-only truth; mixed Hand harnesses; stacked wakes; unbounded watch; standby-fleet busywork; per-cycle dispatch memos; universal completion review; route review to `head-cto` instead of auditors; route lowering to a Head instead of planner-N; dispatch/refuse churn; narration mail; completion outside the prepared chain
 - **Integration:** equate packet-green with consumer-green; commit another Hand's WIP; treat absorb as accept
 - **Hygiene/workspace:** skip unit polish; polish foreign work; Mind runs polish or housekeeping; polish for continuity; housekeeping every land; destructive or status-only dirt handling; topic monogamy; freeze on CEO permission; omit the `FLEET_CYCLE` prefix; send status to `operator@`; arm steward without operator authority
 

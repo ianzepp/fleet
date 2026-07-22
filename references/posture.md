@@ -92,11 +92,11 @@ Hygiene remains: Hand end-of-unit polish; post-main polish advisory **once per t
 
 ```text
 1. Drain real signal: **operator→mind** + To operator@, absorb done/HEAD, open bags, reviews
-2. Open product bag → wake (doorbell/reinit) as today — no invention
+2. Open prepared product assignment → `fleet prompt` + backend delivery — no invention
 3. posture in {standby, dormant}:
      → do not starvation-file; sleep/quiet report; optional absorb only
 4. posture growth (or missing → treat as growth):
-     if honest unblocked map unit → file+wake
+     if honest unblocked map unit → `fleet prepare` + wake
      elif map empty / only makework / doubt value →
          if continuity CEO not awaiting and gap ≥ ceo_continuity_min_hours:
              assign head-ceo: continue vs pause/dormant + optional units with costs
@@ -169,7 +169,7 @@ Do not invent polish makework. Report To mind@.
 
 | Mind does | head-ceo does not |
 | --- | --- |
-| Decide / set posture / file real units | File Hand tasks |
+| Decide / set posture / prepare real units | File Hand tasks directly |
 | Sleep with default while awaiting report | Re-ask every FLEET_CYCLE |
 | operator@ if posture change is human-only | Own empty-bag refill |
 

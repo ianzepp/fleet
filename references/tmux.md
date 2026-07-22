@@ -89,7 +89,9 @@ evidence over stale scrollback failures.
 
 ### Harness-specific markers
 
-**Codex:** `•` monologue then `›` is often an answer that stopped. Back-to-back `HAND WAKE` lines without submit-settle are the failure mode. A live `›` / `codex ›` prompt after an earlier error is `waiting_for_input`, not `failed`.
+**Codex:** `•` monologue then `›` is often an answer that stopped. Back-to-back
+prepared prompts without submit-settle are the failure mode. A live `›` /
+`codex ›` prompt after an earlier error is `waiting_for_input`, not `failed`.
 
 **opencode:** pane classification keyed on opencode-specific markers (`OpenCode Zen`, `Build auto`, `Build ·`, `ctrl+p commands`). Bottom status bar determines state:
 - `waiting_for_input`: `Ask anything...` in last ~6 lines
@@ -103,22 +105,17 @@ evidence over stale scrollback failures.
 
 ## Doorbell (wake)
 
-When `waiting_for_input` and the Hand has open tasks, send a boot pointer per [SKILL.md § Role communication contract](../SKILL.md#role-communication-contract). The role loads charter and task from Vivi; the doorbell text is a thin pointer, not policy. The `fleet-doorbell.sh` helper is removed — send the pointer directly:
+When `waiting_for_input`, send the exact boot prompt emitted by `fleet prepare`.
+See [`fleet-helper.md`](fleet-helper.md). Do not hand-write a pointer.
 
-The task or mail handle must exist before `tmux send-keys`. Do not place new
-authoritative instructions in the pane and backfill Vivi afterward.
+`fleet prepare` must succeed before `tmux send-keys`. Do not place new
+authoritative instructions in the pane or backfill Vivi afterward.
 
 ```bash
-tmux send-keys -t '<tmux_target>' -l -- '<boot pointer only>'
+tmux send-keys -t '<tmux_target>' -l -- '<exact fleet prepare output>'
 tmux send-keys -t '<tmux_target>' Enter
 # Before sending, classify the pane: only type into panes with positive agent
 # chrome (waiting_for_input / completed). Refuse running/down/rate-limit.
-```
-
-Typical boot pointer text (abbreviated — role loads the full boot contract from charter, including PID registration):
-
-```text
-HAND WAKE hand-1. Role hand-1. Task <handle>. Load charter and task from Vivi. Report via vivi task done + vivi mail send.
 ```
 
 **Doorbell fail-closed:** only type into panes with positive agent chrome (`waiting_for_input` / `completed`). Unmatched screens and bare shells classify as `unready` and are refused — never inject a pointer into zsh/bash. The helper that enforced this (`fleet-doorbell.sh`) is removed; the Mind must classify the pane before sending.
@@ -129,18 +126,13 @@ HAND WAKE hand-1. Role hand-1. Task <handle>. Load charter and task from Vivi. R
 
 | Channel | Allowed content |
 | --- | --- |
-| **tmux send-keys** | **Thin boot pointer only** — identity, where to look (handle / folder / doc path), one verb. No essays, no policy dumps, no persona text |
+| **tmux send-keys** | Exact `fleet prepare` output only |
 | **Vivi mail / task / need** | Full done-when, evidence bar, scope, approach, residuals |
 | **Vivi role charter** | Standing identity, capacity, non-goals, report-back expectations |
 | **Agents.md / factory goal / campaign** | Durable multi-agent law, architecture, stage criteria |
 
-Good:
-
-```text
-HAND WAKE hand-1. Role hand-1. Task <handle>. Load charter and task from Vivi.
-```
-
-Bad: full multi-agent policy, stage graphs, long defaults lists, pasted persona text, model/capacity flags.
+Bad: hand-written wakes, full policy dumps, stage graphs, persona text, or
+model/capacity flags added outside the prepared assignment.
 
 ### assignment_mode (doorbell applies it)
 
@@ -155,19 +147,22 @@ this is removed — apply the mode with direct `tmux send-keys` first):
 | `continue` | Pointer only (auto-start if stopped) |
 | `restart` | recreate the pane/session, then idle |
 
-Same-handle rewakes skip prepare. Full table: [`runtime-config.md`](runtime-config.md).
+Same-handle rewakes reuse the originally captured generated prompt; they do not
+prepare a second assignment. Full table: [`runtime-config.md`](runtime-config.md).
 
 ## Codex reinit fallback
 
-**Policy:** normal pointer doorbell first. Reinit is recovery, not the default wake. The `codex-reinit.sh` helper is removed; recovery is done by recreating the pane/session directly.
+**Policy:** deliver the generated Fleet prompt first. Reinit is recovery, not
+the default wake. The `codex-reinit.sh` helper is removed; recovery is done by
+recreating the pane/session directly.
 
 **Reinit when:** process down; trust/error prompt that cannot be accepted inline; Codex text remains stuck after a doorbell retry; stale bootstrap repeats.
 
-1. File next task/need before launch so a handle exists
+1. Run `fleet prepare` before launch so a generated prompt exists
 2. Doorbell via `tmux send-keys` (with submit-settle for Codex)
 3. If it sticks, recreate the pane/session directly with `tmux`
 4. Reinit launch must avoid `exec` and use the role's configured capacity from Vivi
-5. First message is the thin boot pointer (see [Role communication contract](../SKILL.md#role-communication-contract)) — role + task handle; charter loads from Vivi
+5. First message is the exact generated prompt
 
 ```bash
 # Recreate a stuck Codex pane directly (codex-reinit.sh is removed):
@@ -188,7 +183,7 @@ tmux send-keys -t '<tmux_target>' Enter
 2. Exit Pi cleanly and wait until pane_current_command is a shell.
 3. Recreate or retarget the tmux session/window with `-c <packet-or-main-cwd>`.
 4. Start the role's configured agent from that cwd (capacity from the Vivi role record).
-5. Verify pane path and process, then send the thin boot pointer per [Role communication contract](../SKILL.md#role-communication-contract).
+5. Verify pane path and process, then send the exact generated prompt.
 ```
 
 ```bash
@@ -246,4 +241,8 @@ Records `.vivi/fleet-loop.json`. Loop ≠ steward and never runs sensors itself.
 | `fleet-loop.py` | tmux-backed FLEET_CYCLE injector |
 | `fleet-resolve.py` | Resolve project + fleet + role → tmux target |
 
-Removed helpers (use tmux directly): `fleet-doorbell.sh` (pointer doorbell — use `tmux send-keys`), `codex-reinit.sh` (Codex recovery — recreate pane directly), `opencode-hand-ctl.sh` (opencode Hand control — operate the pane directly), `fleet-runtime.py` (backend-neutral start/stop/restart — use tmux/vivi-pty directly).
+Removed helpers (use tmux directly): `fleet-doorbell.sh` (deliver exact
+`fleet prepare`/`prompt` output with `tmux send-keys`), `codex-reinit.sh`
+(Codex recovery — recreate pane directly), `opencode-hand-ctl.sh` (opencode
+Hand control — operate the pane directly), `fleet-runtime.py`
+(backend-neutral start/stop/restart — use tmux/vivi-pty directly).

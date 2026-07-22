@@ -145,27 +145,28 @@ For vivi-pty roles:
 
 ## Wake pattern
 
-Doorbell through vivi-pty delivers the thin boot pointer per [SKILL.md § Role communication contract](../SKILL.md#role-communication-contract). The role loads charter and task from Vivi; the PTY write is a thin pointer, not policy.
+Doorbell through vivi-pty delivers the exact boot prompt emitted by `fleet
+prepare`. See [`fleet-helper.md`](fleet-helper.md).
 
-The task or mail handle must exist before the PTY write. Do not place new
-authoritative instructions in the terminal and backfill Vivi afterward.
+`fleet prepare` must succeed before the PTY write. Do not place new
+authoritative instructions in the terminal or backfill Vivi afterward.
 
 ```bash
 vivi-pty --project <root> terminal write faber-hand-1d \
-  "HAND WAKE hand-1. Role hand-1. Task <handle>. Load charter and task from Vivi. Report via vivi task done + vivi mail send." \
+  "<exact fleet prepare output>" \
   --enter
 ```
 
 Or via the PTY backend directly:
 
 ```bash
-vivi-pty --project <root> terminal write faber-hand-1d "HAND WAKE hand-1. Task <hex>." --enter
+vivi-pty --project <root> terminal write faber-hand-1d "<exact fleet prepare output>" --enter
 ```
 
 The runtime backend is resolved from the Vivi role record (harness field).
-Same channel split rules apply: thin boot pointer only in the PTY write —
-identity, role, task handle, one verb. Full instructions, persona, and scope
-belong in Vivi (charter, task body, mail).
+Same channel split rules apply: the generated prompt is the only PTY payload.
+Full instructions and scope are frozen in the prepared task; standing identity
+and persona remain in the charter.
 
 ## assignment_mode
 

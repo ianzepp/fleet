@@ -146,7 +146,7 @@ On **engagement** (human prose, mode → interactive, “catch me up”, **or se
 1. **First:** mail **From operator@ To mind@** — summarize + absorb into posture/map/recap (decisions already made)
 2. **Then:** open/unread **To operator@** needs/mail (still waiting on human)
 3. Short tables human can work through
-4. Per To-operator item: summarize → guidance → close/reply → file **task** To Hand if any
+4. Per To-operator item: summarize → guidance → close/reply → prepare the resulting role assignment if any
 5. Record `operator_mail.last_presented_at` + handles; note absorbed op→mind handles in baseline/recap
 
 ```bash

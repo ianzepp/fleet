@@ -46,7 +46,7 @@ python3 <path-to-this-skill>/scripts/suggest-polish-files.py --repo <main> --jso
 
 **Thesis:** Multi-phase **repo maintenance** (refresh, lint, tests, format, docs). Cost ≈ large delivery unit.
 
-**Fleet:** Mind files one task To hand-1 only at **major inflection** (campaign complete, large multi-theme merge, stage closeout, operator ask). Never after routine lands.
+**Fleet:** Mind prepares one `implement` assignment To hand-1 only at **major inflection** (campaign complete, large multi-theme merge, stage closeout, operator ask). Never after routine lands.
 
 **Hand fallback:** (1) prefer repo/CI commands (2) no destroy foreign dirty (3) prod/test boundary hygiene (4) lint/test/format in repo order; fix mechanical; stop on product judgment (5) commit after each successful phase (6) report residual honestly.
 
@@ -75,7 +75,7 @@ python3 <path-to-this-skill>/scripts/suggest-polish-files.py --repo <main> --jso
 | Campaign artifact | Top-level routing document |
 | Campaign stage | **Must be lowered** (planner: goal-check → delivery) before Hand implement — not a code task |
 
-**Fallback:** treat `factory/` or goal docs as **map** (current stage, next unblocked unit, stop conditions). Mind files Hand tasks **only from lowered units**. No invent GO/NO-GO.
+**Fallback:** treat `factory/` or goal docs as **map** (current stage, next unblocked unit, stop conditions). Mind prepares Hand assignments **only from lowered units**. No invent GO/NO-GO.
 
 ## Goal check / goal-forge (`$campaign` sub-references)
 
@@ -89,7 +89,7 @@ python3 <path-to-this-skill>/scripts/suggest-polish-files.py --repo <main> --jso
 
 **Thesis:** Compile intake into a **delivery spec** (plan only). Does not implement.
 
-**Fleet:** produced by the **lowering planner** after goal-check READY. Mind files Hands from delivery **unit ids**, not from raw campaign prose.
+**Fleet:** produced by the **lowering planner** after goal-check READY. Mind prepares Hands from delivery **unit ids**, not from raw campaign prose.
 
 **Fallback (single residual only):** task done-when + context = mini-spec (where, done-when, validation, out of scope). **Not** a substitute for multi-unit stage lowering.
 
@@ -110,10 +110,10 @@ GOAL.md, ROADMAP.md, docs/goals/
 docs/factory/*  (delivery specs after lowering)
 ```
 
-**Mind:** if next stage unlowered → assign **lower** To planner-N; if delivery unit exists → file Hand task citing path/id.  
+**Mind:** if next stage unlowered → prepare the appropriate planner pass; if a delivery unit exists → prepare a Hand `implement` assignment citing path/id.
 **Hand:** update goal checkboxes/Status only for what this unit proved.
 
-No map → Planner lowers from operator intent, or Mind files only if a single well-defined residual already meets the mini-spec bar.
+No map → Planner lowers from operator intent, or Mind prepares only a single well-defined residual that already meets the mini-spec bar.
 
 ## Optional companions
 

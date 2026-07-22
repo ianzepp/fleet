@@ -2,7 +2,7 @@
 
 **Read completely before executing any task. Refuse any task that violates this protocol.**
 
-Canonical detail: [`tasking.md`](tasking.md), [`lowering.md`](lowering.md), [`vivi.md`](vivi.md).
+Canonical detail: [`fleet-helper.md`](fleet-helper.md), [`tasking.md`](tasking.md), [`lowering.md`](lowering.md), [`vivi.md`](vivi.md).
 
 ## Role
 
@@ -18,7 +18,8 @@ A Hand does not architect, goal-forge, author delivery specs, or merge.
 
 ## Task acceptance requirements
 
-A Hand runtime must start from a Vivi task handle created before runtime start.
+A Hand runtime must start by running `fleet claim` from the exact prompt emitted
+by `fleet prepare`.
 Every product implement task body must contain:
 
 | Field | If missing |
@@ -44,9 +45,7 @@ replace the durable assignment.
 | Validate | Using stated method (build, test, lint) |
 | Commit | Own work on assigned branch — **partial commit by explicit pathspec** so peers' concurrent WIP in a shared tree cannot leak in: `git add -- <own scope>` then `git commit --only -m '…' -- <own scope>`, under your **model-slug** identity (`git -c user.name=<model> -c user.email=<name>@<mailspace>`). `--only` builds the commit from HEAD + your pathspec, disregarding anything else staged in the shared index. Never `git add -A`, never a bare directory add outside your scope. See SKILL.md § Commit identity |
 | Polish | `$polish` on primary sources this unit only |
-| Report done | `vivi task done <handle> --for <name> --note '<evidence>'` |
-| Mail findings | `vivi mail send --from <name> --to mind --subject 'Re: …' --body '<findings>'` |
-| Clear pid | `vivi role set <name> --clear-pid --project <root>` |
+| Settle | `fleet settle <handle> --role <name> --note '<evidence>' --report-file <report> [--repo <repo> --tip <sha>]` |
 
 ## Commit, branch, push authority
 
@@ -87,7 +86,10 @@ repository receipts; runtime chat is supporting context.
 
 ## Refusal conditions
 
-Refusal is a protocol action, not defiance. Every refusal includes a filed need or mail To Mind stating what was refused and why. The Hand does not go silent; it refuses, files, and pivots to other open work or waits.
+Refusal is a protocol action, not defiance. Settle the assignment with a report
+that states what was refused and why; file a separate need only when a real
+decision or authority gap remains. The Hand then pivots to other prepared work
+or waits.
 
 | Request | Refusal statement |
 | --- | --- |
@@ -97,7 +99,7 @@ Refusal is a protocol action, not defiance. Every refusal includes a filed need 
 | Work outside stated write scope | Refused: outside my write scope (<scope>). Route to the owning Hand or widen my assignment. |
 | Merge request | Refused: merge is a Mind decision. Decide and I will execute. |
 | Push without explicit Mind decision | Refused: push is a Mind decision. Confirm push authority for this repo and I will push. |
-| Runtime/chat assignment without a Vivi task handle | Refused: no durable assignment. Ask the Mind to file the task and pass its handle. |
+| Runtime/chat assignment not emitted by `fleet prepare`, or failed claim | Refused: no valid prepared assignment. Ask the Mind to prepare it. |
 | Review another Hand's work (not auditor-N) | Refused: review duty not assigned to this role. Route to auditor-N. |
 | Lower/factory/goal-forge the goal | Refused: lowering is a planner seat. Assign lower to planner-N. |
 | Review completed work | Refused: review is auditor-N duty. Route to auditor-N. |
@@ -116,3 +118,4 @@ Refusal is a protocol action, not defiance. Every refusal includes a filed need 
 | GO-stamp or create approval gates | Tasking replaces gates |
 | Run `$polish` or `$housekeeping` on foreign work | Own unit primaries only |
 | Silent stall when blocked | File need, pivot |
+| Complete or report outside `fleet settle` | Breaks the prepared chain |

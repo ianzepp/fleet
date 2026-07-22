@@ -35,7 +35,7 @@ Output something in this shape — keep it short; link deeper sections rather th
 $fleet — multi-agent project loops (Abbot Mind / Head / Hand)
 
 What it is
-- Mind = this chat (ops): file work, wake Hands, integrate — not a tmux pane
+- Mind = this chat (ops): prepare work, wake roles, integrate — not a tmux pane
 - Hands = worker panes (tmux) that clear the board bag
 - Heads = advisors (research/review), not bag drain
 - Dual channel: Vivi board = work truth; tmux = process truth
@@ -279,13 +279,9 @@ unrecovered rather than reconstructing it from memory.
 ```bash
 vivi mailspace status --project "$ROOT"
 
-vivi task send --project "$ROOT" \
-  --from mind --to hand-1 \
-  --subject 'BOOT: confirm identity and open bag' \
-  --body 'Smoke task. done-when: listed open bag as hand-1 and confirmed cwd.'
-
-SK=<path-to-this-skill>/scripts
-python3 "$SK/fleet-sensors.py" --project "$ROOT" --text
+SK=<path-to-this-skill>
+python3 "$SK/scripts/fleet.py" --help
+python3 "$SK/scripts/fleet-sensors.py" --project "$ROOT" --text
 ```
 
 ### 2.7 Next step
@@ -380,15 +376,16 @@ If **operator→mind** mail or open/unread **To operator@** → present/absorb *
 
 - Prefer **`fleet-sensors.py --project $ROOT`** over hand-rolled dumps.
 - `running` → do not wake.
-- `waiting_for_input` / `completed` + open bag → doorbell via `tmux send-keys`. Codex uses a longer submit-settle delay.
+- `waiting_for_input` / `completed` + open prepared assignment → reprint its
+  captured prompt with `fleet prompt`, then use that exact text as the doorbell.
+  Codex uses a longer submit-settle delay.
 - `down` / `error_*` → recreate pane or runtime ladder — do not assume init case 2.
 
 ```bash
-# tmux backend — pointer doorbell:
-tmux send-keys -t "<tmux_target>" "HAND WAKE hand-1. Task <hex>. Load charter and task from Vivi." Enter
+# Reprint the canonical prompt for the existing handle:
+python3 "$SK/fleet.py" prompt --project "$ROOT" <handle>
 
-# vivi-pty backend:
-vivi-pty --project "$ROOT" terminal write <session-id> "HAND WAKE hand-1. Task <hex>." --enter
+# Deliver that exact output through the configured tmux or vivi-pty backend.
 
 # Codex recovery (if a tmux doorbell sticks): recreate the pane/session directly.
 ```
@@ -501,6 +498,7 @@ Wind-down: [`runtime-config.md`](runtime-config.md). Multi-fleet attach set: [`m
 | No fleet / first skill load | This file **§0** — brief operator; do not invent attach |
 | Vocabulary / cold attach | [`fleet-guide.md`](fleet-guide.md) (+ SKILL tokens table) |
 | Day-to-day Mind | parent [`SKILL.md`](../SKILL.md) |
+| Assignment transitions and gates | [`fleet-helper.md`](fleet-helper.md) |
 | absorb vs accept (canon) | [`mind-cycle.md`](mind-cycle.md) |
 | Board CLI (`vivi` commands) | [`vivi.md`](vivi.md) |
 | Board + panes | [`dual-channel.md`](dual-channel.md) |
