@@ -74,6 +74,34 @@ Each sub-agent:
 Non-overlap rule: no shared files, modules, lockfiles, or generated artifacts.
 If scopes collide, serialize or use a worktree.
 
+### Concurrent commits on a shared working tree
+
+Disjoint file scopes do not make concurrent commits safe on a shared tree. Every Hand sees every peer's in-progress files and commits against one shared `.git/index`; whichever Hand commits captures whatever is staged, no matter who staged it. Trained-helpfulness has been observed to override "stage only your own files" — a Hand finishing first stages siblings it can see and commits peers' WIP. Protocol prose does not reliably prevent this.
+
+| Parallel shape | Safe commit strategy |
+| --- | --- |
+| N Hands, N units, all commit, shared tree | **Partial commit** (below) |
+| Same file hot, or long divergent branches | One worktree per Hand |
+| Read-only / advisory sub-agents | Shared tree fine (no commits) |
+
+**Partial-commit contract (the default for disjoint scopes).** Each Hand commits only its own scope by explicit pathspec:
+
+```bash
+git add -- <own scope>
+git commit --only -m '…' -- <own scope>
+```
+
+`git commit --only -- <pathspec>` builds the commit from HEAD plus the named paths, **disregarding everything else staged in the shared index**. A peer's concurrently-staged files cannot be captured because they are not in the pathspec. Verified under adversarial timing: three concurrent Hands writing to one flat shared directory yielded three clean single-file commits with zero cross-contamination.
+
+Requirements and limits:
+
+- New files must be `git add`-ed first (`--only` rejects untracked pathspecs). The `add` touches the shared index; the `--only` commit ignores other entries there, so it stays safe.
+- The pathspec is a single explicit argument the task/boot supplies verbatim — far more enforceable than "stage carefully." The commit's file list can be auto-checked against the write scope.
+- Concurrent commits contend briefly on `.git/index.lock` / the ref; git serializes them. The loser retries with backoff (seconds) — not worktree-scale merge conflicts.
+- Two Hands editing the **same** file is real overlap: serialize or use a worktree. Partial commit only separates disjoint scopes.
+
+**Behavioral backstop:** never `git add -A`, never a bare directory add outside your scope.
+
 ## Long-running sub-agents
 
 Sub-agents are not limited to one-shot tasks. A sub-agent can:

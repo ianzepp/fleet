@@ -141,6 +141,24 @@ Push is the Mind's decision, not the Hand's default. The Mind knows per-repo dep
 | Railway-linked (manual deploy) | Safe to push when Mind approves |
 | No remote / local-only | Moot |
 
+### Commit identity (model slug, not role)
+
+Every role that commits does so under a git identity that records **which model** authored the change — not the role handle. `hand-1` vs `hand-2` is a scheduling accident (all Hands are equivalent floaters); the **model tier** is the real variable, and role capacity is mutable (a role can be capacity-stepped), so the model that actually authored a commit is otherwise unrecoverable from the role record later.
+
+```bash
+# role reads its own model from its Vivi record, then partial-commits its own scope:
+MODEL=$(vivi role show <name> --project <root> | awk '/model:/{print $2}')
+git add -- <own scope>
+git -c user.name="$MODEL" -c user.email="<name>@<mailspace>" commit --only -m '…' -- <own scope>
+```
+
+`--only` with an explicit pathspec builds the commit from HEAD plus your paths, **disregarding anything else staged in the shared index** — so concurrent Hands on one working tree cannot capture each other's files. This is the shared-tree parallel-commit contract (see [`subagent.md`](references/subagent.md)); it removes the need for a worktree when write scopes are disjoint.
+
+- **`user.name` = model slug** (`haiku`, `sonnet`, `deepseek-v4-flash`, `glm-5.2`). Makes `git shortlog -sn` read as capability contribution and `git log --author=<model>` pull exactly one tier's output — the audit-focus query the model-selection thesis wants (scrutinize cheap-tier work first).
+- **`user.email` = `<role>@<mailspace>`** — keeps the role queryable and is the attribution key: a **product** commit authored with `mind@…` is drift no legitimate flow produces.
+- **Per-commit `git -c`, not `git config --local`** — the default branch is shared `main`, and concurrent sub-agents on one worktree would race on local config; `-c` scopes the identity to that one invocation. (In an isolated worktree, `git config --local` at boot is equivalent.)
+- Provider matters? Use `user.name="<provider>/<model>"`. Never put the role in `user.name` — keep `hand-N` noise out of the capability view.
+
 ### What does not exist anymore
 
 - **`merges_to_main` field.** No per-Hand merge flag. Branch strategy is a Mind decision at assignment time.

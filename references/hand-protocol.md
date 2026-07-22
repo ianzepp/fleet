@@ -37,7 +37,7 @@ Refuse task bodies that substitute for a delivery spec: "see campaign GOAL and f
 | Verify delivery unit at cited path | Inspect before implementing |
 | Implement | Within stated write scope only |
 | Validate | Using stated method (build, test, lint) |
-| Commit | Own work on assigned branch |
+| Commit | Own work on assigned branch — **partial commit by explicit pathspec** so peers' concurrent WIP in a shared tree cannot leak in: `git add -- <own scope>` then `git commit --only -m '…' -- <own scope>`, under your **model-slug** identity (`git -c user.name=<model> -c user.email=<name>@<mailspace>`). `--only` builds the commit from HEAD + your pathspec, disregarding anything else staged in the shared index. Never `git add -A`, never a bare directory add outside your scope. See SKILL.md § Commit identity |
 | Polish | `$polish` on primary sources this unit only |
 | Report done | `vivi task done <handle> --for <name> --note '<evidence>'` |
 | Mail findings | `vivi mail send --from <name> --to mind --subject 'Re: …' --body '<findings>'` |

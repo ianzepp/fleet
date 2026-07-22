@@ -27,8 +27,8 @@ Disposition values are acted, delegated, escalated, deferred-valid, or
 sleep-valid. Evidence after the colon is required. A JSON object may be supplied
 with --dispositions-file instead of repeated flags.
 
-Steward: rearms only when fleet.json steward.enabled==true and baseline
-steward.armed==true.  Does NOT enable or arm steward.
+Steward: rearm is a no-op today (steward.sh removed); steward_rearmed is
+always recorded False. Steward state in baseline is still surfaced by sensors.
 
 Preserves last_hand_wake data (baseline bump reads only
 the fingerprint/runtime/head fields from the sensors blob).
@@ -154,7 +154,7 @@ def validate_dispositions(
 def cmd_close(args: argparse.Namespace, project: Path) -> int:
     scripts = _find_scripts_dir()
     try:
-        fleet_path_obj, _ = resolve_fleet_file(project, args.fleet, args.fleet_file)
+        fleet_path_obj, fleet = resolve_fleet_file(project, args.fleet, args.fleet_file)
     except FleetScopeError as exc:
         print("error: %s" % exc, file=sys.stderr)
         return 1
@@ -165,11 +165,9 @@ def cmd_close(args: argparse.Namespace, project: Path) -> int:
     else:
         baseline_path_obj = project / ".vivi" / "mind-baseline.json"
 
-    if not fleet_path_obj.is_file():
-        print("error: fleet.json not found at %s" % fleet_path_obj, file=sys.stderr)
-        return 1
-
-    fleet = load_json(fleet_path_obj)
+    # fleet.json is deprecated: resolve_fleet_file returns a synthetic dict built
+    # from Vivi role records when the file is absent. Use the resolved dict rather
+    # than reloading from disk, which would fail on the (now normal) no-file case.
     baseline_before = load_json(baseline_path_obj)
     try:
         current_cycle = int(baseline_before.get("last_cycle") or 0)
@@ -246,7 +244,7 @@ def cmd_close(args: argparse.Namespace, project: Path) -> int:
         return 1
 
     # Record the exact collected observation before advancing the baseline. The
-    # sensor logger redacts pane/mail content according to fleet.json policy.
+    # sensor logger redacts pane/mail content per sensor log config.
     sensor_module = _load_sensors_module()
     log_config = sensor_module.sensor_log_config(fleet, project)
     sensor_log = {"status": "disabled", "level": log_config.get("level")}
@@ -374,7 +372,8 @@ def cmd_close(args: argparse.Namespace, project: Path) -> int:
         return 1
     receipt["status"] = "closed"
     receipt["closed_at"] = now_iso()
-    receipt["steward_rearmed"] = steward_rearmed
+    # Steward rearm is a no-op today (removed/paused); record the honest value.
+    receipt["steward_rearmed"] = False
     receipt["baseline_after"] = {
         "last_cycle": updated.get("last_cycle"),
         "mind_mode": updated.get("mind_mode"),
