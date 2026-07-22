@@ -1,567 +1,367 @@
-# Wave execution with sub-agents
+# Wave planning and execution
 
-How to run a large parallel wave of work using sub-agent Hands, Planners, and
-Auditors. Covers the wave lifecycle, concurrent communication management,
-churn reduction, and operational patterns learned from multi-hour autonomous
-campaign execution.
+A wave is a bounded delivery interval for work that needs parallel Hands,
+rolling planner inventory, independent review, and an aggregate closeout.
 
-**Prerequisite reading:** [`subagent.md`](subagent.md) (backend mechanics),
-[`mind-cycle.md`](mind-cycle.md) (per-cycle ops), [`lowering.md`](lowering.md)
-(planner pipeline), [`mind-protocol.md`](mind-protocol.md) (delegation
-principle).
+**Invariant:** a wave admits only reality-audited READY goals, routes every
+role handoff through the Mind, and cannot close until aggregate evidence is
+reconciled.
 
----
+Read [`lowering.md`](lowering.md), [`mind-cycle.md`](mind-cycle.md), and the
+reference for the selected execution backend. This document defines wave
+control; it does not repeat role boot, runtime, or partial-commit mechanics.
 
-## When this applies
+## When to use a wave
 
-| Situation | Use this reference |
-| --- | --- |
-| Wave with 8+ delivery units across 3+ repos | Yes |
-| Wave with 2+ concurrent Hands + 2 Planners + 2 Auditors | Yes |
-| Single-repo, 1-2 unit factory loop | No — use `subagent.md` directly |
-| tmux/PTY backend | No — this is sub-agent specific |
+Use a wave when ordinary per-unit Fleet flow is not enough to keep dependency,
+write-scope, review, and campaign truth coherent. Typical signals are several
+concurrent Hands, multiple delivery graphs, shared hot files, cross-repo work,
+or a required aggregate review.
 
----
+A small low-risk batch can remain an ordinary Fleet loop. If the work does not
+need a freeze and evidence reconciliation, do not call it a wave.
+
+Campaign overlays set numeric seat, inventory, sampling, and lock thresholds.
+This reference intentionally does not make one campaign's numbers universal.
+
+## Planning clock
+
+Wave planning is rolling, not a phase that starts after the prior wave ends.
+
+```text
+bootstrap:  Wave 0 plans and audits the first READY inventory
+steady:     Wave N executes while planners lower Wave N+1
+boundary:   Wave N freezes, reconciles, and selects Wave N+1
+```
+
+Wave 0 is valid work. Idle product Hands are not starvation when the declared
+posture is planning-only and planners or auditors own the active gates.
+
+### Audited campaign lowering
+
+Use this path for every new campaign goal admitted to a wave. Already-lowered
+goals may be reused only when their intent, code facts, and delivery graph are
+still current. Small work that does not justify this path should remain an
+ordinary Fleet loop instead of becoming a wave.
+
+```text
+Mind -> Planner -> Mind -> Auditor -> Mind -> Planner -> Mind
+```
+
+| Handoff | Owner and output | Gate |
+| --- | --- | --- |
+| 1. Select | Mind selects one goal, states the invariant, horizon, authority, and decision owner | No raw campaign dump |
+| 2. Forge + check | Planner runs goal-forge and goal-check; writes the goal artifact and READY evidence | No delivery graph yet |
+| 3. Intent review | Mind accepts, rejects, or returns named intent gaps | Review intent and campaign fit, not code |
+| 4. Reality audit | Auditor checks the accepted goal against live code, authorities, dependencies, and validation claims | Report findings To Mind; do not edit planning artifacts |
+| 5. Disposition | Mind classifies every finding as blocking, required correction, accepted residual, or false finding | No direct Auditor -> Planner handoff |
+| 6. Delivery lower | Planner incorporates the Mind-routed findings and writes the ordered delivery graph | Cite each material finding's disposition |
+| 7. Admit | Mind checks the artifact receipt, READY verdict, dependency graph, write scopes, and review policy | Only then file product Hands |
+
+The Mind is the router at every boundary. Planner and Auditor sessions report
+To Mind because the Mind owns tasking, context continuity, and the next spawn.
+The Auditor supplies factual review; the Mind decides disposition; the Planner
+authors the corrected plan.
+
+For several goals, pipeline this chain across goals. Keep one Planner owner per
+goal or coherent theme. Batch only the Mind's short intent reviews; never merge
+unrelated goals into one lowering assignment.
+
+### READY admission packet
+
+Before launch, the wave must have:
+
+- bounded objective, non-goals, cutoff, and closeout decision owner;
+- baseline Git tips for every affected repository;
+- durable goal and delivery artifacts;
+- ordered unit and dependency graph;
+- exact write scopes and hot-file serialization rules;
+- validation commands and audit policy by risk family;
+- enough READY inventory to cover at least one planner turnaround; and
+- explicit blocked and no-Hand lists.
+
+READY inventory means implementable units, not goal documents or unchecked
+delivery drafts. Size the buffer from observed Hand drain and planner latency.
+Refill before the buffer can reach zero.
 
 ## Wave lifecycle
 
-A wave has five phases. The Mind owns all five; Hands/Planners/Auditors/Heads
-execute within them.
-
-```text
-Phase 1: PLANNING (planners + Heads)
-  └── Goal-forge → goal-check → auditor reality-check → delivery specs
-      └── Output: READY inventory on disk (8-15 delivery units)
-
-Phase 2: LAUNCH (Mind)
-  └── File initial Hands from READY inventory (non-overlapping write scopes)
-      └── Output: 4-6 concurrent sub-agents spawned
-
-Phase 3: EXECUTION (Hands + Planners + Auditors, concurrent)
-  └── Hands implement → commit → report
-  └── Planners lower next-wave inventory concurrently
-  └── Auditors review completed units
-  └── Mind routes completions, files next units, manages block_ships
-      └── Output: units land, audit, accept, repair, re-audit cycle
-
-Phase 4: FREEZE (Mind + Heads)
-  └── Declare freeze → no new Hand units
-  └── Auditors finish pending reviews
-  └── Heads sample aggregate diff (architecture + complexity)
-  └── Lock ledger rescore with evidence
-  └── Output: rescored locks, Head advisory reports
-
-Phase 5: OPERATOR REVIEW
-  └── Present rescored locks + Head findings to operator
-  └── Operator decides: unfreeze, adjust scope, or hold
-      └── Output: unfreeze → next wave begins at Phase 1
-```
-
-### Phase ordering is strict
-
-Phases 1 → 2 → 3 are sequential (planning before launch before execution).
-Phase 4 (freeze) is **mandatory** — it is not optional even when all units are
-accepted. Phase 5 (operator review) requires the freeze outputs.
-
-**Common failure:** declaring "wave complete" and skipping the freeze. The
-freeze provides aggregate-level review (Head architecture sampling, lock
-rescore) that individual unit audits cannot provide.
-
----
-
-## Concurrent role management
-
-During Phase 3 (execution), multiple roles run concurrently on different
-clock positions:
-
-```text
-time ─────────────────────────────────────────────────────►
-
-Planners    ████████ lowering next wave ████████ done
-Hands       ──────── implementing ──── commit ── done ── next
-Auditors    ────────────────────────── reviewing ── verdict
-Heads       ───────────────────────────────────────── sample (freeze only)
-Mind        route route route route route route route route route
-```
-
-### Role concurrency rules
-
-| Role | Concurrency | Communication |
+| Phase | Mind action | Exit evidence |
 | --- | --- | --- |
-| Planners | 2 parallel (non-overlapping goals) | Report READY To mind when spec lands |
-| Hands | 4-6 parallel (non-overlapping write scopes) | Report done + mail To mind on completion |
-| Auditors | 2 parallel (different units) | Report verdict To mind |
-| Heads | 2-3 at freeze only | Advisory reports To mind |
-| Mind | 1 (serial routing) | Files tasks, absorbs mail, routes verdicts |
+| **Prepare** | Complete admission; record baseline, policies, and cutoff | READY packet exists |
+| **Launch** | File a bounded burst that fits capacity and non-overlapping scopes | Active assignment ledger |
+| **Flow** | Route completions, audits, repairs, and refills; planners build the next inventory | Every signal has a disposition |
+| **Drain** | Stop new implementation filing at the cutoff; finish or park in-flight work | No unclassified in-flight unit |
+| **Freeze** | Reconcile audit debt, aggregate findings, campaign state, repo evidence, and decisions | Freeze receipt passes |
+| **Close** | Decision owner closes, extends, or holds the wave; clean transient state | Next posture is explicit |
 
-### Write-scope collision check
+Prepare precedes Launch. Flow is event-driven. Drain and Freeze are mandatory
+for anything named a wave. A failed freeze reopens the same wave as an explicit
+repair extension; it does not become a successful closeout.
 
-Before filing any Hand, verify the unit's write scope does not overlap with
-any currently assigned Hand's write scope. If it does:
-- File a different unit
-- Wait for the blocking Hand to commit
-- Serialize the two units
+## Role clocks
 
-The write-scope matrix is the Mind's responsibility — no Hand enforces it.
-
-```text
-# Example collision check before filing
-hand-5: radix/crates/radix-mir-wgsl/src/lib.rs  (d-p-01 S1)
-hand-2: radix/crates/radix/src/driver/mod.rs    (d-a-02 S1)
-hand-6: faber/crates/exempla/                   (d-p-02)
-→ No overlap. Safe to file all three concurrently.
-```
-
----
-
-## Communication management during a wave
-
-A large wave generates significant communication volume. Wave 1 of mir-swarm
-produced ~200 mail items, ~75 commits across 7 repos, and ~50 verdicts over
-~55 active cycles. Managing this without drowning requires discipline.
-
-### The three communication channels
-
-| Channel | What it carries | Mind action |
+| Role | Looks at | Does not own |
 | --- | --- | --- |
-| Sub-agent completion notification | "I'm done" signal | Read output, verify, route |
-| Vivi mail (To mind) | Verdicts, reports, findings | Absorb after processing |
-| Git commits | The actual work | Verify scope, accept or audit |
+| **Mind** | Board, dependencies, write scopes, review debt, cutoff, dispositions | Product implementation, test execution, planning authorship, code review |
+| **Planner** | Selected next-wave goal and routed audit findings | Product source, Hand filing, direct Auditor coordination |
+| **Hand** | One admitted delivery unit or bounded repair | Raw campaign lowering, acceptance |
+| **Auditor** | Planning reality-check or selected landed unit | Planning corrections, product repair, acceptance |
+| **Head** | Aggregate architecture, priority, or complexity trends | Unit review, GO stamp, unfreeze decision |
 
-### Processing a completion
+Concurrency is bounded by the smallest real bottleneck: write scopes, planner
+refill rate, audit capacity, or Mind routing bandwidth. A nominal Hand cap is
+not a target.
 
-When a sub-agent completes, process in this order:
+Before filing, record each active unit's exact scope. If scopes overlap, file a
+different unit, serialize them, or use a Mind-created isolated branch/worktree.
+Do not rely on a mental collision table during a long wave.
 
-1. **Read the sub-agent output** (the short pointer)
-2. **Verify the commit** — `git show <sha> --stat`, check scope
-3. **Classify** — is this an accept-on-evidence, needs-audit, or block?
-4. **Route** — file auditor task if needed; file next unit to the freed Hand
-5. **Absorb the mail** — `vivi mail absorb <handle> --for mind`
+## Communication during a wave
 
-Never absorb mail before processing the completion. The mail is the durable
-record; the sub-agent output is the working signal.
+A completion has three surfaces:
 
-### Absorbing mail
+| Surface | Meaning |
+| --- | --- |
+| Runtime notification | Wake signal only |
+| Vivi task and mail | Durable assignment, evidence, verdict, and disposition trail |
+| Git receipt | Repository fact: commit, diff, and tip |
 
-Mail accumulates fast during dense cycles. Absorb promptly to keep the inbox
-clean:
+Process a completion by task handle plus commit receipt. Read the report,
+confirm that the receipt exists and matches the declared scope, route required
+review or repair, update dependency and scope state, then absorb the Mind's
+mail. A repeated notification is duplicate only when the same task handle and
+receipt already have a recorded disposition.
 
-```bash
-# Per-item (when reading verdicts)
-vivi mail absorb <handle> --for mind --project <root>
+Never bulk-absorb unread mail. Absorption means the recipient read and
+processed that item; it is not inbox cleanup or memory. Do not absorb mail for
+another role merely to make counters green.
 
-# Bulk (for stale notifications already processed inline)
-vivi mail list --for mind --project <root> | grep "absorbed=false" | awk '{print $1}' | while read h; do
-  vivi mail absorb "$h" --for mind --project <root>
-done
-```
+Keep durable state in artifacts and Vivi handles:
 
-**When to bulk-absorb:** after processing completions inline (the mail items
-are stale confirmations of what you already handled). **When not to
-bulk-absorb:** when you haven't read the verdict yet — always read before
-absorbing.
+- active unit: task handle, role, scope, dependency, branch, expected receipt;
+- review debt: auditor task handle and policy reason;
+- repair chain: source verdict, repair task, re-audit task;
+- planning state: goal artifact, audit report, delivery artifact; and
+- freeze state: baseline tips, cutoff, unresolved signals, closeout receipt.
 
-### Duplicate completion notifications
+## Flow loop
 
-Sub-agent completion notifications can arrive multiple times for the same
-unit (harness re-delivery). Track what you've already processed:
+During active execution, the Mind repeats a short routing loop:
 
-```text
-hand-5 landed d-spine-01 S1 (aead2be51). Filed auditor-1 review.
-→ Later notification for same sub-agent_id = duplicate. No action.
-```
+1. Observe completions, mail, runtime failures, dependencies, and repo tips.
+2. Give every material signal a Fleet disposition.
+3. Route required audits before accepting the affected unit.
+4. On a finding, file one bounded repair with the exact finding, expected
+   behavior, scope, and validation.
+5. Re-audit required repairs. Do not treat a repair author's validation as
+   independent verification.
+6. Free the completed scope and file the next qualified READY unit when
+   capacity, inventory, cutoff, and policy allow.
+7. Refill through Planners before READY inventory reaches the configured floor.
 
-The git commit SHA is the authoritative signal. If you've seen the SHA, the
-unit is processed regardless of how many notifications arrive.
+Sub-agent completion events drive the loop; the scheduled cadence is only a
+backup. Use the adaptive cadence in [`mind-cycle.md`](mind-cycle.md), not
+wave-specific hard-coded intervals.
 
----
+### Audit policy
 
-## Churn management
+Define review classes before launch. Always review architecture, authority,
+security, persistence, ABI, shared spine, and prior-repair work unless a
+stronger project policy applies. Sample genuinely low-risk families with a
+recorded rotation.
 
-Churn is the enemy of a long wave. Every unnecessary context switch, redundant
-verification, or duplicate processing burns Mind context that should go to
-routing decisions.
+Auditor scarcity creates review debt, not permission to waive the policy. A
+unit can land while review is queued, but it cannot be accepted while its
+required review remains open. If a sampled unit fails, escalate the family and
+inspect in-flight or pending siblings for the same defect pattern.
 
-### Source 1: Block_ship repair cycles
+The Mind does not reproduce builds, tests, or code review. Route suspicious
+validation claims to an Auditor or a bounded verification Hand. This preserves
+independence and keeps the Mind on the routing clock.
 
-**Pattern:** auditor block_ship → repair filed → repair lands → re-audit →
-possibly another block_ship → repair again.
+### Repair discipline
 
-**Management:**
-- After a block_ship, read the auditor report fully before filing repair
-- Include the specific findings + fix directions in the repair task body
-- For systemic patterns (e.g., dead code, test exclusion), check sibling units
-  from the same Hand for the same risk before they land
-- Verify compile claims independently (`cargo build` in Mind shell) before
-  filing re-audit — a false build claim wastes an audit cycle
+After a systemic `block_ship`:
 
-**Block_ship chain example:**
-```text
-d-a-03 U1 original → block_ship (UB FFI)
-  → 1st repair → block_ship (E0502 borrow conflict, lib doesn't compile)
-    → 2nd repair → clean_pass
-```
+1. stop filing the affected family or scope;
+2. identify siblings exposed to the same assumption;
+3. amend their packet criteria or file focused audits;
+4. route the smallest coherent repair; and
+5. resume normal sampling only after independent clean evidence.
 
-Three audit cycles on one unit. The 2nd block_ship was preventable: the Mind
-should have run `cargo build` before filing re-audit.
+If a Planner or Hand reports a missing commit, return the artifact to that role
+for a correct receipt. The Mind never commits another role's work or impersonates
+its identity. New files must be added before a path-scoped commit; backend boot
+and commit details remain in the role and backend references.
 
-### Source 2: Stale mail accumulation
+## Unit packet
 
-**Pattern:** during dense cycles, 10-20 mail items accumulate between
-absorption passes.
-
-**Management:**
-- Absorb after each completion processing (not at end of cycle)
-- Bulk-absorb stale items at cycle start if count > 10
-- Never let inbox exceed ~50 unabsorbed items
-
-### Source 3: Write-scope serialization
-
-**Pattern:** two units need the same file; one must wait.
-
-**Management:**
-- Track active write scopes in a mental table (or baseline field)
-- When a Hand completes, immediately check if its freed scope unblocks a
-  waiting unit
-- File the unblocked unit same-turn, not next cycle
-
-### Source 4: Planner spec commit failures
-
-**Pattern:** `git commit --only` rejects untracked files (new delivery specs).
-Planner creates the file, reports done, but the commit silently fails.
-
-**Management:**
-- Add `git add <file>` before `git commit --only` in planner spawn prompts
-- After planner completion, verify the commit exists with `git log --oneline -1`
-- If uncommitted, Mind commits the spec under the planner's identity
-
-### Source 5: Auditor availability gating
-
-**Pattern:** both auditors busy with spine units; leaf units pile up unaudited.
-
-**Management:**
-- Track audit sampling rotation per family (spine: always; leaf: every 3rd;
-  exempla: 1/batch; HV: every 4th)
-- When both auditors are busy, queue the audit (don't accept on Hand evidence
-  alone for units above sample threshold)
-- Prioritize auditor tasks by risk: spine > A-rail > leaf > test-only
-
----
-
-## Task body quality
-
-The task body is the Hand's only instruction. A vague task body produces
-scope creep, missed requirements, and block_ships. A precise task body
-produces clean units.
-
-### Required fields in every Hand task body
+Every product task cites one admitted delivery unit and contains only the
+context needed to execute it:
 
 ```text
-Unit: <delivery-id> Stage <N> (<rail>, <model class>)
-Delivery spec: <path> (read <section> section in FULL)
-Campaign: <path> (<goal-id>)
-Depends on: <prior stage commit or "none">
-
-DONE-WHEN:
-- <numbered criteria from the delivery spec>
-
-WRITE SCOPE (<scope type>):
-- <exact file paths>
-
-FORBIDDEN:
-- <files the Hand must not touch>
-
-VALIDATION: <cargo test commands>
-
-BRANCH: main (<repo>)
-MODEL CLASS: <mechanical|judgement>
-AUDIT: <always|sample|deferred>
-
-Read hand-protocol.md: /path/to/hand-protocol.md
-Report done via vivi task done + vivi mail send To mind.
+unit: <delivery unit id and artifact path>
+goal: <goal id and campaign path>
+depends_on: <task handles or none>
+done_when: <numbered behavioral criteria>
+write_scope: <exact paths or owned tree>
+read_scope: <needed context outside write scope>
+forbidden: <explicit exclusions>
+validation: <exact commands or evidence>
+branch: <main, feature branch, or worktree>
+model_class: <capacity reason>
+audit: <policy class and family counter>
 ```
 
-### Include the P3 audit corrections
-
-If the delivery spec has a "P3 audit corrections" section, cite it in the
-task body. These are hot-file or write-scope gaps that the delivery audit
-caught. The Hand needs to know about them before starting.
-
-### Include block_ship context for repairs
-
-When filing a repair task, include:
-- The specific auditor findings (not just "fix auditor report")
-- The fix direction from the auditor
-- The write scope (same as original)
-- **Verify compile claims independently** before filing re-audit
-
----
-
-## Cycle pacing during a wave
-
-### Active wave (Phase 3)
-
-- Cadence: **15m** (base for sub-agent fleets during active execution)
-- Every cycle: absorb mail, check for completions, route verdicts, file next
-  units
-- The scheduler is the backup; sub-agent completions are the primary driver
-- Tighten to 5-10m if multiple completions pile up
-
-### Freeze (Phase 4)
-
-- Cadence: **15m** (short — freeze agents in flight)
-- Process: wait for rescore + Head samples, then present to operator
-
-### Post-wave idle (Phase 5 waiting for operator)
-
-- Cadence: lengthen per quiet_streak table
-- quiet_streak 3 → 30m; quiet_streak 7 → 1h; quiet_streak 11+ → consider
-  stopping scheduler
-
-### Operator re-engagement
-
-- Reset cadence to base (15m) when operator speaks
-- Switch from autonomous to interactive mode
-- Cancel the idle scheduler; arm a new one when work is delegated
-
----
-
-## Spawn prompt essentials
-
-Every sub-agent spawn prompt must include:
-
-```text
-You are fleet role <name> (<class>, <model>@<thinking>).
-
-Read your role protocol before acting:
-  <absolute path to protocol>
-
-Load your charter:
-  vivi role charter show <name> --project <root>
-
-Load your task:
-  vivi task show <handle> --project <root>
-  (run vivi task list --for <name> --project <root> first if handle unknown)
-
-Register pid:
-  vivi role set <name> --pid $$ --project <root>
-
-Project root: <root>
-Assignment: <one-line description>
-
-<task body or pointer to task>
-
-IMPORTANT COMMIT NOTE: New files must be git add-ed BEFORE committing:
-  git add <file>
-  git <identity> commit --only -m '...' -- <file>
-
-When done:
-  vivi task done <handle> --for <name> --note '<evidence>' --project <root>
-  vivi mail send --from <name> --to mind --subject 'Re: <subject>' --body '<findings>' --project <root>
-  vivi role set <name> --clear-pid --project <root>
-
-For long bodies use --body-file <path>; do not pipe stdin.
-Run one vivi command per shell call.
-
-Commit identity:
-  git -c user.name="<model-slug>" -c user.email="<name>@<mailspace>" commit --only -m '...' -- <pathspec>
-
-Return only a short pointer.
-```
-
-### Key spawn prompt rules
-
-- **Name the protocol**: the sub-agent must read its role protocol before
-  acting. State the absolute path.
-- **Include the task handle**: the sub-agent loads its own task from Vivi.
-  If the handle is unknown, instruct it to `vivi task list --for <name>`.
-- **git add for new files**: always include the commit note for new files.
-  This prevents the `--only` untracked-file gotcha.
-- **Model slug in commit identity**: `user.name` is the model slug
-  (`deepseek-v4-flash`, `glm-5.2`), not the role handle. This makes
-  `git log --author=<model>` pull exactly one tier's output.
-- **Short pointer return**: the sub-agent returns only a short pointer
-  ("Done. Commit `<sha>`. Mail `<handle>`."). The detailed report lives in
-  Vivi.
-
----
+For a repair, replace general context with the source verdict handle, exact
+finding, required behavior, scope, and re-audit requirement. Do not tell a Hand
+to "fix the audit report."
 
 ## Wave freeze (mandatory)
 
-The freeze is a formal gate between waves. It is **not optional**, even when
-all units are already accepted.
+Freeze is the aggregate truth gate that unit flow cannot provide. Declare it
+before the current wave is called complete, even when all known units appear
+accepted.
 
 ### Freeze sequence
 
-1. **Declare freeze** in baseline. No new Hand units filed.
-2. **Hands complete current units.** No new assignments.
-3. **Auditors finish pending reviews.**
-4. **Mind accept pass.** Accept clean units; route residuals.
-5. **Heads sample wave tip.** File head-cto (architecture) and head-cxo
-   (complexity) samples on the aggregate wave diff. Advisory only — do not
-   block unfreeze.
-6. **Lock ledger rescore.** File a doc Hand to update `lock-levels.md` with
-   evidence from wave commits. Every changed row cites its evidence commit(s).
-7. **Operator review.** Present rescored locks + Head findings. Operator
-   decides unfreeze.
+1. Record the cutoff and baseline-to-tip range for every affected repository.
+2. Stop filing new implementation units. Finish, cancel, or explicitly park
+   each in-flight assignment.
+3. Complete required audits and re-audits. Classify every landed unit as
+   accepted, pending review, repair, reverted, or excluded from the wave.
+4. Route aggregate Head samples for architecture, priority, or complexity as
+   the campaign requires.
+5. Give every Head finding a disposition. Advisory means Heads do not own the
+   gate; it does not mean the Mind may ignore their evidence.
+6. Reconcile campaign artifacts, dependency state, lock or capability ledgers,
+   validation receipts, and repo tips against the accepted unit set.
+7. Produce the retrospective and freeze receipt. Present material decisions to
+   the named decision owner.
+8. Close, hold, or reopen the same wave for a bounded repair extension.
 
-### What the freeze provides that per-unit audits cannot
+Do not land new spine or product behavior inside the freeze. If a blocking
+repair is required, record the failed freeze, reopen execution for that repair,
+then run the freeze again.
 
-- **Aggregate architecture review**: do the spine design docs form a
-  consistent law set? Do any units contradict each other?
-- **Pattern analysis**: block_ship patterns (e.g., "dead code + test
-  exclusion" recurring) reveal systemic issues
-- **Evidence-based lock rescore**: chat estimates are not sufficient — the
-  rescore ties percentages to specific commits
-- **Clean breakpoint**: the operator gets a moment to review before the next
-  wave starts
+### Freeze receipt
 
----
+The receipt must name:
 
-## Operational lessons (from Wave 1 of mir-swarm)
+- baseline and final tips per repository;
+- admitted, landed, accepted, repaired, pending, and excluded units;
+- zero required review debt; list optional review debt and its disposition;
+- validation evidence and known red or unrun checks;
+- aggregate findings with dispositions;
+- campaign and ledger changes with evidence;
+- unexplained or foreign dirt without altering it;
+- unresolved operator decisions; and
+- the next posture: launch, hold, planning-only, or campaign close.
 
-These are concrete lessons from a 3-hour, 13-goal, 41-unit wave. They are not
-universal rules — they are patterns that recurred.
+No chat estimate substitutes for this receipt.
 
-### After a systemic block_ship, check siblings
+## Retrospective
 
-When a block_ship reveals a systemic pattern (e.g., "correct math but missing
-integration"), scan all in-flight and pending units from the same Hand for the
-same risk. Add explicit verification criteria to their task bodies.
+The Mind may assemble the retrospective, but a reviewer independent of the
+implementation and routing work should validate material claims. A
+self-authored narrative is useful evidence, not an objective audit.
 
-**Example:** d-a-02 S4 block_ship (prove_reduction_companion zero callers)
-should have triggered a check on d-a-02 S5 (prove_matmul_companion). It
-didn't — S5 landed with the identical defect.
+Separate facts from interpretations:
 
-### Verify compile claims independently
-
-For any Hand claiming "cargo build passes" or "N/N tests pass", run the
-command in the Mind's own shell before filing re-audit. Takes seconds, prevents
-false-assurance cycles.
-
-### Track what you've already processed
-
-Sub-agent completion notifications can duplicate. Git commit SHAs are
-authoritative. If you've seen the SHA, the unit is processed — ignore further
-notifications for the same sub-agent ID.
-
-### File the next unit immediately on Hand free
-
-When a Hand completes and its write scope frees up, file the next unit from
-READY inventory **same turn**, not next cycle. Idle Hands during active waves
-is lost throughput.
-
-### Use the right model class
-
-- **Volume Hands** (`deepseek-v4-flash`): mechanical units (match arms,
-  metadata, test additions, doc edits)
-- **Judgement Hands** (`deepseek-v4-pro`): design docs, autograd VJPs, AIR
-  proofs, multi-file stacks
-- **Planners** (`deepseek-v4-pro`): goal-forge, delivery lowering
-- **Auditors** (`glm-5.2`): independent adversarial review
-
-Filing a judgement unit to a volume Hand produces block_ships. Filing a
-mechanical unit to a judgement Hand wastes scarce capacity.
-
-### Don't over-file during the launch burst
-
-At wave launch, file 4-6 concurrent Hands (not 12). Let the first wave of
-completions arrive before filing more. This keeps the Mind's context
-manageable and prevents write-scope collisions from cascading.
-
----
-
-## Post-wave cleanup (mandatory)
-
-After the freeze completes and the operator reviews, run a cleanup cycle
-before the next wave begins. This prevents transient state from accumulating
-across waves and keeps the board, mail, and memory surfaces honest.
-
-### Cleanup checklist
-
-Run each item across **all roles** (mind, heads, planners, auditors, hands):
-
-| Surface | What to clean | How |
+| Class | Examples | Evidence |
 | --- | --- | --- |
-| **Memos** | Retire transient status/cycle-dispatch. Keep only durable law, policy, capacity, and milestone memos that would matter after a cold boot. | `vivi memo list --for <role>` → review → `vivi memo delete <handle> --for <role>` for each transient one |
-| **Tasks** | Close any stale tasks (completed but not marked done, obsolete, or superseded). | `vivi task list --for <role>` → `vivi task done <handle> --for <role> --note 'stale: <reason>'` |
-| **Needs** | Review open needs — close resolved ones, keep genuine open decisions. | `vivi need list --for <role>` → close or keep |
-| **Wants** | Close resolved residuals and obsolete items. Keep genuine follow-ups. | `vivi want list --for <role>` → `vivi want done <handle> --for <role> --note 'resolved: <reason>'` |
-| **Mail** | Absorb all unabsorbed mail across every role. | `vivi mail list --for <role>` → bulk absorb everything `absorbed=false` |
+| **Measured fact** | unit count, task duration, verdict count, commit range | Vivi query, task handle, Git receipt |
+| **Reviewed fact** | defect class, false premise, scope collision avoided | Auditor or Head report |
+| **Inference** | a gate saved time, a model was mismatched, a buffer was healthy | Reasoning plus counterevidence |
+| **Unknown** | missing timing, unrecorded idle, unverifiable causal claim | State unknown; do not estimate as fact |
 
-### Memo retention test
+Use one compact structure:
 
-A memo earns its place only if **both** tests pass:
+1. objective and outcome against the admission packet;
+2. evidence table of scope, receipts, validation, and audit results;
+3. process deviations, impact, and detection source;
+4. recurring patterns across units, not anecdotes alone;
+5. changes to protocol, packet, capacity, or policy;
+6. owner and next-wave check for every change; and
+7. residual risks and unresolved decisions.
 
-1. Would losing this across a cold boot cause a worse decision?
-2. Can it be recovered from a Vivi handle, git history, or a document instead?
+Avoid vanity throughput metrics without a derivation. Do not say an audit
+"caught N errors before delivery" unless the report defines what counts as an
+error, names the reports, and separates blocking findings from notes. Do not
+claim causal savings from defects that were never allowed to proceed.
 
-If yes to #2, it belongs in a document or compaction pointer — not a memo.
-Transient routing state (cycle dispatch, per-commit status, Hand progress,
-audit results) is **loop state**, not memory.
 
-Typical memo survivors after cleanup: 5-10 durable items (law, policy,
-capacity bindings, campaign milestones, operator mandates).
+## Closeout cleanup
 
-### Bulk mail absorption
+Cleanup reconciles wave-owned transient state before the next launch. It does
+not erase history or normalize the shared workspace.
 
-During a dense wave, mail accumulates across all roles — not just Mind. A
-3-hour wave with 12 concurrent agents can produce 300+ mail items. Bulk-absorb
-at cleanup time:
+- Close or supersede wave-owned tasks, needs, and wants with a reason.
+- Absorb only mail that the recipient actually processed.
+- Keep durable decisions in campaign artifacts or memos; remove transient
+  routing memos only after their facts are recoverable from handles.
+- Record foreign dirt and leave it untouched.
+- Confirm no wave-owned uncommitted change is unexplained.
+- Run the repository's declared closeout validation through a Hand and attach
+  its receipt. State red or skipped checks explicitly.
+- File bounded maintenance when the freeze finds it. Do not make a full
+  `$housekeeping` pass an automatic part of every wave; it can create unrelated
+  work and obscure the wave diff.
 
-```bash
-for role in mind head-ceo head-cto head-cxo head-cso head-cmo head-cpo \
-            planner-1 planner-2 auditor-1 auditor-2 \
-            hand-1 hand-2 hand-3 hand-4 hand-5 hand-6; do
-  vivi mail list --for "$role" --project <root> | grep "absorbed=false" | awk '{print $1}' | while read h; do
-    vivi mail absorb "$h" --for "$role" --project <root>
-  done
-done
+"Clean" means wave-owned state is explained and reconciled. It does not mean
+every shared tree and every role inbox is globally empty.
+
+## Failure patterns
+
+| Failure | Correction |
+| --- | --- |
+| Hands launch from raw campaign bullets | Return to audited lowering or standard lowering |
+| Planner and Auditor coordinate directly | Route report and disposition through Mind |
+| Fixed seat or READY counts treated as universal | Derive limits from current bottlenecks and campaign policy |
+| Mind runs tests, reviews code, or commits role work | File verification, audit, or receipt repair to the correct role |
+| Audit policy waived because Auditors are busy | Queue review debt; do not accept early |
+| Same defect recurs in a sibling unit | Pause family, inspect siblings, amend packets, escalate sampling |
+| Completion inferred from notification or SHA alone | Reconcile task handle, report, receipt, and scope |
+| Freeze skipped because units look done | Run aggregate reconciliation before declaring completion |
+| Head report labeled advisory and ignored | Mind records a disposition and owns the decision |
+| Bulk absorption used as cleanup | Read and process per recipient; preserve unresolved signals |
+| Full housekeeping automatically follows every wave | Run declared closeout checks; file separate maintenance only when justified |
+| Retrospective repeats Mind's narrative as fact | Independent review; label measured facts, inferences, and unknowns |
+
+## Quick checklist
+
+```text
+PREPARE
+[ ] objective, cutoff, decision owner, baselines
+[ ] audited READY artifacts and no-Hand list
+[ ] dependency, scope, validation, audit, and inventory policy
+
+FLOW
+[ ] every signal dispositioned
+[ ] review debt tracked; required audits before accept
+[ ] systemic failures propagated to sibling packets
+[ ] planners refill ahead of drain
+
+FREEZE
+[ ] filing stopped; in-flight work classified
+[ ] accepted set and repo tips reconciled
+[ ] aggregate findings dispositioned
+[ ] ledgers, validation, retrospective, and freeze receipt complete
+
+CLOSE
+[ ] decision owner chose close, hold, or repair extension
+[ ] wave-owned board, memory, mail, and dirt reconciled
+[ ] next posture and next READY inventory explicit
 ```
-
-### Tree hygiene (housekeeping)
-
-A wave should leave the working tree **clean and green** before the next wave
-begins. Run `$housekeeping` on each repo that received wave commits. This is
-part of the post-wave cleanup, not optional.
-
-The default is: every wave ends with housekeeping. The only exception is a
-wave that **deliberately** leaves something broken (e.g., a red test that
-documents a known gap for the next wave to fix) — and that is bad wave design.
-If the tree is red after a wave, the freeze failed to catch it.
-
-**What housekeeping covers** (per the `$housekeeping` skill):
-- `cargo fmt` / formatter output committed (Class A dirt)
-- `cargo clippy` / lint passes
-- Build verification
-- Test suite green
-- README / docs truth
-- Hygiene ratchet
-
-**Filing pattern:** file one `$housekeeping` task per repo that received
-commits during the wave. Use a doc Hand or `hand-1` on main checkout. Serial
-per repo (housekeeping touches the whole tree, so no parallelism within a
-repo).
-
-**Do not** skip housekeeping to save time. A wave that leaves 199 uncommitted
-formatter changes, stale lint warnings, or a red test suite transfers debt to
-the next wave — where it will cost more context to diagnose and fix.
-
-### When to run cleanup
-
-- **Always** after wave freeze + operator review (before next wave launch)
-- **Optionally** during long idle periods (quiet_streak 5+) if mail has
-  accumulated
-- **Never** during active execution — cleanup mid-wave risks absorbing
-  verdicts before processing them
-
----
 
 ## Related references
 
 | Reference | Covers |
 | --- | --- |
 | [`subagent.md`](subagent.md) | Sub-agent backend mechanics (spawn, completion, partial-commit) |
+| [`tmux.md`](tmux.md) | Persistent tmux backend mechanics |
+| [`vivi-pty.md`](vivi-pty.md) | Structured PTY backend mechanics |
 | [`mind-cycle.md`](mind-cycle.md) | Per-cycle operations (sensors, dispositions, absorb/accept) |
 | [`lowering.md`](lowering.md) | Planner pipeline (goal-forge → delivery) |
 | [`model-selection.md`](model-selection.md) | Model class routing by unit shape |

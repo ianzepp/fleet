@@ -800,4 +800,4 @@ follow the normal disposition gate and baseline bump rules.
 
 Periodic Mind/scout only help while product moves, residuals open, or panes need liveness. Empty tasking + flat trees + healthy idle panes → quiet or back off. Do not "keep the campaign alive" with restated plateaus after Hand exited — restart Hand, select next map package, back off, or stop.
 
-For managing a large parallel wave (8+ concurrent units, dense communication cycles, block_ship chains), see [`wave.md`](wave.md) — covers the full wave lifecycle, concurrent role management, churn reduction patterns, and the mandatory freeze sequence.
+For a bounded parallel wave that needs audited campaign lowering and aggregate closeout, see [`wave.md`](wave.md). It defines rolling inventory, execution flow, freeze evidence, and retrospective discipline.

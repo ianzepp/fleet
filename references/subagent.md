@@ -38,16 +38,16 @@ vivi role show <name> --project <root>
 
 Map the capacity (provider/model/thinking) to the harness's available model slugs. The mapping is harness-specific. When no clean mapping exists, substitute the closest fit or pause to ask the operator — do not silently spawn on the wrong model class.
 
-## Spawn → completion → verify flow
+## Spawn → completion → disposition flow
 
 ```text
 1. Mind files task:        vivi task send --from mind --to <name> --subject '...' --body '...'
 2. Mind spawns sub-agent:  thin boot with role + task handle
-3. Sub-agent runs:         reads task, writes code, validates, reports
+3. Sub-agent runs:         reads task, executes, validates, commits, marks done, reports
 4. Sub-agent completes:    notification arrives to Mind
-5. Mind verifies:          inspect diff, run tests, check commit
-6. Mind closes task:       vivi task done <handle> --for <name> --note '...'
-7. Mind files next unit    (if pipeline has more)
+5. Mind reconciles:        report + task handle + commit receipt + declared scope
+6. Mind routes:            audit, repair, accept, or next unit under policy
+7. Mind absorbs mail:      only after the report has a disposition
 ```
 
 Step 4 is the key difference: the Mind does not poll. The sub-agent's completion
@@ -167,4 +167,4 @@ Tighten only if sub-agents are getting stuck or the operator is engaged.
 
 tmux and vivi-pty references: [`tmux.md`](tmux.md), [`vivi-pty.md`](vivi-pty.md).
 
-For running a large parallel wave (8+ units, multiple concurrent Hands + Planners + Auditors), see [`wave.md`](wave.md) — covers lifecycle, communication management, churn reduction, and the mandatory freeze sequence.
+For a bounded parallel wave that needs audited campaign lowering and aggregate closeout, see [`wave.md`](wave.md). Backend mechanics remain here; wave control lives there.

@@ -16,7 +16,7 @@ Abbot **Mind / Head / Hand** roles on a **multi-session fleet** (Vivi board + ex
 | **Head** | Advise / report on cadence — not bag drain | **`head-ceo` / `head-cto` / `head-cxo`** (+ optional org Heads). Carries cadence |
 | **Planner** | Goal-forge and delivery lowering | **`planner-1`…`planner-N`** (Hands with planning duty; **`$campaign`** + **`$delivery`**; mid-tier) |
 | **Hand** | Execute work (implement only) | **`hand-1`…`hand-N`** (product implementers; all Hands are equivalent floaters; low-tier) |
-| **Auditor** | Review completed work | **`auditor-1` / `auditor-2`** (Hands with review duty; **`$auditor`**; high-tier) |
+| **Auditor** | Review completed work; reality-check planning when assigned | **`auditor-1` / `auditor-2`** (Hands with review duty; **`$auditor`**; high-tier) |
 
 ## Execution model
 
@@ -193,7 +193,7 @@ Reporting a blocker without acting, delegating, escalating, or recording a valid
 | **steward** | optional opt-in | configured runtime | Dead-man, not Mind — **off by default**; operator must enable+arm per fleet — [`dead-man.md`](references/dead-man.md) |
 | **planner-N** | `planner-N@…` | configured runtime | Goal-forge + delivery lowering; mid-tier model; `$campaign` + `$delivery` |
 | **hand-N** | `hand-N@…` | configured runtime | Product implementers; low-tier model; all Hands are equivalent floaters |
-| **auditor-N** | `auditor-N@…` | configured runtime | Review Hands; high-tier model; **`$auditor`**; no merge; report To mind |
+| **auditor-N** | `auditor-N@…` | configured runtime | Review Hands or assigned planning facts; high-tier model; **`$auditor`**; no merge; report To mind |
 | **head-*** | `head-*@…` | configured runtime | Advisory only on cadence or direct question; ceo=strategist; cto gate honesty / architecture; cxo purity; cso security; coo ops |
 
 **Fleet** = project root + `.vivi/`.
@@ -321,7 +321,7 @@ Each role has a compact mandatory-read protocol. It distills the rules from the 
 | [`mind-protocol.md`](references/mind-protocol.md) | Mind | Delegation principle, lowering bar, tasking kinds, assignment rules, commit/push/merge authority, cycle structure, routing to planner-N / auditor-N |
 | [`planner-protocol.md`](references/planner-protocol.md) | Planner (planner-N) | Two-phase pipeline (goal-forge + delivery), horizon rules, write scope, refusal conditions, READY-gate enforcement |
 | [`hand-protocol.md`](references/hand-protocol.md) | Hand (hand-N) | Delivery-unit requirement, execution cycle, commit authority, refusal conditions, workspace safety |
-| [`auditor-protocol.md`](references/auditor-protocol.md) | Auditor (auditor-N) | Verdict types, audit method, clean-slate isolation, refusal conditions including predetermined-verdict refusal |
+| [`auditor-protocol.md`](references/auditor-protocol.md) | Auditor (auditor-N) | Implementation and planning-reality modes, verdicts, isolation, refusal conditions |
 | [`head-protocol.md`](references/head-protocol.md) | Head (all variants) | Advisory-only boundary, no lowering duty, cadence-or-direct-question, refusal conditions |
 
 **Boot must name the role's protocol.** A role that has not read its protocol will violate the process — lowering, tasking, authority boundaries, and workspace safety all depend on it. The boot text must say: `Read <protocol> before acting.`
@@ -412,7 +412,7 @@ Growth posture has a stronger continuity contract:
 | --- | --- | --- |
 | Planner (planner-N) | Goal-forge + delivery lowering; produce planning artifacts; report READY + unit specs To mind | Implement product code; file Hand tasks; merge; review; act as advisor on cadence |
 | Hand (implementer) | Drain product bag; validate; commit own work; polish unit; ship | Wait for GO; erase foreign WIP; touch another Hand's WIP; lower goals; review work |
-| Auditor (auditor-N) | Drain review bag; `$auditor`; independent adversarial review; report To mind | Product implement; commit product code; GO stamp; plan or lower goals |
+| Auditor (auditor-N) | Drain review bag; `$auditor`; independently review landed work or assigned planning facts; report To mind | Product implement; commit product code; GO stamp; plan or lower goals |
 | Mind | File/wake/integrate; **route planning to planner-N, review to auditor-N**; operator mail; route all work — never implement | GO stamps; deep code review itself; **implement code, write tests, run factory, do analysis** — route to the correct role |
 | operator@ | Human escalations | Status; bag drain |
 | Head | Advisory on cadence or direct question; report findings To mind | Lower goals; implement; file tasks; merge; block production; act as required step in the pipeline |

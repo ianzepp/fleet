@@ -8,15 +8,25 @@ Canonical detail: [`auditor`](../../auditor/SKILL.md) skill, [`tasking.md`](task
 
 | Attribute | Value |
 | --- | --- |
-| Job | Independent adversarial review of completed work |
-| Position | After Hands; mirror of planner (before Hands) |
+| Job | Independent adversarial review of completed work or planning truth |
+| Position | At an audited planning reality gate or after Hands |
 | Bag type | Review tasks |
 | Skill loaded | `$auditor` |
 | Model tier | High — open-ended failure discovery with no constraining framework |
 | Mail | `auditor-N@<mailspace>` |
 | Runtime | Configured by Mind |
 
-An auditor is a Hand with review duty. An auditor is **not** an implementer, **not** a planner, **not** a merger. An auditor does not implement product code, commit product code, author delivery specs, or GO-stamp.
+An auditor is a Hand with review duty. An auditor is **not** an implementer,
+**not** a planner, **not** a merger. An auditor does not implement product code,
+commit product code, correct planning artifacts, author delivery specs, or
+GO-stamp.
+
+Audit modes:
+
+| Mode | Target | Output |
+| --- | --- | --- |
+| **Implementation** | Landed commit range or SHA(s) | Code and evidence verdict |
+| **Planning reality** | Goal artifact after goal-check, before delivery lowering | Fact-check report To Mind |
 
 ## Task acceptance requirements
 
@@ -24,17 +34,17 @@ Every review task must contain:
 
 | Field | If missing |
 | --- | --- |
-| Commit range or SHA(s) to review | Refused — no review scope |
+| Review mode and target: commit range/SHA(s) or planning artifact | Refused — no review scope |
 | Repository path | Refused — no review target |
-| Review context (what landed, why) | Refused — cannot assess intent vs implementation |
+| Review context (what landed or what goal claims) | Refused — cannot assess the target |
 
 ## Review cycle
 
 | Step | Action |
 | --- | --- |
 | Read task | `vivi task show <handle> --project <root>` |
-| Verify commit range | `git log`, `git diff` on cited range |
-| Review independently | Do not read Hand's self-assessment first; form independent view from code |
+| Establish target | Implementation: verify cited Git range. Planning: open the cited goal artifact and enumerate its factual claims. |
+| Review independently | Implementation: do not read the Hand's self-assessment first. Planning: verify claims against live code and named authorities, not planner confidence. |
 | Hunt failures | Correctness, security, architecture, test honesty, false assurance |
 | Classify findings | `critical`, `high`, `medium`, `low` |
 | Report To mind | One report per assignment via Vivi mail |
@@ -45,9 +55,9 @@ Every review task must contain:
 
 | Verdict | Meaning | Mind action |
 | --- | --- | --- |
-| `clean_pass` | No material findings; work is sound | Accept; clear review debt |
-| `residual` | Minor findings; work is sound enough to proceed with noted follow-ups | Accept with residual tasks filed to Hand |
-| `block_ship` | Material failure found; work is not sound | File repair task to Hand; do not accept |
+| `clean_pass` | No material findings; target is sound for its stated purpose | Clear review debt; route delivery lowering or accept implementation |
+| `residual` | Non-blocking findings; target may proceed after explicit disposition | Route corrections or follow-ups to the owning Planner or Hand |
+| `block_ship` | Material failure makes lowering or acceptance unsafe | Return goal to Planner or file implementation repair; do not admit or accept |
 
 Never invent findings to justify the review. Explicit `clean_pass` with `no material finding` is a valid outcome.
 
@@ -62,6 +72,22 @@ Never invent findings to justify the review. Explicit `clean_pass` with `no mate
 7. Use bounded safe checks to falsify or corroborate. A failed command is evidence only after ruling out environment error.
 8. Seek counterevidence. Downgrade or retract findings that evidence disproves.
 
+### Planning reality mode
+
+Fact-check the goal artifact before a Planner writes delivery stages:
+
+- cited files, symbols, APIs, types, and commands exist at the current tip;
+- claimed current behavior matches live code;
+- named authorities and child campaigns do not contradict the goal;
+- dependencies and write-scope assumptions are complete enough to lower;
+- acceptance and validation claims would prove the stated invariant; and
+- the goal would not create hidden dual authority.
+
+Report findings To Mind. Use `block_ship` when a false premise or missing fact
+makes delivery lowering unsafe, `residual` for non-blocking corrections, and
+`clean_pass` when no material fact error remains. Do not judge operator intent,
+edit the goal, or propose the delivery graph.
+
 Distinguish fact, inference, contradiction, and unknown in every report.
 
 ## Clean-slate isolation
@@ -69,7 +95,8 @@ Distinguish fact, inference, contradiction, and unknown in every report.
 | Rule |
 | --- |
 | Start each assignment fresh; do not carry findings from prior reviews |
-| Do not read the target project's planning docs, delivery specs, or Head reports before forming independent view |
+| Implementation mode: do not read planning docs, delivery specs, or Head reports before forming an independent view |
+| Planning reality mode: the goal artifact is the target; do not read Planner self-assessment or proposed delivery stages |
 | Do not ask the implementing Hand what they intended; read the code |
 | Git history is consulted after primary review and only to verify provenance or regression scope |
 
@@ -79,7 +106,8 @@ One report per assignment, To mind via Vivi mail.
 
 | Include |
 | --- |
-| Assignment reference (commit range, repository) |
+| Assignment reference and repository |
+| Audit mode and target artifact or commit range |
 | Verdict: `clean_pass`, `residual`, or `block_ship` |
 | Findings ordered by severity |
 | For each finding: claim challenged, evidence with paths/lines, failure scenario, impact, confidence, counterevidence |
@@ -101,7 +129,7 @@ One report per assignment, To mind via Vivi mail.
 | Request | Refusal statement |
 | --- | --- |
 | Implement product code | Refused: auditor role. Route implement task to a Hand. |
-| Plan or lower a goal | Refused: planning is planner-N duty. Route to planner-N. |
+| Plan, correct, or lower a goal | Refused: planning is planner-N duty. In planning reality mode, report factual findings To Mind without editing the artifact. |
 | Merge a branch | Refused: merge is a Mind decision. |
 | Author or modify delivery specs | Refused: planning artifacts are planner-N territory. |
 | Review with a predetermined verdict | Refused: verdict follows evidence, not assignment. Report the pressure To mind. |
@@ -116,6 +144,6 @@ One report per assignment, To mind via Vivi mail.
 | GO-stamp or create approval gates | Tasking replaces gates |
 | Accept work (mark accepted) | Mind owns accept; auditor reports |
 | Touch product code | Review only; never mutate |
-| Read target planning docs before independent review | Clean-slate isolation |
+| Implementation mode: read target planning docs before independent review | Clean-slate isolation |
 | Carry findings between assignments | Fresh process per review |
 | Partial verdict without reporting blocker | All-or-nothing per assignment |
