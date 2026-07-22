@@ -135,18 +135,22 @@ wave-specific hard-coded intervals.
 ### Audit policy
 
 Define review classes before launch. Always review architecture, authority,
-security, persistence, ABI, shared spine, and prior-repair work unless a
-stronger project policy applies. Sample genuinely low-risk families with a
-recorded rotation.
+security, persistence, ABI, shared spine, prior-repair work, and any unit whose
+acceptance depends on claimed compilation or test passage without an
+independent receipt, unless a stronger project policy applies. Sample
+genuinely low-risk families with a recorded rotation.
 
 Auditor scarcity creates review debt, not permission to waive the policy. A
 unit can land while review is queued, but it cannot be accepted while its
 required review remains open. If a sampled unit fails, escalate the family and
 inspect in-flight or pending siblings for the same defect pattern.
 
-The Mind does not reproduce builds, tests, or code review. Route suspicious
-validation claims to an Auditor or a bounded verification Hand. This preserves
-independence and keeps the Mind on the routing clock.
+The Mind does not reproduce builds, tests, or code review. An independent
+validation receipt is CI evidence or an Auditor/verification-Hand command and
+result tied to the reviewed repository tip. The implementing Hand's assertion
+is not independent. Route an unreceipted claim to an Auditor or a bounded
+verification Hand before acceptance. This preserves independence and keeps the
+Mind on the routing clock.
 
 ### Repair discipline
 
@@ -294,6 +298,7 @@ every shared tree and every role inbox is globally empty.
 | Fixed seat or READY counts treated as universal | Derive limits from current bottlenecks and campaign policy |
 | Mind runs tests, reviews code, or commits role work | File verification, audit, or receipt repair to the correct role |
 | Audit policy waived because Auditors are busy | Queue review debt; do not accept early |
+| Claimed build or test passage accepted without an independent receipt | Route verification; keep the unit landed but unaccepted |
 | Same defect recurs in a sibling unit | Pause family, inspect siblings, amend packets, escalate sampling |
 | Completion inferred from notification or SHA alone | Reconcile task handle, report, receipt, and scope |
 | Freeze skipped because units look done | Run aggregate reconciliation before declaring completion |
@@ -315,6 +320,7 @@ PREPARE
 FLOW
 [ ] every signal dispositioned
 [ ] review debt tracked; required audits before accept
+[ ] acceptance-critical build and test claims have independent receipts
 [ ] systemic failures propagated to sibling packets
 [ ] planners refill ahead of drain
 
