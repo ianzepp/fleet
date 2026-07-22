@@ -4,6 +4,7 @@ Target: Python 3.9+ on macOS and Linux. No third-party deps.
 """
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import argparse
@@ -532,3 +533,46 @@ def resolve_runtime_binding(
         ),
         "assignment_mode": assignment_mode,
     }
+
+
+# ---------------------------------------------------------------------------
+# Chain gate helpers (fleet.py: prepare → claim → settle → advance)
+# ---------------------------------------------------------------------------
+
+_SAFE_HANDLE = re.compile(r"[^a-zA-Z0-9._-]")
+
+
+def sha256_hex(text: str) -> str:
+    """Return ``sha256:<hex>`` for tamper-evidence sealing."""
+    digest = hashlib.sha256(text.encode("utf-8")).hexdigest()
+    return "sha256:" + digest
+
+
+def sanitize_handle(handle: str) -> str:
+    """Reduce a Vivi handle to a filesystem-safe filename component."""
+    cleaned = _SAFE_HANDLE.sub("_", str(handle).strip())
+    return cleaned or "unknown"
+
+
+def chain_dir(project: PathLike) -> Path:
+    """Return the sidecar receipt directory for a fleet project."""
+    return Path(project).expanduser().resolve() / ".vivi" / "fleet" / "chain"
+
+
+def chain_receipt_path(project: PathLike, handle: str) -> Path:
+    """Return the sidecar receipt path for one Vivi handle."""
+    return chain_dir(project) / (sanitize_handle(handle) + ".json")
+
+
+def load_receipt(project: PathLike, handle: str) -> Optional[Dict[str, Any]]:
+    """Load a sidecar chain receipt; return ``None`` if absent."""
+    path = chain_receipt_path(project, handle)
+    if not path.is_file():
+        return None
+    data = load_json(path, default=None)
+    return data if isinstance(data, dict) else None
+
+
+def save_receipt(project: PathLike, handle: str, data: Dict[str, Any]) -> None:
+    """Atomically write a sidecar chain receipt."""
+    save_json(chain_receipt_path(project, handle), data)

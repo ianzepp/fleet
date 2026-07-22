@@ -151,6 +151,51 @@ def validate_dispositions(
     return ordered
 
 
+def _run_gate_checks(
+    gate_checks: List[str], scripts: Path, project: Path
+) -> int:
+    """Run chain-gate preconditions via fleet.py advance.
+
+    Each entry is ``GATE:HANDLE``. The cycle refuses to close if any gate
+    returns nonzero.
+    """
+    fleet_py = scripts / "fleet.py"
+    for entry in gate_checks:
+        if ":" not in entry:
+            print(
+                "error: --gate-check must be GATE:HANDLE, got %r" % entry,
+                file=sys.stderr,
+            )
+            return 1
+        gate, handle = entry.split(":", 1)
+        gate = gate.strip()
+        handle = handle.strip()
+        result = subprocess.run(
+            [
+                sys.executable, str(fleet_py), "advance",
+                "--project", str(project),
+                "--gate", gate,
+                "--handle", handle,
+                "--json",
+            ],
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=60,
+            check=False,
+        )
+        if result.returncode != 0:
+            reason = result.stdout.strip() or result.stderr.strip()
+            print(
+                "error: chain-gate %s failed for %s: %s"
+                % (gate, handle, reason),
+                file=sys.stderr,
+            )
+            return 1
+    return 0
+
+
 def cmd_close(args: argparse.Namespace, project: Path) -> int:
     scripts = _find_scripts_dir()
     try:
@@ -158,6 +203,12 @@ def cmd_close(args: argparse.Namespace, project: Path) -> int:
     except FleetScopeError as exc:
         print("error: %s" % exc, file=sys.stderr)
         return 1
+
+    # Chain-gate precondition: fail-closed before any cycle work
+    if args.gate_check:
+        rc = _run_gate_checks(args.gate_check, scripts, project)
+        if rc != 0:
+            return rc
 
     baseline_path = args.baseline
     if baseline_path:
@@ -475,6 +526,14 @@ def parser() -> argparse.ArgumentParser:
                    help="hostname for mind_session")
     p.add_argument("--detach", action="store_true",
                    help="detach Mind: clear mind_session, set state=detached")
+    p.add_argument(
+        "--gate-check",
+        action="append",
+        default=[],
+        metavar="GATE:HANDLE",
+        help="chain-gate precondition (repeatable): acceptance:<h>, admission:<h>; "
+             "cycle refuses to close if any gate fails",
+    )
     return p
 
 
