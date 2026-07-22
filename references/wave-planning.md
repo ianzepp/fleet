@@ -150,7 +150,7 @@ normal admission gate.
 
 ## Finding disposition
 
-Mind records one disposition for every audit finding:
+Mind makes this minimum set recoverable for every audit finding:
 
 ```text
 finding_id: <stable id>
@@ -164,6 +164,13 @@ owner: planner-N | mind | decision owner
 correction_receipt: <artifact commit or none>
 recheck: required | not_required | <audit receipt>
 ```
+
+This is an evidence contract, not a required ten-field inline form. Keep each
+field on its natural authority: the Auditor report may own claim, evidence,
+severity, and blocking status; the Mind reply may own disposition and owner;
+the Planner task or commit may own correction and recheck receipts. A single
+Vivi source handle must reconstruct the complete chain. Do not maintain a
+duplicate ledger when the linked report, trace, and Git receipts already do so.
 
 Severity and blocking status are separate. A corrected medium write-scope gap
 does not become a high finding merely because it mattered. Do not summarize a
