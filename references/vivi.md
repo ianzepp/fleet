@@ -35,7 +35,7 @@ Prefer short tokens: `mind`, `operator`, `hand-1`, `hand-2`, `head-ceo`, …
 vivi --help
 vivi <command> --help
 vivi <command> <subcommand> --help
-vivi --version                  # graph-backed fleets require ≥ 7.0 (`graph` top-level + `board --graph`); 6.4+ provides trace, memo search, task deps, verdicts, mailspace description, and the subagent PID fix
+vivi --version                  # graph-backed fleets require ≥ 7.1 (`graph ready` + `board --graph`); 6.4+ provides trace, memo search, task deps, verdicts, mailspace description, and the subagent PID fix
 ```
 
 ## Kinds (what to send)
@@ -160,12 +160,14 @@ contains `seed` and `nodes`; each node carries its own `edges` list.
 (import Mermaid, ready frontier, task-attempt binding). It is not `vivi trace`
 and not a substitute for `fleet prepare` / claim / settle.
 
-This command surface requires Vivi 7.0 or newer. `graph` is a top-level command;
-`board --graph` only adds graph frontier summaries to the board response.
+This command surface requires Vivi 7.1 or newer. `graph` is a top-level command.
+`graph show` renders Mermaid topology; `graph ready` and `board --graph` expose
+the compact machine-readable frontier.
 
 | Authority | Surface |
 | --- | --- |
-| Eligible work (ready nodes) | `vivi graph show` / `board --graph` |
+| Eligible work (ready nodes) | `vivi graph ready` / `board --graph` |
+| Topology | `vivi graph show` / `vivi graph export` (Mermaid) |
 | Who runs now | Mind + `fleet prepare --node <graph>:<source-id>` |
 | Execution proof | `fleet claim` (activates node) → `fleet settle` |
 | Node accepted / unlocked | Explicit `vivi graph complete` (settle does **not** auto-complete) |
@@ -175,7 +177,8 @@ This command surface requires Vivi 7.0 or newer. `graph` is a top-level command;
 vivi graph import --project "$ROOT" --code mir-wave-2 --file wave.mmd --check --json
 vivi graph import --project "$ROOT" --code mir-wave-2 --file wave.mmd --json
 vivi graph apply --project "$ROOT" mir-wave-2 --file wave-v2.mmd --json
-vivi graph show --project "$ROOT" mir-wave-2 --json
+vivi graph show --project "$ROOT" mir-wave-2 --include-state
+vivi graph ready --project "$ROOT" mir-wave-2 --json
 vivi board --project "$ROOT" --graph --json
 
 # Lifecycle (Mind / disposition)

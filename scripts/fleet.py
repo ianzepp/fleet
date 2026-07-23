@@ -229,37 +229,38 @@ def cmd_prepare(args: argparse.Namespace) -> int:
 
 
 def _validate_ready_graph_node(project: str, node_ref: str) -> str:
-    """Return error text if node_ref is not an open ready graph node."""
+    """Return error text unless node_ref is in the graph's ready frontier."""
     if ":" not in node_ref:
         return "--node must be graph:source-id (got %r)" % node_ref
     graph_code, source_id = node_ref.split(":", 1)
     if not graph_code or not source_id:
         return "--node must be graph:source-id (got %r)" % node_ref
-    rc, data, raw = _vivi_json(["graph", "show", graph_code], project)
+    rc, data, raw = _vivi_json(["graph", "ready", graph_code], project)
     if rc != 0 or data is None:
-        return "vivi graph show failed for %r: %s" % (graph_code, raw.strip())
-    nodes = data.get("nodes") if isinstance(data, dict) else None
-    if not isinstance(nodes, list):
-        return "vivi graph show returned no nodes for %r" % graph_code
-    match = None
-    for node in nodes:
-        if isinstance(node, dict) and node.get("source_id") == source_id:
-            match = node
-            break
-    if match is None:
-        return "graph node %r not found on %r" % (source_id, graph_code)
-    state = str(match.get("state") or "")
-    readiness = str(match.get("readiness") or "")
-    if state in ("done", "cancelled", "superseded", "deferred"):
-        return "cannot prepare graph node %r in state %r" % (node_ref, state)
-    if state == "active":
+        return "vivi graph ready failed for %r: %s" % (graph_code, raw.strip())
+    if not isinstance(data, dict):
+        return "vivi graph ready returned an invalid frontier for %r" % graph_code
+    frontiers = {}
+    for name in ("ready", "blocked", "active"):
+        values = data.get(name)
+        if not isinstance(values, list) or not all(
+            isinstance(value, str) for value in values
+        ):
+            return "vivi graph ready returned no %s frontier for %r" % (
+                name,
+                graph_code,
+            )
+        frontiers[name] = values
+    if source_id in frontiers["ready"]:
+        return ""
+    if source_id in frontiers["active"]:
         return "cannot prepare graph node %r: already active" % node_ref
-    if readiness != "ready":
-        return "cannot prepare blocked graph node %r (readiness=%r)" % (
-            node_ref,
-            readiness,
-        )
-    return ""
+    if source_id in frontiers["blocked"]:
+        return "cannot prepare blocked graph node %r" % node_ref
+    return (
+        "graph node %r is not in the open frontier on %r "
+        "(possibly terminal or missing)" % (source_id, graph_code)
+    )
 
 
 def _validate_role_pass(role: str, pass_name: str) -> str:

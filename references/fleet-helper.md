@@ -62,7 +62,7 @@ python3 "$FLEET" prepare --project "$ROOT" \
 
 | Step | Behavior |
 | --- | --- |
-| `prepare --node <graph>:<source-id>` | Calls `vivi graph show`; refuses blocked, active, terminal, or missing nodes; stores `graph_node` on the receipt |
+| `prepare --node <graph>:<source-id>` | Calls `vivi graph ready`; refuses blocked, active, terminal, or missing nodes; stores `graph_node` on the receipt |
 | `claim` | After a durable claim reply, calls `vivi graph activate <node> --task <handle>` |
 | `settle` | Completes the **task** and report chain only — does **not** mark the graph node done |
 | After acceptance / disposition | Mind (or explicit disposition path) runs `vivi graph complete <graph>:<source-id>` so successors enter the ready frontier |

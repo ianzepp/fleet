@@ -292,20 +292,16 @@ class PrepareTests(unittest.TestCase):
 
     def test_prepare_node_ready_records_graph_node(self) -> None:
         body = "do verify"
-        show = json.dumps(
+        ready = json.dumps(
             {
-                "graph": {"code": "wave", "handle": "gph_1"},
-                "nodes": [
-                    {
-                        "source_id": "verify",
-                        "state": "open",
-                        "readiness": "ready",
-                    }
-                ],
+                "code": "wave",
+                "ready": ["verify"],
+                "blocked": [],
+                "active": [],
             }
         )
         mock = ViviMock()
-        mock.add("graph", "show", "wave", output=show)
+        mock.add("graph", "ready", "wave", output=ready)
         mock.add("role", "show", "hand-1", output=_role_json())
         mock.add("task", "send", output="task-node1")
         fleet.run_cmd = mock
@@ -329,20 +325,16 @@ class PrepareTests(unittest.TestCase):
             self.assertEqual(receipt["graph_node"], "wave:verify")
 
     def test_prepare_node_blocked_refuses(self) -> None:
-        show = json.dumps(
+        ready = json.dumps(
             {
-                "nodes": [
-                    {
-                        "source_id": "accept",
-                        "state": "open",
-                        "readiness": "blocked",
-                        "blocked_by": ["verify"],
-                    }
-                ],
+                "code": "wave",
+                "ready": [],
+                "blocked": ["accept"],
+                "active": [],
             }
         )
         mock = ViviMock()
-        mock.add("graph", "show", "wave", output=show)
+        mock.add("graph", "ready", "wave", output=ready)
         fleet.run_cmd = mock
 
         with tempfile.TemporaryDirectory() as d:

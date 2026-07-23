@@ -116,7 +116,7 @@ questions and cadence assignments use `--pass advisory`; mail is the linked
 report channel, not an alternate assignment path.
 
 **Work graphs:** when topology is a Vivi graph (import Mermaid once; query ready
-frontier with `vivi board --graph` / `vivi graph show`), pass
+frontier with `vivi graph ready` / `vivi board --graph`), pass
 `--node <graph>:<source-id>`. Prepare refuses blocked nodes; claim activates the
 node after a durable claim; settle does **not** auto-complete the graph node —
 Mind runs `vivi graph complete` when the logical node is accepted. Detail:
