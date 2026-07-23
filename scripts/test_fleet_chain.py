@@ -290,6 +290,76 @@ class PrepareTests(unittest.TestCase):
             rc = fleet.cmd_prepare(args)
             self.assertEqual(rc, 1)
 
+    def test_prepare_node_ready_records_graph_node(self) -> None:
+        body = "do verify"
+        show = json.dumps(
+            {
+                "graph": {"code": "wave", "handle": "gph_1"},
+                "nodes": [
+                    {
+                        "source_id": "verify",
+                        "state": "open",
+                        "readiness": "ready",
+                    }
+                ],
+            }
+        )
+        mock = ViviMock()
+        mock.add("graph", "show", "wave", output=show)
+        mock.add("role", "show", "hand-1", output=_role_json())
+        mock.add("task", "send", output="task-node1")
+        fleet.run_cmd = mock
+
+        with tempfile.TemporaryDirectory() as d:
+            args = fleet.parser().parse_args(
+                [
+                    "prepare", "--project", d,
+                    "--to", "hand-1",
+                    "--pass", "implement",
+                    "--scope", "src/",
+                    "--subject", "verify unit",
+                    "--body", body,
+                    "--node", "wave:verify",
+                ]
+            )
+            rc = fleet.cmd_prepare(args)
+            self.assertEqual(rc, 0)
+            receipt = fleet_common.load_receipt(d, "task-node1")
+            assert receipt is not None
+            self.assertEqual(receipt["graph_node"], "wave:verify")
+
+    def test_prepare_node_blocked_refuses(self) -> None:
+        show = json.dumps(
+            {
+                "nodes": [
+                    {
+                        "source_id": "accept",
+                        "state": "open",
+                        "readiness": "blocked",
+                        "blocked_by": ["verify"],
+                    }
+                ],
+            }
+        )
+        mock = ViviMock()
+        mock.add("graph", "show", "wave", output=show)
+        fleet.run_cmd = mock
+
+        with tempfile.TemporaryDirectory() as d:
+            args = fleet.parser().parse_args(
+                [
+                    "prepare", "--project", d,
+                    "--to", "hand-1",
+                    "--pass", "implement",
+                    "--scope", "src/",
+                    "--subject", "accept",
+                    "--body", "body",
+                    "--node", "wave:accept",
+                ]
+            )
+            rc = fleet.cmd_prepare(args)
+            self.assertEqual(rc, 1)
+
 
 # ---------------------------------------------------------------------------
 # claim
@@ -347,8 +417,31 @@ class ClaimTests(unittest.TestCase):
             receipt = fleet_common.load_receipt(d, "task-abc")
             assert receipt is not None
             self.assertIsNotNone(receipt["claim"])
-            self.assertEqual(receipt["claim"]["role"], "hand-1")
-            self.assertTrue(receipt["claim"]["binding_verified"])
+
+    def test_claim_activates_graph_node(self) -> None:
+        body = "test body"
+        mock = ViviMock()
+        mock.add("task", "show", "task-abc", output=_task_json(body=body))
+        mock.add("role", "show", "hand-1", output=_role_json())
+        mock.add("mail", "reply", output="mail-reply-1")
+        mock.add("graph", "activate", "wave:verify", output="graph active")
+        fleet.run_cmd = mock
+
+        with tempfile.TemporaryDirectory() as d:
+            receipt = self._setup_receipt(d, body=body)
+            receipt["graph_node"] = "wave:verify"
+            fleet_common.save_receipt(d, "task-abc", receipt)
+            args = fleet.parser().parse_args(
+                ["claim", "--project", d, "task-abc", "--role", "hand-1"]
+            )
+            rc = fleet.cmd_claim(args)
+            self.assertEqual(rc, 0)
+            loaded = fleet_common.load_receipt(d, "task-abc")
+            assert loaded is not None
+            self.assertIsNotNone(loaded["claim"])
+            self.assertEqual(loaded["claim"]["role"], "hand-1")
+            self.assertTrue(loaded["claim"]["binding_verified"])
+            self.assertTrue(loaded["claim"].get("graph_activated"))
 
     def test_claim_idempotent(self) -> None:
         body = "test body"

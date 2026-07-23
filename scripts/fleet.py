@@ -6,7 +6,7 @@ may spawn anything, but only work with a valid Vivi assignment → claim →
 settlement → disposition chain can advance Fleet state.
 
   fleet prepare --project <root> --to <role> --pass <pass> --scope <scope> \
-      --subject '<subject>' --body '<body>'
+      --subject '<subject>' --body '<body>' [--node <graph>:<source-id>]
   fleet prompt --project <root> <handle>
   fleet claim  --project <root> <handle> --role <role>
   fleet settle --project <root> <handle> --role <role> --note '<evidence>' \
@@ -163,6 +163,12 @@ def cmd_prepare(args: argparse.Namespace) -> int:
     if not _canonical_body(body).strip():
         return _fail("assignment body must not be empty")
 
+    graph_node = (args.node or "").strip() or None
+    if graph_node:
+        node_err = _validate_ready_graph_node(str(project), graph_node)
+        if node_err:
+            return _fail(node_err)
+
     # 1. Resolve expected role binding
     binding = _resolve_role_binding(str(project), role)
     if binding is None:
@@ -213,11 +219,47 @@ def cmd_prepare(args: argparse.Namespace) -> int:
         "claim": None,
         "settlement": None,
     }
+    if graph_node:
+        receipt["graph_node"] = graph_node
     save_receipt(str(project), handle, receipt)
 
     # 6. Print boot prompt
     print(boot)
     return 0
+
+
+def _validate_ready_graph_node(project: str, node_ref: str) -> str:
+    """Return error text if node_ref is not an open ready graph node."""
+    if ":" not in node_ref:
+        return "--node must be graph:source-id (got %r)" % node_ref
+    graph_code, source_id = node_ref.split(":", 1)
+    if not graph_code or not source_id:
+        return "--node must be graph:source-id (got %r)" % node_ref
+    rc, data, raw = _vivi_json(["graph", "show", graph_code], project)
+    if rc != 0 or data is None:
+        return "vivi graph show failed for %r: %s" % (graph_code, raw.strip())
+    nodes = data.get("nodes") if isinstance(data, dict) else None
+    if not isinstance(nodes, list):
+        return "vivi graph show returned no nodes for %r" % graph_code
+    match = None
+    for node in nodes:
+        if isinstance(node, dict) and node.get("source_id") == source_id:
+            match = node
+            break
+    if match is None:
+        return "graph node %r not found on %r" % (source_id, graph_code)
+    state = str(match.get("state") or "")
+    readiness = str(match.get("readiness") or "")
+    if state in ("done", "cancelled", "superseded", "deferred"):
+        return "cannot prepare graph node %r in state %r" % (node_ref, state)
+    if state == "active":
+        return "cannot prepare graph node %r: already active" % node_ref
+    if readiness != "ready":
+        return "cannot prepare blocked graph node %r (readiness=%r)" % (
+            node_ref,
+            readiness,
+        )
+    return ""
 
 
 def _validate_role_pass(role: str, pass_name: str) -> str:
@@ -424,6 +466,25 @@ def cmd_claim(args: argparse.Namespace) -> int:
     claim_entry["reply_handle"] = _parse_handle_from_send_output(out)
     receipt["claim"] = claim_entry
     save_receipt(str(project), handle, receipt)
+
+    # 7. If prepared for a work-graph node, activate only after a durable claim.
+    graph_node = receipt.get("graph_node")
+    if graph_node:
+        act_rc, act_out = _vivi(
+            [
+                "graph", "activate", str(graph_node),
+                "--task", handle,
+            ],
+            str(project),
+        )
+        if act_rc != 0:
+            return _fail(
+                "claimed %s but vivi graph activate failed for %r: %s"
+                % (handle, graph_node, act_out.strip())
+            )
+        claim_entry["graph_activated"] = True
+        receipt["claim"] = claim_entry
+        save_receipt(str(project), handle, receipt)
 
     print("Claimed %s as %s." % (handle, role))
     return 0
@@ -871,6 +932,11 @@ def parser() -> argparse.ArgumentParser:
     prep.add_argument(
         "--depends-on", action="append", default=[],
         help="prepared assignment handle this work depends on; repeatable",
+    )
+    prep.add_argument(
+        "--node",
+        default=None,
+        help="ready Vivi work-graph node as graph:source-id; activate on claim",
     )
     prep.add_argument("--subject", required=True, help="task subject")
     body = prep.add_mutually_exclusive_group(required=True)
