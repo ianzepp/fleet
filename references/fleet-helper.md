@@ -47,6 +47,31 @@ python3 "$FLEET" prepare --project "$ROOT" \
 `--depends-on` is repeatable. The helper refuses dependencies that lack Fleet
 receipts. This creates the chain later checked by `advance`.
 
+#### Work-graph nodes (`--node`)
+
+When the durable topology lives in a Vivi work graph (planning pipeline or
+product delivery DAG), pass the ready node:
+
+```bash
+python3 "$FLEET" prepare --project "$ROOT" \
+  --to hand-1 --pass implement --scope 'src/widget/' \
+  --node mir-wave-2:verify \
+  --subject 'Re-verify unit after repair' \
+  --body-file /tmp/assignment.md
+```
+
+| Step | Behavior |
+| --- | --- |
+| `prepare --node <graph>:<source-id>` | Calls `vivi graph show`; refuses blocked, active, terminal, or missing nodes; stores `graph_node` on the receipt |
+| `claim` | After a durable claim reply, calls `vivi graph activate <node> --task <handle>` |
+| `settle` | Completes the **task** and report chain only — does **not** mark the graph node done |
+| After acceptance / disposition | Mind (or explicit disposition path) runs `vivi graph complete <graph>:<source-id>` so successors enter the ready frontier |
+
+Do not use `--node` for ordinary standalone tasks that are not graph members.
+Do not hand-call `graph activate` before claim when using the helper chain — claim
+is the activation gate. Observation and board frontiers: [`vivi.md`](vivi.md)
+§ Executable work graphs.
+
 | Role | Allowed `--pass` |
 | --- | --- |
 | `planner-N` | `goal-forge`, `delivery`, `p1`, `p2`, `p3` |
@@ -73,7 +98,9 @@ python3 "$FLEET" claim <handle> --role <role> --project "$ROOT"
 
 `claim` verifies the prepared receipt, task recipient, normalized body hash,
 and live role binding. It then files the claim reply and records the claim.
-The runtime must refuse the assignment if this command fails.
+If the receipt includes `graph_node`, claim activates that Vivi work-graph node
+with the task handle after the claim edge is durable. The runtime must refuse
+the assignment if this command fails.
 
 After claim, the runtime loads the charter and named task, then executes only
 that handle. The boot prompt contains the exact commands.

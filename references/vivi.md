@@ -35,7 +35,7 @@ Prefer short tokens: `mind`, `operator`, `hand-1`, `hand-2`, `head-ceo`, …
 vivi --help
 vivi <command> --help
 vivi <command> <subcommand> --help
-vivi --version                  # prefer ≥ 6.4 (trace, memo search, task deps, verdicts, mailspace description, subagent PID fix)
+vivi --version                  # prefer ≥ 6.4 (trace, memo search, task deps, verdicts, mailspace description, subagent PID fix); work graphs + board --graph land after 6.4
 ```
 
 ## Kinds (what to send)
@@ -154,6 +154,46 @@ evidence instead of treating the later handle as the original assignment.
 Text output prints per-node metadata, copy lists, and labeled edges. JSON output
 contains `seed` and `nodes`; each node carries its own `edges` list.
 
+## Executable work graphs
+
+`vivi graph` is the durable authority for **planning and delivery topology**
+(import Mermaid, ready frontier, task-attempt binding). It is not `vivi trace`
+and not a substitute for `fleet prepare` / claim / settle.
+
+| Authority | Surface |
+| --- | --- |
+| Eligible work (ready nodes) | `vivi graph show` / `board --graph` |
+| Who runs now | Mind + `fleet prepare --node <graph>:<source-id>` |
+| Execution proof | `fleet claim` (activates node) → `fleet settle` |
+| Node accepted / unlocked | Explicit `vivi graph complete` (settle does **not** auto-complete) |
+
+```bash
+# Import or revise a delivery / planning DAG
+vivi graph import --project "$ROOT" --code mir-wave-2 --file wave.mmd --check --json
+vivi graph import --project "$ROOT" --code mir-wave-2 --file wave.mmd --json
+vivi graph apply --project "$ROOT" mir-wave-2 --file wave-v2.mmd --json
+vivi graph show --project "$ROOT" mir-wave-2 --json
+vivi board --project "$ROOT" --graph --json
+
+# Lifecycle (Mind / disposition)
+vivi graph activate --project "$ROOT" mir-wave-2:verify --task <task-handle> --json
+vivi graph complete --project "$ROOT" mir-wave-2:verify --json
+vivi graph export --project "$ROOT" mir-wave-2 --include-state
+
+# Watch newly ready nodes (Mind decides dispatch; no auto-spawn)
+vivi mailspace watch --for mind --project "$ROOT" \
+  --kinds graph --events node_ready --once --json
+```
+
+| Rule | Fleet consequence |
+| --- | --- |
+| Ready = open + all prereqs `done` | `prepare --node` refuses blocked / active / terminal |
+| Activate binds a task attempt | `claim` calls activate after a durable claim |
+| Complete unlocks successors | Emits `node_ready`; Mind may prepare next `--node` |
+| Apply freezes done/active prereqs | Do not rewrite history; append successors or new nodes |
+
+Helper integration: [`fleet-helper.md`](fleet-helper.md) § prepare `--node`.
+
 ## Role memory (Mind and Heads only)
 
 Memos are durable, project-local context for a role's own future sessions. They
@@ -241,7 +281,8 @@ vivi mail watch  | vivi task watch | vivi need watch | vivi want watch
 | `--until-count N` | Exit after N matches (default 1) |
 | `--match-from hand-2` | Only that sender |
 | `--match-subject-prefix ready-to-merge` | RTM / Head subject filters |
-| `--kinds mail,task,need` | Default; add `want` if needed |
+| `--kinds mail,task,need[,graph]` | Default mail/task/need; add `graph` for work-graph events |
+| `--events node_ready,…` | With `--kinds graph`: `node_ready`, `node_state`, `attempt_bound`, … |
 | `--json` | Machine-readable |
 | `--handle <h>` | Wait for one item |
 
@@ -269,13 +310,17 @@ vivi need show <handle> --project "$ROOT"
 vivi want show <handle> --project "$ROOT"
 vivi mail show <handle> --project "$ROOT"
 
-vivi board --for hand-1 --project "$ROOT" [--json] [--since …]
+vivi board --for hand-1 --project "$ROOT" [--json] [--since …] [--graph]
 vivi mail thread <handle> --project "$ROOT" [--json] [--infer] [--limit 50]
 ```
+
+`--graph` adds `graphs[]` (ready/blocked/active nodes, blocked-by **handles**,
+successors) without removing task/need/want board fields.
 
 | Prefer | Avoid on every cycle |
 | --- | --- |
 | `list` + one `show` | Full `dump` of all kinds |
+| `board --graph` for multi-unit waves | Reconstructing DAGs from chat/Markdown alone |
 | `show` first | `thread` only when multi-hop / RTM residuals |
 | `mailspace status` | Re-parsing sqlite |
 
@@ -373,9 +418,9 @@ vivi exec send --account <account> path/to/draft.eml
 
 | Who | Typical vivi |
 | --- | --- |
-| **Mind (cheap cycle)** | `mailspace status`, `mailspace watch --once`, `task|need list` per Hand, operator list if engaged; memo list at attach/resume |
-| **Mind (route work)** | `fleet prepare` for roles; direct `need send` / rare `want send` |
-| **Mind (integrate)** | `mail list/show` To mind; `mail thread`; prepare residual assignments |
+| **Mind (cheap cycle)** | `mailspace status`, `mailspace watch --once`, `task|need list` per Hand, operator list if engaged; `board --graph` when waves are graph-backed; memo list at attach/resume |
+| **Mind (route work)** | `fleet prepare` for roles (`--node` when graph-backed); direct `need send` / rare `want send` |
+| **Mind (integrate)** | `mail list/show` To mind; `mail thread` / `trace`; `graph complete` when a logical node is accepted; prepare residual / next ready node |
 | **Mind (operator return)** | `need|mail list --for operator` first |
 | **Hand** | `fleet claim`; `show` / `thread`; `fleet settle`; direct needs when blocked |
 | **Head** | `fleet claim` / `fleet settle`; memo list/show/save for durable role context |
@@ -408,7 +453,7 @@ vivi help enqueue
 vivi --help                          # mailspace, board, task|need|want|mail|memo, …
 vivi <family> --help                 # e.g. vivi task send --help
 vivi <family> <verb> --help          # e.g. vivi mailspace watch --help
-# fleet core: mailspace · board · task|need|want|mail · memo (Mind/Heads only)
+# fleet core: mailspace · board · graph · task|need|want|mail · memo (Mind/Heads only)
 # not fleet heartbeat: sync | search | index | enqueue | queue
 ```
 

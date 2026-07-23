@@ -106,6 +106,7 @@ valid boot prompt.
 python3 <skill>/scripts/fleet.py prepare --project <root> \
   --to <role> --pass <pass> --scope '<bounded scope>' \
   [--depends-on <prior-handle>] \
+  [--node <graph-code>:<source-id>] \
   --subject '<subject>' --body-file <assignment-file>
 ```
 
@@ -113,6 +114,14 @@ No prepared handle, no spawn. A runtime must run the generated `claim` command
 first and refuse the work if claim fails. This applies to Heads too: direct
 questions and cadence assignments use `--pass advisory`; mail is the linked
 report channel, not an alternate assignment path.
+
+**Work graphs:** when topology is a Vivi graph (import Mermaid once; query ready
+frontier with `vivi board --graph` / `vivi graph show`), pass
+`--node <graph>:<source-id>`. Prepare refuses blocked nodes; claim activates the
+node after a durable claim; settle does **not** auto-complete the graph node —
+Mind runs `vivi graph complete` when the logical node is accepted. Detail:
+[`fleet-helper.md`](references/fleet-helper.md), [`vivi.md`](references/vivi.md)
+§ Executable work graphs.
 
 ### Report
 
@@ -421,6 +430,7 @@ Each role has a compact mandatory-read protocol. It distills the rules from the 
 | Goal lowering | [`lowering.md`](references/lowering.md) |
 | Filing / starvation | [`tasking.md`](references/tasking.md) |
 | Board CLI | [`vivi.md`](references/vivi.md) |
+| Work graphs (Mermaid topology, ready frontier, `--node`) | [`vivi.md`](references/vivi.md) § Executable work graphs; [`fleet-helper.md`](references/fleet-helper.md) |
 | Communication tracing | [`vivi.md`](references/vivi.md) § Communication tracing |
 | Runtime channel concept | [`dual-channel.md`](references/dual-channel.md) |
 | Modes / fail-fast / polish / HK | [`mind-cycle.md`](references/mind-cycle.md) |
@@ -523,8 +533,8 @@ Protocol: if the fleet skill (SKILL.md) or mind-protocol.md are not in working m
   cat $SK/SKILL.md
   cat $SK/references/mind-protocol.md
 
-Gather state (two calls):
-  vivi board --project "$ROOT"                                    # work truth: tasks/needs/wants per identity, Head cadence
+Gather state (two calls; add --graph when waves use Vivi work graphs):
+  vivi board --project "$ROOT" [--graph]                           # work truth: tasks/needs/wants; optional graph frontier
   python3 $SK/fleet-sensors.py --project "$ROOT" --text            # process truth: git tips, dirty paths, runtime, signals
 
 Execute cycle per mind-protocol.md: resolve mode → sensors → classify each signal → disposition → act same turn → sleep if quiet.
