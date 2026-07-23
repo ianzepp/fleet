@@ -35,7 +35,7 @@ Prefer short tokens: `mind`, `operator`, `hand-1`, `hand-2`, `head-ceo`, …
 vivi --help
 vivi <command> --help
 vivi <command> <subcommand> --help
-vivi --version                  # prefer ≥ 6.4 (trace, memo search, task deps, verdicts, mailspace description, subagent PID fix); work graphs + board --graph land after 6.4
+vivi --version                  # graph-backed fleets require ≥ 7.0 (`graph` top-level + `board --graph`); 6.4+ provides trace, memo search, task deps, verdicts, mailspace description, and the subagent PID fix
 ```
 
 ## Kinds (what to send)
@@ -159,6 +159,9 @@ contains `seed` and `nodes`; each node carries its own `edges` list.
 `vivi graph` is the durable authority for **planning and delivery topology**
 (import Mermaid, ready frontier, task-attempt binding). It is not `vivi trace`
 and not a substitute for `fleet prepare` / claim / settle.
+
+This command surface requires Vivi 7.0 or newer. `graph` is a top-level command;
+`board --graph` only adds graph frontier summaries to the board response.
 
 | Authority | Surface |
 | --- | --- |
